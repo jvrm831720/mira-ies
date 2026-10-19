@@ -13,33 +13,24 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"{settings.app_name} starting in {settings.app_env} mode...")
-    print("Inicializando tabelas no banco (Supabase / PostgreSQL)...")
     try:
         await init_db()
         print("Tabelas prontas.")
     except Exception as e:
         print(f"Aviso ao criar tabelas: {e}")
-        print("Verifique a DATABASE_URL no .env (Supabase connection string).")
-
-    print("Carregando motor preditivo (XGBoost + SHAP)...")
     try:
         load_model()
         print("Modelo de risco pronto.")
     except Exception as e:
         print(f"Aviso ao carregar modelo: {e}")
-
     yield
     print("Shutting down...")
 
 
 app = FastAPI(
     title=settings.app_name,
-    description=(
-        "Plataforma de Predicao e Retencao Ativa de Alunos (MVP)\n\n"
-        "## Motor Preditivo\n- XGBoost + SHAP\n- Risk Score 0-100\n- Top 3 fatores\n\n"
-        "## Learning Loop (Modelo C)\n- Tenants\n- Training events\n- Outcomes"
-    ),
-    version="0.3.2",
+    description="Beacon MVP — Predicao de evasao + Learning Loop hibrido (Modelo C)",
+    version="0.3.3",
     lifespan=lifespan,
 )
 
@@ -62,12 +53,9 @@ app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outc
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.3.2",
-        "phase": "01+02 - Ingestao + Predicao + Learning Loop (Modelo C)",
+        "version": "0.3.3",
+        "phase": "Modelo C ciclo 2 — fine-tune por tenant",
         "status": "running",
         "docs": "/docs",
-        "database": "Supabase Cloud (PostgreSQL)",
-        "ml": "XGBoost + SHAP + hybrid learning loop",
-        "connectors": "GET /api/v1/connectors",
-        "learning": "GET /api/v1/tenants/{slug}/learning",
+        "learning": "POST /api/v1/tenants/{slug}/train",
     }
