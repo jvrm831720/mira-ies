@@ -16,11 +16,7 @@ engine = create_async_engine(
     max_overflow=10,
 )
 
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 class Base(DeclarativeBase):
@@ -36,7 +32,7 @@ async def get_db():
 
 
 async def init_db():
-    from app.models import student  # noqa: F401
+    from app.models import student, tenant  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
