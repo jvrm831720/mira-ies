@@ -1,23 +1,10 @@
-"""
-Modelos de domínio para persistência no Supabase (PostgreSQL).
-
-Foco no MVP: UploadBatch + Student com features básicas de risco.
-"""
+"""Modelos de dominio para persistencia no Supabase (PostgreSQL)."""
 
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import (
-    String,
-    Integer,
-    Float,
-    DateTime,
-    Text,
-    ForeignKey,
-    Index,
-    Boolean,
-)
+from sqlalchemy import String, Integer, Float, DateTime, Text, ForeignKey, Index, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
@@ -29,47 +16,36 @@ def utc_now() -> datetime:
 
 
 class UploadBatch(Base):
-    """Registro de cada upload de planilha realizado pela IES."""
-
     __tablename__ = "upload_batches"
 
-    id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(50), default="received", nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(50), default="received", nullable=False)
     total_rows: Mapped[int] = mapped_column(Integer, default=0)
     processed_rows: Mapped[int] = mapped_column(Integer, default=0)
     columns: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    uploaded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, nullable=False
-    )
-    processed_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     students: Mapped[list["Student"]] = relationship(
         "Student", back_populates="batch", cascade="all, delete-orphan"
     )
 
-    def __repr__(self) -> str:
-        return f"<UploadBatch {self.id} status={self.status} rows={self.total_rows}>"
-
 
 class Student(Base):
-    """Registro de aluno com features usadas no cálculo de risco."""
-
     __tablename__ = "students"
 
-    id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     batch_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), ForeignKey("upload_batches.id", ondelete="CASCADE"), nullable=False
+    )
+    tenant_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     matricula: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
@@ -91,9 +67,7 @@ class Student(Base):
     shap_top_factors: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     raw_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utc_now, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
@@ -106,6 +80,3 @@ class Student(Base):
         Index("ix_students_risk_level", "risk_level"),
         Index("ix_students_curso", "curso"),
     )
-
-    def __repr__(self) -> str:
-        return f"<Student {self.matricula} - {self.nome} risk={self.risk_score}>"
