@@ -1,6 +1,4 @@
-"""
-Orquestracao do scoring: features → modelo → calibracao → regras → SHAP → banco.
-"""
+"""Orquestracao do scoring: features → modelo → regras → SHAP → TrainingEvent → banco."""
 
 from __future__ import annotations
 
@@ -11,17 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.student import Student, UploadBatch
+from app.models.tenant import TrainingEvent
+from app.services.tenant import get_or_create_tenant, ensure_base_model_registered
 from app.ml.features import (
     build_features_from_student,
     features_to_dataframe,
     missing_feature_flags,
 )
-from app.ml.model import (
-    load_model,
-    load_meta,
-    predict_proba,
-    probability_to_risk_score,
-)
+from app.ml.model import load_model, load_meta, predict_proba, probability_to_risk_score
 from app.ml.explain import explain_instance, format_top_factors_human
 from app.ml.rules import apply_business_rules
 
@@ -76,6 +71,20 @@ async def score_batch(session: AsyncSession, batch_id: str, force: bool = False)
     X = features_to_dataframe(feature_dicts)
     probas = predict_proba(model, X)
 
+    tenant = await get_or_create_tenant(session, slug="default")
+    tenant_id = tenant.id
+    await ensure_base_model_registered(session)
+    try:
+        model_version = str(load_meta().get("version", "0.3.1"))
+    except Exception:
+        model_version = "0.3.1"
+
+    if not batch.tenant_id:
+        batch.tenant_id = tenant_id
+    for s in students:
+        if not s.tenant_id:
+            s.tenant_id = tenant_id
+
     summary = {"baixo": 0, "medio": 0, "critico": 0}
     scored_details = []
 
@@ -97,6 +106,21 @@ async def score_batch(session: AsyncSession, batch_id: str, force: bool = False)
             "confidence": rules["confidence"],
         }
         student.updated_at = datetime.now(timezone.utc)
+
+        if tenant_id:
+            session.add(TrainingEvent(
+                tenant_id=tenant_id,
+                student_id=student.id,
+                batch_id=batch_id,
+                matricula=student.matricula,
+                features_snapshot=feature_dicts[i],
+                model_score=rules["model_score"],
+                adjusted_score=rules["adjusted_score"],
+                risk_level=rules["risk_level"],
+                model_version=model_version,
+                model_scope="base",
+            ))
+
         summary[rules["risk_level"]] = summary.get(rules["risk_level"], 0) + 1
         scored_details.append({
             "matricula": student.matricula,
@@ -117,7 +141,7 @@ async def score_batch(session: AsyncSession, batch_id: str, force: bool = False)
         "scored": len(students),
         "summary": summary,
         "students": scored_details[:20],
-        "message": f"{len(students)} alunos pontuados (modelo + regras de negocio)",
+        "message": f"{len(students)} alunos pontuados (modelo + regras + snapshot learning)",
     }
 
 
@@ -152,7 +176,7 @@ def get_model_info() -> dict[str, Any]:
             "classification_report": meta.get("classification_report"),
             "trained_at": meta.get("trained_at"),
             "model_type": meta.get("model_type"),
-            "hybrid": "XGBoost calibrado + regras de negocio",
+            "hybrid": "XGBoost calibrado + regras + learning loop (Modelo C)",
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
