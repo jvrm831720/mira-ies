@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring
+from app.api import upload, health, scoring, connectors
 from app.db.session import init_db
 from app.ml.model import load_model
 
@@ -12,36 +12,40 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print(f"🚀 {settings.app_name} starting in {settings.app_env} mode...")
-    print("📦 Inicializando tabelas no banco (Supabase / PostgreSQL)...")
+    print(f"{settings.app_name} starting in {settings.app_env} mode...")
+    print("Inicializando tabelas no banco (Supabase / PostgreSQL)...")
     try:
         await init_db()
-        print("✅ Tabelas prontas.")
+        print("Tabelas prontas.")
     except Exception as e:
-        print(f"⚠️  Aviso ao criar tabelas: {e}")
-        print("   Verifique a DATABASE_URL no .env (Supabase connection string).")
+        print(f"Aviso ao criar tabelas: {e}")
+        print("Verifique a DATABASE_URL no .env (Supabase connection string).")
 
-    print("🧠 Carregando motor preditivo (XGBoost + SHAP)...")
+    print("Carregando motor preditivo (XGBoost + SHAP)...")
     try:
         load_model()
-        print("✅ Modelo de risco pronto.")
+        print("Modelo de risco pronto.")
     except Exception as e:
-        print(f"⚠️  Aviso ao carregar modelo: {e}")
+        print(f"Aviso ao carregar modelo: {e}")
 
     yield
-    print("👋 Shutting down...")
+    print("Shutting down...")
 
 
 app = FastAPI(
     title=settings.app_name,
     description=(
-        "Plataforma de Predição e Retenção Ativa de Alunos (MVP)\n\n"
+        "Plataforma de Predicao e Retencao Ativa de Alunos (MVP)\n\n"
         "## Motor Preditivo\n"
         "- XGBoost + SHAP\n"
         "- Risk Score 0-100\n"
-        "- Top 3 fatores causais explicáveis"
+        "- Top 3 fatores causais explicaveis\n\n"
+        "## Conectores\n"
+        "- JACAD, Sponte, SophiA, GVcollege, WPensar/Isaac\n"
+        "- Moodle, Canvas\n"
+        "- JSON canonico + webhooks"
     ),
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -56,16 +60,18 @@ app.add_middleware(
 app.include_router(health.router, tags=["Health"])
 app.include_router(upload.router, prefix="/api/v1", tags=["Upload & Students"])
 app.include_router(scoring.router, prefix="/api/v1", tags=["Motor Preditivo (Risk + SHAP)"])
+app.include_router(connectors.router, prefix="/api/v1", tags=["Conectores ERP/LMS"])
 
 
 @app.get("/")
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.2.0",
-        "phase": "02 - Motor Preditivo de Risco (XGBoost + SHAP)",
+        "version": "0.3.0",
+        "phase": "01+02 - Ingestao multi-fonte + Motor Preditivo",
         "status": "running",
         "docs": "/docs",
         "database": "Supabase Cloud (PostgreSQL)",
         "ml": "XGBoost + SHAP ready",
+        "connectors": "GET /api/v1/connectors",
     }
