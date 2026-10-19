@@ -1,109 +1,87 @@
 # Project Beacon — Status da Codebase
 
-**Última atualização:** 19 de Outubro de 2026 (Segunda — Ingestão + Predição endurecidas)  
+**Ultima atualizacao:** 19 de Outubro de 2026 (Segunda — Conectores ERP/LMS)  
 **Sprint:** 19/10 → 23/10  
 **Banco:** Supabase Cloud  
-**Versão:** 0.2.1
+**Versao:** 0.3.0
 
 ---
 
 ## Legenda
 
-| Símbolo | Significado |
+| Simbolo | Significado |
 |---------|-------------|
 | ✅ | Implementado |
 | 🟡 | Parcial |
-| ⬜ | Não iniciado |
+| ⬜ | Nao iniciado |
 | ❌ | Fora do escopo desta semana |
 
 ---
 
-## Fase 01 — Ingestão (endurecida) ✅
+## Fase 01 — Ingestao (endurecida) ✅
 
-| Item | Status | Observação |
+| Item | Status | Observacao |
 |------|--------|----------|
-| Upload CSV/XLSX | ✅ | Multi-encoding (UTF-8, Latin-1, CP1252) |
-| Normalização de colunas | ✅ | 50+ aliases de ERPs brasileiros |
-| Validação de ranges | ✅ | Presença 0–100, nota 0–10, etc. |
-| Descarte de linhas inválidas | ✅ | Sem matrícula/nome |
-| Deduplicação por matrícula | ✅ | Mantém última ocorrência |
-| Relatório de qualidade | ✅ | quality_score 0–100 + warnings |
-| `GET /upload/expected-columns` | ✅ | Documentação para a secretaria |
-| Persistência Supabase | ✅ | UploadBatch + Student |
-| Auto-score após upload | ✅ | Default `auto_score=true` |
+| Upload CSV/XLSX | ✅ | Multi-encoding |
+| Normalizacao de colunas | ✅ | 50+ aliases ERP |
+| Validacao / dedupe / quality | ✅ | |
+| Persistencia Supabase | ✅ | |
+| Auto-score apos upload | ✅ | |
 
 ---
 
-## Fase 02 — Motor Preditivo (endurecido) ✅
+## Conectores ERP/LMS (Ingestao multi-fonte) ✅
 
-| Item | Status | Observação |
+| Item | Status | Observacao |
 |------|--------|----------|
-| Feature engineering (12 features) | ✅ | 7 originais + 5 derivadas |
-| Defaults conservadores | ✅ | Não inflacionam risco quando falta dado |
-| XGBoost + treino sintético | ✅ | Auto-treino no startup |
-| Risk Score 0–100 + níveis | ✅ | baixo / medio / critico |
-| SHAP Top 3 (robusto) | ✅ | Compatível com várias versões do SHAP |
-| Explicação em português | ✅ | Frase legível para coordenação |
-| Persistência score + SHAP | ✅ | |
-| Endpoints de risco | ✅ | summary, critical, ficha, predict |
-| Feature importance global | ✅ | `GET /model/feature-importance` |
-| Sample data (25 alunos) | ✅ | Casos variados de risco |
+| Catalogo GET /connectors | ✅ | |
+| JACAD | ✅ | /connectors/jacad/students |
+| Sponte | ✅ | /connectors/sponte/students |
+| SophiA (Prima) | ✅ | /connectors/sophia/students |
+| GVcollege (GVdasa) | ✅ | /connectors/gvcollege/students |
+| WPensar / Isaac | ✅ | /connectors/wpensar/students |
+| Moodle | ✅ | engagement + webhook |
+| Canvas | ✅ | engagement + webhook |
+| JSON canonico | ✅ | POST /ingest/students |
+| Webhooks ERP | ✅ | /webhooks/erp/{id} |
+| Pipeline unificado | ✅ | transform → persist → score |
+
+---
+
+## Fase 02 — Motor Preditivo ✅
+
+| Item | Status |
+|------|--------|
+| XGBoost + SHAP Top 3 | ✅ |
+| Risk Score 0-100 | ✅ |
+| Endpoints de risco | ✅ |
 
 ---
 
 ## Fase 03 — Dashboard ⬜
 
-| Item | Status |
-|------|--------|
-| Streamlit consumindo as APIs | ⬜ |
-| Visão consolidada | ⬜ |
-| Fila de críticos | ⬜ |
-| Ficha + SHAP | ⬜ |
-
----
-
 ## Fase 04 — WhatsApp ⬜
-
-| Item | Status |
-|------|--------|
-| Evolution API / WAHA | ⬜ |
-| Disparo para críticos | ⬜ |
-
----
 
 ## Fase 05 — Demo ⬜
 
 ---
 
-## Documentação
+## Documentacao
 
-- `README.md` — visão geral + como rodar
-- `STATUS.md` — este arquivo
-- `docs/MOTOR_PREDITIVO.md` — detalhes do modelo
-- `docs/INGESTAO_E_PREDICAO.md` — fluxo completo, colunas, qualidade
+- README.md
+- STATUS.md
+- docs/MOTOR_PREDITIVO.md
+- docs/INGESTAO_E_PREDICAO.md
+- docs/CONECTORES.md
 
 ---
 
-## Como validar agora
+## Como validar
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+curl http://localhost:8000/api/v1/connectors
 
-# Colunas esperadas
-curl http://localhost:8000/api/v1/upload/expected-columns
-
-# Upload + score
-curl -X POST "http://localhost:8000/api/v1/upload" \
-  -F "file=@../data/sample/alunos_exemplo.csv"
-
-# Resumo
-curl http://localhost:8000/api/v1/risk/summary
-
-# Críticos
-curl http://localhost:8000/api/v1/risk/critical
-
-# Importância das features
-curl http://localhost:8000/api/v1/model/feature-importance
+curl -X POST http://localhost:8000/api/v1/connectors/jacad/students \
+  -H "Content-Type: application/json" \
+  -d '[{"codigoAluno":"2024001","nomeAluno":"Ana Silva","diasAtraso":18,"mediaGeral":6.8}]'
 ```
