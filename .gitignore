@@ -1,0 +1,46 @@
+# Environment
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Data
+data/uploads/
+*.csv
+*.xlsx
+*.xls
+!data/sample/*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Docker
+postgres_data/
+redis_data/
+
+# Logs
+*.log
+logs/
+
+# ML artifacts (serão versionados depois de forma controlada)
+*.pkl
+*.joblib
+models/trained/
