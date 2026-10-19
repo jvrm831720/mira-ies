@@ -1,9 +1,9 @@
 # Project Beacon — Status da Codebase
 
-**Ultima atualizacao:** 19 de Outubro de 2026 (Segunda — Conectores ERP/LMS)  
+**Ultima atualizacao:** 19 de Outubro de 2026 (Segunda — Motor preditivo hibrido v0.3.1)  
 **Sprint:** 19/10 → 23/10  
 **Banco:** Supabase Cloud  
-**Versao:** 0.3.0
+**Versao:** 0.3.1
 
 ---
 
@@ -12,51 +12,28 @@
 | Simbolo | Significado |
 |---------|-------------|
 | ✅ | Implementado |
-| 🟡 | Parcial |
 | ⬜ | Nao iniciado |
-| ❌ | Fora do escopo desta semana |
 
 ---
 
-## Fase 01 — Ingestao (endurecida) ✅
+## Fase 01 — Ingestao ✅
 
-| Item | Status | Observacao |
-|------|--------|----------|
-| Upload CSV/XLSX | ✅ | Multi-encoding |
-| Normalizacao de colunas | ✅ | 50+ aliases ERP |
-| Validacao / dedupe / quality | ✅ | |
-| Persistencia Supabase | ✅ | |
-| Auto-score apos upload | ✅ | |
+Upload CSV/XLSX, normalizacao, quality report, Supabase, auto-score.
 
----
+## Conectores ERP/LMS ✅
 
-## Conectores ERP/LMS (Ingestao multi-fonte) ✅
+JACAD, Sponte, SophiA, GVcollege, WPensar/Isaac, Moodle, Canvas, JSON canonico, webhooks.
 
-| Item | Status | Observacao |
-|------|--------|----------|
-| Catalogo GET /connectors | ✅ | |
-| JACAD | ✅ | /connectors/jacad/students |
-| Sponte | ✅ | /connectors/sponte/students |
-| SophiA (Prima) | ✅ | /connectors/sophia/students |
-| GVcollege (GVdasa) | ✅ | /connectors/gvcollege/students |
-| WPensar / Isaac | ✅ | /connectors/wpensar/students |
-| Moodle | ✅ | engagement + webhook |
-| Canvas | ✅ | engagement + webhook |
-| JSON canonico | ✅ | POST /ingest/students |
-| Webhooks ERP | ✅ | /webhooks/erp/{id} |
-| Pipeline unificado | ✅ | transform → persist → score |
-
----
-
-## Fase 02 — Motor Preditivo ✅
+## Fase 02 — Motor Preditivo ✅ (v0.3.1)
 
 | Item | Status |
 |------|--------|
 | XGBoost + SHAP Top 3 | ✅ |
+| Calibracao isotonica | ✅ |
+| Regras de negocio hibridas | ✅ |
+| Features de interacao (17) | ✅ |
+| What-if / acoes recomendadas | ✅ |
 | Risk Score 0-100 | ✅ |
-| Endpoints de risco | ✅ |
-
----
 
 ## Fase 03 — Dashboard ⬜
 
@@ -64,24 +41,7 @@
 
 ## Fase 05 — Demo ⬜
 
----
-
 ## Documentacao
 
-- README.md
-- STATUS.md
-- docs/MOTOR_PREDITIVO.md
-- docs/INGESTAO_E_PREDICAO.md
-- docs/CONECTORES.md
-
----
-
-## Como validar
-
-```bash
-curl http://localhost:8000/api/v1/connectors
-
-curl -X POST http://localhost:8000/api/v1/connectors/jacad/students \
-  -H "Content-Type: application/json" \
-  -d '[{"codigoAluno":"2024001","nomeAluno":"Ana Silva","diasAtraso":18,"mediaGeral":6.8}]'
-```
+- README.md, STATUS.md
+- docs/MOTOR_PREDITIVO.md, INGESTAO_E_PREDICAO.md, CONECTORES.md
