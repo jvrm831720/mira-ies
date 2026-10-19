@@ -1,5 +1,5 @@
 """
-Orquestração do scoring: features → modelo → SHAP → atualização no banco.
+Orquestracao do scoring: features → modelo → calibracao → regras → SHAP → banco.
 """
 
 from __future__ import annotations
@@ -11,12 +11,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.student import Student, UploadBatch
-from app.ml.features import build_features_from_student, features_to_dataframe
+from app.ml.features import (
+    build_features_from_student,
+    features_to_dataframe,
+    missing_feature_flags,
+)
 from app.ml.model import (
-    load_model, load_meta, predict_proba,
-    probability_to_risk_score, risk_level_from_score, train_model,
+    load_model,
+    load_meta,
+    predict_proba,
+    probability_to_risk_score,
 )
 from app.ml.explain import explain_instance, format_top_factors_human
+from app.ml.rules import apply_business_rules
 
 
 def score_student_dict(student_data: dict) -> dict[str, Any]:
@@ -24,16 +31,23 @@ def score_student_dict(student_data: dict) -> dict[str, Any]:
     features = build_features_from_student(student_data)
     X = features_to_dataframe([features])
     proba = float(predict_proba(model, X)[0])
-    risk_score = probability_to_risk_score(proba)
-    risk_level = risk_level_from_score(risk_score)
+    model_score = probability_to_risk_score(proba)
+    rules = apply_business_rules(features, model_score)
     top_factors = explain_instance(features, top_k=3)
+    missing = missing_feature_flags(student_data)
     return {
-        "risk_score": risk_score,
-        "risk_level": risk_level,
+        "risk_score": rules["adjusted_score"],
+        "model_score": rules["model_score"],
+        "risk_level": rules["risk_level"],
         "probability": round(proba, 4),
         "shap_top_factors": top_factors,
         "shap_summary": format_top_factors_human(top_factors),
         "features_used": features,
+        "rule_flags": rules["rule_flags"],
+        "rule_boost": rules["rule_boost"],
+        "recommended_actions": rules["recommended_actions"],
+        "confidence": rules["confidence"],
+        "missing_features": missing,
     }
 
 
@@ -67,24 +81,31 @@ async def score_batch(session: AsyncSession, batch_id: str, force: bool = False)
 
     for i, student in enumerate(students):
         proba = float(probas[i])
-        risk_score = probability_to_risk_score(proba)
-        risk_level = risk_level_from_score(risk_score)
+        model_score = probability_to_risk_score(proba)
+        rules = apply_business_rules(feature_dicts[i], model_score)
         top_factors = explain_instance(feature_dicts[i], top_k=3)
-        student.risk_score = risk_score
-        student.risk_level = risk_level
+        student.risk_score = rules["adjusted_score"]
+        student.risk_level = rules["risk_level"]
         student.shap_top_factors = {
             "top_3": top_factors,
             "summary": format_top_factors_human(top_factors),
             "probability": round(proba, 4),
+            "model_score": rules["model_score"],
+            "rule_flags": rules["rule_flags"],
+            "rule_boost": rules["rule_boost"],
+            "recommended_actions": rules["recommended_actions"],
+            "confidence": rules["confidence"],
         }
         student.updated_at = datetime.now(timezone.utc)
-        summary[risk_level] = summary.get(risk_level, 0) + 1
+        summary[rules["risk_level"]] = summary.get(rules["risk_level"], 0) + 1
         scored_details.append({
             "matricula": student.matricula,
             "nome": student.nome,
-            "risk_score": risk_score,
-            "risk_level": risk_level,
+            "risk_score": rules["adjusted_score"],
+            "risk_level": rules["risk_level"],
+            "confidence": rules["confidence"],
             "shap_summary": format_top_factors_human(top_factors),
+            "recommended_actions": rules["recommended_actions"][:2],
         })
 
     batch.status = "scored"
@@ -96,7 +117,7 @@ async def score_batch(session: AsyncSession, batch_id: str, force: bool = False)
         "scored": len(students),
         "summary": summary,
         "students": scored_details[:20],
-        "message": f"{len(students)} alunos pontuados com sucesso",
+        "message": f"{len(students)} alunos pontuados (modelo + regras de negocio)",
     }
 
 
@@ -123,10 +144,15 @@ def get_model_info() -> dict[str, Any]:
             "status": "ready",
             "version": meta.get("version"),
             "auc": meta.get("auc"),
-            "n_features": len(meta.get("feature_columns", [])),
+            "average_precision": meta.get("average_precision"),
+            "brier_score": meta.get("brier_score"),
+            "n_features": meta.get("n_features"),
             "features": meta.get("feature_labels_pt"),
+            "top_features": meta.get("feature_importance", [])[:5],
+            "classification_report": meta.get("classification_report"),
             "trained_at": meta.get("trained_at"),
             "model_type": meta.get("model_type"),
+            "hybrid": "XGBoost calibrado + regras de negocio",
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
