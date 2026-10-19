@@ -1,4 +1,4 @@
-"""Outcomes e learning loop — fecha o ciclo supervisionado do Modelo Hibrido C."""
+"""Outcomes e learning loop — Modelo Hibrido C (ciclo 1+2)."""
 
 from __future__ import annotations
 
@@ -10,13 +10,10 @@ from sqlalchemy import select
 from pydantic import BaseModel, Field
 
 from app.db.session import get_db
-from app.models.tenant import Tenant, TrainingEvent
+from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.models.student import Student
-from app.services.tenant import (
-    get_or_create_tenant,
-    get_tenant_learning_stats,
-    ensure_base_model_registered,
-)
+from app.services.tenant import get_or_create_tenant, get_tenant_learning_stats, ensure_base_model_registered
+from app.ml.tenant_train import train_tenant_model, invalidate_tenant_cache
 
 router = APIRouter()
 
@@ -63,15 +60,11 @@ async def create_tenant(body: TenantCreateRequest, db: AsyncSession = Depends(ge
 async def list_tenants(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Tenant).order_by(Tenant.created_at.desc()))
     tenants = result.scalars().all()
-    return {
-        "count": len(tenants),
-        "tenants": [{
-            "id": t.id, "slug": t.slug, "name": t.name, "segment": t.segment,
-            "labeled_events": t.labeled_events_count,
-            "positive_labels": t.positive_labels_count,
-            "tenant_model_ready": t.tenant_model_ready,
-        } for t in tenants],
-    }
+    return {"count": len(tenants), "tenants": [{
+        "id": t.id, "slug": t.slug, "name": t.name, "segment": t.segment,
+        "labeled_events": t.labeled_events_count, "positive_labels": t.positive_labels_count,
+        "tenant_model_ready": t.tenant_model_ready,
+    } for t in tenants]}
 
 
 @router.get("/tenants/{slug}/learning")
@@ -89,14 +82,12 @@ async def register_outcomes(body: OutcomeBatchRequest, db: AsyncSession = Depend
     now = datetime.now(timezone.utc)
     updated = created = 0
     errors = []
-
     for item in body.outcomes:
         outcome_key = item.outcome.strip().lower()
         if outcome_key not in OUTCOME_TO_LABEL:
             errors.append({"matricula": item.matricula, "error": f"outcome invalido: {item.outcome}"})
             continue
         label = OUTCOME_TO_LABEL[outcome_key]
-
         event = None
         if item.training_event_id:
             r = await db.execute(select(TrainingEvent).where(
@@ -113,7 +104,6 @@ async def register_outcomes(body: OutcomeBatchRequest, db: AsyncSession = Depend
                 TrainingEvent.tenant_id == tenant.id, TrainingEvent.matricula == item.matricula,
             ).order_by(TrainingEvent.scored_at.desc()).limit(1))
             event = r.scalar_one_or_none()
-
         if event:
             event.label = label
             event.outcome = outcome_key
@@ -144,31 +134,25 @@ async def register_outcomes(body: OutcomeBatchRequest, db: AsyncSession = Depend
                 tenant_id=tenant.id,
                 student_id=student.id if student else None,
                 batch_id=student.batch_id if student else None,
-                matricula=item.matricula,
-                features_snapshot=features,
+                matricula=item.matricula, features_snapshot=features,
                 model_score=student.risk_score if student else None,
                 adjusted_score=student.risk_score if student else None,
                 risk_level=student.risk_level if student else None,
-                model_version="0.3.1", model_scope="base",
+                model_version="0.3.3", model_scope="base",
                 label=label, outcome=outcome_key, labeled_at=now, outcome_notes=item.notes,
             ))
             created += 1
-
     await db.flush()
     stats = await get_tenant_learning_stats(db, tenant.id)
     await db.commit()
-    return {
-        "message": f"{updated} outcomes atualizados, {created} eventos criados",
-        "updated": updated, "created": created, "errors": errors, "learning": stats,
-    }
+    return {"message": f"{updated} outcomes atualizados, {created} eventos criados",
+            "updated": updated, "created": created, "errors": errors, "learning": stats}
 
 
 @router.get("/training-events")
 async def list_training_events(
-    tenant_slug: str = Query("default"),
-    labeled_only: bool = Query(False),
-    limit: int = Query(50, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
+    tenant_slug: str = Query("default"), labeled_only: bool = Query(False),
+    limit: int = Query(50, ge=1, le=500), db: AsyncSession = Depends(get_db),
 ):
     tenant = await get_or_create_tenant(db, slug=tenant_slug)
     q = select(TrainingEvent).where(TrainingEvent.tenant_id == tenant.id)
@@ -178,13 +162,73 @@ async def list_training_events(
     result = await db.execute(q)
     events = result.scalars().all()
     await db.commit()
-    return {
-        "tenant": tenant.slug,
-        "count": len(events),
-        "events": [{
-            "id": e.id, "matricula": e.matricula, "scored_at": e.scored_at,
-            "adjusted_score": e.adjusted_score, "risk_level": e.risk_level,
-            "label": e.label, "outcome": e.outcome, "labeled_at": e.labeled_at,
-            "model_scope": e.model_scope,
-        } for e in events],
-    }
+    return {"tenant": tenant.slug, "count": len(events), "events": [{
+        "id": e.id, "matricula": e.matricula, "scored_at": e.scored_at,
+        "adjusted_score": e.adjusted_score, "risk_level": e.risk_level,
+        "label": e.label, "outcome": e.outcome, "labeled_at": e.labeled_at,
+        "model_scope": e.model_scope,
+    } for e in events]}
+
+
+@router.post("/tenants/{slug}/train")
+async def train_tenant_endpoint(
+    slug: str,
+    force: bool = Query(False, description="Treina mesmo abaixo do limiar"),
+    force_activate: bool = Query(False, description="Ativa mesmo se AUC < base"),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        return await train_tenant_model(db, tenant_slug=slug, force=force, force_activate=force_activate)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro no treino: {str(e)}")
+
+
+@router.get("/tenants/{slug}/models")
+async def list_tenant_models(slug: str, db: AsyncSession = Depends(get_db)):
+    tenant = await get_or_create_tenant(db, slug=slug)
+    result = await db.execute(
+        select(ModelArtifact).where(
+            (ModelArtifact.tenant_id == tenant.id) | (ModelArtifact.scope == "base")
+        ).order_by(ModelArtifact.created_at.desc())
+    )
+    arts = result.scalars().all()
+    await db.commit()
+    return {"tenant": slug, "active_model_id": tenant.active_model_id, "models": [{
+        "id": a.id, "name": a.name, "version": a.version, "scope": a.scope,
+        "is_active": a.is_active, "metrics": a.metrics, "trained_at": a.trained_at,
+        "storage_path": a.storage_path,
+    } for a in arts]}
+
+
+@router.post("/tenants/{slug}/models/{artifact_id}/activate")
+async def activate_tenant_model(slug: str, artifact_id: str, db: AsyncSession = Depends(get_db)):
+    tenant = await get_or_create_tenant(db, slug=slug)
+    r = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.id == artifact_id, ModelArtifact.tenant_id == tenant.id))
+    art = r.scalar_one_or_none()
+    if not art:
+        raise HTTPException(status_code=404, detail="Artefato nao encontrado")
+    prev = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.tenant_id == tenant.id, ModelArtifact.scope == "tenant"))
+    for a in prev.scalars().all():
+        a.is_active = a.id == artifact_id
+    art.is_active = True
+    tenant.active_model_id = art.id
+    await db.commit()
+    invalidate_tenant_cache(slug)
+    return {"message": f"Modelo {art.version} ativado", "artifact_id": art.id, "version": art.version}
+
+
+@router.post("/tenants/{slug}/models/deactivate")
+async def deactivate_tenant_model(slug: str, db: AsyncSession = Depends(get_db)):
+    tenant = await get_or_create_tenant(db, slug=slug)
+    prev = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.tenant_id == tenant.id, ModelArtifact.scope == "tenant"))
+    for a in prev.scalars().all():
+        a.is_active = False
+    tenant.active_model_id = None
+    await db.commit()
+    invalidate_tenant_cache(slug)
+    return {"message": f"Tenant {slug} voltou ao modelo base", "active_model": "base"}
