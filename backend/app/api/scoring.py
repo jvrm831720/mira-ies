@@ -33,11 +33,17 @@ class StudentFeaturesInput(BaseModel):
 
 class PredictResponse(BaseModel):
     risk_score: float
+    model_score: float | None = None
     risk_level: str
     probability: float
     shap_top_factors: list[dict[str, Any]]
     shap_summary: str
     features_used: dict[str, float]
+    rule_flags: list[str] = []
+    rule_boost: float = 0
+    recommended_actions: list[str] = []
+    confidence: str = "media"
+    missing_features: list[str] = []
 
 
 @router.get("/model/info")
@@ -46,9 +52,11 @@ async def model_info():
 
 
 @router.post("/model/train")
-async def retrain_model(n_samples: int = Query(4000, ge=500, le=20000)):
+async def retrain_model(n_samples: int = Query(5000, ge=500, le=20000)):
+    from app.ml.model import invalidate_cache
+    invalidate_cache()
     metrics = train_model(n_samples=n_samples)
-    return {"message": "Modelo retreinado com sucesso", "metrics": metrics}
+    return {"message": "Modelo retreinado com sucesso (XGBoost + calibracao + regras)", "metrics": metrics}
 
 
 @router.post("/predict", response_model=PredictResponse)
@@ -57,12 +65,55 @@ async def predict_single(payload: StudentFeaturesInput):
     return PredictResponse(**result)
 
 
+@router.post("/predict/what-if")
+async def predict_what_if(payload: StudentFeaturesInput):
+    base = score_student_dict(payload.model_dump())
+    scenarios = []
+    if payload.dias_atraso_boleto and payload.dias_atraso_boleto > 0:
+        s = payload.model_dump()
+        s["dias_atraso_boleto"] = 0
+        s["recorrencia_atrasos"] = max(0, (payload.recorrencia_atrasos or 0) - 1)
+        r = score_student_dict(s)
+        scenarios.append({
+            "name": "Quitar boleto em atraso",
+            "risk_score": r["risk_score"],
+            "risk_level": r["risk_level"],
+            "delta": round(r["risk_score"] - base["risk_score"], 1),
+        })
+    if payload.dias_sem_login and payload.dias_sem_login > 3:
+        s = payload.model_dump()
+        s["dias_sem_login"] = 1
+        r = score_student_dict(s)
+        scenarios.append({
+            "name": "Retomar acesso ao AVA",
+            "risk_score": r["risk_score"],
+            "risk_level": r["risk_level"],
+            "delta": round(r["risk_score"] - base["risk_score"], 1),
+        })
+    if payload.nota_media is not None and payload.nota_media < 7:
+        s = payload.model_dump()
+        s["nota_media"] = min(10.0, payload.nota_media + 1.5)
+        r = score_student_dict(s)
+        scenarios.append({
+            "name": f"Elevar nota media para {s['nota_media']:.1f}",
+            "risk_score": r["risk_score"],
+            "risk_level": r["risk_level"],
+            "delta": round(r["risk_score"] - base["risk_score"], 1),
+        })
+    return {
+        "current": {
+            "risk_score": base["risk_score"],
+            "risk_level": base["risk_level"],
+            "recommended_actions": base.get("recommended_actions", []),
+            "shap_summary": base.get("shap_summary"),
+        },
+        "scenarios": scenarios,
+        "insight": "Cenarios mostram o impacto potencial de intervencoes. Deltas negativos = reducao de risco.",
+    }
+
+
 @router.post("/score/batch/{batch_id}")
-async def score_batch_endpoint(
-    batch_id: str,
-    force: bool = Query(False),
-    db: AsyncSession = Depends(get_db),
-):
+async def score_batch_endpoint(batch_id: str, force: bool = Query(False), db: AsyncSession = Depends(get_db)):
     try:
         return await score_batch(db, batch_id, force=force)
     except ValueError as e:
@@ -81,9 +132,7 @@ async def score_pending_endpoint(db: AsyncSession = Depends(get_db)):
 
 @router.get("/risk/summary")
 async def risk_summary(batch_id: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    base = select(Student.risk_level, func.count(Student.id)).where(
-        Student.risk_score.is_not(None)
-    )
+    base = select(Student.risk_level, func.count(Student.id)).where(Student.risk_score.is_not(None))
     if batch_id:
         base = base.where(Student.batch_id == batch_id)
     base = base.group_by(Student.risk_level)
@@ -100,51 +149,36 @@ async def risk_summary(batch_id: Optional[str] = None, db: AsyncSession = Depend
         q_pending = q_pending.where(Student.batch_id == batch_id)
     pending = (await db.execute(q_pending)).scalar() or 0
     summary["sem_score"] = pending
-    return {
-        "summary": summary,
-        "total_scored": total_scored,
-        "total_students": total_scored + pending,
-        "batch_id": batch_id,
-    }
+    return {"summary": summary, "total_scored": total_scored, "total_students": total_scored + pending, "batch_id": batch_id}
 
 
 @router.get("/risk/critical")
-async def list_critical_students(
-    batch_id: Optional[str] = None,
-    limit: int = Query(50, ge=1, le=200),
-    db: AsyncSession = Depends(get_db),
-):
-    query = (
-        select(Student)
-        .where(Student.risk_level == "critico")
-        .order_by(Student.risk_score.desc())
-        .limit(limit)
-    )
+async def list_critical_students(batch_id: Optional[str] = None, limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
+    query = select(Student).where(Student.risk_level == "critico").order_by(Student.risk_score.desc()).limit(limit)
     if batch_id:
         query = query.where(Student.batch_id == batch_id)
     result = await db.execute(query)
     students = result.scalars().all()
     return {
         "count": len(students),
-        "students": [
-            {
-                "id": s.id,
-                "matricula": s.matricula,
-                "nome": s.nome,
-                "curso": s.curso,
-                "turma": s.turma,
-                "semestre": s.semestre,
-                "risk_score": s.risk_score,
-                "risk_level": s.risk_level,
-                "shap_summary": (s.shap_top_factors or {}).get("summary"),
-                "shap_top_factors": (s.shap_top_factors or {}).get("top_3"),
-                "dias_atraso_boleto": s.dias_atraso_boleto,
-                "dias_sem_login": s.dias_sem_login,
-                "presenca_percentual": s.presenca_percentual,
-                "nota_media": s.nota_media,
-            }
-            for s in students
-        ],
+        "students": [{
+            "id": s.id,
+            "matricula": s.matricula,
+            "nome": s.nome,
+            "curso": s.curso,
+            "turma": s.turma,
+            "semestre": s.semestre,
+            "risk_score": s.risk_score,
+            "risk_level": s.risk_level,
+            "shap_summary": (s.shap_top_factors or {}).get("summary"),
+            "shap_top_factors": (s.shap_top_factors or {}).get("top_3"),
+            "recommended_actions": (s.shap_top_factors or {}).get("recommended_actions"),
+            "confidence": (s.shap_top_factors or {}).get("confidence"),
+            "dias_atraso_boleto": s.dias_atraso_boleto,
+            "dias_sem_login": s.dias_sem_login,
+            "presenca_percentual": s.presenca_percentual,
+            "nota_media": s.nota_media,
+        } for s in students],
     }
 
 
@@ -173,6 +207,9 @@ async def get_student_risk(student_id: str, db: AsyncSession = Depends(get_db)):
         "risk_score": student.risk_score,
         "risk_level": student.risk_level,
         "shap_top_factors": student.shap_top_factors,
+        "recommended_actions": (student.shap_top_factors or {}).get("recommended_actions"),
+        "confidence": (student.shap_top_factors or {}).get("confidence"),
+        "rule_flags": (student.shap_top_factors or {}).get("rule_flags"),
     }
 
 
@@ -185,13 +222,10 @@ async def feature_importance():
     pairs = sorted(zip(FEATURE_COLUMNS, importance), key=lambda x: -x[1])
     total = float(np.sum(importance)) + 1e-9
     return {
-        "features": [
-            {
-                "feature": feat,
-                "label": FEATURE_LABELS_PT.get(feat, feat),
-                "importance": round(float(imp), 4),
-                "importance_pct": round(float(imp / total * 100), 1),
-            }
-            for feat, imp in pairs
-        ]
+        "features": [{
+            "feature": feat,
+            "label": FEATURE_LABELS_PT.get(feat, feat),
+            "importance": round(float(imp), 4),
+            "importance_pct": round(float(imp / total * 100), 1),
+        } for feat, imp in pairs]
     }
