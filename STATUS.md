@@ -1,13 +1,13 @@
 # Project Beacon — Status da Codebase
 
-**Ultima atualizacao:** 19 de Outubro de 2026 (Segunda — Learning Loop Modelo C v0.3.2)  
+**Ultima atualizacao:** 19 de Outubro de 2026 (Segunda — Fine-tune tenant v0.3.3)  
 **Sprint:** 19/10 → 23/10  
 **Banco:** Supabase Cloud  
-**Versao:** 0.3.2
+**Versao:** 0.3.3
 
 ## Fase 01 — Ingestao ✅
 ## Conectores ERP/LMS ✅
-## Fase 02 — Motor Preditivo ✅ (v0.3.1)
+## Fase 02 — Motor Preditivo ✅
 
 ## Learning Loop (Modelo Hibrido C) ✅
 
@@ -18,7 +18,9 @@
 | POST /outcomes | ✅ |
 | Model registry | ✅ |
 | Prontidao tenant model | ✅ |
-| Fine-tune por tenant | ⬜ (proximo ciclo) |
+| Fine-tune por tenant | ✅ |
+| Ativacao automatica por AUC | ✅ |
+| Scoring com modelo do tenant | ✅ |
 
 ## Fase 03 — Dashboard ⬜
 ## Fase 04 — WhatsApp ⬜
@@ -26,5 +28,4 @@
 
 ## Documentacao
 
-- README.md, STATUS.md
-- docs/MOTOR_PREDITIVO.md, INGESTAO_E_PREDICAO.md, CONECTORES.md, MODELO_HIBRIDO.md
+- docs/MODELO_HIBRIDO.md, MOTOR_PREDITIVO.md, CONECTORES.md
