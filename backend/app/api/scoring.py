@@ -1,4 +1,4 @@
-"""Endpoints do Motor Preditivo de Risco (protegidos por X-API-Key)."""
+"""Endpoints do Motor Preditivo — isolados por tenant via AuthContext."""
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,13 +75,8 @@ async def predict_what_if(payload: StudentFeaturesInput, auth: AuthContext = Dep
         s["dias_atraso_boleto"] = 0
         s["recorrencia_atrasos"] = max(0, (payload.recorrencia_atrasos or 0) - 1)
         r = score_student_dict(s)
-        scenarios.append({"name": "Quitar boleto em atraso", "risk_score": r["risk_score"], "risk_level": r["risk_level"], "delta": round(r["risk_score"] - base["risk_score"], 1)})
-    if payload.dias_sem_login and payload.dias_sem_login > 3:
-        s = payload.model_dump()
-        s["dias_sem_login"] = 1
-        r = score_student_dict(s)
-        scenarios.append({"name": "Retomar acesso ao AVA", "risk_score": r["risk_score"], "risk_level": r["risk_level"], "delta": round(r["risk_score"] - base["risk_score"], 1)})
-    return {"current": {"risk_score": base["risk_score"], "risk_level": base["risk_level"], "recommended_actions": base.get("recommended_actions", []), "shap_summary": base.get("shap_summary")}, "scenarios": scenarios}
+        scenarios.append({"name": "Quitar boleto", "risk_score": r["risk_score"], "risk_level": r["risk_level"], "delta": round(r["risk_score"] - base["risk_score"], 1)})
+    return {"current": {"risk_score": base["risk_score"], "risk_level": base["risk_level"], "recommended_actions": base.get("recommended_actions", [])}, "scenarios": scenarios}
 
 
 @router.post("/score/batch/{batch_id}")
@@ -92,7 +87,7 @@ async def score_batch_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        return await score_batch(db, batch_id, force=force, tenant_slug=auth.tenant_slug)
+        return await score_batch(db, batch_id, force=force, tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -101,7 +96,7 @@ async def score_batch_endpoint(
 
 @router.post("/score/pending")
 async def score_pending_endpoint(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db)):
-    return await score_all_pending(db)
+    return await score_all_pending(db, tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug)
 
 
 @router.get("/risk/summary")
@@ -128,7 +123,7 @@ async def risk_summary(
         q_pending = q_pending.where(Student.batch_id == batch_id)
     pending = (await db.execute(q_pending)).scalar() or 0
     summary["sem_score"] = pending
-    return {"summary": summary, "total_scored": total_scored, "total_students": total_scored + pending, "batch_id": batch_id}
+    return {"summary": summary, "total_scored": total_scored, "total_students": total_scored + pending, "tenant_id": auth.tenant_id, "batch_id": batch_id}
 
 
 @router.get("/risk/critical")
@@ -142,7 +137,7 @@ async def list_critical_students(
     if batch_id:
         query = query.where(Student.batch_id == batch_id)
     students = (await db.execute(query)).scalars().all()
-    return {"count": len(students), "students": [{
+    return {"count": len(students), "tenant_id": auth.tenant_id, "students": [{
         "id": s.id, "matricula": s.matricula, "nome": s.nome, "curso": s.curso,
         "risk_score": s.risk_score, "risk_level": s.risk_level,
         "shap_summary": (s.shap_top_factors or {}).get("summary"),
@@ -165,6 +160,7 @@ async def get_student_risk(
         "risk_score": student.risk_score, "risk_level": student.risk_level,
         "shap_top_factors": student.shap_top_factors,
         "recommended_actions": (student.shap_top_factors or {}).get("recommended_actions"),
+        "tenant_id": auth.tenant_id,
     }
 
 
