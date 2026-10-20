@@ -1,6 +1,4 @@
-"""
-Pipeline unificado: records canonicos → DataFrame → persistencia → score opcional.
-"""
+"""Pipeline unificado: records → DataFrame → persistencia (tenant_id obrigatorio) → score."""
 
 from __future__ import annotations
 
@@ -19,17 +17,16 @@ async def ingest_records(
     source: str,
     filename: str | None = None,
     auto_score: bool = True,
+    tenant_id: str | None = None,
+    tenant_slug: str | None = None,
 ) -> dict[str, Any]:
     if not records:
         raise ValueError("Nenhum registro valido para ingerir")
+    if not tenant_id:
+        raise ValueError("tenant_id e obrigatorio para ingestao multi-tenant")
 
-    rows = []
-    for r in records:
-        row = {k: r.get(k) for k in CANONICAL_FIELDS}
-        rows.append(row)
-
+    rows = [{k: r.get(k) for k in CANONICAL_FIELDS} for r in records]
     df = pd.DataFrame(rows)
-
     original_filename = filename or f"{source}_api_ingest.json"
     safe_filename = f"api_{source}_{original_filename}"
 
@@ -38,6 +35,7 @@ async def ingest_records(
         filename=safe_filename,
         original_filename=original_filename,
         df=df,
+        tenant_id=tenant_id,
     )
 
     if batch.columns is None:
@@ -51,7 +49,9 @@ async def ingest_records(
     if auto_score and students:
         try:
             from app.ml.scoring import score_batch
-            scoring_result = await score_batch(session, batch.id, force=True)
+            scoring_result = await score_batch(
+                session, batch.id, force=True, tenant_id=tenant_id, tenant_slug=tenant_slug
+            )
         except Exception as e:
             scoring_result = {"error": str(e), "scored": 0}
 
