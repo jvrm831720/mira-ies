@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     dev_api_key: str = "bkn_dev_change_me_in_production"
     allow_unsigned_webhooks: bool = True
 
+    # Model training guards (False em produção)
+    allow_force_train: bool = True
+    allow_force_activate: bool = True
+
+    # Scoring
+    shap_on_batch: bool = False
+    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+
     database_url: str = "postgresql+asyncpg://beacon:beacon_secret@localhost:5432/beacon"
     database_url_sync: str = "postgresql://beacon:beacon_secret@localhost:5432/beacon"
     redis_url: str = "redis://localhost:6379/0"
