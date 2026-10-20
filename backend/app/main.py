@@ -14,8 +14,11 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     print(f"{settings.app_name} starting in {settings.app_env} mode...")
     try:
-        await init_db()
-        print("Tabelas prontas.")
+        if settings.app_env == "development":
+            await init_db()
+            print("Tabelas prontas (create_all em development).")
+        else:
+            print("Producao: use `alembic upgrade head` para schema (create_all desligado).")
     except Exception as e:
         print(f"Aviso ao criar tabelas: {e}")
 
@@ -55,14 +58,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    description="Beacon MVP — Predicao de evasao + Auth por API Key",
-    version="0.3.4",
+    description="Beacon MVP — Predicao de evasao + Auth + multi-tenant isolation",
+    version="0.3.6",
     lifespan=lifespan,
 )
 
+_cors = (
+    ["*"]
+    if settings.debug and settings.app_env == "development"
+    else [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.debug else ["http://localhost:3000"],
+    allow_origins=_cors,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,9 +87,10 @@ app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outc
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.3.4",
-        "phase": "Auth API Key + Modelo C",
+        "version": "0.3.6",
+        "phase": "Audit close-out — auth + tenant + model honesty",
         "status": "running",
         "docs": "/docs",
-        "auth": "Header X-API-Key obrigatorio nas rotas /api/v1/* (exceto catalogo)",
+        "auth": "Header X-API-Key obrigatorio nas rotas /api/v1/*",
+        "model_disclaimer": "Base treinado em sintético — score assistido, nao prediccao validada",
     }
