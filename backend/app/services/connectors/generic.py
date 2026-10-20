@@ -65,6 +65,8 @@ class GenericConnector:
                 "turma": to_str(pick(item, "turma", "class", "class_name")),
                 "semestre": to_int(pick(item, "semestre", "semester", "period")),
                 "forma_ingresso": to_str(pick(item, "forma_ingresso", "admission")),
+                "telefone": to_str(pick(item, "telefone", "celular", "whatsapp", "phone")),
+                "email": to_str(pick(item, "email", "e_mail")),
                 "dias_atraso_boleto": to_int(pick(item, "dias_atraso_boleto", "days_overdue")),
                 "recorrencia_atrasos": to_int(pick(item, "recorrencia_atrasos", "overdue_count")),
                 "dias_sem_login": to_int(pick(item, "dias_sem_login", "days_inactive")),

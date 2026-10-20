@@ -37,6 +37,22 @@ class Settings(BaseSettings):
     data_retention_days: int = 365
     anonymize_on_export: bool = True
 
+    # Agentes de retencao (orquestrador + canais WhatsApp/E-mail/SMS)
+    agents_dry_run_default: bool = True
+    agents_min_hours_between_contact: int = 48
+    agents_max_contacts_per_week: int = 3
+
+    evolution_api_url: str | None = None
+    evolution_api_key: str | None = None
+    evolution_instance: str | None = None
+
+    resend_api_key: str | None = None
+    email_from: str | None = None
+
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_from: str | None = None
+
     @property
     def allowed_extensions_list(self) -> list[str]:
         return [ext.strip().lower() for ext in self.allowed_extensions.split(",")]

@@ -6,6 +6,12 @@ MVP SaaS que une **Análise Preditiva de Evasão** + **Sistema Multiagente de Re
 
 > Identifica alunos em risco → explica os fatores (SHAP) → dispara comunicação personalizada.
 
+```
+Motor Preditivo → Agente Orquestrador → WhatsApp | E-mail | SMS
+```
+
+Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção.
+
 ---
 
 ## Objetivo do MVP (Sprint 19–23 Out 2026)
@@ -13,7 +19,7 @@ MVP SaaS que une **Análise Preditiva de Evasão** + **Sistema Multiagente de Re
 1. Upload de planilha (CSV/XLSX)
 2. Risk Score 0–100 + Top 3 fatores SHAP
 3. Dashboard para coordenação
-4. WhatsApp automático para risco crítico
+4. Sistema multiagente de retenção (Orquestrador + WhatsApp/E-mail/SMS, modo dry-run)
 
 ---
 
@@ -25,7 +31,7 @@ MVP SaaS que une **Análise Preditiva de Evasão** + **Sistema Multiagente de Re
 | ML | XGBoost + SHAP |
 | Banco | Supabase (PostgreSQL) |
 | Frontend (próximo) | Streamlit → Next.js |
-| WhatsApp (próximo) | Evolution API / WAHA |
+| Agentes de Retenção | Orquestrador próprio (dry-run) + Evolution API (WhatsApp) / Resend (e-mail) / Twilio (SMS), todos opcionais |
 
 ---
 
@@ -66,6 +72,9 @@ curl http://localhost:8000/api/v1/risk/critical
 | GET | `/api/v1/students/{id}/risk` | Ficha + SHAP |
 | POST | `/api/v1/predict` | Predição avulsa |
 | GET | `/api/v1/model/info` | Metadados do modelo |
+| POST | `/api/v1/agents/retention/run` | Roda o Orquestrador (dry-run por padrão) |
+| GET | `/api/v1/agents/retention/logs` | Histórico de intervenções |
+| GET | `/api/v1/agents/retention/preview/{id}` | Mensagem sem enviar |
 
 ---
 

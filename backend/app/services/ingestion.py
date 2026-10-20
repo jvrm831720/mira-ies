@@ -23,6 +23,8 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "presenca_percentual": ["presenca_percentual", "presenca", "frequencia", "attendance", "percentual_presenca", "freq"],
     "nota_media": ["nota_media", "media", "nota", "average_grade", "gpa", "media_geral", "cr"],
     "reprovacoes": ["reprovacoes", "reprovacao", "failures", "qtd_reprovacoes", "num_reprovacoes"],
+    "telefone": ["telefone", "celular", "whatsapp", "phone", "telefone_celular", "contato"],
+    "email": ["email", "e_mail", "email_aluno"],
 }
 REQUIRED_COLUMNS = {"matricula", "nome"}
 RECOMMENDED_COLUMNS = {"dias_atraso_boleto", "dias_sem_login", "presenca_percentual", "nota_media", "semestre"}
@@ -78,6 +80,8 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "curso": safe_str(row.get("curso")), "turma": safe_str(row.get("turma")),
         "semestre": _clamp_int(safe_int(row.get("semestre")), 1, 30),
         "forma_ingresso": safe_str(row.get("forma_ingresso")),
+        "telefone": (safe_str(row.get("telefone")) or "")[:30] or None,
+        "email": (safe_str(row.get("email")) or "")[:255] or None,
         "dias_atraso_boleto": _clamp_int(safe_int(row.get("dias_atraso_boleto")), 0, 3650),
         "recorrencia_atrasos": _clamp_int(safe_int(row.get("recorrencia_atrasos")), 0, 100),
         "dias_sem_login": _clamp_int(safe_int(row.get("dias_sem_login")), 0, 3650),
@@ -135,7 +139,8 @@ async def create_batch_and_students(
         students.append(Student(
             batch_id=batch.id, tenant_id=tenant_id, matricula=data["matricula"], nome=data["nome"],
             curso=data.get("curso"), turma=data.get("turma"), semestre=data.get("semestre"),
-            forma_ingresso=data.get("forma_ingresso"), dias_atraso_boleto=data.get("dias_atraso_boleto"),
+            forma_ingresso=data.get("forma_ingresso"), telefone=data.get("telefone"), email=data.get("email"),
+            dias_atraso_boleto=data.get("dias_atraso_boleto"),
             recorrencia_atrasos=data.get("recorrencia_atrasos"), dias_sem_login=data.get("dias_sem_login"),
             presenca_percentual=data.get("presenca_percentual"), nota_media=data.get("nota_media"),
             reprovacoes=data.get("reprovacoes"), raw_data=raw,

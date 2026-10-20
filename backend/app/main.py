@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring, connectors, outcomes
+from app.api import upload, health, scoring, connectors, outcomes, agents
 from app.db.session import init_db
 from app.ml.model import load_model
 
@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Beacon MVP — Predicao de evasao + Auth + multi-tenant isolation",
-    version="0.3.6",
+    version="0.4.0-agents",
     lifespan=lifespan,
 )
 
@@ -88,14 +88,15 @@ app.include_router(upload.router, prefix="/api/v1", tags=["Upload & Students"])
 app.include_router(scoring.router, prefix="/api/v1", tags=["Motor Preditivo (Risk + SHAP)"])
 app.include_router(connectors.router, prefix="/api/v1", tags=["Conectores ERP/LMS"])
 app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outcomes)"])
+app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
 
 
 @app.get("/")
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.3.6",
-        "phase": "Audit close-out — auth + tenant + model honesty",
+        "version": "0.4.0-agents",
+        "phase": "Sistema multiagente de retencao (Orquestrador + WhatsApp/E-mail/SMS, dry-run)",
         "status": "running",
         "docs": "/docs",
         "auth": "Header X-API-Key obrigatorio nas rotas /api/v1/*",

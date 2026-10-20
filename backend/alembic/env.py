@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.db.session import Base
 import app.models.student  # noqa: F401
 import app.models.tenant  # noqa: F401
+import app.models.intervention  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

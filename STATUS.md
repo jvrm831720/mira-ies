@@ -1,14 +1,27 @@
 # Project Beacon — Status da Codebase
 
-**Ultima atualizacao:** 19 de Outubro de 2026 (Segunda — Audit close-out v0.3.6)  
+**Ultima atualizacao:** 21 de Outubro de 2026 (Quarta — Sistema Multiagente de Retencao v0.4.0)  
 **Sprint:** 19/10 → 23/10  
 **Banco:** Supabase Cloud  
-**Versao:** 0.3.6
+**Versao:** 0.4.0-agents
 
 ## Fase 01 — Ingestao ✅
 ## Conectores ERP/LMS ✅
 ## Fase 02 — Motor Preditivo ✅
 ## Learning Loop (Modelo Hibrido C) ✅
+## Sistema Multiagente de Retencao (Orquestrador + WhatsApp/E-mail/SMS) ✅ MVP dry-run
+
+| Item | Status |
+|------|--------|
+| Orquestrador (decide canal, anti-spam, persiste InterventionLog) | ✅ |
+| Agentes WhatsApp/E-mail/SMS (dry-run por padrao) | ✅ |
+| Providers reais opcionais (Evolution/Resend/Twilio, atras de env vars) | ✅ (nao testados contra APIs reais) |
+| Colunas telefone/email no Student + migracao Alembic 002 | ✅ |
+| API `/api/v1/agents/*` protegida por tenant | ✅ |
+| Conectores ERP/LMS extraindo telefone/email do payload nativo | ⬜ |
+| Fila assincrona / retry (Redis) para volumes grandes | ⬜ |
+| Opt-out explicito de aluno | ⬜ |
+| Ver `docs/AGENTES.md` | |
 
 ## Seguranca / Auditoria
 
@@ -29,4 +42,4 @@
 | Model artifacts em storage duravel | ⬜ |
 
 ## Documentacao
-- docs/AUTH.md, MODELO_HIBRIDO.md, MOTOR_PREDITIVO.md, CONECTORES.md
+- docs/AUTH.md, MODELO_HIBRIDO.md, MOTOR_PREDITIVO.md, CONECTORES.md, AGENTES.md

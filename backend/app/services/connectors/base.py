@@ -15,6 +15,8 @@ CANONICAL_FIELDS = [
     "turma",
     "semestre",
     "forma_ingresso",
+    "telefone",
+    "email",
     "dias_atraso_boleto",
     "recorrencia_atrasos",
     "dias_sem_login",
@@ -31,6 +33,8 @@ class CanonicalStudent(BaseModel):
     turma: str | None = None
     semestre: int | None = None
     forma_ingresso: str | None = None
+    telefone: str | None = None
+    email: str | None = None
     dias_atraso_boleto: int | None = None
     recorrencia_atrasos: int | None = None
     dias_sem_login: int | None = None

@@ -54,6 +54,8 @@ class Student(Base):
     turma: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     semestre: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     forma_ingresso: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    telefone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     dias_atraso_boleto: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     recorrencia_atrasos: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
