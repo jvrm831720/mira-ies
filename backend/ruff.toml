@@ -1,0 +1,6 @@
+line-length = 120
+
+[lint]
+# E701: o projeto usa deliberadamente "if x: return y" compacto em validadores
+# simples (ver app/services/ingestion.py) — nao vale reescrever o estilo existente.
+ignore = ["E701"]
