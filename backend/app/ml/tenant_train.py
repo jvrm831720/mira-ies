@@ -1,6 +1,4 @@
-"""
-Fine-tune / treino supervisionado por tenant (Modelo Hibrido C — ciclo 2).
-"""
+"""Fine-tune / treino supervisionado por tenant (Modelo Hibrido C — ciclo 2)."""
 
 from __future__ import annotations
 
@@ -20,6 +18,7 @@ import xgboost as xgb
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT, build_features_from_student
 from app.ml.model import MODELS_DIR, _generate_synthetic_training_data, load_meta, invalidate_cache
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
@@ -27,7 +26,6 @@ from app.services.tenant import MIN_LABELED_EVENTS, MIN_POSITIVE_LABELS, refresh
 
 MIN_TRAIN_SAMPLES = 50
 MIN_TRAIN_POSITIVES = 5
-
 _tenant_model_cache: dict[str, Any] = {}
 _tenant_cal_cache: dict[str, Any] = {}
 
@@ -54,8 +52,7 @@ def _blend_with_synthetic(df_tenant: pd.DataFrame, seed: int = 42) -> pd.DataFra
     synth = _generate_synthetic_training_data(n_samples=need, seed=seed)
     synth = synth[FEATURE_COLUMNS + ["risco_alto"]].rename(columns={"risco_alto": "label"})
     tenant_boost = pd.concat([df_tenant, df_tenant], ignore_index=True)
-    blended = pd.concat([tenant_boost, synth], ignore_index=True)
-    return blended.sample(frac=1.0, random_state=seed).reset_index(drop=True)
+    return pd.concat([tenant_boost, synth], ignore_index=True).sample(frac=1.0, random_state=seed).reset_index(drop=True)
 
 
 def _train_xgb(df: pd.DataFrame, seed: int = 42):
@@ -66,7 +63,6 @@ def _train_xgb(df: pd.DataFrame, seed: int = 42):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed, stratify=y)
     else:
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
-
     model = xgb.XGBClassifier(
         n_estimators=150, max_depth=4, learning_rate=0.07, subsample=0.85,
         colsample_bytree=0.8, reg_lambda=1.5, reg_alpha=0.4, min_child_weight=5,
@@ -75,7 +71,6 @@ def _train_xgb(df: pd.DataFrame, seed: int = 42):
         scale_pos_weight=float((y_train == 0).sum() / max(1, (y_train == 1).sum())),
     )
     model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
-
     calibrator = None
     try:
         if y_test.nunique() > 1:
@@ -86,13 +81,15 @@ def _train_xgb(df: pd.DataFrame, seed: int = 42):
             y_prob = model.predict_proba(X_test)[:, 1]
     except Exception:
         y_prob = model.predict_proba(X_test)[:, 1]
-
     y_pred = (y_prob >= 0.5).astype(int)
     metrics: dict[str, Any] = {"n_train": int(len(X_train)), "n_test": int(len(X_test)), "positive_rate": float(y.mean())}
     try:
         metrics["auc"] = float(roc_auc_score(y_test, y_prob))
     except Exception:
         metrics["auc"] = None
+    metrics["training_data"] = "labeled+synthetic_blend"
+    metrics["model_scope"] = "tenant"
+    metrics["disclaimer"] = "Metricas em hold-out interno; nao equivalem a validacao em IES externa."
     try:
         metrics["average_precision"] = float(average_precision_score(y_test, y_prob))
     except Exception:
@@ -104,10 +101,6 @@ def _train_xgb(df: pd.DataFrame, seed: int = 42):
     try:
         report = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
         metrics["accuracy"] = float(report.get("accuracy", 0))
-        if "1" in report:
-            metrics["precision_risco"] = float(report["1"]["precision"])
-            metrics["recall_risco"] = float(report["1"]["recall"])
-            metrics["f1_risco"] = float(report["1"]["f1-score"])
     except Exception:
         pass
     importance = model.feature_importances_
@@ -134,17 +127,23 @@ def _should_activate(tenant_metrics, base_auc, *, force_activate=False):
 
 
 async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "default", force: bool = False, force_activate: bool = False, seed: int = 42) -> dict[str, Any]:
+    settings = get_settings()
+    if force and not settings.allow_force_train:
+        raise ValueError("force=true bloqueado (ALLOW_FORCE_TRAIN=false). Aguarde limiar de labels.")
+    if force_activate and not settings.allow_force_activate:
+        raise ValueError("force_activate=true bloqueado (ALLOW_FORCE_ACTIVATE=false). Ativacao so com AUC >= base.")
+
     result = await session.execute(select(Tenant).where(Tenant.slug == tenant_slug))
     tenant = result.scalar_one_or_none()
     if not tenant:
-        raise ValueError(f"Tenant '{tenant_slug}' nao encontrado. Crie com POST /tenants.")
+        raise ValueError(f"Tenant '{tenant_slug}' nao encontrado.")
 
     await refresh_tenant_readiness(session, tenant.id)
 
     if not force and not tenant.tenant_model_ready:
         return {
             "status": "not_ready",
-            "message": f"Tenant nao pronto. Labels={tenant.labeled_events_count}/{MIN_LABELED_EVENTS}, positivos={tenant.positive_labels_count}/{MIN_POSITIVE_LABELS}. Use force=true.",
+            "message": f"Tenant nao pronto. Labels={tenant.labeled_events_count}/{MIN_LABELED_EVENTS}, positivos={tenant.positive_labels_count}/{MIN_POSITIVE_LABELS}.",
             "tenant_id": tenant.id, "slug": tenant.slug,
             "labeled_events": tenant.labeled_events_count,
             "positive_labels": tenant.positive_labels_count,
@@ -156,9 +155,9 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     n_neg = sum(1 for e in events if e.label == 0)
 
     if len(events) < MIN_TRAIN_SAMPLES and not force:
-        raise ValueError(f"Poucos eventos ({len(events)} < {MIN_TRAIN_SAMPLES}). Use force=true.")
+        raise ValueError(f"Poucos eventos ({len(events)} < {MIN_TRAIN_SAMPLES}).")
     if n_pos < MIN_TRAIN_POSITIVES and not force:
-        raise ValueError(f"Poucos positivos ({n_pos} < {MIN_TRAIN_POSITIVES}). Use force=true.")
+        raise ValueError(f"Poucos positivos ({n_pos} < {MIN_TRAIN_POSITIVES}).")
     if len(events) < 10:
         raise ValueError("Minimo absoluto: 10 eventos rotulados.")
 
@@ -169,6 +168,7 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     metrics["n_tenant_positive"] = n_pos
     metrics["n_tenant_negative"] = n_neg
     metrics["blended"] = len(df_train) > len(df_tenant)
+    metrics["n_labeled_real"] = len(events)
 
     tenant_dir = MODELS_DIR / "tenants" / tenant.slug
     tenant_dir.mkdir(parents=True, exist_ok=True)
@@ -209,7 +209,8 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
         "status": "trained", "activated": activate, "activation_reason": reason,
         "tenant_id": tenant.id, "slug": tenant.slug, "artifact_id": artifact.id,
         "version": version, "storage_path": str(model_path),
-        "metrics": {k: metrics.get(k) for k in ["auc", "average_precision", "brier_score", "accuracy", "n_tenant_events", "n_tenant_positive", "blended", "top_features"]},
+        "model_scope": "tenant", "training_data": metrics.get("training_data"),
+        "metrics": {k: metrics.get(k) for k in ["auc", "average_precision", "brier_score", "accuracy", "n_tenant_events", "n_tenant_positive", "blended", "top_features", "disclaimer"]},
         "base_auc": base_auc,
         "message": f"Modelo tenant treinado e {'ATIVADO' if activate else 'salvo (nao ativado)'}. {reason}",
     }
