@@ -15,9 +15,12 @@ class Settings(BaseSettings):
     debug: bool = True
     secret_key: str = "change-this-in-production"
 
+    # Auth
+    dev_api_key: str = "bkn_dev_change_me_in_production"
+    allow_unsigned_webhooks: bool = True
+
     database_url: str = "postgresql+asyncpg://beacon:beacon_secret@localhost:5432/beacon"
     database_url_sync: str = "postgresql://beacon:beacon_secret@localhost:5432/beacon"
-
     redis_url: str = "redis://localhost:6379/0"
 
     max_upload_size_mb: int = 50
