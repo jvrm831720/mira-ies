@@ -1,4 +1,4 @@
-"""APIs de ingestao multi-fonte — tenant_id obrigatorio em toda escrita."""
+"""APIs de ingestao multi-fonte — tenant_id + webhook HMAC."""
 
 from __future__ import annotations
 
@@ -23,6 +23,26 @@ class GenericIngestRequest(BaseModel):
 async def _read_json(request: Request) -> Any:
     try:
         return await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body JSON invalido")
+
+
+async def _read_json_verified(request: Request, auth: AuthContext) -> Any:
+    """Le body e valida HMAC se o tenant tiver webhook_secret."""
+    from app.core.security import verify_webhook_signature
+    from app.core.config import get_settings
+    import json
+    raw = await request.body()
+    sig = request.headers.get("X-Beacon-Signature") or request.headers.get("X-Signature")
+    secret = auth.tenant.webhook_secret
+    settings = get_settings()
+    if secret:
+        if not verify_webhook_signature(raw, sig, secret):
+            raise HTTPException(status_code=401, detail="X-Beacon-Signature invalida ou ausente")
+    elif not settings.allow_unsigned_webhooks:
+        raise HTTPException(status_code=401, detail="Webhook sem secret e assinatura obrigatoria")
+    try:
+        return json.loads(raw.decode("utf-8") or "null")
     except Exception:
         raise HTTPException(status_code=400, detail="Body JSON invalido")
 
@@ -57,13 +77,8 @@ async def _ingest_via_connector(
         raise HTTPException(status_code=422, detail=f"Nenhum registro valido para '{connector_id}'")
     try:
         return await ingest_records(
-            db,
-            records=records,
-            source=connector_id,
-            filename=f"{connector_id}_api.json",
-            auto_score=auto_score,
-            tenant_id=tenant_id,
-            tenant_slug=tenant_slug,
+            db, records=records, source=connector_id, filename=f"{connector_id}_api.json",
+            auto_score=auto_score, tenant_id=tenant_id, tenant_slug=tenant_slug,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -97,13 +112,8 @@ async def ingest_canonical(
         raise HTTPException(status_code=422, detail="Nenhum aluno valido no payload")
     try:
         return await ingest_records(
-            db,
-            records=records,
-            source=body.source or "generic",
-            filename="canonical_json.json",
-            auto_score=body.auto_score,
-            tenant_id=auth.tenant_id,
-            tenant_slug=auth.tenant_slug,
+            db, records=records, source=body.source or "generic", filename="canonical_json.json",
+            auto_score=body.auto_score, tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -112,70 +122,54 @@ async def ingest_canonical(
 @router.post("/connectors/{connector_id}/students", status_code=201)
 @router.post("/connectors/{connector_id}/sync", status_code=201)
 async def ingest_by_connector(
-    connector_id: str,
-    request: Request,
-    auto_score: bool = Query(True),
-    auth: AuthContext = Depends(get_current_tenant),
-    db: AsyncSession = Depends(get_db),
+    connector_id: str, request: Request, auto_score: bool = Query(True),
+    auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db),
 ):
     payload = await _read_json(request)
     data, envelope_score = _unwrap_payload(payload)
     if isinstance(payload, dict) and "auto_score" in payload:
         auto_score = envelope_score
     return await _ingest_via_connector(
-        connector_id, data, auto_score, db,
-        tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
+        connector_id, data, auto_score, db, tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
     )
 
 
 @router.post("/webhooks/moodle", status_code=201)
 async def webhook_moodle(
-    request: Request,
-    auth: AuthContext = Depends(get_current_tenant),
-    db: AsyncSession = Depends(get_db),
-    auto_score: bool = Query(True),
+    request: Request, auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db), auto_score: bool = Query(True),
 ):
-    payload = await _read_json(request)
+    payload = await _read_json_verified(request, auth)
     if isinstance(payload, dict) and "eventname" in payload:
         payload = [payload]
     return await _ingest_via_connector(
-        "moodle", payload, auto_score, db,
-        tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
+        "moodle", payload, auto_score, db, tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
     )
 
 
 @router.post("/webhooks/canvas", status_code=201)
 async def webhook_canvas(
-    request: Request,
-    auth: AuthContext = Depends(get_current_tenant),
-    db: AsyncSession = Depends(get_db),
-    auto_score: bool = Query(True),
+    request: Request, auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db), auto_score: bool = Query(True),
 ):
     return await _ingest_via_connector(
-        "canvas", await _read_json(request), auto_score, db,
+        "canvas", await _read_json_verified(request, auth), auto_score, db,
         tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
     )
 
 
 @router.post("/webhooks/erp/{connector_id}", status_code=201)
 async def webhook_erp(
-    connector_id: str,
-    request: Request,
-    auth: AuthContext = Depends(get_current_tenant),
-    db: AsyncSession = Depends(get_db),
-    auto_score: bool = Query(True),
+    connector_id: str, request: Request, auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db), auto_score: bool = Query(True),
 ):
     allowed = {"jacad", "sponte", "sophia", "gvcollege", "wpensar", "isaac"}
     cid = connector_id.lower()
     if cid not in allowed:
         raise HTTPException(status_code=404, detail=f"Webhook ERP nao suportado: {connector_id}")
-    payload = await _read_json(request)
+    payload = await _read_json_verified(request, auth)
     data, s = _unwrap_payload(payload)
     return await _ingest_via_connector(
-        cid,
-        data,
-        s if isinstance(payload, dict) and "auto_score" in payload else auto_score,
-        db,
-        tenant_id=auth.tenant_id,
-        tenant_slug=auth.tenant_slug,
+        cid, data, s if isinstance(payload, dict) and "auto_score" in payload else auto_score, db,
+        tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
     )
