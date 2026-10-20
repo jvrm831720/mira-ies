@@ -18,6 +18,32 @@ async def lifespan(app: FastAPI):
         print("Tabelas prontas.")
     except Exception as e:
         print(f"Aviso ao criar tabelas: {e}")
+
+    try:
+        from app.core.security import hash_api_key
+        from app.db.session import AsyncSessionLocal
+        from app.models.tenant import Tenant
+        from sqlalchemy import select
+        async with AsyncSessionLocal() as session:
+            r = await session.execute(select(Tenant).where(Tenant.slug == "default"))
+            t = r.scalar_one_or_none()
+            if not t:
+                t = Tenant(
+                    slug="default",
+                    name="IES Demo",
+                    is_active=True,
+                    api_key_hash=hash_api_key(settings.dev_api_key),
+                )
+                session.add(t)
+                await session.commit()
+                print(f"Tenant default criado. Dev API key: {settings.dev_api_key}")
+            elif not t.api_key_hash:
+                t.api_key_hash = hash_api_key(settings.dev_api_key)
+                await session.commit()
+                print("API key hash do tenant default atualizado.")
+    except Exception as e:
+        print(f"Aviso bootstrap tenant: {e}")
+
     try:
         load_model()
         print("Modelo de risco pronto.")
@@ -29,8 +55,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    description="Beacon MVP — Predicao de evasao + Learning Loop hibrido (Modelo C)",
-    version="0.3.3",
+    description="Beacon MVP — Predicao de evasao + Auth por API Key",
+    version="0.3.4",
     lifespan=lifespan,
 )
 
@@ -53,9 +79,9 @@ app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outc
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.3.3",
-        "phase": "Modelo C ciclo 2 — fine-tune por tenant",
+        "version": "0.3.4",
+        "phase": "Auth API Key + Modelo C",
         "status": "running",
         "docs": "/docs",
-        "learning": "POST /api/v1/tenants/{slug}/train",
+        "auth": "Header X-API-Key obrigatorio nas rotas /api/v1/* (exceto catalogo)",
     }
