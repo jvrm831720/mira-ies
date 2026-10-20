@@ -1,4 +1,4 @@
-"""Orquestracao do scoring — isolado por tenant_id."""
+"""Orquestracao do scoring — isolado por tenant_id, SHAP sob demanda."""
 
 from __future__ import annotations
 
@@ -44,8 +44,14 @@ async def score_batch(
     *,
     tenant_id: str,
     tenant_slug: str | None = None,
+    explain: bool | None = None,
 ) -> dict[str, Any]:
-    """Pontua batch isolado por tenant. Batch de outro tenant → nao encontrado."""
+    """Pontua batch isolado por tenant. SHAP default off (SHAP_ON_BATCH=false)."""
+    from app.core.config import get_settings
+    settings = get_settings()
+    if explain is None:
+        explain = settings.shap_on_batch
+
     result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalar_one_or_none()
     if not tenant:
@@ -79,12 +85,13 @@ async def score_batch(
         proba = float(probas[i])
         model_score = probability_to_risk_score(proba)
         rules = apply_business_rules(feature_dicts[i], model_score)
-        top_factors = explain_instance(feature_dicts[i], top_k=3)
+        top_factors = explain_instance(feature_dicts[i], top_k=3) if explain else []
         student.risk_score = rules["adjusted_score"]
         student.risk_level = rules["risk_level"]
         student.tenant_id = tenant_id
         student.shap_top_factors = {
-            "top_3": top_factors, "summary": format_top_factors_human(top_factors),
+            "top_3": top_factors,
+            "summary": format_top_factors_human(top_factors) if top_factors else "SHAP sob demanda: GET /students/{id}/risk",
             "probability": round(proba, 4), "model_score": rules["model_score"],
             "rule_flags": rules["rule_flags"], "rule_boost": rules["rule_boost"],
             "recommended_actions": rules["recommended_actions"], "confidence": rules["confidence"],
@@ -101,7 +108,6 @@ async def score_batch(
         scored_details.append({
             "matricula": student.matricula, "nome": student.nome, "risk_score": rules["adjusted_score"],
             "risk_level": rules["risk_level"], "confidence": rules["confidence"],
-            "shap_summary": format_top_factors_human(top_factors),
             "recommended_actions": rules["recommended_actions"][:2],
         })
     batch.status = "scored"
@@ -111,7 +117,7 @@ async def score_batch(
     return {
         "batch_id": batch_id, "scored": len(students), "summary": summary,
         "students": scored_details[:20], "model_scope": model_scope, "model_version": model_version,
-        "tenant_id": tenant_id,
+        "tenant_id": tenant_id, "explain": explain,
         "message": f"{len(students)} alunos pontuados via modelo {model_scope} v{model_version}",
     }
 
@@ -135,7 +141,18 @@ async def score_all_pending(session: AsyncSession, *, tenant_id: str, tenant_slu
 def get_model_info() -> dict[str, Any]:
     try:
         meta = load_meta()
-        return {"status": "ready", "version": meta.get("version"), "auc": meta.get("auc"),
-                "hybrid": "XGBoost + regras + tenant isolation + API Key auth"}
+        return {
+            "status": "ready",
+            "version": meta.get("version"),
+            "auc": meta.get("auc"),
+            "model_scope": "base",
+            "training_data": "synthetic",
+            "hybrid": "XGBoost + regras + fine-tune por tenant quando houver labels",
+            "disclaimer": (
+                "O modelo base foi treinado com dados sinteticos. "
+                "Use como score de risco assistido + regras; nao como prediccao validada em IES real."
+            ),
+            "shap_on_batch_default": False,
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
