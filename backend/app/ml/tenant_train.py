@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT, build_features_from_student
-from app.ml.model import MODELS_DIR, _generate_synthetic_training_data, load_meta, invalidate_cache
+from app.ml.model import MODELS_DIR, _generate_synthetic_training_data, load_meta
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.services.tenant import MIN_LABELED_EVENTS, MIN_POSITIVE_LABELS, refresh_tenant_readiness
 
@@ -28,6 +31,15 @@ MIN_TRAIN_SAMPLES = 50
 MIN_TRAIN_POSITIVES = 5
 _tenant_model_cache: dict[str, Any] = {}
 _tenant_cal_cache: dict[str, Any] = {}
+
+_SAFE_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def _safe_tenant_dirname(slug: str) -> str:
+    """Valida o slug antes de usa-lo como componente de path no storage de modelos."""
+    if not _SAFE_SLUG_RE.match(slug or ""):
+        raise ValueError(f"tenant slug invalido para storage de modelo: {slug!r}")
+    return slug
 
 
 def _events_to_dataframe(events: list) -> pd.DataFrame:
@@ -44,25 +56,36 @@ def _events_to_dataframe(events: list) -> pd.DataFrame:
     return df
 
 
-def _blend_with_synthetic(df_tenant: pd.DataFrame, seed: int = 42) -> pd.DataFrame:
-    n = len(df_tenant)
+def _split_tenant_events(df_tenant: pd.DataFrame, seed: int = 42, test_size: float = 0.2) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Separa eventos reais do tenant em treino/teste ANTES de qualquer blend/duplicacao.
+
+    Precisa rodar antes de `_blend_with_synthetic`: duplicar linhas reais e so depois
+    dividir treino/teste vaza a mesma observacao para os dois lados, inflando o AUC.
+    """
+    y = df_tenant["label"].astype(int)
+    can_stratify = y.nunique() > 1 and y.value_counts().min() >= 2
+    if len(df_tenant) >= 10 and can_stratify:
+        train, test = train_test_split(df_tenant, test_size=test_size, random_state=seed, stratify=y)
+    else:
+        train, test = train_test_split(df_tenant, test_size=test_size, random_state=seed)
+    return train.reset_index(drop=True), test.reset_index(drop=True)
+
+
+def _blend_with_synthetic(df_tenant_train: pd.DataFrame, seed: int = 42) -> pd.DataFrame:
+    n = len(df_tenant_train)
     if n >= MIN_LABELED_EVENTS:
-        return df_tenant
+        return df_tenant_train
     need = max(MIN_LABELED_EVENTS - n, 100)
     synth = _generate_synthetic_training_data(n_samples=need, seed=seed)
     synth = synth[FEATURE_COLUMNS + ["risco_alto"]].rename(columns={"risco_alto": "label"})
-    tenant_boost = pd.concat([df_tenant, df_tenant], ignore_index=True)
+    tenant_boost = pd.concat([df_tenant_train, df_tenant_train], ignore_index=True)
     return pd.concat([tenant_boost, synth], ignore_index=True).sample(frac=1.0, random_state=seed).reset_index(drop=True)
 
 
-def _train_xgb(df: pd.DataFrame, seed: int = 42):
-    X = df[FEATURE_COLUMNS]
-    y = df["label"].astype(int)
-    can_stratify = y.nunique() > 1 and y.value_counts().min() >= 2
-    if len(df) >= 40 and can_stratify:
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed, stratify=y)
-    else:
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
+def _train_xgb(df_train: pd.DataFrame, df_test: pd.DataFrame, seed: int = 42):
+    """Treina no conjunto (ja blendado) de treino e avalia no held-out real do tenant, nunca duplicado/sintetico."""
+    X_train, y_train = df_train[FEATURE_COLUMNS], df_train["label"].astype(int)
+    X_test, y_test = df_test[FEATURE_COLUMNS], df_test["label"].astype(int)
     model = xgb.XGBClassifier(
         n_estimators=150, max_depth=4, learning_rate=0.07, subsample=0.85,
         colsample_bytree=0.8, reg_lambda=1.5, reg_alpha=0.4, min_child_weight=5,
@@ -82,7 +105,10 @@ def _train_xgb(df: pd.DataFrame, seed: int = 42):
     except Exception:
         y_prob = model.predict_proba(X_test)[:, 1]
     y_pred = (y_prob >= 0.5).astype(int)
-    metrics: dict[str, Any] = {"n_train": int(len(X_train)), "n_test": int(len(X_test)), "positive_rate": float(y.mean())}
+    metrics: dict[str, Any] = {
+        "n_train": int(len(X_train)), "n_test": int(len(X_test)),
+        "positive_rate": float(pd.concat([y_train, y_test]).mean()),
+    }
     try:
         metrics["auc"] = float(roc_auc_score(y_test, y_prob))
     except Exception:
@@ -162,15 +188,17 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
         raise ValueError("Minimo absoluto: 10 eventos rotulados.")
 
     df_tenant = _events_to_dataframe(events).dropna(subset=["label"])
-    df_train = _blend_with_synthetic(df_tenant, seed=seed)
-    model, calibrator, metrics = _train_xgb(df_train, seed=seed)
+    df_tenant_train, df_tenant_test = _split_tenant_events(df_tenant, seed=seed)
+    df_train = _blend_with_synthetic(df_tenant_train, seed=seed)
+    model, calibrator, metrics = _train_xgb(df_train, df_tenant_test, seed=seed)
     metrics["n_tenant_events"] = len(events)
     metrics["n_tenant_positive"] = n_pos
     metrics["n_tenant_negative"] = n_neg
-    metrics["blended"] = len(df_train) > len(df_tenant)
+    metrics["blended"] = len(df_train) > len(df_tenant_train)
     metrics["n_labeled_real"] = len(events)
+    metrics["n_tenant_test_real"] = len(df_tenant_test)
 
-    tenant_dir = MODELS_DIR / "tenants" / tenant.slug
+    tenant_dir = MODELS_DIR / "tenants" / _safe_tenant_dirname(tenant.slug)
     tenant_dir.mkdir(parents=True, exist_ok=True)
     version = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     model_path = tenant_dir / f"model_{version}.joblib"
@@ -178,6 +206,7 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     joblib.dump(model, model_path)
     if calibrator is not None:
         joblib.dump(calibrator, cal_path)
+    metrics["artifact_sha256"] = hashlib.sha256(model_path.read_bytes()).hexdigest()
     (tenant_dir / f"meta_{version}.json").write_text(json.dumps({**metrics, "feature_columns": FEATURE_COLUMNS, "version": version}, indent=2), encoding="utf-8")
 
     try:
@@ -226,13 +255,19 @@ def invalidate_tenant_cache(slug: str | None = None):
         _tenant_cal_cache.pop(slug, None)
 
 
-def load_tenant_model_from_path(storage_path: str, slug: str):
+def load_tenant_model_from_path(storage_path: str, slug: str, expected_sha256: str | None = None):
     global _tenant_model_cache
     if slug in _tenant_model_cache:
         return _tenant_model_cache[slug]
     path = Path(storage_path)
     if not path.exists():
         return None
+    if expected_sha256:
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if not hmac.compare_digest(actual, expected_sha256):
+            raise ValueError(
+                f"Integridade do artefato de modelo falhou para tenant '{slug}' (checksum nao confere)."
+            )
     model = joblib.load(path)
     _tenant_model_cache[slug] = model
     version = path.stem.replace("model_", "")
@@ -252,7 +287,8 @@ async def resolve_scoring_model(session: AsyncSession, tenant: Tenant):
         r = await session.execute(select(ModelArtifact).where(ModelArtifact.id == tenant.active_model_id, ModelArtifact.is_active == True))  # noqa: E712
         art = r.scalar_one_or_none()
         if art and art.storage_path:
-            model = load_tenant_model_from_path(art.storage_path, tenant.slug)
+            expected_sha256 = (art.metrics or {}).get("artifact_sha256")
+            model = load_tenant_model_from_path(art.storage_path, tenant.slug, expected_sha256=expected_sha256)
             if model is not None:
                 return model, get_tenant_calibrator(tenant.slug), "tenant", art.version
     model = load_model()

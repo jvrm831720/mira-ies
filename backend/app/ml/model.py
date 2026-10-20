@@ -55,7 +55,9 @@ def _generate_synthetic_training_data(n_samples: int = 5000, seed: int = 42) -> 
     low = profile(n_low, (0, 8), (0, 5), (80, 100), (7.0, 10.0), (0, 1), (1, 9))
     mid = profile(n_mid, (5, 25), (5, 20), (55, 85), (5.0, 7.5), (0, 2), (1, 7))
     high = profile(n_high, (15, 60), (14, 45), (30, 65), (2.0, 6.0), (0, 4), (1, 5))
-    high.loc[high.sample(frac=0.55, random_state=seed).index, "semestre"] = rng.integers(1, 3, size=int(n_high * 0.55))
+    n_swap = int(n_high * 0.55)
+    if n_swap > 0:
+        high.loc[high.sample(n=n_swap, random_state=seed).index, "semestre"] = rng.integers(1, 3, size=n_swap)
 
     df = pd.concat([low, mid, high], ignore_index=True).sample(frac=1.0, random_state=seed).reset_index(drop=True)
 
