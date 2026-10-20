@@ -28,41 +28,33 @@ def score_student_dict(student_data: dict) -> dict[str, Any]:
     top_factors = explain_instance(features, top_k=3)
     missing = missing_feature_flags(student_data)
     return {
-        "risk_score": rules["adjusted_score"],
-        "model_score": rules["model_score"],
-        "risk_level": rules["risk_level"],
-        "probability": round(proba, 4),
-        "shap_top_factors": top_factors,
-        "shap_summary": format_top_factors_human(top_factors),
-        "features_used": features,
-        "rule_flags": rules["rule_flags"],
-        "rule_boost": rules["rule_boost"],
-        "recommended_actions": rules["recommended_actions"],
-        "confidence": rules["confidence"],
+        "risk_score": rules["adjusted_score"], "model_score": rules["model_score"],
+        "risk_level": rules["risk_level"], "probability": round(proba, 4),
+        "shap_top_factors": top_factors, "shap_summary": format_top_factors_human(top_factors),
+        "features_used": features, "rule_flags": rules["rule_flags"], "rule_boost": rules["rule_boost"],
+        "recommended_actions": rules["recommended_actions"], "confidence": rules["confidence"],
         "missing_features": missing,
     }
 
 
-async def score_batch(session: AsyncSession, batch_id: str, force: bool = False) -> dict[str, Any]:
+async def score_batch(
+    session: AsyncSession, batch_id: str, force: bool = False, tenant_slug: str | None = None,
+) -> dict[str, Any]:
     result = await session.execute(select(UploadBatch).where(UploadBatch.id == batch_id))
     batch = result.scalar_one_or_none()
     if not batch:
         raise ValueError(f"Batch {batch_id} nao encontrado")
-
     query = select(Student).where(Student.batch_id == batch_id)
     if not force:
         query = query.where(Student.risk_score.is_(None))
-    result = await session.execute(query)
-    students = list(result.scalars().all())
-
+    students = list((await session.execute(query)).scalars().all())
     if not students:
-        return {"batch_id": batch_id, "scored": 0, "message": "Nenhum aluno pendente de scoring", "summary": {"baixo": 0, "medio": 0, "critico": 0}}
+        return {"batch_id": batch_id, "scored": 0, "message": "Nenhum aluno pendente", "summary": {"baixo": 0, "medio": 0, "critico": 0}}
 
-    tenant = await get_or_create_tenant(session, slug="default")
+    tenant = await get_or_create_tenant(session, slug=tenant_slug or "default")
     tenant_id = tenant.id
     await ensure_base_model_registered(session)
     model, calibrator, model_scope, model_version = await resolve_scoring_model(session, tenant)
-
     feature_dicts = [build_features_from_student(s) for s in students]
     X = features_to_dataframe(feature_dicts)
     probas = predict_proba_with_model(model, X, calibrator)
@@ -75,7 +67,6 @@ async def score_batch(session: AsyncSession, batch_id: str, force: bool = False)
 
     summary = {"baixo": 0, "medio": 0, "critico": 0}
     scored_details = []
-
     for i, student in enumerate(students):
         proba = float(probas[i])
         model_score = probability_to_risk_score(proba)
@@ -84,18 +75,13 @@ async def score_batch(session: AsyncSession, batch_id: str, force: bool = False)
         student.risk_score = rules["adjusted_score"]
         student.risk_level = rules["risk_level"]
         student.shap_top_factors = {
-            "top_3": top_factors,
-            "summary": format_top_factors_human(top_factors),
-            "probability": round(proba, 4),
-            "model_score": rules["model_score"],
-            "rule_flags": rules["rule_flags"],
-            "rule_boost": rules["rule_boost"],
-            "recommended_actions": rules["recommended_actions"],
-            "confidence": rules["confidence"],
+            "top_3": top_factors, "summary": format_top_factors_human(top_factors),
+            "probability": round(proba, 4), "model_score": rules["model_score"],
+            "rule_flags": rules["rule_flags"], "rule_boost": rules["rule_boost"],
+            "recommended_actions": rules["recommended_actions"], "confidence": rules["confidence"],
             "model_scope": model_scope,
         }
         student.updated_at = datetime.now(timezone.utc)
-
         if tenant_id:
             session.add(TrainingEvent(
                 tenant_id=tenant_id, student_id=student.id, batch_id=batch_id,
@@ -103,24 +89,19 @@ async def score_batch(session: AsyncSession, batch_id: str, force: bool = False)
                 model_score=rules["model_score"], adjusted_score=rules["adjusted_score"],
                 risk_level=rules["risk_level"], model_version=model_version, model_scope=model_scope,
             ))
-
         summary[rules["risk_level"]] = summary.get(rules["risk_level"], 0) + 1
         scored_details.append({
-            "matricula": student.matricula, "nome": student.nome,
-            "risk_score": rules["adjusted_score"], "risk_level": rules["risk_level"],
-            "confidence": rules["confidence"],
+            "matricula": student.matricula, "nome": student.nome, "risk_score": rules["adjusted_score"],
+            "risk_level": rules["risk_level"], "confidence": rules["confidence"],
             "shap_summary": format_top_factors_human(top_factors),
             "recommended_actions": rules["recommended_actions"][:2],
         })
-
     batch.status = "scored"
     batch.processed_at = datetime.now(timezone.utc)
     await session.commit()
-
     return {
         "batch_id": batch_id, "scored": len(students), "summary": summary,
-        "students": scored_details[:20],
-        "model_scope": model_scope, "model_version": model_version,
+        "students": scored_details[:20], "model_scope": model_scope, "model_version": model_version,
         "message": f"{len(students)} alunos pontuados via modelo {model_scope} v{model_version}",
     }
 
@@ -142,15 +123,7 @@ async def score_all_pending(session: AsyncSession) -> dict[str, Any]:
 def get_model_info() -> dict[str, Any]:
     try:
         meta = load_meta()
-        return {
-            "status": "ready", "version": meta.get("version"),
-            "auc": meta.get("auc"), "average_precision": meta.get("average_precision"),
-            "brier_score": meta.get("brier_score"), "n_features": meta.get("n_features"),
-            "features": meta.get("feature_labels_pt"),
-            "top_features": meta.get("feature_importance", [])[:5],
-            "classification_report": meta.get("classification_report"),
-            "trained_at": meta.get("trained_at"), "model_type": meta.get("model_type"),
-            "hybrid": "XGBoost + regras + fine-tune por tenant (Modelo C ciclo 2)",
-        }
+        return {"status": "ready", "version": meta.get("version"), "auc": meta.get("auc"),
+                "hybrid": "XGBoost + regras + fine-tune por tenant + API Key auth"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
