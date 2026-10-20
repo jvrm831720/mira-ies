@@ -84,7 +84,9 @@ async def upload_students_file(
     if auto_score and students:
         try:
             from app.ml.scoring import score_batch
-            scoring_result = await score_batch(db, batch.id, force=True, tenant_slug=auth.tenant_slug)
+            scoring_result = await score_batch(
+                db, batch.id, force=True, tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug
+            )
         except Exception as e:
             scoring_result = {"error": str(e), "scored": 0}
     message = "Arquivo processado e dados persistidos com sucesso"
