@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
@@ -15,8 +15,8 @@ router = APIRouter()
 
 
 class GenericIngestRequest(BaseModel):
-    students: list[dict[str, Any]] = Field(..., min_length=1)
-    source: str = Field(default="generic")
+    students: list[dict[str, Any]] = Field(..., min_length=1, max_length=5000)
+    source: str = Field(default="generic", max_length=80)
     auto_score: bool = Field(default=True)
 
 

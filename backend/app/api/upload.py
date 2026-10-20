@@ -1,6 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
 import pandas as pd
 import io
+import re
 from pathlib import Path
 import uuid
 
@@ -20,6 +21,13 @@ UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def sanitize_filename(filename: str) -> str:
+    """Remove componentes de diretorio e caracteres perigosos (previne path traversal)."""
+    name = Path(filename or "").name
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._") or "upload"
+    return name[-200:]
+
+
 def validate_extension(filename: str) -> str:
     if not filename:
         raise HTTPException(status_code=400, detail="Nome do arquivo e obrigatorio")
@@ -30,17 +38,22 @@ def validate_extension(filename: str) -> str:
 
 
 def read_file_to_dataframe(file_content: bytes, ext: str) -> pd.DataFrame:
+    """Le planilhas sempre como string (dtype=str): colunas de matricula/turma
+    puramente numericas seriam inferidas como int pelo pandas, descartando
+    zeros a esquerda (ex: "00123" -> 123) antes da validacao. Campos
+    numericos sao convertidos explicitamente depois, em validate_and_clean_row.
+    """
     try:
         if ext == "csv":
             for encoding in ["utf-8", "latin-1", "iso-8859-1", "cp1252"]:
                 try:
-                    df = pd.read_csv(io.BytesIO(file_content), encoding=encoding)
+                    df = pd.read_csv(io.BytesIO(file_content), encoding=encoding, dtype=str)
                     return df.dropna(axis=1, how="all")
                 except UnicodeDecodeError:
                     continue
             raise ValueError("Nao foi possivel decodificar o CSV")
         elif ext in ["xlsx", "xls"]:
-            return pd.read_excel(io.BytesIO(file_content)).dropna(axis=1, how="all")
+            return pd.read_excel(io.BytesIO(file_content), dtype=str).dropna(axis=1, how="all")
         raise ValueError(f"Formato nao suportado: {ext}")
     except HTTPException:
         raise
@@ -66,8 +79,11 @@ async def upload_students_file(
     if df.empty:
         raise HTTPException(status_code=422, detail="Arquivo nao contem dados")
     batch_uuid = str(uuid.uuid4())
-    safe_filename = f"{batch_uuid}_{file.filename}"
-    (UPLOAD_DIR / safe_filename).write_bytes(content)
+    safe_filename = f"{batch_uuid}_{sanitize_filename(file.filename)}"
+    dest_path = (UPLOAD_DIR / safe_filename).resolve()
+    if dest_path.parent != UPLOAD_DIR.resolve():
+        raise HTTPException(status_code=400, detail="Nome de arquivo invalido")
+    dest_path.write_bytes(content)
     try:
         batch, students, quality = await create_batch_and_students(
             db, filename=safe_filename, original_filename=file.filename or "unknown",

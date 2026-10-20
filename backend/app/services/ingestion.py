@@ -62,6 +62,11 @@ def _clamp(value: float | None, lo: float, hi: float) -> float | None:
     return max(lo, min(hi, value))
 
 
+def _clamp_int(value: int | None, lo: int, hi: int) -> int | None:
+    if value is None: return None
+    return int(max(lo, min(hi, value)))
+
+
 def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[str]]:
     warnings: list[str] = []
     matricula = safe_str(row.get("matricula"))
@@ -69,15 +74,16 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
     if not matricula: return None, [f"Linha {idx + 1}: matricula ausente — descartada"]
     if not nome: return None, [f"Linha {idx + 1}: nome ausente — descartado"]
     data = {
-        "matricula": matricula, "nome": nome,
+        "matricula": matricula[:50], "nome": nome[:255],
         "curso": safe_str(row.get("curso")), "turma": safe_str(row.get("turma")),
-        "semestre": safe_int(row.get("semestre")), "forma_ingresso": safe_str(row.get("forma_ingresso")),
-        "dias_atraso_boleto": max(0, safe_int(row.get("dias_atraso_boleto")) or 0) if safe_int(row.get("dias_atraso_boleto")) is not None else None,
-        "recorrencia_atrasos": safe_int(row.get("recorrencia_atrasos")),
-        "dias_sem_login": max(0, safe_int(row.get("dias_sem_login")) or 0) if safe_int(row.get("dias_sem_login")) is not None else None,
+        "semestre": _clamp_int(safe_int(row.get("semestre")), 1, 30),
+        "forma_ingresso": safe_str(row.get("forma_ingresso")),
+        "dias_atraso_boleto": _clamp_int(safe_int(row.get("dias_atraso_boleto")), 0, 3650),
+        "recorrencia_atrasos": _clamp_int(safe_int(row.get("recorrencia_atrasos")), 0, 100),
+        "dias_sem_login": _clamp_int(safe_int(row.get("dias_sem_login")), 0, 3650),
         "presenca_percentual": _clamp(safe_float(row.get("presenca_percentual")), 0.0, 100.0),
         "nota_media": _clamp(safe_float(row.get("nota_media")), 0.0, 10.0),
-        "reprovacoes": safe_int(row.get("reprovacoes")),
+        "reprovacoes": _clamp_int(safe_int(row.get("reprovacoes")), 0, 100),
     }
     return data, warnings
 

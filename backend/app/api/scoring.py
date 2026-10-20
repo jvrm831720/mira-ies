@@ -1,11 +1,13 @@
 """Endpoints do Motor Preditivo — isolados por tenant via AuthContext."""
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import hmac
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Any
 
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.core.auth import AuthContext, get_current_tenant
 from app.models.student import Student
@@ -17,17 +19,17 @@ router = APIRouter()
 
 
 class StudentFeaturesInput(BaseModel):
-    matricula: Optional[str] = None
-    nome: Optional[str] = None
-    dias_atraso_boleto: int = 0
-    recorrencia_atrasos: int = 0
-    dias_sem_login: int = 0
-    presenca_percentual: float = 100.0
-    nota_media: float = 7.0
-    reprovacoes: int = 0
-    semestre: int = 1
-    forma_ingresso: Optional[str] = None
-    curso: Optional[str] = None
+    matricula: Optional[str] = Field(default=None, max_length=50)
+    nome: Optional[str] = Field(default=None, max_length=255)
+    dias_atraso_boleto: int = Field(default=0, ge=0, le=3650)
+    recorrencia_atrasos: int = Field(default=0, ge=0, le=100)
+    dias_sem_login: int = Field(default=0, ge=0, le=3650)
+    presenca_percentual: float = Field(default=100.0, ge=0, le=100)
+    nota_media: float = Field(default=7.0, ge=0, le=10)
+    reprovacoes: int = Field(default=0, ge=0, le=100)
+    semestre: int = Field(default=1, ge=1, le=30)
+    forma_ingresso: Optional[str] = Field(default=None, max_length=100)
+    curso: Optional[str] = Field(default=None, max_length=150)
 
 
 class PredictResponse(BaseModel):
@@ -54,7 +56,16 @@ async def model_info():
 async def retrain_model(
     n_samples: int = Query(5000, ge=500, le=20000),
     auth: AuthContext = Depends(get_current_tenant),
+    x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
 ):
+    """Retreina o modelo BASE global (compartilhado por todos os tenants) — restrito a administradores."""
+    settings = get_settings()
+    if settings.app_env != "development":
+        if not x_admin_secret or not hmac.compare_digest(x_admin_secret, settings.secret_key):
+            raise HTTPException(
+                status_code=403,
+                detail="X-Admin-Secret invalido — retrain do modelo base e restrito a administradores",
+            )
     from app.ml.model import invalidate_cache
     invalidate_cache()
     metrics = train_model(n_samples=n_samples)
@@ -165,7 +176,7 @@ async def get_student_risk(
 
 
 @router.get("/model/feature-importance")
-async def feature_importance():
+async def feature_importance(auth: AuthContext = Depends(get_current_tenant)):
     from app.ml.model import load_model
     import numpy as np
     model = load_model()

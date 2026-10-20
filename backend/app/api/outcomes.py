@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Optional
+import hmac
 import secrets
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,13 +38,13 @@ class OutcomeItem(BaseModel):
 
 class OutcomeBatchRequest(BaseModel):
     tenant_slug: str = "default"
-    outcomes: list[OutcomeItem] = Field(..., min_length=1)
+    outcomes: list[OutcomeItem] = Field(..., min_length=1, max_length=2000)
 
 
 class TenantCreateRequest(BaseModel):
-    slug: str = Field(..., min_length=2, max_length=80)
-    name: str
-    segment: Optional[str] = None
+    slug: str = Field(..., min_length=2, max_length=80, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    name: str = Field(..., min_length=1, max_length=255)
+    segment: Optional[str] = Field(default=None, max_length=80)
 
 
 @router.post("/tenants", status_code=201)
@@ -54,7 +55,7 @@ async def create_tenant(
 ):
     settings = get_settings()
     if settings.app_env != "development":
-        if not x_admin_secret or x_admin_secret != settings.secret_key:
+        if not x_admin_secret or not hmac.compare_digest(x_admin_secret, settings.secret_key):
             raise HTTPException(status_code=403, detail="X-Admin-Secret invalido")
     existing = await db.execute(select(Tenant).where(Tenant.slug == body.slug))
     t = existing.scalar_one_or_none()

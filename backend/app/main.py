@@ -9,9 +9,16 @@ from app.ml.model import load_model
 
 settings = get_settings()
 
+_DEFAULT_SECRET_KEY = "change-this-in-production"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.app_env != "development" and settings.secret_key == _DEFAULT_SECRET_KEY:
+        raise RuntimeError(
+            "SECRET_KEY padrao detectado fora de development. "
+            "Configure uma chave secreta real antes de subir em producao."
+        )
     print(f"{settings.app_name} starting in {settings.app_env} mode...")
     try:
         if settings.app_env == "development":
