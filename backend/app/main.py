@@ -1,6 +1,10 @@
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+from starlette.requests import Request
 
 from app.core.config import get_settings
 from app.api import upload, health, scoring, connectors, outcomes, agents, auth
@@ -73,6 +77,17 @@ app = FastAPI(
     version="0.4.0-agents",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Return validation details without reflecting submitted values such as passwords."""
+    safe_errors = []
+    for error in exc.errors():
+        sanitized = dict(error)
+        sanitized.pop("input", None)
+        safe_errors.append(sanitized)
+    return JSONResponse(status_code=422, content=jsonable_encoder({"detail": safe_errors}))
 
 _cors = (
     ["*"]

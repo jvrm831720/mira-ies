@@ -76,6 +76,22 @@ async def test_admin_user_provisioning_rejects_wrong_secret(client, tenant_facto
     assert response.status_code == 403
 
 
+async def test_invalid_password_validation_does_not_echo_password(client):
+    attempted_password = "too-short-secret"
+    response = await client.post(
+        "/api/v1/auth/admin/users",
+        json={
+            "tenant_slug": "default",
+            "display_name": "User",
+            "email": "user@mira.test",
+            "password": attempted_password,
+        },
+    )
+    assert response.status_code == 422
+    assert attempted_password not in response.text
+    assert "input" not in response.json()["detail"][0]
+
+
 async def test_whatsapp_otp_login(client, tenant_factory, monkeypatch):
     await _ensure_default_tenant(tenant_factory)
     await _provision(client)
