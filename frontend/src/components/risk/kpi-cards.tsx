@@ -1,4 +1,4 @@
-import { Card, ex Content } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RiskSummary } from "@/types/api";
 import { AlertTriangle, Activity, CheckCircle2, Users } from "lucide-react";
@@ -9,7 +9,13 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
     { label: "Crítico", value: s?.critico ?? 0, icon: AlertTriangle, accent: "text-red-600 bg-red-50", ring: "ring-red-100" },
     { label: "Médio", value: s?.medio ?? 0, icon: Activity, accent: "text-amber-600 bg-amber-50", ring: "ring-amber-100" },
     { label: "Baixo", value: s?.baixo ?? 0, icon: CheckCircle2, accent: "text-emerald-600 bg-emerald-50", ring: "ring-emerald-100" },
-    { label: "Total pontuados", value: data?.total_scored ?? (s ? s.baixo + s.medio + s.critico : 0), icon: Users, accent: "text-primary bg-primary/10", ring: "ring-primary/10" },
+    {
+      label: "Total pontuados",
+      value: data?.total_scored ?? (s ? s.baixo + s.medio + s.critico : 0),
+      icon: Users,
+      accent: "text-primary bg-primary/10",
+      ring: "ring-primary/10",
+    },
   ];
 
   return (
