@@ -81,6 +81,8 @@ class TrainingEvent(Base):
     model_scope: Mapped[str] = mapped_column(String(20), default="base", nullable=False)
     label: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     outcome: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    outcome_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    target_definition: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     labeled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     outcome_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
