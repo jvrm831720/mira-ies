@@ -44,7 +44,7 @@ export default function RetencaoPage() {
         risk_levels: levels,
         limit,
         dry_run: dryRun,
-      });
+      }, crypto.randomUUID());
       setResult(res);
       toast.success(dryRun ? "Simulação concluída" : "Retenção executada");
       qc.invalidateQueries({ queryKey: ["retention-logs"] });

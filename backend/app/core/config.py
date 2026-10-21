@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     retention_job_ttl_seconds: int = 86400
     retention_max_attempts: int = 3
     retention_retry_backoff_seconds: int = 5
+    retention_dead_letter_queue_name: str = "beacon:retention:dead-letter"
 
     max_upload_size_mb: int = 50
     allowed_extensions: str = "csv,xlsx,xls"
@@ -53,6 +54,13 @@ class Settings(BaseSettings):
     agents_dry_run_default: bool = True
     agents_min_hours_between_contact: int = 48
     agents_max_contacts_per_week: int = 3
+    agents_provider_timeout_seconds: float = 15.0
+    agents_rate_limit_enabled: bool = True
+    agents_rate_limit_per_tenant_per_minute: int = 60
+    agents_rate_limit_per_channel_per_minute: int = 60
+    agents_rate_limit_per_provider_per_minute: int = 120
+    agents_circuit_breaker_failure_threshold: int = 5
+    agents_circuit_breaker_open_seconds: int = 60
 
     evolution_api_url: str | None = None
     evolution_api_key: str | None = None

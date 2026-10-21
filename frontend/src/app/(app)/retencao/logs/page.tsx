@@ -23,7 +23,7 @@ export default function RetentionLogsPage() {
 
   return (
     <>
-      <Header title="Logs de retenção" subtitle="Histórico de contatos planejados e simulados" />
+      <Header title="Logs de retenção" subtitle="Envio imediato e entrega assíncrona por provider" />
       <main className="space-y-4 p-4 md:p-8">
         <div className="flex flex-wrap gap-3">
           <select
@@ -44,6 +44,8 @@ export default function RetentionLogsPage() {
             <option value="">Todos os status</option>
             <option value="dry_run">dry_run</option>
             <option value="sent">sent</option>
+            <option value="sending">sending</option>
+            <option value="unknown">unknown</option>
             <option value="skipped">skipped</option>
             <option value="failed">failed</option>
             <option value="planned">planned</option>
@@ -60,6 +62,7 @@ export default function RetentionLogsPage() {
                     <th className="px-4 py-3">Matrícula</th>
                     <th className="px-4 py-3">Canal</th>
                     <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Entrega</th>
                     <th className="px-4 py-3">Preview</th>
                   </tr>
                 </thead>
@@ -67,14 +70,14 @@ export default function RetentionLogsPage() {
                   {isLoading &&
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i}>
-                        <td className="px-4 py-3" colSpan={5}>
+                        <td className="px-4 py-3" colSpan={6}>
                           <Skeleton className="h-5 w-full" />
                         </td>
                       </tr>
                     ))}
                   {!isLoading && (data?.logs?.length ?? 0) === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                      <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                         Nenhum log ainda. Rode uma simulação em Retenção.
                       </td>
                     </tr>
@@ -88,9 +91,14 @@ export default function RetentionLogsPage() {
                             : "—"}
                         </td>
                         <td className="px-4 py-3 font-medium">{log.matricula || "—"}</td>
-                        <td className="px-4 py-3">{log.channel}</td>
+                        <td className="px-4 py-3">{log.channel || "—"}</td>
                         <td className="px-4 py-3">
                           <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{log.status}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
+                            {log.delivery_status || "—"}
+                          </span>
                         </td>
                         <td className="max-w-xs truncate px-4 py-3 text-xs text-muted-foreground">
                           {log.message_preview || log.skip_reason || log.error || "—"}

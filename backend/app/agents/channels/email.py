@@ -26,10 +26,28 @@ class EmailAgent:
     def render_subject(self, ctx: MessageContext) -> str:
         return render_email_subject(ctx)
 
-    async def send(self, ctx: MessageContext, message: str, *, dry_run: bool) -> SendResult:
+    async def send(
+        self,
+        ctx: MessageContext,
+        message: str,
+        *,
+        dry_run: bool,
+        idempotency_key: str | None = None,
+    ) -> SendResult:
         if not is_valid_email(ctx.email):
-            return SendResult(ok=False, channel="email", provider="dry_run" if dry_run else "resend", error="email invalido ou ausente")
+            return SendResult(
+                ok=False,
+                channel="email",
+                provider="dry_run" if dry_run else "resend",
+                error="email invalido ou ausente",
+                outcome="confirmed_failure",
+            )
         settings = get_settings()
         if dry_run or not settings.resend_api_key:
             return await dry_run_send(channel="email", to=ctx.email, message=message)
-        return await send_email_resend(to=ctx.email, subject=self.render_subject(ctx), body=message)
+        return await send_email_resend(
+            to=ctx.email,
+            subject=self.render_subject(ctx),
+            body=message,
+            idempotency_key=idempotency_key,
+        )

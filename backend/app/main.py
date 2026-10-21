@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring, connectors, outcomes, agents, auth
+from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks
 from app.db.session import init_db
 from app.ml.model import load_model
 
@@ -74,7 +74,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Mira — permanência estudantil, autenticação e isolamento multi-tenant",
-    version="0.4.0-agents",
+    version="0.5.0-safe-delivery",
     lifespan=lifespan,
 )
 
@@ -108,6 +108,7 @@ app.include_router(scoring.router, prefix="/api/v1", tags=["Motor Preditivo (Ris
 app.include_router(connectors.router, prefix="/api/v1", tags=["Conectores ERP/LMS"])
 app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outcomes)"])
 app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
+app.include_router(delivery_webhooks.router, prefix="/api/v1", tags=["Webhooks de entrega"])
 app.include_router(auth.router, prefix="/api/v1")
 
 
@@ -115,7 +116,7 @@ app.include_router(auth.router, prefix="/api/v1")
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.4.0-agents",
+        "version": "0.5.0-safe-delivery",
         "phase": "Sistema multiagente de retencao (Orquestrador + WhatsApp/E-mail/SMS, dry-run)",
         "status": "running",
         "docs": "/docs",

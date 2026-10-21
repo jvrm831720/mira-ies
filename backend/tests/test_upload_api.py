@@ -1,5 +1,4 @@
 """Testes de integracao: upload de planilhas e protecao contra path traversal."""
-from pathlib import Path
 
 from app.api.upload import sanitize_filename, UPLOAD_DIR
 

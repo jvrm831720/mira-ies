@@ -97,8 +97,10 @@ curl http://localhost:8000/api/v1/risk/critical
 | POST | `/api/v1/agents/retention/run` | Roda o Orquestrador (dry-run por padrão) |
 | POST | `/api/v1/agents/retention/enqueue` | Enfileira uma execução com retry Redis |
 | GET | `/api/v1/agents/retention/jobs/{id}` | Consulta o status de um job enfileirado |
+| GET | `/api/v1/agents/retention/dead-letter` | Lista jobs que excederam retries |
 | GET | `/api/v1/agents/retention/logs` | Histórico de intervenções |
 | GET | `/api/v1/agents/retention/preview/{id}` | Mensagem sem enviar |
+| POST | `/api/v1/agents/webhooks/{provider}/{tenant_id}` | Atualiza entrega via webhook HMAC |
 | POST | `/api/v1/auth/login/password` | Login por e-mail e senha |
 | POST | `/api/v1/auth/whatsapp/request` | Solicita código de login WhatsApp |
 | POST | `/api/v1/auth/password/forgot` | Solicita redefinição de senha |

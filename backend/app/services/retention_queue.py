@@ -153,7 +153,7 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
     """Executa um job uma vez; retorna ``True`` quando deve ser considerado concluído."""
     settings = get_settings()
     job = await get_job(job_id, redis=redis)
-    if not job or job.get("status") in {"completed", "failed"}:
+    if not job or job.get("status") in {"completed", "failed", "dead_letter"}:
         return True
     lock_key = f"{_job_key(job_id)}{LOCK_SUFFIX}"
     locked = await redis.set(lock_key, "1", ex=900, nx=True)
@@ -181,12 +181,21 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
                     limit=int(payload.get("limit", 50)),
                     dry_run=payload.get("dry_run"),
                     channels=payload.get("channels"),
+                    job_id=job_id,
+                    campaign_id=payload.get("campaign_id"),
                 )
         except Exception as exc:
             if attempt < int(job.get("max_attempts", settings.retention_max_attempts)):
                 await _schedule_retry(redis, job_id, attempt=attempt, error=str(exc))
                 return False
-            await _update_job(redis, job_id, status="failed", last_error=str(exc)[:2000])
+            await _update_job(
+                redis,
+                job_id,
+                status="dead_letter",
+                last_error=str(exc)[:2000],
+                dead_lettered_at=time.time(),
+            )
+            await redis.rpush(settings.retention_dead_letter_queue_name, job_id)
             return True
         await _update_job(redis, job_id, status="completed", result=result)
         return True

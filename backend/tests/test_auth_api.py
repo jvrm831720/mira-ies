@@ -1,5 +1,4 @@
 """Testes de integracao: autenticacao por API key e isolamento multi-tenant."""
-import pytest
 
 
 async def test_missing_api_key_returns_401(client):

@@ -94,6 +94,7 @@ export interface UploadResponse {
 
 export interface RetentionRunRequest {
   batch_id?: string | null;
+  campaign_id?: string | null;
   risk_levels?: RiskLevel[];
   limit?: number;
   dry_run?: boolean | null;
@@ -114,12 +115,20 @@ export interface InterventionLog {
   id: string;
   student_id?: string | null;
   matricula?: string | null;
-  channel: string;
+  channel?: string | null;
   risk_level?: string | null;
   status: string;
   skip_reason?: string | null;
   error?: string | null;
   provider?: string | null;
+  external_id?: string | null;
+  correlation_id?: string | null;
+  idempotency_key?: string | null;
+  job_id?: string | null;
+  campaign_id?: string | null;
+  delivery_status?: string | null;
+  delivery_event_id?: string | null;
+  delivery_updated_at?: string | null;
   message_preview?: string | null;
   created_at?: string | null;
 }
@@ -139,6 +148,12 @@ export interface AgentsStatus {
     whatsapp: string;
     email: string;
     sms: string;
+  };
+  queue?: {
+    name: string;
+    dead_letter_name: string;
+    max_attempts: number;
+    retry_backoff_seconds: number;
   };
 }
 

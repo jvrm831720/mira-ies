@@ -14,17 +14,18 @@ from app.core.auth import AuthContext, get_current_tenant
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.intervention import InterventionLog
-from app.services.retention_queue import enqueue_retention_job, get_job
+from app.services.retention_queue import enqueue_retention_job, get_job, redis_client
 
 router = APIRouter()
 
 _VALID_CHANNELS = {"whatsapp", "email", "sms"}
 _VALID_RISK_LEVELS = {"baixo", "medio", "critico"}
-_VALID_STATUSES = {"planned", "sent", "dry_run", "failed", "skipped"}
+_VALID_STATUSES = {"planned", "sending", "sent", "dry_run", "unknown", "failed", "skipped"}
 
 
 class RetentionRunRequest(BaseModel):
     batch_id: Optional[str] = None
+    campaign_id: Optional[str] = Field(default=None, max_length=120)
     risk_levels: list[str] = Field(default_factory=lambda: ["critico"], max_length=3)
     limit: int = Field(default=50, ge=1, le=500)
     dry_run: Optional[bool] = None
@@ -35,6 +36,7 @@ class RetentionRunRequest(BaseModel):
 @router.post("/agents/retention/run")
 async def run_retention(
     body: RetentionRunRequest,
+    idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -46,10 +48,16 @@ async def run_retention(
         if invalid_channels:
             raise HTTPException(status_code=422, detail=f"channels invalidos: {invalid_channels}")
 
+    if idempotency_key and len(idempotency_key) > 200:
+        raise HTTPException(status_code=422, detail="Idempotency-Key muito longa")
+
     orchestrator = RetentionOrchestrator(db, tenant_id=auth.tenant_id, prefer_whatsapp_medio=body.prefer_whatsapp_medio)
     return await orchestrator.run(
         risk_levels=body.risk_levels, batch_id=body.batch_id, limit=body.limit,
-        dry_run=body.dry_run, channels=body.channels,
+        dry_run=body.dry_run,
+        channels=body.channels,
+        campaign_id=body.campaign_id,
+        idempotency_key=idempotency_key,
     )
 
 
@@ -126,6 +134,11 @@ async def list_retention_logs(
                 "id": log.id, "student_id": log.student_id, "matricula": log.matricula,
                 "channel": log.channel, "risk_level": log.risk_level, "status": log.status,
                 "skip_reason": log.skip_reason, "error": log.error, "provider": log.provider,
+                "external_id": log.external_id, "correlation_id": log.correlation_id,
+                "idempotency_key": log.idempotency_key, "job_id": log.job_id,
+                "campaign_id": log.campaign_id, "delivery_status": log.delivery_status,
+                "delivery_event_id": log.delivery_event_id,
+                "delivery_updated_at": log.delivery_updated_at,
                 "message_preview": log.message_preview, "created_at": log.created_at,
             }
             for log in logs
@@ -164,7 +177,29 @@ async def agents_status(auth: AuthContext = Depends(get_current_tenant)):
         },
         "queue": {
             "name": settings.retention_queue_name,
+            "dead_letter_name": settings.retention_dead_letter_queue_name,
             "max_attempts": settings.retention_max_attempts,
             "retry_backoff_seconds": settings.retention_retry_backoff_seconds,
         },
     }
+
+
+@router.get("/agents/retention/dead-letter")
+async def list_retention_dead_letters(
+    limit: int = Query(50, ge=1, le=500),
+    auth: AuthContext = Depends(get_current_tenant),
+):
+    """Lista jobs que excederam retries, sempre filtrados pelo tenant."""
+    redis = redis_client()
+    try:
+        job_ids = await redis.lrange(get_settings().retention_dead_letter_queue_name, -limit, -1)
+        jobs = []
+        for job_id in reversed(job_ids):
+            job = await get_job(job_id, tenant_id=auth.tenant_id, redis=redis)
+            if job:
+                jobs.append(job)
+        return {"count": len(jobs), "jobs": jobs}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Fila dead-letter indisponível") from exc
+    finally:
+        await redis.aclose()

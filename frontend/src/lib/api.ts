@@ -157,9 +157,10 @@ export const api = {
 
   agentsStatus: () => request<AgentsStatus>("/api/v1/agents/status"),
 
-  retentionRun: (body: RetentionRunRequest) =>
+  retentionRun: (body: RetentionRunRequest, idempotencyKey?: string) =>
     request<RetentionRunResult>("/api/v1/agents/retention/run", {
       method: "POST",
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
       body: JSON.stringify(body),
     }),
 

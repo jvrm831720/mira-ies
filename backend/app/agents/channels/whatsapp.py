@@ -33,11 +33,24 @@ class WhatsAppAgent:
     def render(self, ctx: MessageContext) -> str:
         return render_whatsapp(ctx)
 
-    async def send(self, ctx: MessageContext, message: str, *, dry_run: bool) -> SendResult:
+    async def send(
+        self,
+        ctx: MessageContext,
+        message: str,
+        *,
+        dry_run: bool,
+        idempotency_key: str | None = None,
+    ) -> SendResult:
         phone = normalize_phone_br(ctx.telefone)
         if not phone:
-            return SendResult(ok=False, channel="whatsapp", provider="dry_run" if dry_run else "evolution", error="telefone invalido ou ausente")
+            return SendResult(
+                ok=False,
+                channel="whatsapp",
+                provider="dry_run" if dry_run else "evolution",
+                error="telefone invalido ou ausente",
+                outcome="confirmed_failure",
+            )
         settings = get_settings()
         if dry_run or not settings.evolution_api_url:
             return await dry_run_send(channel="whatsapp", to=phone, message=message)
-        return await send_whatsapp_evolution(to=phone, message=message)
+        return await send_whatsapp_evolution(to=phone, message=message, idempotency_key=idempotency_key)

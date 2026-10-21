@@ -16,6 +16,9 @@ class SendResult(BaseModel):
     external_id: str | None = None
     error: str | None = None
     dry_run: bool = False
+    outcome: Literal["confirmed_success", "confirmed_failure", "unknown"] = "confirmed_success"
+    ambiguous: bool = False
+    halt_fallback: bool = False
 
 
 class MessageContext(BaseModel):
@@ -39,4 +42,11 @@ class ChannelAgent(Protocol):
 
     def render(self, ctx: MessageContext) -> str: ...
 
-    async def send(self, ctx: MessageContext, message: str, *, dry_run: bool) -> SendResult: ...
+    async def send(
+        self,
+        ctx: MessageContext,
+        message: str,
+        *,
+        dry_run: bool,
+        idempotency_key: str | None = None,
+    ) -> SendResult: ...

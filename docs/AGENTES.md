@@ -25,6 +25,9 @@ backend/app/agents/
     evolution.py           # WhatsApp real (Evolution API) — so ativa com EVOLUTION_API_URL
     resend_provider.py     # E-mail real (Resend) — so ativa com RESEND_API_KEY
     twilio_provider.py     # SMS real (Twilio) — so ativa com as 3 credenciais Twilio
+backend/app/services/
+  delivery_webhooks.py     # normaliza eventos de entrega e descadastro
+  provider_guard.py        # rate limit Redis + circuit breaker fail-closed
 ```
 
 Orquestrador procedural (sem LangGraph) por decisão pragmática: o fluxo é simples o bastante
@@ -75,9 +78,13 @@ ou foram puladas não contam).
 |---|---|
 | `tenant_id`, `student_id`, `matricula` | sempre vinculado ao tenant — nunca cross-tenant |
 | `channel` | `whatsapp\|email\|sms`, ou `null` quando nenhum canal era viável |
-| `status` | `planned\|sent\|dry_run\|failed\|skipped` (`planned` fica reservado para uma futura etapa de planejamento) |
+| `status` | `planned\|sending\|sent\|dry_run\|unknown\|failed\|skipped` |
 | `message_preview` | **até 120 caracteres**, nunca o corpo completo (evita logar PII desnecessário) |
 | `skip_reason` / `error` | motivo do skip (anti-spam, missing_contact, risco baixo) ou erro de envio |
+| `correlation_id` / `idempotency_key` | correlação e chave única por mensagem, isoladas por tenant |
+| `job_id` / `campaign_id` | origem assíncrona e campanha lógica da intervenção |
+| `delivery_status` | `queued\|submitted\|delivered\|read\|failed\|rejected\|bounced\|unknown` |
+| `delivery_event_id` / `delivery_updated_at` | deduplicação e auditoria do último callback |
 
 `Student` ganhou telefone/e-mail e a preferência global de comunicação:
 `communication_opt_out` (boolean) e `communication_opted_out_at` (timestamp). A preferência
@@ -87,8 +94,9 @@ Aceitos via upload CSV/XLSX (aliases: `telefone`, `celular`, `whatsapp`, `phone`
 (`POST /api/v1/ingest/students`). Os conectores ERP/LMS específicos também mapeiam os campos
 nativos de telefone/e-mail para o schema canônico.
 
-Migrações: `backend/alembic/versions/002_agents_and_contact_fields.py` e
-`backend/alembic/versions/005_student_communication_opt_out.py`.
+Migrações: `backend/alembic/versions/002_agents_and_contact_fields.py`,
+`backend/alembic/versions/005_student_communication_opt_out.py` e
+`backend/alembic/versions/006_safe_agent_delivery.py`.
 
 ## Configuração (`.env`)
 
@@ -98,6 +106,13 @@ Tudo tem default seguro — nenhuma credencial é obrigatória para rodar em dry
 AGENTS_DRY_RUN_DEFAULT=true        # false em producao quando os providers reais estiverem prontos
 AGENTS_MIN_HOURS_BETWEEN_CONTACT=48
 AGENTS_MAX_CONTACTS_PER_WEEK=3
+AGENTS_PROVIDER_TIMEOUT_SECONDS=15
+AGENTS_RATE_LIMIT_ENABLED=true
+AGENTS_RATE_LIMIT_PER_TENANT_PER_MINUTE=60
+AGENTS_RATE_LIMIT_PER_CHANNEL_PER_MINUTE=60
+AGENTS_RATE_LIMIT_PER_PROVIDER_PER_MINUTE=120
+AGENTS_CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
+AGENTS_CIRCUIT_BREAKER_OPEN_SECONDS=60
 
 # WhatsApp real (opcional — sem isso, cai em dry-run automaticamente)
 EVOLUTION_API_URL=
@@ -117,9 +132,17 @@ TWILIO_FROM=
 `GET /api/v1/agents/status` mostra qual provider está ativo por canal (`dry_run` ou o real),
 sem expor as credenciais.
 
+Cada execução aceita `Idempotency-Key`. O orquestrador gera uma chave determinística por
+aluno/canal, grava a reserva em `sending` antes da chamada externa e propaga a chave aos
+providers. Timeout, erro de transporte, resposta 5xx ou resposta malformada ficam como
+`unknown`: não há fallback imediato para outro canal e o envio pode ser reconciliado por
+webhook, evitando duplicidade.
+
 ## API
 
-Todas as rotas exigem `X-API-Key` (`Depends(get_current_tenant)`) e são isoladas por tenant.
+As rotas operacionais exigem `X-API-Key` (`Depends(get_current_tenant)`) e são isoladas por
+tenant. Os callbacks de provider não usam API key: usam `X-Beacon-Signature` e `tenant_id`
+na URL, com o `webhook_secret` do tenant.
 
 ### `POST /api/v1/agents/retention/run`
 
@@ -164,7 +187,9 @@ curl -X POST http://localhost:8000/api/v1/agents/retention/enqueue \
 
 O worker consome Redis, abre uma sessão de banco por job e tenta novamente falhas com backoff
 exponencial. Os defaults são 3 tentativas e atrasos de 5s, 10s e 20s; o estado fica disponível
-por 24 horas. Execute a partir de `backend`:
+por 24 horas. Após esgotar as tentativas, o job é enviado para a fila
+`RETENTION_DEAD_LETTER_QUEUE_NAME` e fica consultável em
+`GET /api/v1/agents/retention/dead-letter`. Execute a partir de `backend`:
 
 ```bash
 PYTHONPATH=. python -m app.worker
@@ -184,6 +209,14 @@ curl -H "X-API-Key: $API_KEY" \
 
 Mostra config de anti-spam e qual provider está ativo por canal.
 
+### Webhooks de entrega
+
+Cada provider pode chamar `POST /api/v1/agents/webhooks/{provider}/{tenant_id}` com JSON
+assinado por `X-Beacon-Signature` usando o `Tenant.webhook_secret`. O endpoint normaliza
+Evolution, Resend e Twilio para `submitted`, `delivered`, `read`, `failed`, `rejected`,
+`bounced`, `invalid` e `opted_out`, deduplica eventos e ativa o opt-out do aluno quando
+recebe uma solicitação de descadastro.
+
 ## Modo dry-run vs. produção
 
 - **Dry-run (padrão)**: nenhuma chamada de rede para WhatsApp/e-mail/SMS acontece. Tudo é
@@ -196,5 +229,7 @@ Mostra config de anti-spam e qual provider está ativo por canal.
 
 ## Limitações conhecidas (fora do escopo desta entrega)
 
-- Conectores ERP/LMS específicos ainda não mapeiam telefone/e-mail do payload nativo.
-- Dashboard/dashboard de acompanhamento das intervenções fica para a Fase 03.
+- Providers reais ainda precisam de testes de contrato contra contas sandbox/produção segura;
+  o sistema continua em dry-run por padrão.
+- RBAC fino, campanhas agendadas completas e dashboard operacional ficam para as próximas
+  fases; a API já expõe correlação, entrega e dead-letter para operação segura.
