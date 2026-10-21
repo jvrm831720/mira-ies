@@ -23,7 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT, build_features_from_student
-from app.ml.model import MODELS_DIR, _generate_synthetic_training_data, load_meta
+from app.ml.model import MODELS_DIR, _generate_synthetic_training_data, load_calibrator, load_meta, load_model
+from app.ml.targets import TARGET_DEFINITION_VERSION
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.services.tenant import MIN_LABELED_EVENTS, MIN_POSITIVE_LABELS, refresh_tenant_readiness
 
@@ -204,7 +205,11 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
             "positive_labels": tenant.positive_labels_count,
         }
 
-    q = await session.execute(select(TrainingEvent).where(TrainingEvent.tenant_id == tenant.id, TrainingEvent.label.is_not(None)))
+    q = await session.execute(select(TrainingEvent).where(
+        TrainingEvent.tenant_id == tenant.id,
+        TrainingEvent.label.is_not(None),
+        TrainingEvent.target_definition == TARGET_DEFINITION_VERSION,
+    ))
     events = list(q.scalars().all())
     n_pos = sum(1 for e in events if e.label == 1)
     n_neg = sum(1 for e in events if e.label == 0)
@@ -223,6 +228,7 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     metrics["n_tenant_events"] = len(events)
     metrics["n_tenant_positive"] = n_pos
     metrics["n_tenant_negative"] = n_neg
+    metrics["target_definition"] = TARGET_DEFINITION_VERSION
     metrics["blended"] = len(df_train) > len(df_tenant_train)
     metrics["n_labeled_real"] = len(events)
     metrics["n_tenant_test_real"] = len(df_tenant_test)
@@ -230,6 +236,21 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     metrics["n_tenant_train_students"] = int(df_tenant_train["__group_id"].nunique())
     metrics["n_tenant_calibration_students"] = int(df_tenant_cal["__group_id"].nunique())
     metrics["n_tenant_test_students"] = int(df_tenant_test["__group_id"].nunique())
+
+    try:
+        base_model = load_model()
+        try:
+            base_calibrator = load_calibrator()
+            base_prob = base_calibrator.predict_proba(df_tenant_test[FEATURE_COLUMNS])[:, 1]
+        except Exception:
+            base_prob = base_model.predict_proba(df_tenant_test[FEATURE_COLUMNS])[:, 1]
+        metrics["baseline_auc_same_test"] = float(roc_auc_score(df_tenant_test["label"], base_prob))
+        metrics["baseline_average_precision_same_test"] = float(
+            average_precision_score(df_tenant_test["label"], base_prob)
+        )
+    except Exception:
+        metrics["baseline_auc_same_test"] = None
+        metrics["baseline_average_precision_same_test"] = None
 
     tenant_dir = MODELS_DIR / "tenants" / _safe_tenant_dirname(tenant.slug)
     tenant_dir.mkdir(parents=True, exist_ok=True)
@@ -242,10 +263,7 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     metrics["artifact_sha256"] = hashlib.sha256(model_path.read_bytes()).hexdigest()
     (tenant_dir / f"meta_{version}.json").write_text(json.dumps({**metrics, "feature_columns": FEATURE_COLUMNS, "version": version}, indent=2), encoding="utf-8")
 
-    try:
-        base_auc = load_meta().get("auc")
-    except Exception:
-        base_auc = None
+    base_auc = metrics.get("baseline_auc_same_test")
 
     activate, reason = _should_activate(metrics, base_auc, force_activate=force_activate)
 
@@ -276,7 +294,9 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
             "auc", "average_precision", "brier_score", "accuracy", "n_tenant_events",
             "n_tenant_positive", "n_train", "n_calibration", "n_test",
             "n_tenant_train_students", "n_tenant_calibration_students", "n_tenant_test_students",
-            "evaluation_split", "calibration_method", "blended", "top_features", "disclaimer",
+            "evaluation_split", "calibration_method", "target_definition",
+            "baseline_auc_same_test", "baseline_average_precision_same_test",
+            "blended", "top_features", "disclaimer",
         ]},
         "base_auc": base_auc,
         "message": f"Modelo tenant treinado e {'ATIVADO' if activate else 'salvo (nao ativado)'}. {reason}",
@@ -324,7 +344,7 @@ async def resolve_scoring_model(session: AsyncSession, tenant: Tenant):
     if tenant.active_model_id:
         r = await session.execute(select(ModelArtifact).where(ModelArtifact.id == tenant.active_model_id, ModelArtifact.is_active == True))  # noqa: E712
         art = r.scalar_one_or_none()
-        if art and art.storage_path:
+        if art and art.storage_path and (art.metrics or {}).get("target_definition") == TARGET_DEFINITION_VERSION:
             expected_sha256 = (art.metrics or {}).get("artifact_sha256")
             model = load_tenant_model_from_path(art.storage_path, tenant.slug, expected_sha256=expected_sha256)
             if model is not None:

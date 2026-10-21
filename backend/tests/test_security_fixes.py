@@ -29,14 +29,31 @@ def test_ingestion_truncates_overlong_strings():
 async def test_tenant_model_artifact_integrity_checksum_rejects_tampered_file(
     client, auth_headers, tenant, db_session,
 ):
+    from datetime import datetime, timedelta, timezone
     from app.ml.tenant_train import load_tenant_model_from_path, invalidate_tenant_cache
+    from app.models.tenant import TrainingEvent
     from app.models.tenant import ModelArtifact
     from sqlalchemy import select
 
     t, _raw_key = tenant
-    outcomes = [
-        {"matricula": f"TA{i}", "outcome": "evadiu" if i % 3 == 0 else "ativo"} for i in range(30)
-    ]
+    now = datetime.now(timezone.utc)
+    outcomes = []
+    for i in range(30):
+        is_evasion = i % 3 == 0
+        matricula = f"TA{i}"
+        scored_at = now - timedelta(days=60 if is_evasion else 120)
+        observed_at = now - timedelta(days=30 if is_evasion else 1)
+        db_session.add(TrainingEvent(
+            tenant_id=t.id, matricula=matricula, scored_at=scored_at,
+            features_snapshot={"dias_atraso_boleto": 5, "dias_sem_login": 8,
+                "presenca_percentual": 85, "nota_media": 7, "semestre": 2},
+        ))
+        outcomes.append({
+            "matricula": matricula,
+            "outcome": "evadiu" if is_evasion else "ativo",
+            "observed_at": observed_at.isoformat(),
+        })
+    await db_session.commit()
     await client.post("/api/v1/outcomes", headers=auth_headers, json={"tenant_slug": t.slug, "outcomes": outcomes})
     train_resp = await client.post(
         f"/api/v1/tenants/{t.slug}/train", headers=auth_headers,

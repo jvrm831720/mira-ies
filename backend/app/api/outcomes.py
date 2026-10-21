@@ -13,7 +13,10 @@ from pydantic import BaseModel, Field
 
 from app.db.session import get_db
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
-from app.models.student import Student
+from app.ml.targets import (
+    EXCLUDED_OUTCOMES, SUPPORTED_OUTCOMES, TARGET_DEFINITION_VERSION,
+    derive_target_label, normalize_utc_timestamp,
+)
 from app.services.tenant import get_tenant_learning_stats, ensure_base_model_registered
 from app.ml.tenant_train import train_tenant_model, invalidate_tenant_cache
 from app.core.auth import AuthContext, get_current_tenant, require_tenant_match
@@ -22,15 +25,11 @@ from app.core.config import get_settings
 
 router = APIRouter()
 
-OUTCOME_TO_LABEL = {
-    "evadiu": 1, "trancou": 1, "transferiu": 1,
-    "concluiu": 0, "ativo": 0, "formou": 0,
-}
-
 
 class OutcomeItem(BaseModel):
     matricula: str
     outcome: str
+    observed_at: Optional[datetime] = None
     notes: Optional[str] = None
     student_id: Optional[str] = None
     training_event_id: Optional[str] = None
@@ -93,53 +92,60 @@ async def register_outcomes(body: OutcomeBatchRequest, auth: AuthContext = Depen
     await require_tenant_match(auth, body.tenant_slug)
     tenant = auth.tenant
     now = datetime.now(timezone.utc)
-    updated = created = 0
-    errors = []
+    updated = created = labeled = 0
+    errors, deferred, excluded = [], [], []
     for item in body.outcomes:
         outcome_key = item.outcome.strip().lower()
-        if outcome_key not in OUTCOME_TO_LABEL:
+        if outcome_key not in SUPPORTED_OUTCOMES:
             errors.append({"matricula": item.matricula, "error": f"outcome invalido: {item.outcome}"})
             continue
-        label = OUTCOME_TO_LABEL[outcome_key]
+        if item.observed_at and normalize_utc_timestamp(item.observed_at) > now:
+            errors.append({"matricula": item.matricula, "error": "observed_at não pode estar no futuro"})
+            continue
         event = None
         if item.training_event_id:
             r = await db.execute(select(TrainingEvent).where(TrainingEvent.id == item.training_event_id, TrainingEvent.tenant_id == tenant.id))
             event = r.scalar_one_or_none()
-        if not event:
-            r = await db.execute(select(TrainingEvent).where(TrainingEvent.tenant_id == tenant.id, TrainingEvent.matricula == item.matricula, TrainingEvent.label.is_(None)).order_by(TrainingEvent.scored_at.desc()).limit(1))
-            event = r.scalar_one_or_none()
-        if not event:
+            if not event:
+                errors.append({"matricula": item.matricula, "error": "training_event_id não encontrado para este tenant"})
+                continue
+            if event.matricula != item.matricula:
+                errors.append({"matricula": item.matricula, "error": "training_event_id não corresponde à matrícula informada"})
+                continue
+        else:
             r = await db.execute(select(TrainingEvent).where(TrainingEvent.tenant_id == tenant.id, TrainingEvent.matricula == item.matricula).order_by(TrainingEvent.scored_at.desc()).limit(1))
             event = r.scalar_one_or_none()
-        if event:
-            event.label = label
-            event.outcome = outcome_key
-            event.labeled_at = now
-            event.outcome_notes = item.notes
-            updated += 1
+        if not event:
+            errors.append({"matricula": item.matricula, "error": "snapshot de pontuação não encontrado; pontue o aluno antes de registrar o desfecho"})
+            continue
+        try:
+            label, label_status = derive_target_label(outcome_key, event.scored_at, item.observed_at)
+        except ValueError as exc:
+            errors.append({"matricula": item.matricula, "error": str(exc)})
+            continue
+
+        event.label = label
+        event.target_definition = TARGET_DEFINITION_VERSION if label is not None else None
+        event.outcome = outcome_key
+        event.outcome_at = item.observed_at
+        event.labeled_at = now
+        event.outcome_notes = item.notes
+        updated += 1
+        if label is not None:
+            labeled += 1
+        elif outcome_key in EXCLUDED_OUTCOMES:
+            excluded.append({"matricula": item.matricula, "outcome": outcome_key, "reason": label_status})
         else:
-            student = None
-            if item.student_id:
-                r = await db.execute(select(Student).where(Student.id == item.student_id, Student.tenant_id == tenant.id))
-                student = r.scalar_one_or_none()
-            if not student:
-                r = await db.execute(select(Student).where(Student.matricula == item.matricula, Student.tenant_id == tenant.id).order_by(Student.created_at.desc()).limit(1))
-                student = r.scalar_one_or_none()
-            features = {}
-            if student:
-                features = {"dias_atraso_boleto": student.dias_atraso_boleto or 0, "recorrencia_atrasos": student.recorrencia_atrasos or 0,
-                    "dias_sem_login": student.dias_sem_login or 0, "presenca_percentual": student.presenca_percentual or 100.0,
-                    "nota_media": student.nota_media or 7.0, "reprovacoes": student.reprovacoes or 0, "semestre": student.semestre or 3}
-            db.add(TrainingEvent(tenant_id=tenant.id, student_id=student.id if student else None,
-                batch_id=student.batch_id if student else None, matricula=item.matricula, features_snapshot=features,
-                model_score=student.risk_score if student else None, adjusted_score=student.risk_score if student else None,
-                risk_level=student.risk_level if student else None, model_version="0.3.4", model_scope="base",
-                label=label, outcome=outcome_key, labeled_at=now, outcome_notes=item.notes))
-            created += 1
+            deferred.append({"matricula": item.matricula, "outcome": outcome_key, "reason": label_status})
     await db.flush()
     stats = await get_tenant_learning_stats(db, tenant.id)
     await db.commit()
-    return {"message": f"{updated} outcomes atualizados, {created} eventos criados", "updated": updated, "created": created, "errors": errors, "learning": stats}
+    return {
+        "message": f"{updated} outcomes registrados; {labeled} rotulos elegiveis para o alvo de 90 dias",
+        "updated": updated, "created": created, "labeled": labeled,
+        "deferred": deferred, "excluded_from_training": excluded,
+        "errors": errors, "target_definition": TARGET_DEFINITION_VERSION, "learning": stats,
+    }
 
 
 @router.get("/training-events")
@@ -151,13 +157,16 @@ async def list_training_events(
     await require_tenant_match(auth, tenant_slug)
     q = select(TrainingEvent).where(TrainingEvent.tenant_id == auth.tenant_id)
     if labeled_only:
-        q = q.where(TrainingEvent.label.is_not(None))
+        q = q.where(TrainingEvent.label.is_not(None), TrainingEvent.target_definition == TARGET_DEFINITION_VERSION)
     q = q.order_by(TrainingEvent.scored_at.desc()).limit(limit)
     events = (await db.execute(q)).scalars().all()
     return {"tenant": auth.tenant_slug, "count": len(events), "events": [{
         "id": e.id, "matricula": e.matricula, "scored_at": e.scored_at, "adjusted_score": e.adjusted_score,
-        "risk_level": e.risk_level, "label": e.label, "outcome": e.outcome, "labeled_at": e.labeled_at,
-        "model_scope": e.model_scope,
+        "risk_level": e.risk_level,
+        "label": e.label if e.target_definition == TARGET_DEFINITION_VERSION else None,
+        "historical_label": e.label if e.target_definition != TARGET_DEFINITION_VERSION else None,
+        "target_definition": e.target_definition, "outcome": e.outcome, "outcome_at": e.outcome_at,
+        "labeled_at": e.labeled_at, "model_scope": e.model_scope,
     } for e in events]}
 
 
@@ -182,9 +191,29 @@ async def list_tenant_models(slug: str, auth: AuthContext = Depends(get_current_
         (ModelArtifact.tenant_id == auth.tenant_id) | (ModelArtifact.scope == "base")
     ).order_by(ModelArtifact.created_at.desc()))
     arts = result.scalars().all()
-    return {"tenant": slug, "active_model_id": auth.tenant.active_model_id, "models": [{
+    active_tenant_artifact = None
+    if auth.tenant.active_model_id:
+        active_result = await db.execute(select(ModelArtifact).where(
+            ModelArtifact.id == auth.tenant.active_model_id,
+            ModelArtifact.tenant_id == auth.tenant_id,
+            ModelArtifact.scope == "tenant",
+            ModelArtifact.is_active == True,  # noqa: E712
+        ))
+        candidate = active_result.scalar_one_or_none()
+        if candidate and (candidate.metrics or {}).get("target_definition") == TARGET_DEFINITION_VERSION:
+            active_tenant_artifact = candidate
+    using_tenant_model = active_tenant_artifact is not None
+    return {
+        "tenant": slug,
+        "active_model": "tenant" if using_tenant_model else "base",
+        "active_model_id": active_tenant_artifact.id if active_tenant_artifact else None,
+        "models": [{
         "id": a.id, "name": a.name, "version": a.version, "scope": a.scope,
         "is_active": a.is_active, "metrics": a.metrics, "trained_at": a.trained_at,
+        "is_used_for_scoring": (
+            a.id == active_tenant_artifact.id if active_tenant_artifact
+            else a.scope == "base" and a.is_active
+        ),
     } for a in arts]}
 
 
@@ -195,6 +224,8 @@ async def activate_tenant_model(slug: str, artifact_id: str, auth: AuthContext =
     art = r.scalar_one_or_none()
     if not art:
         raise HTTPException(status_code=404, detail="Artefato nao encontrado")
+    if art.scope == "tenant" and (art.metrics or {}).get("target_definition") != TARGET_DEFINITION_VERSION:
+        raise HTTPException(status_code=409, detail="Artefato treinado com definição de alvo antiga; treine novamente com rótulos elegíveis de 90 dias.")
     prev = await db.execute(select(ModelArtifact).where(ModelArtifact.tenant_id == auth.tenant_id, ModelArtifact.scope == "tenant"))
     for a in prev.scalars().all():
         a.is_active = a.id == artifact_id

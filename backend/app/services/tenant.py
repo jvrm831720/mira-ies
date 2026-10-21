@@ -6,6 +6,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
+from app.ml.targets import TARGET_DEFINITION_VERSION
 
 MIN_LABELED_EVENTS = 200
 MIN_POSITIVE_LABELS = 20
@@ -55,10 +56,18 @@ async def refresh_tenant_readiness(session: AsyncSession, tenant_id: str) -> Ten
     if not tenant:
         raise ValueError("Tenant nao encontrado")
     labeled = await session.execute(
-        select(func.count(TrainingEvent.id)).where(TrainingEvent.tenant_id == tenant_id, TrainingEvent.label.is_not(None))
+        select(func.count(TrainingEvent.id)).where(
+            TrainingEvent.tenant_id == tenant_id,
+            TrainingEvent.label.is_not(None),
+            TrainingEvent.target_definition == TARGET_DEFINITION_VERSION,
+        )
     )
     positives = await session.execute(
-        select(func.count(TrainingEvent.id)).where(TrainingEvent.tenant_id == tenant_id, TrainingEvent.label == 1)
+        select(func.count(TrainingEvent.id)).where(
+            TrainingEvent.tenant_id == tenant_id,
+            TrainingEvent.label == 1,
+            TrainingEvent.target_definition == TARGET_DEFINITION_VERSION,
+        )
     )
     n_labeled = labeled.scalar() or 0
     n_pos = positives.scalar() or 0
@@ -75,6 +84,27 @@ async def get_tenant_learning_stats(session: AsyncSession, tenant_id: str) -> di
         select(func.count(TrainingEvent.id)).where(TrainingEvent.tenant_id == tenant_id, TrainingEvent.label.is_(None))
     )
     n_unlabeled = unlabeled.scalar() or 0
+    legacy = await session.execute(
+        select(func.count(TrainingEvent.id)).where(
+            TrainingEvent.tenant_id == tenant_id,
+            TrainingEvent.label.is_not(None),
+            TrainingEvent.target_definition.is_distinct_from(TARGET_DEFINITION_VERSION),
+        )
+    )
+    n_legacy = legacy.scalar() or 0
+    active_model = "base"
+    if tenant.active_model_id and tenant.tenant_model_ready:
+        active_artifact = await session.execute(
+            select(ModelArtifact).where(
+                ModelArtifact.id == tenant.active_model_id,
+                ModelArtifact.tenant_id == tenant_id,
+                ModelArtifact.scope == "tenant",
+                ModelArtifact.is_active == True,  # noqa: E712
+            )
+        )
+        artifact = active_artifact.scalar_one_or_none()
+        if artifact and (artifact.metrics or {}).get("target_definition") == TARGET_DEFINITION_VERSION:
+            active_model = "tenant"
     return {
         "tenant_id": tenant.id,
         "slug": tenant.slug,
@@ -82,16 +112,18 @@ async def get_tenant_learning_stats(session: AsyncSession, tenant_id: str) -> di
         "labeled_events": tenant.labeled_events_count,
         "positive_labels": tenant.positive_labels_count,
         "unlabeled_events": n_unlabeled,
+        "legacy_labeled_events": n_legacy,
+        "target_definition": TARGET_DEFINITION_VERSION,
         "tenant_model_ready": tenant.tenant_model_ready,
         "thresholds": {"min_labeled_events": MIN_LABELED_EVENTS, "min_positive_labels": MIN_POSITIVE_LABELS},
         "progress": {
             "labeled_pct": min(100, round(tenant.labeled_events_count / MIN_LABELED_EVENTS * 100, 1)),
             "positive_pct": min(100, round(tenant.positive_labels_count / MIN_POSITIVE_LABELS * 100, 1)),
         },
-        "active_model": "tenant" if tenant.active_model_id and tenant.tenant_model_ready else "base",
+        "active_model": active_model,
         "message": (
             "Modelo do tenant pronto para treino supervisionado."
             if tenant.tenant_model_ready
-            else "Ainda usando modelo base global. Continue registrando outcomes de evasao."
+            else "Ainda usando modelo base global. Registre observed_at; status ativo só vira negativo após 90 dias."
         ),
     }
