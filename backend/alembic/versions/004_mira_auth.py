@@ -1,14 +1,14 @@
 """Create Mira account and one-time authentication challenge tables.
 
-Revision ID: 003_mira_auth
-Revises: 002_agents
+Revision ID: 004_mira_auth
+Revises: 003_outcome_target
 """
 from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "003_mira_auth"
-down_revision: Union[str, None] = "002_agents"
+revision: str = "004_mira_auth"
+down_revision: Union[str, None] = "003_outcome_target"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

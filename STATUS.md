@@ -37,7 +37,8 @@
 | SHAP off no batch (sob demanda) | ✅ |
 | Alembic baseline + create_all so em dev | ✅ |
 | Testes (aliases, rules, security) | ✅ |
-| JWT / RBAC fino | ⬜ |
+| JWT / autenticacao de usuario | ✅ |
+| RBAC fino por papel/permissao | ⬜ |
 | Dashboard (Fase 03) | ⬜ |
 | Model artifacts em storage duravel | ⬜ |
 
