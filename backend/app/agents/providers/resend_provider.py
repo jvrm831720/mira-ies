@@ -13,7 +13,7 @@ async def send_email_resend(*, to: str, subject: str, body: str) -> SendResult:
     if not settings.resend_api_key:
         return SendResult(ok=False, channel="email", provider="resend", error="RESEND_API_KEY nao configurado")
     headers = {"Authorization": f"Bearer {settings.resend_api_key}", "Content-Type": "application/json"}
-    payload = {"from": settings.email_from or "no-reply@beacon.app", "to": [to], "subject": subject, "text": body}
+    payload = {"from": settings.email_from or "Mira <no-reply@beacon.app>", "to": [to], "subject": subject, "text": body}
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post("https://api.resend.com/emails", json=payload, headers=headers)

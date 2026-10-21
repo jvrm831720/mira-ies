@@ -1,5 +1,4 @@
-"""Autenticacao por API Key (X-API-Key). Resolve Tenant a partir da chave."""
-
+"""Autenticacao tenant-scoped por sessao Mira ou API key legada."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,8 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.mira_security import decode_access_token
 from app.core.security import hash_api_key
 from app.db.session import get_db
+from app.models.auth import User
 from app.models.tenant import Tenant
 
 
@@ -20,6 +21,31 @@ class AuthContext:
     tenant: Tenant
     tenant_id: str
     tenant_slug: str
+    user_id: Optional[str] = None
+
+
+def _unauthorized(detail: str = "API key ou sessão inválida.") -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
+    claims = decode_access_token(token)
+    if not claims:
+        raise _unauthorized()
+    result = await db.execute(
+        select(User).where(User.id == claims.get("sub"), User.tenant_id == claims.get("tid"))
+    )
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active or user.auth_version != int(claims.get("ver", -1)):
+        raise _unauthorized()
+    tenant = await db.get(Tenant, user.tenant_id)
+    if not tenant or not tenant.is_active:
+        raise _unauthorized()
+    return AuthContext(tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug, user_id=user.id)
 
 
 async def get_current_tenant(
@@ -29,18 +55,27 @@ async def get_current_tenant(
 ) -> AuthContext:
     settings = get_settings()
     raw_key = x_api_key
+    session_token: Optional[str] = None
+
     if not raw_key and authorization:
         parts = authorization.split(" ", 1)
         if len(parts) == 2 and parts[0].lower() == "bearer":
-            raw_key = parts[1].strip()
+            credential = parts[1].strip()
+            if credential.count(".") == 2:
+                session_token = credential
+            else:
+                raw_key = credential
         elif len(parts) == 1:
             raw_key = parts[0].strip()
+
+    if session_token:
+        return await _auth_session_token(session_token, db)
 
     if not raw_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key ausente. Envie o header X-API-Key.",
-            headers={"WWW-Authenticate": "API-Key"},
+            detail="API key ou sessão ausente. Envie X-API-Key ou Authorization: Bearer.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     if settings.app_env == "development" and settings.dev_api_key and raw_key == settings.dev_api_key:
@@ -53,11 +88,7 @@ async def get_current_tenant(
     )
     tenant = result.scalar_one_or_none()
     if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key invalida ou tenant inativo.",
-            headers={"WWW-Authenticate": "API-Key"},
-        )
+        raise _unauthorized("API key inválida ou tenant inativo.")
     return AuthContext(tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug)
 
 

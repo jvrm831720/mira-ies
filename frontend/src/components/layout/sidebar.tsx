@@ -9,10 +9,8 @@ import {
   MessageSquareHeart,
   ScrollText,
   Settings,
-  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { copy } from "@/lib/copy";
 
 const links = [
   { href: "/", label: "Command Center", icon: LayoutDashboard },
@@ -28,14 +26,8 @@ export function Sidebar() {
 
   return (
     <aside className="flex w-full flex-col border-b border-border bg-white/80 backdrop-blur md:w-64 md:border-b-0 md:border-r">
-      <div className="flex items-center gap-3 border-b border-border px-5 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-          <Radio className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold tracking-tight">{copy.productName}</p>
-          <p className="text-xs text-muted-foreground">{copy.productTagline}</p>
-        </div>
+      <div className="flex items-center border-b border-slate-800 bg-slate-950 px-5 py-5">
+        <img src="/mira-logo.svg" alt="Mira" className="h-auto w-32" />
       </div>
       <nav className="flex gap-1 overflow-x-auto p-3 md:flex-1 md:flex-col">
         {links.map((link) => {

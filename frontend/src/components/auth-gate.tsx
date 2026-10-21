@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getApiKey } from "@/lib/auth";
+import { isAuthenticated } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -10,8 +10,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const key = getApiKey();
-    if (!key) {
+    if (!isAuthenticated()) {
       router.replace("/login");
       return;
     }

@@ -1,6 +1,6 @@
-# Project Beacon
+# Mira
 
-**Plataforma de Predição e Retenção Ativa de Alunos**
+**Inteligência para permanência estudantil no ensino superior**
 
 MVP SaaS que une **Análise Preditiva de Evasão** + **Sistema Multiagente de Retenção**, focado em PMEs educacionais.
 
@@ -10,7 +10,7 @@ MVP SaaS que une **Análise Preditiva de Evasão** + **Sistema Multiagente de Re
 Motor Preditivo → Agente Orquestrador → WhatsApp | E-mail | SMS
 ```
 
-Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção.
+Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção e `docs/AUTH.md` para os fluxos de autenticação Mira.
 
 ---
 
@@ -29,26 +29,37 @@ Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de rete
 |--------|------------|
 | Backend | FastAPI + Python |
 | ML | XGBoost + SHAP |
-| Banco | Supabase (PostgreSQL) |
-| Frontend (próximo) | Streamlit → Next.js |
+| Banco | PostgreSQL (Docker local ou Supabase) |
+| Frontend | Next.js |
 | Agentes de Retenção | Orquestrador próprio (dry-run) + Evolution API (WhatsApp) / Resend (e-mail) / Twilio (SMS), todos opcionais |
 
 ---
 
-## Como rodar
+## Como rodar localmente (Windows / PowerShell)
 
-```bash
-cp .env.example .env
-# Cole a DATABASE_URL do Supabase (postgresql+asyncpg://...)
+```powershell
+Copy-Item .env.example .env
+docker compose up -d db redis
 
 cd backend
-python -m venv .venv && source .venv/bin/activate
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
 - Docs: http://localhost:8000/docs
 - Health: http://localhost:8000/health
+- PostgreSQL no host: `127.0.0.1:5433` (dentro da rede Docker: `db:5432`).
+- Para habilitar recuperação de senha e login WhatsApp, configure `RESEND_API_KEY`, `EMAIL_FROM` e `EVOLUTION_API_*` no `.env`; veja `docs/AUTH.md`.
+
+Em outro terminal, rode o frontend:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
 
 ### Teste rápido
 
@@ -75,6 +86,9 @@ curl http://localhost:8000/api/v1/risk/critical
 | POST | `/api/v1/agents/retention/run` | Roda o Orquestrador (dry-run por padrão) |
 | GET | `/api/v1/agents/retention/logs` | Histórico de intervenções |
 | GET | `/api/v1/agents/retention/preview/{id}` | Mensagem sem enviar |
+| POST | `/api/v1/auth/login/password` | Login por e-mail e senha |
+| POST | `/api/v1/auth/whatsapp/request` | Solicita código de login WhatsApp |
+| POST | `/api/v1/auth/password/forgot` | Solicita redefinição de senha |
 
 ---
 

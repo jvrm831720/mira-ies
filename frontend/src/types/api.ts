@@ -1,5 +1,22 @@
 export type RiskLevel = "baixo" | "medio" | "critico";
 
+export interface AuthUser {
+  display_name: string;
+  email: string;
+  tenant_name: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: "bearer" | string;
+  expires_in: number;
+  user: AuthUser;
+}
+
+export interface AuthActionResponse {
+  message?: string;
+}
+
 export interface RiskSummary {
   summary: {
     baixo: number;
