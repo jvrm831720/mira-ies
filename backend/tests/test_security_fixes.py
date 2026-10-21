@@ -41,8 +41,8 @@ async def test_tenant_model_artifact_integrity_checksum_rejects_tampered_file(
     for i in range(30):
         is_evasion = i % 3 == 0
         matricula = f"TA{i}"
-        scored_at = now - timedelta(days=60 if is_evasion else 120)
-        observed_at = now - timedelta(days=30 if is_evasion else 1)
+        scored_at = now - timedelta(days=800 - i * 20)
+        observed_at = scored_at + timedelta(days=30 if is_evasion else 100)
         db_session.add(TrainingEvent(
             tenant_id=t.id, matricula=matricula, scored_at=scored_at,
             features_snapshot={"dias_atraso_boleto": 5, "dias_sem_login": 8,

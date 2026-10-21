@@ -48,6 +48,12 @@ Definição versionada `evasion_90d_v1`:
 
 Registros rotulados pela regra anterior permanecem no histórico, mas não contam para prontidão nem são usados em novos treinos. Aplique a migração `alembic upgrade head` antes de implantar a versão nova.
 
+## Avaliação temporal
+
+O treino tenant escolhe períodos cronológicos de treino, calibração e teste, buscando uma proporção próxima de 60/20/20 entre as amostras aproveitáveis. Como o alvo tem janela de 90 dias, os rótulos do treino precisam estar observados antes do período de calibração; os da calibração precisam estar observados antes do teste. Essa maturação cria um embargo temporal entre os períodos. Cada aluno fica em um único conjunto; alunos com snapshots que cruzam períodos e registros que não cabem nas janelas são excluídos, com a quantidade registrada nas métricas. Se não houver as duas classes em cada período sem vazamento e embargo, o treino falha em vez de voltar a uma divisão aleatória.
+
+O identificador longitudinal do split é a matrícula normalizada, pois o UUID da linha de cadastro pode mudar entre importações. As métricas separam eventos reais de treino, calibração e teste das linhas sintéticas e duplicações usadas apenas no ajuste; `n_train` representa linhas de ajuste e não deve ser interpretado sozinho como proporção temporal.
+
 ## Limiares
 
 - >= 200 eventos rotulados

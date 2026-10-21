@@ -184,8 +184,8 @@ async def test_tenant_train_uses_only_mature_target_labels(client, auth_headers,
     for i in range(30):
         is_evasion = i % 3 == 0
         matricula = f"T{i}"
-        scored_at = now - timedelta(days=60 if is_evasion else 120)
-        observed_at = now - timedelta(days=30 if is_evasion else 1)
+        scored_at = now - timedelta(days=800 - i * 20)
+        observed_at = scored_at + timedelta(days=30 if is_evasion else 100)
         db_session.add(_training_event(t, matricula, scored_at))
         outcomes.append({
             "matricula": matricula,
@@ -210,6 +210,21 @@ async def test_tenant_train_uses_only_mature_target_labels(client, auth_headers,
     assert body["status"] == "trained"
     assert body["activated"] is True
     assert body["metrics"]["n_tenant_events"] == 30
+    metrics = body["metrics"]
+    assert metrics["n_synthetic_training_rows"] > 0
+    real_and_excluded = (
+        metrics["n_tenant_train_real_events"]
+        + metrics["n_tenant_calibration_real_events"]
+        + metrics["n_tenant_test_real_events"]
+        + metrics["n_temporally_excluded_events"]
+    )
+    ratio_total = (
+        metrics["temporal_train_ratio"]
+        + metrics["temporal_calibration_ratio"]
+        + metrics["temporal_test_ratio"]
+    )
+    assert real_and_excluded == 30
+    assert abs(ratio_total - 1.0) < 0.001
 
     resp_models = await client.get(f"/api/v1/tenants/{t.slug}/models", headers=auth_headers)
     assert resp_models.status_code == 200

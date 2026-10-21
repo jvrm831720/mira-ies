@@ -14,7 +14,6 @@ from uuid import uuid4
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import roc_auc_score, average_precision_score, brier_score_loss, classification_report
 from sklearn.calibration import CalibratedClassifierCV
 import xgboost as xgb
@@ -24,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT, build_features_from_student
 from app.ml.model import MODELS_DIR, _generate_synthetic_training_data, load_calibrator, load_meta, load_model
-from app.ml.targets import TARGET_DEFINITION_VERSION
+from app.ml.targets import TARGET_DEFINITION_VERSION, TARGET_HORIZON
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.services.tenant import MIN_LABELED_EVENTS, MIN_POSITIVE_LABELS, refresh_tenant_readiness
 
@@ -49,8 +48,13 @@ def _events_to_dataframe(events: list) -> pd.DataFrame:
         snap = dict(e.features_snapshot or {})
         feats = build_features_from_student(snap)
         feats["label"] = int(e.label) if e.label is not None else None
-        # A matrícula é o fallback estável quando o TrainingEvent não tem student_id.
-        feats["__group_id"] = str(e.student_id or e.matricula)
+        # Student.id pode mudar entre uploads; a matrícula é a chave estável dentro do tenant.
+        matricula_key = str(e.matricula or "").strip().casefold()
+        if not matricula_key:
+            raise ValueError("Treino temporal requer matrícula não vazia para agrupar eventos do aluno.")
+        feats["__group_id"] = matricula_key
+        feats["__scored_at"] = e.scored_at
+        feats["__outcome_at"] = e.outcome_at
         rows.append(feats)
     df = pd.DataFrame(rows)
     for col in FEATURE_COLUMNS:
@@ -62,34 +66,93 @@ def _events_to_dataframe(events: list) -> pd.DataFrame:
 def _split_tenant_events(
     df_tenant: pd.DataFrame, seed: int = 42
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Cria holdouts de treino/calibração/teste sem separar eventos do mesmo aluno.
+    """Separa períodos futuros e alunos, com embargo de maturação do alvo.
 
-    Usa folds estratificados por grupo; dados sintéticos só são adicionados depois,
-    exclusivamente ao treino. O horizonte temporal ainda depende da definição do alvo.
+    Sintéticos só são adicionados depois, exclusivamente ao treino. Datas sucessivas
+    e observações amadurecidas impedem vazamento temporal pelo horizonte de 90 dias.
     """
-    y = df_tenant["label"].astype(int)
-    groups = df_tenant["__group_id"].astype(str)
-    if groups.nunique() < 5 or y.nunique() < 2:
+    del seed  # o corte é cronológico e determinístico, não aleatório
+    df = df_tenant.copy()
+    df["__scored_at"] = pd.to_datetime(df["__scored_at"], utc=True, errors="coerce")
+    df["__outcome_at"] = pd.to_datetime(df["__outcome_at"], utc=True, errors="coerce")
+    if df[["__scored_at", "__outcome_at", "__group_id"]].isna().any().any():
         raise ValueError(
-            "Treino requer ao menos 5 alunos distintos e exemplos das duas classes "
-            "para separar treino, calibração e teste sem vazamento."
+            "Treino temporal requer scored_at, outcome_at e identificador de aluno em todos os eventos."
+        )
+    if (df["__outcome_at"] < df["__scored_at"]).any():
+        raise ValueError("Treino temporal encontrou outcome_at anterior a scored_at.")
+    bounds = df.groupby("__group_id", sort=False).agg(
+        score_start=("__scored_at", "min"),
+        score_end=("__scored_at", "max"),
+        outcome_end=("__outcome_at", "max"),
+    )
+    if len(bounds) < 5 or df["label"].nunique() < 2:
+        raise ValueError(
+            "Treino temporal requer ao menos 5 alunos distintos e exemplos das duas classes."
         )
 
-    # Três folds para treino e um para cada holdout (60/20/20 aproximadamente).
-    for attempt in range(32):
-        splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed + attempt)
-        folds = [indices for _, indices in splitter.split(df_tenant, y, groups)]
-        test_idx, calibration_idx = folds[0], folds[1]
-        train_idx = np.concatenate(folds[2:])
-        if all(y.iloc[idx].nunique() == 2 for idx in (train_idx, calibration_idx, test_idx)):
-            return tuple(
-                df_tenant.iloc[idx].reset_index(drop=True)
-                for idx in (train_idx, calibration_idx, test_idx)
+    # Pesquise todos os cortes quando há até 101 datas distintas; para históricos
+    # maiores, use uma grade cronológica densa e limitada para custo previsível.
+    ordered_cuts = bounds["score_end"].drop_duplicates().sort_values().reset_index(drop=True)
+    if len(ordered_cuts) > 101:
+        candidate_indexes = np.linspace(0, len(ordered_cuts) - 1, num=101, dtype=int)
+        ordered_cuts = ordered_cuts.iloc[candidate_indexes].drop_duplicates().reset_index(drop=True)
+
+    label_counts = df.groupby("__group_id")["label"].agg(
+        n_events="size",
+        n_positive=lambda labels: int((labels == 1).sum()),
+        n_negative=lambda labels: int((labels == 0).sum()),
+    )
+    bounds = bounds.join(label_counts)
+    best_candidate = None
+    for train_cut in ordered_cuts:
+        calibration_available_at = train_cut + TARGET_HORIZON
+        train_mask = (
+            (bounds["score_end"] <= train_cut)
+            & (bounds["outcome_end"] <= calibration_available_at)
+        )
+        train_groups = bounds[train_mask]
+        if len(train_groups) < 2 or not train_groups["n_positive"].sum() or not train_groups["n_negative"].sum():
+            continue
+
+        for calibration_cut in ordered_cuts[ordered_cuts > calibration_available_at]:
+            test_available_at = calibration_cut + TARGET_HORIZON
+            calibration_mask = (
+                (bounds["score_start"] > calibration_available_at)
+                & (bounds["score_end"] <= calibration_cut)
+                & (bounds["outcome_end"] <= test_available_at)
             )
+            test_mask = bounds["score_start"] > test_available_at
+            calibration_groups = bounds[calibration_mask]
+            test_groups = bounds[test_mask]
+            groups = (train_groups, calibration_groups, test_groups)
+            if any(len(part) < 2 or not part["n_positive"].sum() or not part["n_negative"].sum() for part in groups):
+                continue
+
+            row_counts = [int(part["n_events"].sum()) for part in groups]
+            total = sum(row_counts)
+            ratios = [count / total for count in row_counts]
+            ratio_error = sum(abs(actual - target) for actual, target in zip(ratios, (0.60, 0.20, 0.20)))
+            candidate = (
+                ratio_error,
+                -total,
+                train_groups.index,
+                calibration_groups.index,
+                test_groups.index,
+            )
+            if best_candidate is None or candidate[:2] < best_candidate[:2]:
+                best_candidate = candidate
+
+    if best_candidate:
+        _, _, train_ids, calibration_ids, test_ids = best_candidate
+        return tuple(
+            df[df["__group_id"].isin(ids)].reset_index(drop=True)
+            for ids in (train_ids, calibration_ids, test_ids)
+        )
 
     raise ValueError(
-        "Não foi possível formar conjuntos de treino, calibração e teste com as duas "
-        "classes sem separar eventos do mesmo aluno. Colete mais rótulos/alunos."
+        "Não foi possível formar períodos cronológicos de treino, calibração e teste "
+        "com as duas classes sem separar ou reutilizar alunos. Colete mais histórico real."
     )
 
 
@@ -133,7 +196,14 @@ def _train_xgb(
     metrics: dict[str, Any] = {
         "n_train": int(len(X_train)), "n_calibration": int(len(X_cal)), "n_test": int(len(X_test)),
         "positive_rate": float(y_test.mean()),
-        "evaluation_split": "stratified_group_holdout_60_20_20",
+        "evaluation_split": "temporal_group_holdout_with_90d_embargo",
+        "train_period_end": str(pd.to_datetime(df_train["__scored_at"], utc=True, errors="coerce").max()),
+        "train_label_observation_end": str(pd.to_datetime(df_train["__outcome_at"], utc=True, errors="coerce").max()),
+        "calibration_period_start": str(pd.to_datetime(df_calibration["__scored_at"], utc=True, errors="coerce").min()),
+        "calibration_period_end": str(pd.to_datetime(df_calibration["__scored_at"], utc=True, errors="coerce").max()),
+        "calibration_label_observation_end": str(pd.to_datetime(df_calibration["__outcome_at"], utc=True, errors="coerce").max()),
+        "test_period_start": str(pd.to_datetime(df_test["__scored_at"], utc=True, errors="coerce").min()),
+        "test_label_observation_end": str(pd.to_datetime(df_test["__outcome_at"], utc=True, errors="coerce").max()),
         "calibration_method": "sigmoid" if calibrator is not None else None,
     }
     try:
@@ -143,8 +213,8 @@ def _train_xgb(
     metrics["training_data"] = "labeled+synthetic_blend"
     metrics["model_scope"] = "tenant"
     metrics["disclaimer"] = (
-        "Holdout por aluno; ainda nao e avaliacao temporal nem validacao em IES externa. "
-        "O horizonte e a definicao do desfecho precisam ser acordados com a IES."
+        "Alvo evasion_90d_v1; holdout temporal por aluno com embargo de maturação de 90 dias. "
+        "Ainda nao e validacao externa nem deve orientar intervencoes sem revisao humana."
     )
     try:
         metrics["average_precision"] = float(average_precision_score(y_test, y_prob))
@@ -231,11 +301,26 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     metrics["target_definition"] = TARGET_DEFINITION_VERSION
     metrics["blended"] = len(df_train) > len(df_tenant_train)
     metrics["n_labeled_real"] = len(events)
+    metrics["n_tenant_train_real_events"] = len(df_tenant_train)
+    metrics["n_tenant_calibration_real_events"] = len(df_tenant_cal)
+    metrics["n_tenant_test_real_events"] = len(df_tenant_test)
+    metrics["n_synthetic_training_rows"] = int(df_train["__group_id"].isna().sum())
+    metrics["n_repeated_tenant_training_rows"] = max(
+        0, int(df_train["__group_id"].notna().sum()) - len(df_tenant_train)
+    )
+    n_temporal_evaluation = len(df_tenant_train) + len(df_tenant_cal) + len(df_tenant_test)
+    metrics["n_temporal_evaluation_events"] = n_temporal_evaluation
+    metrics["temporal_train_ratio"] = round(len(df_tenant_train) / n_temporal_evaluation, 4)
+    metrics["temporal_calibration_ratio"] = round(len(df_tenant_cal) / n_temporal_evaluation, 4)
+    metrics["temporal_test_ratio"] = round(len(df_tenant_test) / n_temporal_evaluation, 4)
     metrics["n_tenant_test_real"] = len(df_tenant_test)
     metrics["n_tenant_calibration_real"] = len(df_tenant_cal)
     metrics["n_tenant_train_students"] = int(df_tenant_train["__group_id"].nunique())
     metrics["n_tenant_calibration_students"] = int(df_tenant_cal["__group_id"].nunique())
     metrics["n_tenant_test_students"] = int(df_tenant_test["__group_id"].nunique())
+    metrics["n_temporally_excluded_events"] = int(
+        len(df_tenant) - len(df_tenant_train) - len(df_tenant_cal) - len(df_tenant_test)
+    )
 
     try:
         base_model = load_model()
@@ -293,7 +378,14 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
         "metrics": {k: metrics.get(k) for k in [
             "auc", "average_precision", "brier_score", "accuracy", "n_tenant_events",
             "n_tenant_positive", "n_train", "n_calibration", "n_test",
+            "n_tenant_train_real_events", "n_tenant_calibration_real_events",
+            "n_tenant_test_real_events", "n_synthetic_training_rows",
+            "n_repeated_tenant_training_rows", "temporal_train_ratio",
+            "temporal_calibration_ratio", "temporal_test_ratio", "n_temporal_evaluation_events",
             "n_tenant_train_students", "n_tenant_calibration_students", "n_tenant_test_students",
+            "n_temporally_excluded_events", "train_period_end", "calibration_period_start",
+            "train_label_observation_end", "calibration_period_end",
+            "calibration_label_observation_end", "test_period_start", "test_label_observation_end",
             "evaluation_split", "calibration_method", "target_definition",
             "baseline_auc_same_test", "baseline_average_precision_same_test",
             "blended", "top_features", "disclaimer",
