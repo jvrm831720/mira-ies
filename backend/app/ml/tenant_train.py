@@ -7,7 +7,6 @@ import hmac
 import json
 import re
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -23,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT, build_features_from_student
 from app.ml.model import MODELS_DIR, _generate_synthetic_training_data, load_calibrator, load_meta, load_model
+from app.ml.storage import get_model_storage
 from app.ml.targets import TARGET_DEFINITION_VERSION, TARGET_HORIZON
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.services.tenant import MIN_LABELED_EVENTS, MIN_POSITIVE_LABELS, refresh_tenant_readiness
@@ -409,7 +409,7 @@ def load_tenant_model_from_path(storage_path: str, slug: str, expected_sha256: s
     global _tenant_model_cache
     if slug in _tenant_model_cache:
         return _tenant_model_cache[slug]
-    path = Path(storage_path)
+    path = get_model_storage().resolve(storage_path)
     if not path.exists():
         return None
     if expected_sha256:

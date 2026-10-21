@@ -6,7 +6,6 @@ XGBoost + calibracao isotonica → Risk Score 0-100.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 import numpy as np
 import pandas as pd
@@ -23,9 +22,10 @@ import xgboost as xgb
 import joblib
 
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT
+from app.ml.storage import get_model_storage
 
-MODELS_DIR = Path(__file__).resolve().parents[2] / "models" / "trained"
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
+_MODEL_STORAGE = get_model_storage()
+MODELS_DIR = _MODEL_STORAGE.root
 
 MODEL_PATH = MODELS_DIR / "risk_model_xgb.joblib"
 CALIBRATOR_PATH = MODELS_DIR / "risk_calibrator.joblib"

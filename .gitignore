@@ -44,3 +44,4 @@ logs/
 *.pkl
 *.joblib
 models/trained/
+data/model_artifacts/

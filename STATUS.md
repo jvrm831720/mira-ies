@@ -9,6 +9,12 @@
 ## Conectores ERP/LMS ✅
 ## Fase 02 — Motor Preditivo ✅
 ## Learning Loop (Modelo Hibrido C) ✅
+
+| Item | Status |
+|------|--------|
+| Artefatos base e por tenant em storage persistente configurável | ✅ |
+| Migração automática de `backend/models/trained` para `MODEL_STORAGE_DIR` | ✅ |
+
 ## Sistema Multiagente de Retencao (Orquestrador + WhatsApp/E-mail/SMS) ✅ MVP dry-run
 
 | Item | Status |

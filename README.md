@@ -60,6 +60,8 @@ python -m app.worker
 - Docs: http://localhost:8000/docs
 - Health: http://localhost:8000/health
 - PostgreSQL no host: `127.0.0.1:5433` (dentro da rede Docker: `db:5432`).
+- Artefatos de modelo ficam em `MODEL_STORAGE_DIR` (padrão `data/model_artifacts`), fora do
+  diretório temporário do processo; em produção, configure esse caminho em um volume persistente.
 - Para habilitar recuperação de senha e login WhatsApp, configure `RESEND_API_KEY`, `EMAIL_FROM` e `EVOLUTION_API_*` no `.env`; veja `docs/AUTH.md`.
 
 Em outro terminal, rode o frontend:

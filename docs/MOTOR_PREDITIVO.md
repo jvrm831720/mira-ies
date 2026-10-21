@@ -31,3 +31,11 @@ Originais, flags e interacoes (risco_financeiro, risco_engajamento, risco_academ
 - GET `/risk/critical` — fila critica + acoes
 - GET `/model/info` — AUC, Brier, top features
 - POST `/model/train` — retreino
+
+## Artefatos persistentes
+
+O modelo base, o calibrador, os metadados e os modelos por tenant são gravados em
+`MODEL_STORAGE_DIR` (padrão: `data/model_artifacts`). O diretório deve ser um volume persistente
+no ambiente de produção; artefatos existentes em `backend/models/trained` são copiados
+automaticamente na primeira inicialização, sem sobrescrever versões já migradas. Caminhos
+legados registrados no banco continuam resolvíveis durante a transição.

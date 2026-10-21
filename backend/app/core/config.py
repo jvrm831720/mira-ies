@@ -12,6 +12,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        protected_namespaces=("settings_",),
     )
 
     app_name: str = "Mira"
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://beacon:beacon_secret@127.0.0.1:5433/beacon"
     database_url_sync: str = "postgresql://beacon:beacon_secret@127.0.0.1:5433/beacon"
     redis_url: str = "redis://localhost:6379/0"
+    model_storage_dir: str = str(_REPO_ROOT / "data" / "model_artifacts")
     retention_queue_name: str = "beacon:retention:jobs"
     retention_job_ttl_seconds: int = 86400
     retention_max_attempts: int = 3

@@ -29,18 +29,23 @@ async def ensure_base_model_registered(session: AsyncSession) -> ModelArtifact |
     )
     existing = result.scalar_one_or_none()
     if existing:
+        from app.ml.model import MODEL_PATH
+        if existing.storage_path != str(MODEL_PATH):
+            existing.storage_path = str(MODEL_PATH)
+            await session.flush()
         return existing
     try:
-        from app.ml.model import load_meta
+        from app.ml.model import MODEL_PATH, load_meta
         meta = load_meta()
     except Exception:
+        MODEL_PATH = None
         meta = {"version": "0.3.1"}
     artifact = ModelArtifact(
         tenant_id=None,
         name="beacon-base",
         version=str(meta.get("version", "0.3.1")),
         scope="base",
-        storage_path="models/trained/risk_model_xgb.joblib",
+        storage_path=str(MODEL_PATH) if MODEL_PATH else None,
         metrics={"auc": meta.get("auc"), "average_precision": meta.get("average_precision"), "brier_score": meta.get("brier_score")},
         feature_columns=meta.get("feature_columns"),
         is_active=True,
