@@ -14,7 +14,7 @@ from uuid import uuid4
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import roc_auc_score, average_precision_score, brier_score_loss, classification_report
 from sklearn.calibration import CalibratedClassifierCV
 import xgboost as xgb
@@ -48,6 +48,8 @@ def _events_to_dataframe(events: list) -> pd.DataFrame:
         snap = dict(e.features_snapshot or {})
         feats = build_features_from_student(snap)
         feats["label"] = int(e.label) if e.label is not None else None
+        # A matrícula é o fallback estável quando o TrainingEvent não tem student_id.
+        feats["__group_id"] = str(e.student_id or e.matricula)
         rows.append(feats)
     df = pd.DataFrame(rows)
     for col in FEATURE_COLUMNS:
@@ -56,19 +58,38 @@ def _events_to_dataframe(events: list) -> pd.DataFrame:
     return df
 
 
-def _split_tenant_events(df_tenant: pd.DataFrame, seed: int = 42, test_size: float = 0.2) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Separa eventos reais do tenant em treino/teste ANTES de qualquer blend/duplicacao.
+def _split_tenant_events(
+    df_tenant: pd.DataFrame, seed: int = 42
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Cria holdouts de treino/calibração/teste sem separar eventos do mesmo aluno.
 
-    Precisa rodar antes de `_blend_with_synthetic`: duplicar linhas reais e so depois
-    dividir treino/teste vaza a mesma observacao para os dois lados, inflando o AUC.
+    Usa folds estratificados por grupo; dados sintéticos só são adicionados depois,
+    exclusivamente ao treino. O horizonte temporal ainda depende da definição do alvo.
     """
     y = df_tenant["label"].astype(int)
-    can_stratify = y.nunique() > 1 and y.value_counts().min() >= 2
-    if len(df_tenant) >= 10 and can_stratify:
-        train, test = train_test_split(df_tenant, test_size=test_size, random_state=seed, stratify=y)
-    else:
-        train, test = train_test_split(df_tenant, test_size=test_size, random_state=seed)
-    return train.reset_index(drop=True), test.reset_index(drop=True)
+    groups = df_tenant["__group_id"].astype(str)
+    if groups.nunique() < 5 or y.nunique() < 2:
+        raise ValueError(
+            "Treino requer ao menos 5 alunos distintos e exemplos das duas classes "
+            "para separar treino, calibração e teste sem vazamento."
+        )
+
+    # Três folds para treino e um para cada holdout (60/20/20 aproximadamente).
+    for attempt in range(32):
+        splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed + attempt)
+        folds = [indices for _, indices in splitter.split(df_tenant, y, groups)]
+        test_idx, calibration_idx = folds[0], folds[1]
+        train_idx = np.concatenate(folds[2:])
+        if all(y.iloc[idx].nunique() == 2 for idx in (train_idx, calibration_idx, test_idx)):
+            return tuple(
+                df_tenant.iloc[idx].reset_index(drop=True)
+                for idx in (train_idx, calibration_idx, test_idx)
+            )
+
+    raise ValueError(
+        "Não foi possível formar conjuntos de treino, calibração e teste com as duas "
+        "classes sem separar eventos do mesmo aluno. Colete mais rótulos/alunos."
+    )
 
 
 def _blend_with_synthetic(df_tenant_train: pd.DataFrame, seed: int = 42) -> pd.DataFrame:
@@ -82,9 +103,12 @@ def _blend_with_synthetic(df_tenant_train: pd.DataFrame, seed: int = 42) -> pd.D
     return pd.concat([tenant_boost, synth], ignore_index=True).sample(frac=1.0, random_state=seed).reset_index(drop=True)
 
 
-def _train_xgb(df_train: pd.DataFrame, df_test: pd.DataFrame, seed: int = 42):
-    """Treina no conjunto (ja blendado) de treino e avalia no held-out real do tenant, nunca duplicado/sintetico."""
+def _train_xgb(
+    df_train: pd.DataFrame, df_calibration: pd.DataFrame, df_test: pd.DataFrame, seed: int = 42
+):
+    """Treina, calibra e avalia em conjuntos reais disjuntos do tenant."""
     X_train, y_train = df_train[FEATURE_COLUMNS], df_train["label"].astype(int)
+    X_cal, y_cal = df_calibration[FEATURE_COLUMNS], df_calibration["label"].astype(int)
     X_test, y_test = df_test[FEATURE_COLUMNS], df_test["label"].astype(int)
     model = xgb.XGBClassifier(
         n_estimators=150, max_depth=4, learning_rate=0.07, subsample=0.85,
@@ -93,12 +117,12 @@ def _train_xgb(df_train: pd.DataFrame, df_test: pd.DataFrame, seed: int = 42):
         random_state=seed, n_jobs=-1,
         scale_pos_weight=float((y_train == 0).sum() / max(1, (y_train == 1).sum())),
     )
-    model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
+    model.fit(X_train, y_train, verbose=False)
     calibrator = None
     try:
-        if y_test.nunique() > 1:
-            calibrator = CalibratedClassifierCV(model, method="isotonic", cv="prefit")
-            calibrator.fit(X_test, y_test)
+        if y_cal.nunique() > 1:
+            calibrator = CalibratedClassifierCV(model, method="sigmoid", cv="prefit")
+            calibrator.fit(X_cal, y_cal)
             y_prob = calibrator.predict_proba(X_test)[:, 1]
         else:
             y_prob = model.predict_proba(X_test)[:, 1]
@@ -106,8 +130,10 @@ def _train_xgb(df_train: pd.DataFrame, df_test: pd.DataFrame, seed: int = 42):
         y_prob = model.predict_proba(X_test)[:, 1]
     y_pred = (y_prob >= 0.5).astype(int)
     metrics: dict[str, Any] = {
-        "n_train": int(len(X_train)), "n_test": int(len(X_test)),
-        "positive_rate": float(pd.concat([y_train, y_test]).mean()),
+        "n_train": int(len(X_train)), "n_calibration": int(len(X_cal)), "n_test": int(len(X_test)),
+        "positive_rate": float(y_test.mean()),
+        "evaluation_split": "stratified_group_holdout_60_20_20",
+        "calibration_method": "sigmoid" if calibrator is not None else None,
     }
     try:
         metrics["auc"] = float(roc_auc_score(y_test, y_prob))
@@ -115,7 +141,10 @@ def _train_xgb(df_train: pd.DataFrame, df_test: pd.DataFrame, seed: int = 42):
         metrics["auc"] = None
     metrics["training_data"] = "labeled+synthetic_blend"
     metrics["model_scope"] = "tenant"
-    metrics["disclaimer"] = "Metricas em hold-out interno; nao equivalem a validacao em IES externa."
+    metrics["disclaimer"] = (
+        "Holdout por aluno; ainda nao e avaliacao temporal nem validacao em IES externa. "
+        "O horizonte e a definicao do desfecho precisam ser acordados com a IES."
+    )
     try:
         metrics["average_precision"] = float(average_precision_score(y_test, y_prob))
     except Exception:
@@ -188,15 +217,19 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
         raise ValueError("Minimo absoluto: 10 eventos rotulados.")
 
     df_tenant = _events_to_dataframe(events).dropna(subset=["label"])
-    df_tenant_train, df_tenant_test = _split_tenant_events(df_tenant, seed=seed)
+    df_tenant_train, df_tenant_cal, df_tenant_test = _split_tenant_events(df_tenant, seed=seed)
     df_train = _blend_with_synthetic(df_tenant_train, seed=seed)
-    model, calibrator, metrics = _train_xgb(df_train, df_tenant_test, seed=seed)
+    model, calibrator, metrics = _train_xgb(df_train, df_tenant_cal, df_tenant_test, seed=seed)
     metrics["n_tenant_events"] = len(events)
     metrics["n_tenant_positive"] = n_pos
     metrics["n_tenant_negative"] = n_neg
     metrics["blended"] = len(df_train) > len(df_tenant_train)
     metrics["n_labeled_real"] = len(events)
     metrics["n_tenant_test_real"] = len(df_tenant_test)
+    metrics["n_tenant_calibration_real"] = len(df_tenant_cal)
+    metrics["n_tenant_train_students"] = int(df_tenant_train["__group_id"].nunique())
+    metrics["n_tenant_calibration_students"] = int(df_tenant_cal["__group_id"].nunique())
+    metrics["n_tenant_test_students"] = int(df_tenant_test["__group_id"].nunique())
 
     tenant_dir = MODELS_DIR / "tenants" / _safe_tenant_dirname(tenant.slug)
     tenant_dir.mkdir(parents=True, exist_ok=True)
@@ -239,7 +272,12 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
         "tenant_id": tenant.id, "slug": tenant.slug, "artifact_id": artifact.id,
         "version": version, "storage_path": str(model_path),
         "model_scope": "tenant", "training_data": metrics.get("training_data"),
-        "metrics": {k: metrics.get(k) for k in ["auc", "average_precision", "brier_score", "accuracy", "n_tenant_events", "n_tenant_positive", "blended", "top_features", "disclaimer"]},
+        "metrics": {k: metrics.get(k) for k in [
+            "auc", "average_precision", "brier_score", "accuracy", "n_tenant_events",
+            "n_tenant_positive", "n_train", "n_calibration", "n_test",
+            "n_tenant_train_students", "n_tenant_calibration_students", "n_tenant_test_students",
+            "evaluation_split", "calibration_method", "blended", "top_features", "disclaimer",
+        ]},
         "base_auc": base_auc,
         "message": f"Modelo tenant treinado e {'ATIVADO' if activate else 'salvo (nao ativado)'}. {reason}",
     }

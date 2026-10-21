@@ -30,6 +30,7 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 MODEL_PATH = MODELS_DIR / "risk_model_xgb.joblib"
 CALIBRATOR_PATH = MODELS_DIR / "risk_calibrator.joblib"
 META_PATH = MODELS_DIR / "risk_model_meta.json"
+MODEL_VERSION = "0.3.2"
 
 _model_cache: xgb.XGBClassifier | None = None
 _calibrator_cache: Any = None
@@ -93,11 +94,37 @@ def _generate_synthetic_training_data(n_samples: int = 5000, seed: int = 42) -> 
     return df
 
 
+def _split_train_calibration_test(
+    X: pd.DataFrame, y: pd.Series, test_size: float = 0.2,
+    calibration_size: float = 0.2, seed: int = 42,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Retorna índices disjuntos para treino, calibração e teste final."""
+    if test_size <= 0 or calibration_size <= 0 or test_size + calibration_size >= 1:
+        raise ValueError("test_size e calibration_size devem ser positivos e somar menos que 1")
+    indices = np.arange(len(y))
+    train_cal_idx, test_idx = train_test_split(
+        indices, test_size=test_size, random_state=seed, stratify=y
+    )
+    cal_fraction_of_pool = calibration_size / (1 - test_size)
+    train_idx, calibration_idx = train_test_split(
+        train_cal_idx,
+        test_size=cal_fraction_of_pool,
+        random_state=seed,
+        stratify=y.iloc[train_cal_idx],
+    )
+    return train_idx, calibration_idx, test_idx
+
+
 def train_model(n_samples: int = 5000, test_size: float = 0.2, seed: int = 42) -> dict[str, Any]:
     global _model_cache, _calibrator_cache
     df = _generate_synthetic_training_data(n_samples=n_samples, seed=seed)
     X, y = df[FEATURE_COLUMNS], df["risco_alto"]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=seed, stratify=y)
+    train_idx, calibration_idx, test_idx = _split_train_calibration_test(
+        X, y, test_size=test_size, calibration_size=0.2, seed=seed
+    )
+    X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+    X_cal, y_cal = X.iloc[calibration_idx], y.iloc[calibration_idx]
+    X_test, y_test = X.iloc[test_idx], y.iloc[test_idx]
 
     model = xgb.XGBClassifier(
         n_estimators=200, max_depth=5, learning_rate=0.06, subsample=0.85,
@@ -105,10 +132,10 @@ def train_model(n_samples: int = 5000, test_size: float = 0.2, seed: int = 42) -
         gamma=0.1, objective="binary:logistic", eval_metric="logloss",
         random_state=seed, n_jobs=-1,
     )
-    model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
+    model.fit(X_train, y_train, verbose=False)
 
     calibrator = CalibratedClassifierCV(model, method="isotonic", cv="prefit")
-    calibrator.fit(X_test, y_test)
+    calibrator.fit(X_cal, y_cal)
 
     y_prob = calibrator.predict_proba(X_test)[:, 1]
     y_pred = (y_prob >= 0.5).astype(int)
@@ -133,9 +160,18 @@ def train_model(n_samples: int = 5000, test_size: float = 0.2, seed: int = 42) -
         "average_precision": ap,
         "brier_score": brier,
         "n_samples": n_samples,
+        "n_train": int(len(train_idx)),
+        "n_calibration": int(len(calibration_idx)),
+        "n_test": int(len(test_idx)),
+        "evaluation_split": "stratified_three_way_holdout",
+        "calibration_method": "isotonic",
+        "validation_disclaimer": (
+            "Métricas calculadas em dados sintéticos derivados de uma regra de risco; "
+            "não representam validação em dados reais de uma IES."
+        ),
         "positive_rate": float(y.mean()),
         "model_type": "XGBClassifier+IsotonicCalibration",
-        "version": "0.3.1",
+        "version": MODEL_VERSION,
         "n_features": len(FEATURE_COLUMNS),
         "trained_at": pd.Timestamp.utcnow().isoformat(),
         "feature_importance": feat_imp[:10],
@@ -159,8 +195,13 @@ def train_model(n_samples: int = 5000, test_size: float = 0.2, seed: int = 42) -
         "f1_risco_alto": round(report["1"]["f1-score"], 4),
         "n_features": len(FEATURE_COLUMNS),
         "n_samples": n_samples,
-        "version": "0.3.1",
+        "version": MODEL_VERSION,
         "top_features": feat_imp[:5],
+        "n_train": int(len(train_idx)),
+        "n_calibration": int(len(calibration_idx)),
+        "n_test": int(len(test_idx)),
+        "evaluation_split": "stratified_three_way_holdout",
+        "validation_disclaimer": meta["validation_disclaimer"],
     }
 
 
