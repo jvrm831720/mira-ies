@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import { clearApiKey } from "@/lib/auth";
+import { clearAuth } from "@/lib/auth";
 import { copy } from "@/lib/copy";
 
 export default function ConfigPage() {
@@ -20,7 +20,7 @@ export default function ConfigPage() {
   });
 
   function logout() {
-    clearApiKey();
+    clearAuth();
     toast.message("Sessão encerrada neste dispositivo");
     router.replace("/login");
   }
@@ -69,11 +69,11 @@ export default function ConfigPage() {
         <Card>
           <CardHeader>
             <CardTitle>Sessão</CardTitle>
-            <CardDescription>API key armazenada apenas neste navegador</CardDescription>
+            <CardDescription>Token de acesso armazenado apenas neste navegador</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="outline" onClick={logout}>
-              Sair e limpar API key
+              Sair e limpar sessão
             </Button>
           </CardContent>
         </Card>

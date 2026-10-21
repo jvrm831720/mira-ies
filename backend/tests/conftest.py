@@ -13,7 +13,7 @@ import os
 
 from sqlalchemy.engine import make_url
 
-_DEFAULT_DEV_DATABASE_URL = "postgresql+asyncpg://beacon:beacon_secret@localhost:5432/beacon"
+_DEFAULT_DEV_DATABASE_URL = "postgresql+asyncpg://beacon:beacon_secret@127.0.0.1:5433/beacon"
 _base_url = make_url(os.environ.get("DATABASE_URL", _DEFAULT_DEV_DATABASE_URL))
 _test_db_name = _base_url.database if (_base_url.database or "").endswith("_test") else f"{_base_url.database}_test"
 _test_url = _base_url.set(database=_test_db_name)

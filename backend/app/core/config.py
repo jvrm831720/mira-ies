@@ -1,22 +1,27 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(_REPO_ROOT / ".env"), str(_BACKEND_DIR / ".env")),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
 
-    app_name: str = "Project Beacon"
+    app_name: str = "Mira"
     app_env: str = "development"
     debug: bool = True
     secret_key: str = "change-this-in-production"
 
     # Auth
     dev_api_key: str = "bkn_dev_change_me_in_production"
+    mira_admin_secret: str | None = None
     allow_unsigned_webhooks: bool = True
 
     # Model training guards (False em produção)
@@ -26,9 +31,10 @@ class Settings(BaseSettings):
     # Scoring
     shap_on_batch: bool = False
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    mira_public_url: str = "http://localhost:3000"
 
-    database_url: str = "postgresql+asyncpg://beacon:beacon_secret@localhost:5432/beacon"
-    database_url_sync: str = "postgresql://beacon:beacon_secret@localhost:5432/beacon"
+    database_url: str = "postgresql+asyncpg://beacon:beacon_secret@127.0.0.1:5433/beacon"
+    database_url_sync: str = "postgresql://beacon:beacon_secret@127.0.0.1:5433/beacon"
     redis_url: str = "redis://localhost:6379/0"
 
     max_upload_size_mb: int = 50

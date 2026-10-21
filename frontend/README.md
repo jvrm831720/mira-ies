@@ -1,10 +1,11 @@
-# Beacon Frontend
+# Mira Frontend
 
-Interface SaaS (Next.js 15 + TypeScript + Tailwind + TanStack Query) para o Project Beacon.
+Interface SaaS (Next.js 15 + TypeScript + Tailwind + TanStack Query) para a Mira.
 
 ## Telas
 
-- `/login` — API key (`X-API-Key`)
+- `/login` — e-mail e senha ou código de uso único via WhatsApp
+- `/reset-password?token=...` — redefinição de senha por link enviado por e-mail
 - `/` — Command Center (KPIs + críticos)
 - `/alunos` — lista filtrável
 - `/alunos/[id]` — ficha (score, fatores, preview de contato)
@@ -15,8 +16,8 @@ Interface SaaS (Next.js 15 + TypeScript + Tailwind + TanStack Query) para o Proj
 
 ## Pré-requisitos
 
-1. Backend Beacon rodando (`http://localhost:8000`)
-2. Tenant com API key válida (ex.: `DEV_API_KEY` / tenant `default`)
+1. Backend da Mira rodando (`http://localhost:8000`)
+2. Usuário já cadastrado por uma instituição
 
 ## Rodar
 
@@ -27,7 +28,7 @@ npm install
 npm run dev
 ```
 
-Abra http://localhost:3000 e entre com a API key.
+Abra http://localhost:3000 e entre com seu e-mail e senha ou via WhatsApp.
 
 ## Variáveis
 
@@ -39,4 +40,4 @@ Abra http://localhost:3000 e entre com a API key.
 
 Next.js App Router · React 19 · Tailwind · shadcn-style UI · TanStack Query · Sonner
 
-Auth: API key no `localStorage`, enviada em todo request como `X-API-Key`.
+Auth: token Bearer no `localStorage` com a chave `mira_access_token`, enviado nos requests autenticados.

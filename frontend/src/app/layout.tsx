@@ -10,8 +10,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: `${copy.productName} — ${copy.productTagline}`,
+  title: `Mira — ${copy.productTagline}`,
   description: copy.productTagline,
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,9 +1,13 @@
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+from starlette.requests import Request
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring, connectors, outcomes, agents
+from app.api import upload, health, scoring, connectors, outcomes, agents, auth
 from app.db.session import init_db
 from app.ml.model import load_model
 
@@ -14,9 +18,13 @@ _DEFAULT_SECRET_KEY = "change-this-in-production"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.app_env != "development" and settings.secret_key == _DEFAULT_SECRET_KEY:
+    if settings.app_env != "development" and (
+        settings.secret_key == _DEFAULT_SECRET_KEY
+        or "change-this" in settings.secret_key.lower()
+        or len(settings.secret_key) < 32
+    ):
         raise RuntimeError(
-            "SECRET_KEY padrao detectado fora de development. "
+            "SECRET_KEY padrao, placeholder ou curto detectado fora de development. "
             "Configure uma chave secreta real antes de subir em producao."
         )
     print(f"{settings.app_name} starting in {settings.app_env} mode...")
@@ -65,10 +73,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
-    description="Beacon MVP — Predicao de evasao + Auth + multi-tenant isolation",
+    description="Mira — permanência estudantil, autenticação e isolamento multi-tenant",
     version="0.4.0-agents",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Return validation details without reflecting submitted values such as passwords."""
+    safe_errors = []
+    for error in exc.errors():
+        sanitized = dict(error)
+        sanitized.pop("input", None)
+        safe_errors.append(sanitized)
+    return JSONResponse(status_code=422, content=jsonable_encoder({"detail": safe_errors}))
 
 _cors = (
     ["*"]
@@ -89,6 +108,7 @@ app.include_router(scoring.router, prefix="/api/v1", tags=["Motor Preditivo (Ris
 app.include_router(connectors.router, prefix="/api/v1", tags=["Conectores ERP/LMS"])
 app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outcomes)"])
 app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
+app.include_router(auth.router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -99,6 +119,6 @@ async def root():
         "phase": "Sistema multiagente de retencao (Orquestrador + WhatsApp/E-mail/SMS, dry-run)",
         "status": "running",
         "docs": "/docs",
-        "auth": "Header X-API-Key obrigatorio nas rotas /api/v1/*",
+        "auth": "Sessão Mira via Bearer ou API key legada via X-API-Key nas rotas protegidas",
         "model_disclaimer": "Base treinado em sintético — score assistido, nao prediccao validada",
     }

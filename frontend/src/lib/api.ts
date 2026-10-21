@@ -1,6 +1,8 @@
-import { getApiKey, clearApiKey } from "./auth";
+import { clearAuth, getAccessToken, getApiKey } from "./auth";
 import type {
   AgentsStatus,
+  AuthActionResponse,
+  AuthResponse,
   CriticalResponse,
   LogsResponse,
   ModelInfo,
@@ -24,9 +26,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const isAuthRoute = path.startsWith("/api/v1/auth/");
+  const token = getAccessToken();
   const key = getApiKey();
   const headers = new Headers(init.headers || {});
-  if (key) headers.set("X-API-Key", key);
+  if (!isAuthRoute && token) headers.set("Authorization", `Bearer ${token}`);
+  else if (!isAuthRoute && key) headers.set("X-API-Key", key);
   if (!(init.body instanceof FormData) && !headers.has("Content-Type") && init.body) {
     headers.set("Content-Type", "application/json");
   }
@@ -34,11 +39,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
 
   if (res.status === 401) {
-    clearApiKey();
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login";
+    if (!isAuthRoute) {
+      clearAuth();
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login") &&
+        !window.location.pathname.startsWith("/reset-password")
+      ) {
+        window.location.href = "/login";
+      }
     }
-    throw new ApiError(401, "API key inválida ou ausente");
+    throw new ApiError(401, "Sessão expirada ou não autorizada");
   }
 
   if (!res.ok) {
@@ -54,11 +65,47 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  const text = await res.text();
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined as T;
+  }
 }
 
 export const api = {
   baseUrl: BASE,
+
+  loginPassword: (body: { email: string; password: string }) =>
+    request<AuthResponse>("/api/v1/auth/login/password", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  requestWhatsappCode: (phone: string) =>
+    request<AuthActionResponse>("/api/v1/auth/whatsapp/request", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
+    }),
+
+  verifyWhatsappCode: (phone: string, code: string) =>
+    request<AuthResponse>("/api/v1/auth/whatsapp/verify", {
+      method: "POST",
+      body: JSON.stringify({ phone, code }),
+    }),
+
+  forgotPassword: (email: string) =>
+    request<AuthActionResponse>("/api/v1/auth/password/forgot", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    request<AuthActionResponse>("/api/v1/auth/password/reset", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password: newPassword }),
+    }),
 
   async validateKey(key: string) {
     const res = await fetch(`${BASE}/api/v1/agents/status`, {
