@@ -25,6 +25,10 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "reprovacoes": ["reprovacoes", "reprovacao", "failures", "qtd_reprovacoes", "num_reprovacoes"],
     "telefone": ["telefone", "celular", "whatsapp", "phone", "telefone_celular", "contato"],
     "email": ["email", "e_mail", "email_aluno"],
+    "communication_opt_out": [
+        "communication_opt_out", "comunicacao_opt_out", "opt_out", "optout",
+        "nao_contatar", "não_contatar", "do_not_contact", "dnc",
+    ],
 }
 REQUIRED_COLUMNS = {"matricula", "nome"}
 RECOMMENDED_COLUMNS = {"dias_atraso_boleto", "dias_sem_login", "presenca_percentual", "nota_media", "semestre"}
@@ -59,6 +63,19 @@ def safe_str(value: Any) -> str | None:
     s = str(value).strip()
     return s or None
 
+
+def safe_bool(value: Any) -> bool | None:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "t", "yes", "y", "sim", "s", "on"}:
+        return True
+    if normalized in {"0", "false", "f", "no", "n", "nao", "não", "off", ""}:
+        return False
+    return None
+
 def _clamp(value: float | None, lo: float, hi: float) -> float | None:
     if value is None: return None
     return max(lo, min(hi, value))
@@ -82,6 +99,7 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "forma_ingresso": safe_str(row.get("forma_ingresso")),
         "telefone": (safe_str(row.get("telefone")) or "")[:30] or None,
         "email": (safe_str(row.get("email")) or "")[:255] or None,
+        "communication_opt_out": safe_bool(row.get("communication_opt_out")) or False,
         "dias_atraso_boleto": _clamp_int(safe_int(row.get("dias_atraso_boleto")), 0, 3650),
         "recorrencia_atrasos": _clamp_int(safe_int(row.get("recorrencia_atrasos")), 0, 100),
         "dias_sem_login": _clamp_int(safe_int(row.get("dias_sem_login")), 0, 3650),
@@ -140,6 +158,7 @@ async def create_batch_and_students(
             batch_id=batch.id, tenant_id=tenant_id, matricula=data["matricula"], nome=data["nome"],
             curso=data.get("curso"), turma=data.get("turma"), semestre=data.get("semestre"),
             forma_ingresso=data.get("forma_ingresso"), telefone=data.get("telefone"), email=data.get("email"),
+            communication_opt_out=data.get("communication_opt_out", False),
             dias_atraso_boleto=data.get("dias_atraso_boleto"),
             recorrencia_atrasos=data.get("recorrencia_atrasos"), dias_sem_login=data.get("dias_sem_login"),
             presenca_percentual=data.get("presenca_percentual"), nota_media=data.get("nota_media"),

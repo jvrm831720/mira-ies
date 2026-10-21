@@ -17,6 +17,7 @@ CANONICAL_FIELDS = [
     "forma_ingresso",
     "telefone",
     "email",
+    "communication_opt_out",
     "dias_atraso_boleto",
     "recorrencia_atrasos",
     "dias_sem_login",
@@ -35,6 +36,7 @@ class CanonicalStudent(BaseModel):
     forma_ingresso: str | None = None
     telefone: str | None = None
     email: str | None = None
+    communication_opt_out: bool = False
     dias_atraso_boleto: int | None = None
     recorrencia_atrasos: int | None = None
     dias_sem_login: int | None = None
@@ -96,3 +98,16 @@ def to_str(v, default=None):
         return default
     s = str(v).strip()
     return s or default
+
+
+def to_bool(v, default=False):
+    if v is None or v == "":
+        return default
+    if isinstance(v, bool):
+        return v
+    normalized = str(v).strip().lower()
+    if normalized in {"1", "true", "t", "yes", "y", "sim", "s", "on"}:
+        return True
+    if normalized in {"0", "false", "f", "no", "n", "nao", "não", "off"}:
+        return False
+    return default

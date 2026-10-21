@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/header";
 import { RiskBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { formatScore } from "@/lib/utils";
-import { ArrowLeft, Mail, Phone, Sparkles } from "lucide-react";
+import { ArrowLeft, Mail, Phone, ShieldCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -19,11 +19,23 @@ export default function StudentDetailPage() {
   const id = params.id;
   const [preview, setPreview] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["student-risk", id],
     queryFn: () => api.studentRisk(id),
     enabled: Boolean(id),
+  });
+
+  const preferenceMutation = useMutation({
+    mutationFn: (optOut: boolean) => api.updateCommunicationPreference(id, optOut),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["student-risk", id] });
+      toast.success("Preferência de comunicação atualizada.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar a preferência.");
+    },
   });
 
   async function loadPreview() {
@@ -96,6 +108,32 @@ export default function StudentDetailPage() {
                   {!data.telefone && !data.email && (
                     <p>Sem telefone/e-mail na base — retenção pode ser ignorada.</p>
                   )}
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="font-medium">Comunicação</p>
+                      <p className="text-muted-foreground">
+                        {data.communication_opt_out
+                          ? "Opt-out ativo: nenhuma mensagem será enviada."
+                          : "O aluno pode receber contatos da régua de retenção."}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 w-full"
+                    disabled={preferenceMutation.isPending}
+                    onClick={() => preferenceMutation.mutate(!data.communication_opt_out)}
+                  >
+                    {preferenceMutation.isPending
+                      ? "Salvando..."
+                      : data.communication_opt_out
+                        ? "Revogar opt-out"
+                        : "Ativar opt-out"}
+                  </Button>
                 </div>
                 <Button onClick={loadPreview} disabled={loadingPreview} className="w-full">
                   <Sparkles className="h-4 w-4" />

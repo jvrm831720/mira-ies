@@ -20,7 +20,7 @@
 | API `/api/v1/agents/*` protegida por tenant | ✅ |
 | Conectores ERP/LMS extraindo telefone/email do payload nativo | ⬜ |
 | Fila assincrona / retry (Redis) para volumes grandes | ⬜ |
-| Opt-out explicito de aluno | ⬜ |
+| Opt-out explicito de aluno + bloqueio auditavel | ✅ |
 | Ver `docs/AGENTES.md` | |
 
 ## Seguranca / Auditoria

@@ -150,6 +150,7 @@ async def list_critical_students(
     students = (await db.execute(query)).scalars().all()
     return {"count": len(students), "tenant_id": auth.tenant_id, "students": [{
         "id": s.id, "matricula": s.matricula, "nome": s.nome, "curso": s.curso,
+        "communication_opt_out": s.communication_opt_out,
         "risk_score": s.risk_score, "risk_level": s.risk_level,
         "shap_summary": (s.shap_top_factors or {}).get("summary"),
         "recommended_actions": (s.shap_top_factors or {}).get("recommended_actions"),
@@ -168,6 +169,8 @@ async def get_student_risk(
         raise HTTPException(status_code=404, detail="Aluno nao encontrado")
     return {
         "id": student.id, "matricula": student.matricula, "nome": student.nome,
+        "telefone": student.telefone, "email": student.email,
+        "communication_opt_out": student.communication_opt_out,
         "risk_score": student.risk_score, "risk_level": student.risk_level,
         "shap_top_factors": student.shap_top_factors,
         "recommended_actions": (student.shap_top_factors or {}).get("recommended_actions"),

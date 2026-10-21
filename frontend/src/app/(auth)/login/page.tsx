@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -111,7 +112,7 @@ export default function LoginPage() {
         <section className="relative hidden flex-col justify-between overflow-hidden bg-slate-950 p-8 text-slate-100 md:flex lg:p-12">
           <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
           <div className="relative space-y-14">
-            <img src="/mira-logo.svg" alt="Mira" className="h-auto w-36" />
+            <Image src="/mira-logo.svg" alt="Mira" width={144} height={32} className="h-auto w-36" />
             <div className="space-y-5">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
@@ -143,7 +144,7 @@ export default function LoginPage() {
           <div className="mx-auto w-full max-w-md">
             <div className="mb-8 md:hidden">
               <div className="mb-6 inline-flex rounded-xl bg-slate-950 px-4 py-3">
-                <img src="/mira-logo.svg" alt="Mira" className="h-auto w-28" />
+                <Image src="/mira-logo.svg" alt="Mira" width={112} height={25} className="h-auto w-28" />
               </div>
               <p className="text-sm text-muted-foreground">{copy.productTagline}</p>
             </div>

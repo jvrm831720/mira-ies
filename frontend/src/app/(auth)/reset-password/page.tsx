@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Suspense, type FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, KeyRound, ShieldCheck } from "lucide-react";
@@ -52,7 +53,7 @@ function ResetPasswordForm() {
       <div className="w-full max-w-md">
         <div className="mb-8 flex justify-center">
           <div className="rounded-xl bg-slate-950 px-4 py-3">
-            <img src="/mira-logo.svg" alt="Mira" className="h-auto w-32" />
+            <Image src="/mira-logo.svg" alt="Mira" width={128} height={29} className="h-auto w-32" />
           </div>
         </div>
         <Card>

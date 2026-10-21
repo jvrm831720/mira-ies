@@ -127,6 +127,16 @@ class RetentionOrchestrator:
             bucket[status] = bucket.get(status, 0) + 1
 
         for student in students:
+            if student.communication_opt_out:
+                self.session.add(_log_entry(
+                    tenant_id=self.tenant_id,
+                    student=student,
+                    channel=None,
+                    status="skipped",
+                    skip_reason="communication_opt_out",
+                ))
+                _bump("_none", "skipped")
+                continue
             risk_level = student.risk_level or "baixo"
             candidates = [
                 c for c in decide_channels(
@@ -197,6 +207,11 @@ async def preview_message(
         return None
 
     risk_level = student.risk_level or "baixo"
+    if student.communication_opt_out:
+        return {
+            "student_id": student.id, "matricula": student.matricula, "risk_level": risk_level,
+            "channel": None, "message": None, "reason": "communication_opt_out",
+        }
     candidates = decide_channels(
         risk_level=risk_level, telefone=student.telefone, email=student.email,
         prefer_whatsapp_medio=prefer_whatsapp_medio,

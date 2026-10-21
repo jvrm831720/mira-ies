@@ -50,6 +50,7 @@ export interface StudentRisk {
   recommended_actions?: string[] | null;
   telefone?: string | null;
   email?: string | null;
+  communication_opt_out?: boolean;
   dias_atraso_boleto?: number | null;
   dias_sem_login?: number | null;
   presenca_percentual?: number | null;
@@ -59,6 +60,12 @@ export interface StudentRisk {
 export interface StudentsResponse {
   count: number;
   students: StudentRisk[];
+}
+
+export interface CommunicationPreferenceResponse {
+  student_id: string;
+  communication_opt_out: boolean;
+  communication_opted_out_at?: string | null;
 }
 
 export interface CriticalResponse {

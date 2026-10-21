@@ -79,6 +79,22 @@ async def test_orchestrator_skips_student_without_contact_info(tenant, db_sessio
     assert result["by_channel"]["_none"]["skipped"] == 1
 
 
+async def test_orchestrator_skips_opted_out_student_and_logs_reason(tenant, db_session):
+    t, _raw_key = tenant
+    await _create_student(db_session, t, communication_opt_out=True)
+
+    from app.agents.orchestrator import RetentionOrchestrator
+    orch = RetentionOrchestrator(db_session, tenant_id=t.id)
+    result = await orch.run(risk_levels=["critico"], dry_run=True)
+    assert result["totals"] == {"sent": 0, "dry_run": 0, "skipped": 1, "failed": 0}
+
+    from sqlalchemy import select
+    from app.models.intervention import InterventionLog
+    log = (await db_session.execute(select(InterventionLog))).scalar_one()
+    assert log.skip_reason == "communication_opt_out"
+    assert log.channel is None
+
+
 async def test_orchestrator_does_not_fire_for_baixo_risk(tenant, db_session):
     t, _raw_key = tenant
     await _create_student(db_session, t, risk_level="baixo")
@@ -127,6 +143,17 @@ async def test_preview_reports_missing_contact(tenant, db_session):
     assert result["reason"] == "missing_contact"
 
 
+async def test_preview_does_not_render_message_for_opted_out_student(tenant, db_session):
+    t, _raw_key = tenant
+    student = await _create_student(db_session, t, communication_opt_out=True)
+
+    from app.agents.orchestrator import preview_message
+    result = await preview_message(db_session, tenant_id=t.id, student_id=student.id)
+    assert result["channel"] is None
+    assert result["message"] is None
+    assert result["reason"] == "communication_opt_out"
+
+
 async def test_run_endpoint_requires_auth(client):
     resp = await client.post("/api/v1/agents/retention/run", json={"risk_levels": ["critico"]})
     assert resp.status_code == 401
@@ -159,6 +186,21 @@ async def test_preview_endpoint_requires_auth(client, tenant, db_session):
     student = await _create_student(db_session, t)
     resp = await client.get(f"/api/v1/agents/retention/preview/{student.id}")
     assert resp.status_code == 401
+
+
+async def test_communication_preference_endpoint_updates_opt_out(client, auth_headers, tenant, db_session):
+    t, _raw_key = tenant
+    student = await _create_student(db_session, t)
+    resp = await client.patch(
+        f"/api/v1/students/{student.id}/communication-preferences",
+        headers=auth_headers,
+        json={"opt_out": True},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["communication_opt_out"] is True
+    await db_session.refresh(student)
+    assert student.communication_opt_out is True
+    assert student.communication_opted_out_at is not None
 
 
 async def test_preview_endpoint_404_for_other_tenant_student(client, tenant_factory, db_session):

@@ -32,6 +32,7 @@ class StudentBase(BaseModel):
     turma: Optional[str] = None
     semestre: Optional[int] = None
     forma_ingresso: Optional[str] = None
+    communication_opt_out: bool = False
     dias_atraso_boleto: Optional[int] = None
     recorrencia_atrasos: Optional[int] = None
     dias_sem_login: Optional[int] = None
@@ -52,6 +53,7 @@ class StudentResponse(StudentBase):
     batch_id: str
     risk_score: Optional[float] = None
     risk_level: Optional[str] = None
+    communication_opt_out: bool = False
     shap_top_factors: Optional[dict] = None
     created_at: datetime
     is_active: bool = True

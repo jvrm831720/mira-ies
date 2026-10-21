@@ -1,9 +1,11 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
+from pydantic import BaseModel
 import pandas as pd
 import io
 import re
 from pathlib import Path
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -19,6 +21,10 @@ router = APIRouter()
 settings = get_settings()
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+class CommunicationPreferencePayload(BaseModel):
+    opt_out: bool
 
 
 def sanitize_filename(filename: str) -> str:
@@ -94,6 +100,7 @@ async def upload_students_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao persistir dados: {str(e)}")
     preview = [{"matricula": s.matricula, "nome": s.nome, "curso": s.curso, "semestre": s.semestre,
+                "communication_opt_out": s.communication_opt_out,
                 "dias_atraso_boleto": s.dias_atraso_boleto, "dias_sem_login": s.dias_sem_login,
                 "presenca_percentual": s.presenca_percentual, "nota_media": s.nota_media} for s in students[:5]]
     scoring_result = None
@@ -141,10 +148,35 @@ async def list_students(
     return {"count": len(students), "students": [{
         "id": s.id, "matricula": s.matricula, "nome": s.nome, "curso": s.curso, "turma": s.turma,
         "semestre": s.semestre, "dias_atraso_boleto": s.dias_atraso_boleto, "dias_sem_login": s.dias_sem_login,
+        "communication_opt_out": s.communication_opt_out,
         "presenca_percentual": s.presenca_percentual, "nota_media": s.nota_media,
         "risk_score": s.risk_score, "risk_level": s.risk_level,
         "shap_summary": (s.shap_top_factors or {}).get("summary"),
     } for s in students]}
+
+
+@router.patch("/students/{student_id}/communication-preferences")
+async def update_communication_preferences(
+    student_id: str,
+    body: CommunicationPreferencePayload,
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Student).where(Student.id == student_id, Student.tenant_id == auth.tenant_id)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Aluno nao encontrado")
+    student.communication_opt_out = body.opt_out
+    student.communication_opted_out_at = datetime.now(timezone.utc) if body.opt_out else None
+    await db.commit()
+    await db.refresh(student)
+    return {
+        "student_id": student.id,
+        "communication_opt_out": student.communication_opt_out,
+        "communication_opted_out_at": student.communication_opted_out_at,
+    }
 
 
 @router.get("/upload/expected-columns")

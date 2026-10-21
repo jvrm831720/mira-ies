@@ -47,6 +47,13 @@ cobre tanto "não tem telefone" quanto "WhatsApp falhou no envio, tenta o próxi
 Se nenhum canal for viável (sem telefone nem e-mail), o aluno é pulado com
 `skip_reason="missing_contact"`.
 
+Se `Student.communication_opt_out=true`, nenhum canal é consultado ou enviado. O
+orquestrador grava um `InterventionLog` com `status="skipped"` e
+`skip_reason="communication_opt_out"`, permitindo auditoria sem gerar contato. A preferência
+pode ser importada por CSV/XLSX ou conector genérico e alterada pela API tenant-scoped:
+`PATCH /api/v1/students/{student_id}/communication-preferences` com
+`{"opt_out": true|false}`.
+
 ## Anti-spam
 
 Duas regras independentes (configuráveis via env, ver abaixo):
@@ -72,14 +79,17 @@ ou foram puladas não contam).
 | `message_preview` | **até 120 caracteres**, nunca o corpo completo (evita logar PII desnecessário) |
 | `skip_reason` / `error` | motivo do skip (anti-spam, missing_contact, risco baixo) ou erro de envio |
 
-`Student` ganhou duas colunas opcionais: `telefone` (varchar 30) e `email` (varchar 255).
+`Student` ganhou telefone/e-mail e a preferência global de comunicação:
+`communication_opt_out` (boolean) e `communication_opted_out_at` (timestamp). A preferência
+é global para WhatsApp, e-mail e SMS e pode ser revogada pela mesma API.
 Aceitos via upload CSV/XLSX (aliases: `telefone`, `celular`, `whatsapp`, `phone`, `contato` /
-`email`, `e_mail`) e via conector genérico (`POST /api/v1/ingest/students`). Conectores
+`email`, `e_mail`, `opt_out`, `optout`, `nao_contatar`, `do_not_contact`) e via conector genérico (`POST /api/v1/ingest/students`). Conectores
 ERP/LMS específicos (JACAD, Sponte, Moodle, etc.) ainda não extraem telefone/e-mail do payload
 nativo — é um próximo passo natural, por conector, conforme a necessidade real de cada
 integração (o campo já existe no schema canônico, só falta o `pick()` em cada conector).
 
-Migração: `backend/alembic/versions/002_agents_and_contact_fields.py`.
+Migrações: `backend/alembic/versions/002_agents_and_contact_fields.py` e
+`backend/alembic/versions/005_student_communication_opt_out.py`.
 
 ## Configuração (`.env`)
 
@@ -169,5 +179,4 @@ Mostra config de anti-spam e qual provider está ativo por canal.
 - Sem fila/retry assíncrono — o `run` é síncrono dentro da própria request HTTP; para volumes
   grandes de alunos, mover para um worker (Redis já está no `docker-compose.yml`) é o próximo
   passo natural.
-- Sem opt-out de aluno registrado explicitamente (hoje o controle é só a régua anti-spam).
 - Dashboard/dashboard de acompanhamento das intervenções fica para a Fase 03.

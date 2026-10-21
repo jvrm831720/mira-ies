@@ -56,6 +56,8 @@ class Student(Base):
     forma_ingresso: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     telefone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    communication_opt_out: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    communication_opted_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     dias_atraso_boleto: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     recorrencia_atrasos: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

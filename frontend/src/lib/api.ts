@@ -3,6 +3,7 @@ import type {
   AgentsStatus,
   AuthActionResponse,
   AuthResponse,
+  CommunicationPreferenceResponse,
   CriticalResponse,
   LogsResponse,
   ModelInfo,
@@ -136,6 +137,12 @@ export const api = {
   },
 
   studentRisk: (id: string) => request<StudentRisk>(`/api/v1/students/${id}/risk`),
+
+  updateCommunicationPreference: (id: string, optOut: boolean) =>
+    request<CommunicationPreferenceResponse>(`/api/v1/students/${id}/communication-preferences`, {
+      method: "PATCH",
+      body: JSON.stringify({ opt_out: optOut }),
+    }),
 
   upload: async (file: File, autoScore = true) => {
     const form = new FormData();

@@ -12,6 +12,7 @@ from app.services.connectors.base import (
     pick,
     to_int,
     to_float,
+    to_bool,
     to_str,
 )
 
@@ -67,6 +68,9 @@ class GenericConnector:
                 "forma_ingresso": to_str(pick(item, "forma_ingresso", "admission")),
                 "telefone": to_str(pick(item, "telefone", "celular", "whatsapp", "phone")),
                 "email": to_str(pick(item, "email", "e_mail")),
+                "communication_opt_out": to_bool(
+                    pick(item, "communication_opt_out", "comunicacao_opt_out", "opt_out", "optout", "nao_contatar", "não_contatar", "do_not_contact", "dnc"),
+                ),
                 "dias_atraso_boleto": to_int(pick(item, "dias_atraso_boleto", "days_overdue")),
                 "recorrencia_atrasos": to_int(pick(item, "recorrencia_atrasos", "overdue_count")),
                 "dias_sem_login": to_int(pick(item, "dias_sem_login", "days_inactive")),
