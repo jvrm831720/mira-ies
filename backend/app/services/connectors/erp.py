@@ -56,6 +56,8 @@ class JacadConnector:
                 "turma": to_str(pick(item, "turma", "codigoTurma", "classe")),
                 "semestre": to_int(pick(item, "periodo", "semestre", "periodoAtual")),
                 "forma_ingresso": to_str(pick(item, "formaIngresso", "tipoIngresso", "ingresso")),
+                "telefone": to_str(pick(item, "telefone", "celular", "whatsapp", "fone", "telefoneAluno")),
+                "email": to_str(pick(item, "email", "emailAluno", "emailInstitucional", "e_mail")),
                 "dias_atraso_boleto": to_int(pick(item, "diasAtraso", "diasAtrasoBoleto", "atrasoFinanceiro")),
                 "recorrencia_atrasos": to_int(pick(item, "qtdAtrasos", "recorrenciaAtrasos", "atrasosAnteriores")),
                 "dias_sem_login": to_int(pick(item, "diasSemAcesso", "diasInativo", "ultimoAcessoDias")),
@@ -99,6 +101,8 @@ class SponteConnector:
                 "turma": to_str(pick(item, "Turma", "NomeTurma")),
                 "semestre": to_int(pick(item, "Semestre", "Periodo", "Modulo")),
                 "forma_ingresso": to_str(pick(item, "FormaIngresso", "Origem")),
+                "telefone": to_str(pick(item, "Telefone", "Celular", "WhatsApp", "Fone", "TelefoneAluno")),
+                "email": to_str(pick(item, "Email", "EmailAluno", "EmailInstitucional", "E-mail")),
                 "dias_atraso_boleto": to_int(pick(item, "DiasAtraso", "DiasEmAtraso", "Atraso")),
                 "recorrencia_atrasos": to_int(pick(item, "QtdAtrasos", "AtrasosAnteriores")),
                 "dias_sem_login": to_int(pick(item, "DiasSemAcesso", "DiasInativo")),
@@ -136,6 +140,8 @@ class SophiaConnector:
                 "turma": to_str(pick(item, "turma", "serie", "classe")),
                 "semestre": to_int(pick(item, "semestre", "periodo", "serie_num")),
                 "forma_ingresso": to_str(pick(item, "forma_ingresso", "tp_ingresso")),
+                "telefone": to_str(pick(item, "telefone", "celular", "fone", "telefone_aluno")),
+                "email": to_str(pick(item, "email", "email_aluno", "e_mail", "nm_email")),
                 "dias_atraso_boleto": to_int(pick(item, "dias_atraso", "vl_atraso_dias", "dias_atraso_boleto")),
                 "recorrencia_atrasos": to_int(pick(item, "qtd_atrasos", "recorrencia")),
                 "dias_sem_login": to_int(pick(item, "dias_sem_acesso", "dias_inativo")),
@@ -176,6 +182,14 @@ class GvcollegeConnector:
                 "turma": to_str(pick(item, "turmaCodigo", "turma") or pick(aluno, "turma")),
                 "semestre": to_int(pick(item, "periodo", "semestre") or pick(acad, "periodo")),
                 "forma_ingresso": to_str(pick(aluno, "formaIngresso", "ingresso")),
+                "telefone": to_str(
+                    pick(aluno, "telefone", "celular", "whatsapp", "fone")
+                    or pick(item, "telefone", "celular")
+                ),
+                "email": to_str(
+                    pick(aluno, "email", "emailAluno", "e_mail")
+                    or pick(item, "email", "emailAluno")
+                ),
                 "dias_atraso_boleto": to_int(pick(fin, "diasAtraso", "financeiroDiasAtraso", "diasAtrasoBoleto")),
                 "recorrencia_atrasos": to_int(pick(fin, "qtdAtrasos", "recorrenciaAtrasos")),
                 "dias_sem_login": to_int(pick(acad, "diasSemAcesso", "diasInativo")),
@@ -213,6 +227,8 @@ class WpensarConnector:
                 "turma": to_str(pick(item, "class_name", "turma")),
                 "semestre": to_int(pick(item, "semester", "semestre")),
                 "forma_ingresso": to_str(pick(item, "enrollment_type", "forma_ingresso")),
+                "telefone": to_str(pick(item, "phone", "mobile_phone", "mobile", "whatsapp", "telefone")),
+                "email": to_str(pick(item, "email", "email_address", "e_mail")),
                 "dias_atraso_boleto": to_int(pick(item, "days_overdue", "dias_atraso", "overdue_days")),
                 "recorrencia_atrasos": to_int(pick(item, "overdue_count", "qtd_atrasos", "previous_overdues")),
                 "dias_sem_login": to_int(pick(item, "days_inactive", "dias_sem_login")),

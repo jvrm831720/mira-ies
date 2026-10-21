@@ -75,7 +75,7 @@ ou foram puladas não contam).
 |---|---|
 | `tenant_id`, `student_id`, `matricula` | sempre vinculado ao tenant — nunca cross-tenant |
 | `channel` | `whatsapp\|email\|sms`, ou `null` quando nenhum canal era viável |
-| `status` | `planned\|sent\|dry_run\|failed\|skipped` (`planned` reservado para uma futura fila assíncrona — não usado no fluxo síncrono atual) |
+| `status` | `planned\|sent\|dry_run\|failed\|skipped` (`planned` fica reservado para uma futura etapa de planejamento) |
 | `message_preview` | **até 120 caracteres**, nunca o corpo completo (evita logar PII desnecessário) |
 | `skip_reason` / `error` | motivo do skip (anti-spam, missing_contact, risco baixo) ou erro de envio |
 
@@ -83,10 +83,9 @@ ou foram puladas não contam).
 `communication_opt_out` (boolean) e `communication_opted_out_at` (timestamp). A preferência
 é global para WhatsApp, e-mail e SMS e pode ser revogada pela mesma API.
 Aceitos via upload CSV/XLSX (aliases: `telefone`, `celular`, `whatsapp`, `phone`, `contato` /
-`email`, `e_mail`, `opt_out`, `optout`, `nao_contatar`, `do_not_contact`) e via conector genérico (`POST /api/v1/ingest/students`). Conectores
-ERP/LMS específicos (JACAD, Sponte, Moodle, etc.) ainda não extraem telefone/e-mail do payload
-nativo — é um próximo passo natural, por conector, conforme a necessidade real de cada
-integração (o campo já existe no schema canônico, só falta o `pick()` em cada conector).
+`email`, `e_mail`, `opt_out`, `optout`, `nao_contatar`, `do_not_contact`) e via conector genérico
+(`POST /api/v1/ingest/students`). Os conectores ERP/LMS específicos também mapeiam os campos
+nativos de telefone/e-mail para o schema canônico.
 
 Migrações: `backend/alembic/versions/002_agents_and_contact_fields.py` e
 `backend/alembic/versions/005_student_communication_opt_out.py`.
@@ -149,6 +148,28 @@ curl -X POST http://localhost:8000/api/v1/agents/retention/run \
 
 Lista o histórico de intervenções do tenant (mais recentes primeiro).
 
+### Fila assíncrona
+
+Para execuções maiores, use `POST /api/v1/agents/retention/enqueue`. A rota retorna `202` e
+um `job_id`; o tenant pode consultar `GET /api/v1/agents/retention/jobs/{job_id}`. Envie
+`Idempotency-Key` para que uma repetição da mesma requisição retorne o mesmo job, sem criar
+uma segunda execução.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/agents/retention/enqueue \
+  -H "X-API-Key: $API_KEY" -H "Idempotency-Key: rodada-2026-10-21" \
+  -H "Content-Type: application/json" \
+  -d '{"risk_levels":["critico"],"limit":50,"dry_run":true}'
+```
+
+O worker consome Redis, abre uma sessão de banco por job e tenta novamente falhas com backoff
+exponencial. Os defaults são 3 tentativas e atrasos de 5s, 10s e 20s; o estado fica disponível
+por 24 horas. Execute a partir de `backend`:
+
+```bash
+PYTHONPATH=. python -m app.worker
+```
+
 ### `GET /api/v1/agents/retention/preview/{student_id}`
 
 Monta a mensagem do canal prioritário **sem enviar nem gravar log** — útil para a coordenação
@@ -176,7 +197,4 @@ Mostra config de anti-spam e qual provider está ativo por canal.
 ## Limitações conhecidas (fora do escopo desta entrega)
 
 - Conectores ERP/LMS específicos ainda não mapeiam telefone/e-mail do payload nativo.
-- Sem fila/retry assíncrono — o `run` é síncrono dentro da própria request HTTP; para volumes
-  grandes de alunos, mover para um worker (Redis já está no `docker-compose.yml`) é o próximo
-  passo natural.
 - Dashboard/dashboard de acompanhamento das intervenções fica para a Fase 03.

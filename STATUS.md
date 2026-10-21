@@ -18,8 +18,8 @@
 | Providers reais opcionais (Evolution/Resend/Twilio, atras de env vars) | ✅ (nao testados contra APIs reais) |
 | Colunas telefone/email no Student + migracao Alembic 002 | ✅ |
 | API `/api/v1/agents/*` protegida por tenant | ✅ |
-| Conectores ERP/LMS extraindo telefone/email do payload nativo | ⬜ |
-| Fila assincrona / retry (Redis) para volumes grandes | ⬜ |
+| Conectores ERP/LMS extraindo telefone/email do payload nativo | ✅ |
+| Fila assincrona / retry (Redis) para volumes grandes | ✅ |
 | Opt-out explicito de aluno + bloqueio auditavel | ✅ |
 | Ver `docs/AGENTES.md` | |
 

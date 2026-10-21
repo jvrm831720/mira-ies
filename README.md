@@ -48,6 +48,15 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
+Para processar execuções assíncronas da régua de retenção, mantenha um worker em outro
+terminal (com Redis ativo):
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+python -m app.worker
+```
+
 - Docs: http://localhost:8000/docs
 - Health: http://localhost:8000/health
 - PostgreSQL no host: `127.0.0.1:5433` (dentro da rede Docker: `db:5432`).
@@ -84,6 +93,8 @@ curl http://localhost:8000/api/v1/risk/critical
 | POST | `/api/v1/predict` | Predição avulsa |
 | GET | `/api/v1/model/info` | Metadados do modelo |
 | POST | `/api/v1/agents/retention/run` | Roda o Orquestrador (dry-run por padrão) |
+| POST | `/api/v1/agents/retention/enqueue` | Enfileira uma execução com retry Redis |
+| GET | `/api/v1/agents/retention/jobs/{id}` | Consulta o status de um job enfileirado |
 | GET | `/api/v1/agents/retention/logs` | Histórico de intervenções |
 | GET | `/api/v1/agents/retention/preview/{id}` | Mensagem sem enviar |
 | POST | `/api/v1/auth/login/password` | Login por e-mail e senha |

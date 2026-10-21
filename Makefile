@@ -1,4 +1,4 @@
-.PHONY: up down logs backend install test status
+.PHONY: up down logs backend worker install test status
 
 up:
 	docker compose up -d
@@ -14,6 +14,9 @@ install:
 
 backend:
 	cd backend && . .venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+worker:
+	cd backend && . .venv/bin/activate && PYTHONPATH=. python -m app.worker
 
 status:
 	@cat STATUS.md

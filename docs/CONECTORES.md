@@ -23,6 +23,11 @@ ERP / LMS / JSON  →  Conector  →  Schema canonico  →  Supabase  →  Risk 
 
 Legados sem API → upload de planilha (`POST /api/v1/upload`).
 
+Os conectores nativos também normalizam `telefone` e `email`: JACAD, Sponte, SophiA,
+GVcollege e WPensar aceitam seus nomes de cadastro/contato; Moodle usa `phone1`/`phone2` e
+`email`; Canvas usa os campos de contato do evento ou do objeto `user`. Assim, a régua de
+retenção pode escolher WhatsApp/e-mail sem exigir uma segunda planilha de contatos.
+
 ## Endpoints
 
 ```
@@ -43,7 +48,7 @@ POST /api/v1/webhooks/erp/{id}
 ```bash
 curl -X POST http://localhost:8000/api/v1/connectors/jacad/students \
   -H "Content-Type: application/json" \
-  -d '[{"codigoAluno": "2024001", "nomeAluno": "Ana Silva", "diasAtraso": 18, "frequencia": 72.5, "mediaGeral": 6.8}]'
+  -d '[{"codigoAluno": "2024001", "nomeAluno": "Ana Silva", "telefoneAluno": "11999990000", "emailAluno": "ana@ies.edu.br", "diasAtraso": 18, "frequencia": 72.5, "mediaGeral": 6.8}]'
 ```
 
 ## Schema canonico

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,7 @@ from app.core.auth import AuthContext, get_current_tenant
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.intervention import InterventionLog
+from app.services.retention_queue import enqueue_retention_job, get_job
 
 router = APIRouter()
 
@@ -50,6 +51,52 @@ async def run_retention(
         risk_levels=body.risk_levels, batch_id=body.batch_id, limit=body.limit,
         dry_run=body.dry_run, channels=body.channels,
     )
+
+
+@router.post("/agents/retention/enqueue", status_code=202)
+async def enqueue_retention(
+    body: RetentionRunRequest,
+    idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
+    auth: AuthContext = Depends(get_current_tenant),
+):
+    invalid_levels = [lvl for lvl in body.risk_levels if lvl not in _VALID_RISK_LEVELS]
+    if invalid_levels:
+        raise HTTPException(status_code=422, detail=f"risk_levels invalidos: {invalid_levels}")
+    if body.channels:
+        invalid_channels = [c for c in body.channels if c not in _VALID_CHANNELS]
+        if invalid_channels:
+            raise HTTPException(status_code=422, detail=f"channels invalidos: {invalid_channels}")
+    if idempotency_key and len(idempotency_key) > 200:
+        raise HTTPException(status_code=422, detail="Idempotency-Key muito longa")
+    try:
+        job = await enqueue_retention_job(
+            tenant_id=auth.tenant_id,
+            tenant_slug=auth.tenant_slug,
+            payload=body.model_dump(),
+            idempotency_key=idempotency_key,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Fila de retenção indisponível") from exc
+    return {
+        "job_id": job["id"],
+        "status": job["status"],
+        "deduplicated": job.get("deduplicated", False),
+        "created_at": job["created_at"],
+    }
+
+
+@router.get("/agents/retention/jobs/{job_id}")
+async def retention_job_status(
+    job_id: str,
+    auth: AuthContext = Depends(get_current_tenant),
+):
+    try:
+        job = await get_job(job_id, tenant_id=auth.tenant_id)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Fila de retenção indisponível") from exc
+    if not job:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    return job
 
 
 @router.get("/agents/retention/logs")
@@ -114,5 +161,10 @@ async def agents_status(auth: AuthContext = Depends(get_current_tenant)):
             "whatsapp": "evolution" if settings.evolution_api_url else "dry_run",
             "email": "resend" if settings.resend_api_key else "dry_run",
             "sms": "twilio" if settings.twilio_account_sid else "dry_run",
+        },
+        "queue": {
+            "name": settings.retention_queue_name,
+            "max_attempts": settings.retention_max_attempts,
+            "retry_backoff_seconds": settings.retention_retry_backoff_seconds,
         },
     }

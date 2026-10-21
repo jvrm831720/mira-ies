@@ -96,6 +96,8 @@ class MoodleConnector:
                 "turma": to_str(pick(item, "group", "turma", "section")),
                 "semestre": to_int(pick(item, "semester", "semestre")),
                 "forma_ingresso": None,
+                "telefone": to_str(pick(item, "phone1", "phone2", "phone", "mobile", "telefone", "celular")),
+                "email": to_str(pick(item, "email", "emailaddress", "e_mail")),
                 "dias_atraso_boleto": None,
                 "recorrencia_atrasos": None,
                 "dias_sem_login": dias_login,
@@ -139,6 +141,7 @@ class CanvasConnector:
             nome = to_str(pick(item, "name", "user_name", "nome", "sortable_name"))
             if not matricula or not nome:
                 continue
+            user = item.get("user") if isinstance(item.get("user"), dict) else {}
 
             dias_login = to_int(pick(item, "dias_sem_login"))
             if dias_login is None:
@@ -153,6 +156,14 @@ class CanvasConnector:
                 "turma": to_str(pick(item, "section_name", "section", "turma")),
                 "semestre": to_int(pick(item, "term", "semestre")),
                 "forma_ingresso": None,
+                "telefone": to_str(
+                    pick(item, "phone", "phone_number", "mobile", "telefone", "celular")
+                    or pick(user, "phone", "phone_number", "mobile", "telefone")
+                ),
+                "email": to_str(
+                    pick(item, "email", "email_address", "e_mail")
+                    or pick(user, "email", "email_address")
+                ),
                 "dias_atraso_boleto": None,
                 "recorrencia_atrasos": None,
                 "dias_sem_login": dias_login,

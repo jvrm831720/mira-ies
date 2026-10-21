@@ -101,6 +101,29 @@ def test_generic_transform_returns_empty_for_none_payload():
     assert GenericConnector().transform(None) == []
 
 
+def test_erp_connectors_map_native_phone_and_email_fields():
+    cases = [
+        (JacadConnector(), {"codigoAluno": "J1", "nomeAluno": "Ana", "telefoneAluno": "1199", "emailAluno": "ana@x.com"}),
+        (SponteConnector(), {"AlunoID": "S1", "Nome": "Bia", "Celular": "1188", "Email": "bia@x.com"}),
+        (SophiaConnector(), {"cod_aluno": "H1", "nome": "Caio", "fone": "1177", "email_aluno": "caio@x.com"}),
+        (GvcollegeConnector(), {"aluno": {"alunoCodigo": "G1", "alunoNome": "Dani", "celular": "1166", "email": "dani@x.com"}}),
+        (WpensarConnector(), {"student_id": "W1", "name": "Eva", "mobile_phone": "1155", "email_address": "eva@x.com"}),
+    ]
+    for connector, payload in cases:
+        record = connector.transform([payload])[0]
+        assert record["telefone"]
+        assert record["email"].endswith("@x.com")
+
+
+def test_lms_connectors_map_native_phone_and_email_fields():
+    moodle = MoodleConnector().transform([{"id": "M1", "fullname": "Fabi", "phone1": "1144", "email": "fabi@x.com"}])[0]
+    canvas = CanvasConnector().transform([{"sis_user_id": "C1", "name": "Gui", "user": {"phone": "1133", "email": "gui@x.com"}}])[0]
+    assert moodle["telefone"] == "1144"
+    assert moodle["email"] == "fabi@x.com"
+    assert canvas["telefone"] == "1133"
+    assert canvas["email"] == "gui@x.com"
+
+
 def test_registry_unknown_connector_raises_keyerror():
     with pytest.raises(KeyError):
         get_connector("does-not-exist")

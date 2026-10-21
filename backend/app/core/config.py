@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://beacon:beacon_secret@127.0.0.1:5433/beacon"
     database_url_sync: str = "postgresql://beacon:beacon_secret@127.0.0.1:5433/beacon"
     redis_url: str = "redis://localhost:6379/0"
+    retention_queue_name: str = "beacon:retention:jobs"
+    retention_job_ttl_seconds: int = 86400
+    retention_max_attempts: int = 3
+    retention_retry_backoff_seconds: int = 5
 
     max_upload_size_mb: int = 50
     allowed_extensions: str = "csv,xlsx,xls"
