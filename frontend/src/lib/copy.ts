@@ -10,9 +10,8 @@ export const copy = {
   commandSubtitle: "Visão imediata dos alunos que precisam de atenção.",
   criticalNow: "Precisam de atenção agora",
   importCta: "Importar planilha",
-  retentionCta: "Simular retenção",
+  retentionCta: "Abrir retenção",
   emptyStudents: "Nenhum aluno pontuado ainda. Importe uma planilha para começar.",
-  dryRunBanner: "Modo simulação: nenhuma mensagem real será enviada.",
   modelDisclaimerFallback:
     "O modelo base pode ter sido treinado com dados sintéticos. Use como apoio à decisão da coordenação.",
 };

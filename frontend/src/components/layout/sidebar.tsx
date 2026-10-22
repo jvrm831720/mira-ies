@@ -11,6 +11,7 @@ import {
   ScrollText,
   Settings,
   UserCog,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ const links = [
   { href: "/", label: "Visão geral", icon: LayoutDashboard },
   { href: "/alunos", label: "Alunos", icon: Users },
   { href: "/importar", label: "Importar", icon: Upload },
+  { href: "/conectores", label: "Conectores", icon: Plug },
   { href: "/retencao", label: "Retenção", icon: MessageSquareHeart },
   { href: "/retencao/logs", label: "Logs de contato", icon: ScrollText },
   { href: "/membros", label: "Membros", icon: UserCog },
