@@ -1,21 +1,29 @@
 """Database session management — preparado para Supabase Cloud."""
 
+from uuid import uuid4
+
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
 settings = get_settings()
+database_url = make_url(settings.database_url).update_query_dict(
+    {"prepared_statement_cache_size": "0"}
+)
 
 engine = create_async_engine(
-    settings.database_url,
+    database_url,
     echo=settings.debug,
     future=True,
-    pool_pre_ping=True,
-    connect_args={"statement_cache_size": 0},
-    pool_size=5,
-    max_overflow=10,
+    poolclass=NullPool,
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",
+    },
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
