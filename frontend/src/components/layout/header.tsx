@@ -30,6 +30,7 @@ const mobileLinks = [
   { href: "/retencao", label: "Retenção" },
   { href: "/retencao/logs", label: "Logs" },
   { href: "/membros", label: "Membros" },
+  { href: "/fatura", label: "Fatura" },
   { href: "/config", label: "Config" },
 ];
 
@@ -78,7 +79,6 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
     }
     setHelpSending(true);
     try {
-      // Persistência local até existir endpoint de suporte
       const key = "mira_help_tickets";
       const prev = JSON.parse(window.localStorage.getItem(key) || "[]") as unknown[];
       prev.unshift({
@@ -116,7 +116,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
   ];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-border/80 bg-[hsl(var(--background))]/90 backdrop-blur-xl">
       <div className="flex min-h-[64px] items-center justify-between gap-4 px-4 py-2.5 md:px-9">
         <div className="min-w-0">
           <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-muted-foreground sm:flex">
@@ -125,7 +125,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
               {me.data?.tenant_name || "Mira"}
             </span>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-foreground/70">{title}</span>
+            <span className="text-foreground/80">{title}</span>
           </div>
           <h1 className="truncate text-[18px] font-semibold tracking-[-0.03em] md:text-[20px]">
             {title}
@@ -137,33 +137,20 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
           ) : null}
         </div>
 
-        {/* Top bar actions */}
         <div className="relative flex items-center gap-1" ref={panelRef}>
-          <IconButton
-            label="Notificações"
-            active={panel === "notifications"}
-            onClick={() => toggle("notifications")}
-          >
+          <IconButton label="Notificações" active={panel === "notifications"} onClick={() => toggle("notifications")}>
             <Bell className="h-[18px] w-[18px]" />
           </IconButton>
-          <IconButton
-            label="Ajuda"
-            active={panel === "help"}
-            onClick={() => toggle("help")}
-          >
+          <IconButton label="Ajuda" active={panel === "help"} onClick={() => toggle("help")}>
             <CircleHelp className="h-[18px] w-[18px]" />
           </IconButton>
-          <IconButton
-            label="Conta"
-            active={panel === "account"}
-            onClick={() => toggle("account")}
-          >
+          <IconButton label="Conta" active={panel === "account"} onClick={() => toggle("account")}>
             <UserRound className="h-[18px] w-[18px]" />
           </IconButton>
 
           <button
             type="button"
-            className="ml-1 rounded-xl border border-border bg-white p-2.5 text-foreground transition hover:bg-muted md:hidden"
+            className="ml-1 rounded-xl border border-border bg-card p-2.5 text-foreground transition hover:bg-muted md:hidden"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
             aria-expanded={mobileOpen}
@@ -171,34 +158,26 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
 
-          {/* Notifications popup */}
           {panel === "notifications" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-2xl border border-border bg-white shadow-xl">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <p className="text-sm font-semibold">Notificações</p>
                 <span className="text-[10px] text-muted-foreground">{notifications.length} recentes</span>
               </div>
               <ul className="max-h-[320px] overflow-y-auto">
                 {notifications.map((n) => (
-                  <li
-                    key={n.id}
-                    className="border-b border-border/70 px-4 py-3 last:border-0 hover:bg-muted/40"
-                  >
+                  <li key={n.id} className="border-b border-border/70 px-4 py-3 last:border-0 hover:bg-muted/40">
                     <p className="text-[13px] font-semibold">{n.title}</p>
                     <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{n.body}</p>
                     <p className="mt-1 text-[10px] text-muted-foreground/80">{n.time}</p>
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-border px-4 py-2.5 text-center text-[11px] text-muted-foreground">
-                Alertas da instituição e da operação de retenção
-              </div>
             </div>
           )}
 
-          {/* Help form */}
           {panel === "help" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,360px)] overflow-hidden rounded-2xl border border-border bg-white shadow-xl">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,360px)] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
               <div className="border-b border-border px-4 py-3">
                 <p className="text-sm font-semibold">Pedir ajuda</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -237,9 +216,8 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
             </div>
           )}
 
-          {/* Account menu */}
           {panel === "account" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,280px)] overflow-hidden rounded-2xl border border-border bg-white shadow-xl">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,280px)] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
               <div className="border-b border-border px-4 py-3">
                 <p className="truncate text-sm font-semibold">
                   {me.data?.display_name || me.data?.email || "Conta"}
@@ -253,7 +231,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
                 <Link
                   href="/config"
                   onClick={() => setPanel("none")}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-foreground transition hover:bg-muted"
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] transition hover:bg-muted"
                 >
                   <Settings className="h-4 w-4 text-muted-foreground" />
                   Configurações
@@ -261,7 +239,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-foreground transition hover:bg-muted"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] transition hover:bg-muted"
                 >
                   <LogOut className="h-4 w-4 text-muted-foreground" />
                   Sair da conta
@@ -273,10 +251,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
       </div>
 
       {mobileOpen && (
-        <nav
-          aria-label="Navegação mobile"
-          className="border-t border-border bg-white px-4 py-3 md:hidden"
-        >
+        <nav aria-label="Navegação mobile" className="border-t border-border bg-card px-4 py-3 md:hidden">
           <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-2 text-xs text-muted-foreground">
             <Building2 className="h-3.5 w-3.5" />
             <span className="truncate font-medium text-foreground">

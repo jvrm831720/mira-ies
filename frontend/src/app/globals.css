@@ -3,32 +3,33 @@
 @tailwind utilities;
 
 :root {
-  --background: 225 33% 98%;
-  --foreground: 240 68% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 68% 12%;
-  --primary: 234 61% 51%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 233 55% 96%;
-  --secondary-foreground: 240 68% 12%;
-  --muted: 225 30% 95%;
-  --muted-foreground: 228 12% 43%;
-  --accent: 233 55% 96%;
-  --accent-foreground: 240 68% 12%;
-  --destructive: 0 72% 51%;
+  /* Dark premium shell — aligned with login / Kravio inspirations */
+  --background: 240 28% 7%;
+  --foreground: 210 40% 96%;
+  --card: 240 24% 10%;
+  --card-foreground: 210 40% 96%;
+  --primary: 234 72% 64%;
+  --primary-foreground: 240 28% 8%;
+  --secondary: 240 20% 14%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 240 16% 14%;
+  --muted-foreground: 225 12% 62%;
+  --accent: 240 18% 16%;
+  --accent-foreground: 210 40% 96%;
+  --destructive: 0 72% 55%;
   --destructive-foreground: 0 0% 100%;
-  --success: 160 84% 30%;
+  --success: 160 70% 42%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 50%;
   --warning-foreground: 26 83% 14%;
-  --border: 226 24% 90%;
-  --input: 226 24% 87%;
-  --ring: 234 61% 51%;
-  --brand-indigo: #4050cd;
-  --brand-blue: #29399f;
+  --border: 240 14% 18%;
+  --input: 240 14% 18%;
+  --ring: 234 72% 64%;
+  --brand-indigo: #6b78f0;
+  --brand-blue: #4f5fd4;
   --brand-coral: #f47769;
-  --brand-midnight: #100d50;
-  --brand-black: #090909;
+  --brand-midnight: #0b0a14;
+  --brand-black: #05050a;
   --radius: 1rem;
 }
 
@@ -38,6 +39,7 @@
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
@@ -57,6 +59,13 @@ body {
 :focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
+}
+
+/* Inputs & surfaces inside the app */
+input,
+textarea,
+select {
+  color-scheme: dark;
 }
 
 @media (prefers-reduced-motion: reduce) {

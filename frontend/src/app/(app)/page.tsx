@@ -80,17 +80,16 @@ export default function CommandCenterPage() {
     <>
       <Header title="Página inicial" subtitle="Priorize risco e acompanhe a permanência estudantil." />
       <main className="mx-auto w-full max-w-[1100px] space-y-6 px-4 pb-10 pt-5 md:px-9 md:pt-6">
-        {/* Search — Meu Arco style */}
         <form onSubmit={onSearchSubmit} className="relative">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Busque aluno por nome, matrícula ou curso"
-            className="h-12 w-full rounded-full border border-border bg-white pl-11 pr-4 text-sm shadow-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+            className="h-12 w-full rounded-full border border-border bg-card pl-11 pr-4 text-sm text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
           />
           {searchHits.length > 0 && (
-            <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-10 overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+            <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-10 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
               {searchHits.map((s) => (
                 <li key={s.id}>
                   <Link
@@ -110,13 +109,12 @@ export default function CommandCenterPage() {
           )}
         </form>
 
-        {/* Quick actions */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {quickActions.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-white px-3 py-4 text-center shadow-sm transition hover:border-primary/25 hover:shadow-md"
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card px-3 py-4 text-center shadow-sm transition hover:border-white/10 hover:bg-muted/40"
             >
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-primary">
                 <Icon className="h-[18px] w-[18px]" />
@@ -126,10 +124,9 @@ export default function CommandCenterPage() {
           ))}
         </div>
 
-        {/* Compact hero strip */}
-        <section className="flex flex-col gap-4 rounded-2xl bg-[var(--brand-midnight)] px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <section className="flex flex-col gap-4 rounded-2xl border border-white/5 bg-[#12111f] px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium tracking-wide text-white/55">Mira · permanência estudantil</p>
+            <p className="text-[11px] font-medium tracking-wide text-white/45">Mira · permanência estudantil</p>
             <p className="mt-1 text-[15px] font-semibold leading-snug sm:text-base">
               {isEmpty
                 ? "Importe a base para ver quem precisa de atenção."
@@ -139,13 +136,13 @@ export default function CommandCenterPage() {
           <div className="flex shrink-0 flex-wrap gap-2">
             <Link
               href="/importar"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--brand-coral)] px-3.5 text-[12px] font-semibold text-[var(--brand-midnight)]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--brand-coral)] px-3.5 text-[12px] font-semibold text-[#0b0a14]"
             >
               <Upload className="h-3.5 w-3.5" /> Importar
             </Link>
             <Link
               href="/retencao"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 text-[12px] font-medium text-white"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3.5 text-[12px] font-medium text-white"
             >
               Retenção
             </Link>
@@ -155,12 +152,12 @@ export default function CommandCenterPage() {
         {summary.isError && (
           <div
             role="alert"
-            className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+            className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">Não foi possível carregar o resumo agora.</p>
-              <p className="mt-0.5 text-xs text-red-800">
+              <p className="mt-0.5 text-xs text-red-200/80">
                 Confira se o backend está no ar e tente atualizar a página.
               </p>
             </div>
@@ -168,8 +165,8 @@ export default function CommandCenterPage() {
         )}
 
         {isEmpty && (
-          <section className="rounded-2xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center">
-            <GraduationCap className="mx-auto h-8 w-8 text-primary/40" />
+          <section className="rounded-2xl border border-dashed border-border bg-card/50 px-5 py-8 text-center">
+            <GraduationCap className="mx-auto h-8 w-8 text-primary/50" />
             <p className="mt-3 text-sm font-semibold">Ainda não há alunos pontuados</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
               Importe uma planilha ou sincronize um conector para montar o painel de risco.
@@ -209,11 +206,11 @@ export default function CommandCenterPage() {
         )}
 
         {(model.data?.disclaimer || model.data?.training_data === "synthetic") && (
-          <Card className="border-[#e8e4d9] bg-[#fbfaf7] shadow-none">
-            <CardContent className="flex items-start gap-3 p-4 text-xs text-[#5f594b]">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-indigo)]" />
+          <Card className="border-border/80 bg-card shadow-none">
+            <CardContent className="flex items-start gap-3 p-4 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <div>
-                <p className="font-semibold">Apoio à decisão da coordenação</p>
+                <p className="font-semibold text-foreground">Apoio à decisão da coordenação</p>
                 <p className="mt-1 leading-relaxed">
                   {model.data?.disclaimer || copy.modelDisclaimerFallback}
                 </p>
