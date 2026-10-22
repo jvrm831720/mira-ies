@@ -15,6 +15,9 @@ from app.db.session import get_db
 from app.models.auth import User
 from app.models.tenant import Tenant
 
+# Hierarquia simples: admin > coordinator > operator > viewer
+ROLE_RANK = {"viewer": 1, "operator": 2, "coordinator": 3, "admin": 4}
+
 
 @dataclass
 class AuthContext:
@@ -22,6 +25,7 @@ class AuthContext:
     tenant_id: str
     tenant_slug: str
     user_id: Optional[str] = None
+    role: Optional[str] = None  # None = API key legada (poder equivalente a admin em dev)
 
 
 def _unauthorized(detail: str = "API key ou sessão inválida.") -> HTTPException:
@@ -45,7 +49,14 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     tenant = await db.get(Tenant, user.tenant_id)
     if not tenant or not tenant.is_active:
         raise _unauthorized()
-    return AuthContext(tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug, user_id=user.id)
+    role = user.role if getattr(user, "role", None) in ROLE_RANK else "coordinator"
+    return AuthContext(
+        tenant=tenant,
+        tenant_id=tenant.id,
+        tenant_slug=tenant.slug,
+        user_id=user.id,
+        role=role,
+    )
 
 
 async def get_current_tenant(
@@ -80,7 +91,9 @@ async def get_current_tenant(
 
     if settings.app_env == "development" and settings.dev_api_key and raw_key == settings.dev_api_key:
         tenant = await _get_or_bootstrap_default(db, raw_key)
-        return AuthContext(tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug)
+        return AuthContext(
+            tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug, role="admin"
+        )
 
     key_hash = hash_api_key(raw_key)
     result = await db.execute(
@@ -89,7 +102,10 @@ async def get_current_tenant(
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise _unauthorized("API key inválida ou tenant inativo.")
-    return AuthContext(tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug)
+    # API key de integração: privilégio operacional alto (sem user)
+    return AuthContext(
+        tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug, role="admin"
+    )
 
 
 async def _get_or_bootstrap_default(db: AsyncSession, raw_key: str) -> Tenant:
@@ -117,3 +133,53 @@ async def require_tenant_match(auth: AuthContext, claimed_slug: Optional[str]) -
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"tenant_slug '{claimed_slug}' nao corresponde a API key (tenant '{auth.tenant_slug}').",
         )
+
+
+def require_roles(*allowed: str):
+    """Dependency factory: exige um dos papéis (ou rank superior)."""
+    min_rank = min(ROLE_RANK.get(r, 99) for r in allowed) if allowed else 0
+
+    async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        role = auth.role or "viewer"
+        rank = ROLE_RANK.get(role, 0)
+        if rank < min_rank and role not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você não tem permissão para esta ação.",
+            )
+        # Also accept if role is in allowed list even with weird ranks
+        if allowed and role not in allowed and rank < min_rank:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você não tem permissão para esta ação.",
+            )
+        if allowed and role not in allowed:
+            # rank-based: admin can do coordinator things
+            highest_allowed = max(ROLE_RANK.get(r, 0) for r in allowed)
+            if rank < highest_allowed and role not in allowed:
+                # allow higher rank than minimum required among allowed
+                if rank >= min_rank:
+                    return auth
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Você não tem permissão para esta ação.",
+                )
+        return auth
+
+    return _dep
+
+
+def require_min_role(min_role: str):
+    """Exige rank >= min_role (admin passa em tudo)."""
+    threshold = ROLE_RANK.get(min_role, 99)
+
+    async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        rank = ROLE_RANK.get(auth.role or "viewer", 0)
+        if rank < threshold:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você não tem permissão para esta ação.",
+            )
+        return auth
+
+    return _dep
