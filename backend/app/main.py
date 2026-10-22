@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org
+from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing
 from app.db.session import init_db
 from app.ml.model import load_model
 
@@ -100,14 +100,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Mira — permanência estudantil, autenticação e isolamento multi-tenant",
-    version="0.6.1-dev-admin",
+    version="0.7.0-billing",
     lifespan=lifespan,
 )
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
-    """Return validation details without reflecting submitted values such as passwords."""
     safe_errors = []
     for error in exc.errors():
         sanitized = dict(error)
@@ -138,17 +137,16 @@ app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"]
 app.include_router(delivery_webhooks.router, prefix="/api/v1", tags=["Webhooks de entrega"])
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(org.router, prefix="/api/v1")
+app.include_router(billing.router, prefix="/api/v1")
 
 
 @app.get("/")
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.6.1-dev-admin",
-        "phase": "Organização: membros e convites",
+        "version": "0.7.0-billing",
+        "phase": "Fatura e créditos por canal",
         "status": "running",
         "docs": "/docs",
-        "auth": "Sessão Mira via Bearer ou API key legada via X-API-Key nas rotas protegidas",
-        "org": "/api/v1/org/members · /api/v1/org/invites",
-        "model_disclaimer": "Base treinado em sintético — score assistido, nao prediccao validada",
+        "billing": "/api/v1/billing/summary · /api/v1/billing/credits",
     }

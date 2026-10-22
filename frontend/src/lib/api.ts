@@ -4,6 +4,7 @@ import type {
   AgentsStatus,
   AuthActionResponse,
   AuthResponse,
+  BillingSummary,
   CommunicationPreferenceResponse,
   CriticalResponse,
   InviteMemberRequest,
@@ -13,6 +14,8 @@ import type {
   MembersResponse,
   ModelInfo,
   PreviewMessage,
+  PurchaseCreditsRequest,
+  PurchaseCreditsResponse,
   RetentionRunRequest,
   RetentionRunResult,
   RiskSummary,
@@ -43,7 +46,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, { ...init, headers });
+  } catch {
+    throw new ApiError(0, "Falha de rede ao falar com o servidor");
+  }
 
   if (res.status === 403) {
     if (typeof window !== "undefined" && !window.location.pathname.startsWith("/unauthorized")) {
@@ -226,4 +234,12 @@ export const api = {
       `/api/v1/connectors/${encodeURIComponent(connectorId)}/students?auto_score=${autoScore}`,
       { method: "POST", body: JSON.stringify(payload) }
     ),
+
+  billingSummary: () => request<BillingSummary>("/api/v1/billing/summary"),
+
+  purchaseCredits: (body: PurchaseCreditsRequest) =>
+    request<PurchaseCreditsResponse>("/api/v1/billing/credits", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };

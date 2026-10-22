@@ -12,6 +12,7 @@ import {
   LogOut,
   MessageSquareHeart,
   Plug,
+  Receipt,
   ScrollText,
   Settings,
   Upload,
@@ -30,6 +31,7 @@ const links = [
   { href: "/retencao", label: "Retenção", icon: MessageSquareHeart },
   { href: "/retencao/logs", label: "Logs de contato", icon: ScrollText },
   { href: "/membros", label: "Membros", icon: UserCog },
+  { href: "/fatura", label: "Fatura", icon: Receipt },
   { href: "/config", label: "Configurações", icon: Settings },
 ];
 
@@ -65,7 +67,6 @@ export function Sidebar() {
 
   return (
     <aside className="hidden min-h-screen w-[260px] shrink-0 flex-col bg-[var(--brand-midnight)] text-white md:flex">
-      {/* Brand */}
       <div className="flex h-[64px] items-center border-b border-white/10 px-5">
         <Image
           src="/mira-logo.svg"
@@ -77,7 +78,6 @@ export function Sidebar() {
         />
       </div>
 
-      {/* Organization switcher */}
       <div className="relative border-b border-white/10 px-3 py-3" ref={orgRef}>
         <button
           type="button"
@@ -129,7 +129,6 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Nav */}
       <nav aria-label="Navegação principal" className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-4">
         <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
           Workspace
@@ -167,7 +166,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Account / logout */}
       <div className="border-t border-white/10 p-3">
         <div className="mb-2 rounded-xl bg-white/[0.04] px-3 py-2.5">
           <p className="truncate text-[12px] font-semibold text-white/90">{displayName}</p>
