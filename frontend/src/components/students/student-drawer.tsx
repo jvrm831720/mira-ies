@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { RiskBadge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { formatScore } from "@/lib/utils";
@@ -166,18 +166,43 @@ export function StudentDrawer({
 
         <div className="border-t border-border p-4">
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button asChild className="flex-1 rounded-full" disabled={!studentId}>
-              <Link href={studentId ? `/alunos/${studentId}` : "#"} onClick={onClose}>
-                <ExternalLink className="h-4 w-4" />
-                Abrir ficha completa
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="flex-1 rounded-full" disabled={!studentId}>
-              <Link href="/retencao" onClick={onClose}>
-                <MessageCircle className="h-4 w-4" />
-                Retenção
-              </Link>
-            </Button>
+            <Link
+              href={studentId ? `/alunos/${studentId}` : "#"}
+              onClick={(event) => {
+                if (!studentId) {
+                  event.preventDefault();
+                  return;
+                }
+                onClose();
+              }}
+              aria-disabled={!studentId}
+              tabIndex={studentId ? undefined : -1}
+              className={buttonVariants({
+                className: `flex-1 rounded-full ${!studentId ? "pointer-events-none opacity-50" : ""}`,
+              })}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Abrir ficha completa
+            </Link>
+            <Link
+              href="/retencao"
+              onClick={(event) => {
+                if (!studentId) {
+                  event.preventDefault();
+                  return;
+                }
+                onClose();
+              }}
+              aria-disabled={!studentId}
+              tabIndex={studentId ? undefined : -1}
+              className={buttonVariants({
+                variant: "outline",
+                className: `flex-1 rounded-full ${!studentId ? "pointer-events-none opacity-50" : ""}`,
+              })}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Retenção
+            </Link>
           </div>
         </div>
       </aside>

@@ -227,7 +227,10 @@ export const api = {
     ),
 
   listConnectors: () =>
-    request<{ count: number; connectors: Array<Record<string, unknown>> }>("/api/v1/connectors"),
+    request<{
+      count: number;
+      connectors: Array<{ id: string; name: string; category?: string; description?: string }>;
+    }>("/api/v1/connectors"),
 
   ingestConnector: (connectorId: string, payload: unknown, autoScore = true) =>
     request<Record<string, unknown>>(
