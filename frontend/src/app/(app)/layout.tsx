@@ -8,7 +8,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <AuthGate>
       <div className="min-h-screen bg-[hsl(var(--background))] md:flex">
         <Sidebar />
-        <div className="min-w-0 flex-1 bg-[hsl(var(--background))]">{children}</div>
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
     </AuthGate>
   );

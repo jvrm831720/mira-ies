@@ -11,7 +11,7 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       note: "Atenção prioritária",
       value: s?.critico ?? 0,
       icon: AlertTriangle,
-      accent: "text-[#f47769] bg-[#f47769]/12",
+      accent: "text-[#e76e61] bg-[#fff0ed]",
       bar: "bg-[var(--brand-coral)]",
     },
     {
@@ -19,7 +19,7 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       note: "Acompanhar de perto",
       value: s?.medio ?? 0,
       icon: Activity,
-      accent: "text-[var(--brand-indigo)] bg-[var(--brand-indigo)]/12",
+      accent: "text-[var(--brand-indigo)] bg-[#eef0ff]",
       bar: "bg-[var(--brand-indigo)]",
     },
     {
@@ -27,15 +27,15 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       note: "Evolução estável",
       value: s?.baixo ?? 0,
       icon: CheckCircle2,
-      accent: "text-emerald-400 bg-emerald-400/12",
-      bar: "bg-emerald-400",
+      accent: "text-emerald-700 bg-emerald-50",
+      bar: "bg-emerald-500",
     },
     {
       label: "Total pontuados",
       note: "Alunos analisados",
       value: data?.total_scored ?? (s ? s.baixo + s.medio + s.critico : 0),
       icon: Users,
-      accent: "text-primary bg-primary/15",
+      accent: "text-primary bg-primary/10",
       bar: "bg-primary",
     },
   ];
@@ -45,7 +45,7 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       {items.map((item) => (
         <Card
           key={item.label}
-          className="group relative overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:border-white/10"
+          className="group relative overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(16,13,80,0.08)]"
         >
           <span className={`absolute inset-x-0 top-0 h-[3px] ${item.bar}`} />
           <CardContent className="flex items-center justify-between p-5">
