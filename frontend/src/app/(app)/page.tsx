@@ -74,8 +74,8 @@ export default function CommandCenterPage() {
               </h2>
               <p className="mt-3 max-w-lg text-[13px] leading-6 text-white/65 sm:text-sm">
                 {isEmpty
-                  ? "Importe a planilha da instituição para gerar indicadores de risco e priorizar o acompanhamento."
-                  : "Veja quem precisa de atenção agora e organize o próximo passo da sua equipe, com os dados da sua instituição."}
+                  ? "Importe a planilha ou conecte o ERP/LMS para gerar indicadores de risco."
+                  : "Veja quem precisa de atenção agora e organize o próximo passo da sua equipe."}
               </p>
               <div className="mt-6 flex flex-wrap gap-2.5">
                 <Link href="/importar" className={buttonPrimary}>
@@ -148,8 +148,8 @@ export default function CommandCenterPage() {
               {[
                 {
                   step: "01",
-                  title: "Importar planilha",
-                  body: "CSV ou Excel com matrícula e nome. Telefone/e-mail liberam retenção.",
+                  title: "Importar ou conectar",
+                  body: "Planilha CSV/Excel ou payload de ERP/LMS em Conectores.",
                   href: "/importar",
                   cta: "Ir para importar",
                 },
@@ -162,8 +162,8 @@ export default function CommandCenterPage() {
                 },
                 {
                   step: "03",
-                  title: "Simular retenção",
-                  body: "Monte a régua em modo seguro — nada é enviado sem confirmação.",
+                  title: "Ativar retenção",
+                  body: "Monte a campanha e execute a régua com anti-spam e opt-out.",
                   href: "/retencao",
                   cta: "Abrir retenção",
                 },
@@ -215,11 +215,22 @@ export default function CommandCenterPage() {
             <CheckCircle2 className="mx-auto h-8 w-8 text-primary/40" />
             <p className="mt-3 text-sm font-semibold">Ainda não há alunos pontuados</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-              Depois da importação, o panorama de risco e a lista prioritária aparecem aqui.
+              Depois da importação ou do conector, o panorama de risco aparece aqui.
             </p>
-            <Link href="/importar" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">
-              <Upload className="h-4 w-4" /> Importar agora
-            </Link>
+            <div className="mt-4 flex flex-wrap justify-center gap-3">
+              <Link
+                href="/importar"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+              >
+                <Upload className="h-4 w-4" /> Importar agora
+              </Link>
+              <Link
+                href="/conectores"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+              >
+                Abrir conectores
+              </Link>
+            </div>
           </section>
         )}
 
@@ -235,7 +246,7 @@ export default function CommandCenterPage() {
               <span className="min-w-0 flex-1">
                 <span className="block text-[13px] font-semibold">Atualize sua base</span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Importe uma planilha para recalcular os sinais de risco.
+                  Importe uma planilha ou use um conector ERP/LMS.
                 </span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
@@ -252,7 +263,7 @@ export default function CommandCenterPage() {
               <span className="min-w-0 flex-1">
                 <span className="block text-[13px] font-semibold">Planeje a próxima abordagem</span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Revise a régua de contato antes de iniciar uma simulação.
+                  Monte a campanha e execute a régua de contato.
                 </span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
@@ -268,16 +279,13 @@ export default function CommandCenterPage() {
                 <p className="font-semibold">Decisão apoiada por dados, cuidado conduzido por pessoas</p>
                 <p className="mt-1 leading-relaxed">
                   {model.data?.disclaimer || copy.modelDisclaimerFallback}
-                  {model.data?.model_scope ? ` · Escopo: ${model.data.model_scope}` : ""}
-                  {model.data?.training_data ? ` · Dados: ${model.data.training_data}` : ""}
                 </p>
               </div>
             </CardContent>
           </Card>
         )}
         <p className="px-1 text-[10px] leading-relaxed text-muted-foreground">
-          Os indicadores apoiam a priorização da equipe e não substituem a avaliação individual nem o
-          acompanhamento humano.
+          Os indicadores apoiam a priorização da equipe e não substituem a avaliação individual.
         </p>
       </main>
     </>
