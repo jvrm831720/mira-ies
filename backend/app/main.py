@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
                 session.add(t)
                 await session.commit()
                 await session.refresh(t)
-                print(f"Tenant default criado. Dev API key: {settings.dev_api_key}")
+                print("Tenant default criado; credencial de API omitida dos logs.")
             elif not t.api_key_hash:
                 t.api_key_hash = hash_api_key(settings.dev_api_key)
                 await session.commit()
@@ -80,9 +80,7 @@ async def lifespan(app: FastAPI):
                     )
                     session.add(admin)
                     await session.commit()
-                    print(
-                        f"Usuário admin de desenvolvimento criado: {_DEV_ADMIN_EMAIL} / {_DEV_ADMIN_PASSWORD}"
-                    )
+                    print("Usuário admin de desenvolvimento criado; senha omitida dos logs.")
                 else:
                     print(f"Admin de desenvolvimento já existe: {_DEV_ADMIN_EMAIL}")
     except Exception as e:
