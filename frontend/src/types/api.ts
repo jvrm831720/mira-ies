@@ -75,6 +75,14 @@ export type AcceptInviteRequest = {
   phone?: string;
 };
 
+export type BillingInvoice = {
+  id: string;
+  date: string;
+  amount_brl: number;
+  label?: string;
+  download_url?: string | null;
+};
+
 export type BillingSummary = {
   plan_name: string;
   plan_status: "active" | "past_due" | "trialing";
@@ -84,8 +92,10 @@ export type BillingSummary = {
   next_invoice_brl: number;
   period_spend_brl: number;
   period_messages: number;
+  payment_link?: string | null;
   credits: { whatsapp: number; email: number; sms: number };
   used_period: { whatsapp: number; email: number; sms: number };
+  invoices: BillingInvoice[];
 };
 
 export type PurchaseCreditsRequest = {

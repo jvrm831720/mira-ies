@@ -4,18 +4,20 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CreditCard,
+  Download,
+  ExternalLink,
   Mail,
   MessageCircle,
   MessageSquare,
   Plus,
   Receipt,
   Sparkles,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +37,7 @@ export default function FaturaPage() {
   const qc = useQueryClient();
   const [channel, setChannel] = useState<"whatsapp" | "email" | "sms">("whatsapp");
   const [packId, setPackId] = useState<(typeof PACKS)[number]["id"]>("growth");
+  const [invoicesOpen, setInvoicesOpen] = useState(false);
 
   const billing = useQuery({
     queryKey: ["billing-summary"],
@@ -58,6 +61,7 @@ export default function FaturaPage() {
 
   const data = billing.data;
   const selectedPack = useMemo(() => PACKS.find((p) => p.id === packId)!, [packId]);
+  const invoices = data?.invoices ?? [];
 
   return (
     <>
@@ -66,24 +70,21 @@ export default function FaturaPage() {
         subtitle="Plano da instituição, consumo e créditos por canal de mensagem."
       />
       <main className="mx-auto w-full max-w-[1100px] space-y-6 px-4 pb-12 pt-5 md:px-9">
-        {/* Plan strip */}
-        <section className="overflow-hidden rounded-[24px] border border-border bg-white shadow-[0_16px_50px_rgba(16,13,80,0.06)]">
+        {/* Plan */}
+        <section className="overflow-hidden rounded-[24px] border border-white/10 bg-[#0f0e1c] text-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
           <div className="grid gap-0 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-4 p-6 md:p-8">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-midnight)] px-3 py-1 text-[11px] font-semibold text-white">
-                  <Sparkles className="h-3.5 w-3.5 text-[var(--brand-coral)]" />
-                  Plano atual
-                </span>
-                <StatusBadge status={data?.plan_status === "active" ? "success" : "pending"} />
+            <div className="space-y-5 p-6 md:p-8">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/80">
+                <Sparkles className="h-3.5 w-3.5 text-[var(--brand-coral)]" />
+                Plano atual
               </div>
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">
-                  {data?.plan_name || "Mira Growth"}
+                  {data?.plan_name || "Plano da instituição"}
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-white/55">
                   Renovação em{" "}
-                  <strong className="font-semibold text-foreground">
+                  <strong className="font-semibold text-white/85">
                     {data?.renews_at
                       ? new Date(data.renews_at).toLocaleDateString("pt-BR")
                       : "—"}
@@ -93,48 +94,63 @@ export default function FaturaPage() {
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                <Metric
-                  label="Valor do plano"
-                  value={formatBRL(data?.plan_price_brl ?? 497)}
-                />
-                <Metric
-                  label="Gasto no período"
-                  value={formatBRL(data?.period_spend_brl ?? 0)}
-                />
-                <Metric
+                <MetricDark label="Valor do plano" value={formatBRL(data?.plan_price_brl ?? 0)} />
+                <MetricDark label="Gasto no período" value={formatBRL(data?.period_spend_brl ?? 0)} />
+                <MetricDark
                   label="Disparos no período"
                   value={String(data?.period_messages ?? 0)}
                 />
               </div>
             </div>
-            <div className="border-t border-border bg-[var(--brand-midnight)] p-6 text-white md:p-8 lg:border-l lg:border-t-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45">
-                Próxima fatura
+
+            <div className="border-t border-white/10 bg-black/25 p-6 md:p-8 lg:border-l lg:border-t-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
+                Próxima cobrança
               </p>
               <p className="mt-3 text-3xl font-semibold tracking-tight">
-                {formatBRL(data?.next_invoice_brl ?? data?.plan_price_brl ?? 497)}
+                {formatBRL(data?.next_invoice_brl ?? data?.plan_price_brl ?? 0)}
               </p>
-              <p className="mt-2 text-sm text-white/60">
-                Inclui plano base. Créditos extras de canal são cobrados à parte.
+              <p className="mt-2 text-sm text-white/50">
+                Valor do plano desta instituição. Créditos extras de canal são cobrados à parte.
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
-                <Button className="rounded-full bg-white text-[var(--brand-midnight)] hover:bg-white/90">
-                  <Receipt className="h-4 w-4" />
-                  Baixar última fatura
-                </Button>
                 <Button
-                  variant="outline"
-                  className="rounded-full border-white/20 bg-transparent text-white hover:bg-white/10"
+                  type="button"
+                  onClick={() => setInvoicesOpen(true)}
+                  className="rounded-full bg-white text-[#0f0e1c] hover:bg-white/90"
                 >
-                  <CreditCard className="h-4 w-4" />
-                  Método de pagamento
+                  <Receipt className="h-4 w-4" />
+                  Baixar faturas
                 </Button>
+                {data?.payment_link ? (
+                  <a
+                    href={data.payment_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Pagar / atualizar
+                  </a>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full border-white/15 bg-transparent text-white hover:bg-white/10"
+                    onClick={() =>
+                      toast.message("Link de pagamento ainda não configurado para esta instituição.")
+                    }
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    Método de pagamento
+                  </Button>
+                )}
               </div>
             </div>
           </div>
         </section>
 
-        {/* Credits by channel */}
+        {/* Credits */}
         <section className="space-y-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
@@ -142,7 +158,7 @@ export default function FaturaPage() {
             </p>
             <h3 className="mt-1 text-base font-semibold">Saldo por canal</h3>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Cada canal consome créditos próprios ao enviar mensagens reais.
+              Cada canal consome créditos próprios ao enviar mensagens.
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
@@ -161,10 +177,6 @@ export default function FaturaPage() {
                       <Icon className={cn("h-4 w-4", tint)} />
                       {label}
                     </CardTitle>
-                    <StatusBadge
-                      status={balance < 50 ? "pending" : "success"}
-                      label={balance < 50 ? "Baixo" : "OK"}
-                    />
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="text-3xl font-semibold tracking-tight">
@@ -189,7 +201,7 @@ export default function FaturaPage() {
           </div>
         </section>
 
-        {/* Buy credits */}
+        {/* Buy */}
         <section className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
           <Card className="border-border/80 shadow-[0_10px_30px_rgba(16,13,80,0.04)]">
             <CardHeader>
@@ -265,25 +277,25 @@ export default function FaturaPage() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-white/70">
               <p>
-                Cada mensagem enviada de verdade (fora do dry-run) consome 1 crédito do canal
-                correspondente.
+                Cada mensagem enviada consome 1 crédito do canal correspondente (WhatsApp, e-mail ou
+                SMS).
               </p>
               <ul className="space-y-2">
                 <li className="flex gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-coral)]" />
-                  WhatsApp, e-mail e SMS têm saldos separados.
+                  Os três canais têm saldos independentes.
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-coral)]" />
-                  Campanhas em dry-run não descontam créditos.
+                  Sem saldo, o canal fica pausado até a reposição.
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-coral)]" />
-                  Quando o saldo acaba, o canal pausa até a reposição.
+                  O valor do plano e o link de pagamento são configurados por instituição.
                 </li>
               </ul>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
                   Resumo da compra
                 </p>
                 <p className="mt-2 text-lg font-semibold text-white">
@@ -298,19 +310,96 @@ export default function FaturaPage() {
 
         {billing.isError && (
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Não foi possível carregar a fatura da API. Exibindo valores padrão de demonstração.
+            Não foi possível carregar a fatura da API. Verifique o backend e tente novamente.
           </p>
         )}
       </main>
+
+      {/* Invoices modal */}
+      {invoicesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+            aria-label="Fechar"
+            onClick={() => setInvoicesOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal
+            aria-labelledby="invoices-title"
+            className="relative z-10 w-full max-w-lg overflow-hidden rounded-[24px] border border-border bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div>
+                <h2 id="invoices-title" className="text-base font-semibold">
+                  Faturas
+                </h2>
+                <p className="text-xs text-muted-foreground">Histórico desta instituição</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInvoicesOpen(false)}
+                className="grid h-9 w-9 place-items-center rounded-full hover:bg-muted"
+                aria-label="Fechar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <ul className="max-h-[360px] overflow-y-auto">
+              {invoices.length === 0 ? (
+                <li className="px-5 py-8 text-center text-sm text-muted-foreground">
+                  Nenhuma fatura disponível ainda.
+                </li>
+              ) : (
+                invoices.map((inv) => (
+                  <li
+                    key={inv.id}
+                    className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-3.5 last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">
+                        {new Date(inv.date).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {inv.label || "Fatura"} · {formatBRL(inv.amount_brl)}
+                      </p>
+                    </div>
+                    <a
+                      href={inv.download_url || "#"}
+                      target={inv.download_url ? "_blank" : undefined}
+                      rel="noopener noreferrer"
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold transition hover:bg-muted"
+                      onClick={(e) => {
+                        if (!inv.download_url) {
+                          e.preventDefault();
+                          toast.message("PDF ainda não disponível para esta fatura.");
+                        }
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Baixar
+                    </a>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function MetricDark({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3">
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-semibold tracking-tight">{value}</p>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+      <p className="text-[11px] font-medium text-white/45">{label}</p>
+      <p className="mt-1 text-lg font-semibold tracking-tight text-white">{value}</p>
     </div>
   );
 }
