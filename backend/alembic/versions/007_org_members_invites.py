@@ -1,7 +1,7 @@
 """org members role + invites
 
 Revision ID: 007
-Revises: 006
+Revises: 006_safe_agent_delivery
 Create Date: 2026-10-21
 """
 from alembic import op
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "007"
-down_revision = "006"
+down_revision = "006_safe_agent_delivery"
 branch_labels = None
 depends_on = None
 
