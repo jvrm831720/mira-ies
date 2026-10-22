@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.channels.whatsapp import normalize_phone_br
 from app.agents.providers.resend_provider import send_email_resend
-from app.core.auth import AuthContext, get_current_tenant
+from app.core.auth import AuthContext, get_current_tenant, require_min_role
 from app.core.config import get_settings
 from app.core.mira_security import hash_password, issue_access_token
 from app.core.security import hash_api_key
@@ -43,18 +43,6 @@ def _normalize_email(value: str) -> str:
 
 def _invite_token_hash(token: str) -> str:
     return hash_api_key(f"mira:org-invite:{token}")
-
-
-async def _require_can_manage_members(auth: AuthContext, db: AsyncSession) -> Optional[User]:
-    """API key (sem user) ou usuário admin/coordinator podem gerenciar."""
-    if not auth.user_id:
-        return None
-    user = await db.get(User, auth.user_id)
-    if not user or not user.is_active or user.tenant_id != auth.tenant_id:
-        raise HTTPException(status_code=403, detail="Sem permissão para gerenciar membros.")
-    if user.role not in ("admin", "coordinator"):
-        raise HTTPException(status_code=403, detail="Apenas administradores ou coordenação podem convidar.")
-    return user
 
 
 class InviteCreatePayload(BaseModel):
@@ -102,27 +90,21 @@ def _invite_dict(inv: OrganizationInvite, invite_url: Optional[str] = None) -> d
 
 @router.get("/members")
 async def list_members(
-    auth: AuthContext = Depends(get_current_tenant),
+    auth: AuthContext = Depends(require_min_role("operator")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(User)
-        .where(User.tenant_id == auth.tenant_id)
-        .order_by(User.created_at.asc())
+        select(User).where(User.tenant_id == auth.tenant_id).order_by(User.created_at.asc())
     )
     users = result.scalars().all()
-    return {
-        "organization_name": auth.tenant.name,
-        "members": [_member_dict(u) for u in users],
-    }
+    return {"organization_name": auth.tenant.name, "members": [_member_dict(u) for u in users]}
 
 
 @router.get("/invites")
 async def list_invites(
-    auth: AuthContext = Depends(get_current_tenant),
+    auth: AuthContext = Depends(require_min_role("coordinator")),
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_can_manage_members(auth, db)
     result = await db.execute(
         select(OrganizationInvite)
         .where(
@@ -132,7 +114,6 @@ async def list_invites(
         .order_by(OrganizationInvite.created_at.desc())
     )
     invites = result.scalars().all()
-    # Expira visualmente os vencidos
     now = _now()
     out = []
     for inv in invites:
@@ -147,10 +128,9 @@ async def list_invites(
 @router.post("/invites", status_code=status.HTTP_201_CREATED)
 async def create_invite(
     body: InviteCreatePayload,
-    auth: AuthContext = Depends(get_current_tenant),
+    auth: AuthContext = Depends(require_min_role("coordinator")),
     db: AsyncSession = Depends(get_db),
 ):
-    inviter = await _require_can_manage_members(auth, db)
     settings = get_settings()
 
     existing_user = await db.execute(select(User.id).where(User.email == body.email))
@@ -175,7 +155,7 @@ async def create_invite(
         role=body.role,
         token_hash=_invite_token_hash(raw_token),
         status="pending",
-        invited_by_user_id=inviter.id if inviter else None,
+        invited_by_user_id=auth.user_id,
         expires_at=_now() + timedelta(days=_INVITE_TTL_DAYS),
     )
     db.add(invite)
@@ -184,7 +164,6 @@ async def create_invite(
 
     invite_url = f"{settings.mira_public_url.rstrip('/')}/convite/{raw_token}"
 
-    # E-mail real só se Resend estiver configurado; em dev o link volta na resposta
     emailed = False
     if settings.resend_api_key and settings.email_from:
         body_text = (
@@ -207,7 +186,7 @@ async def create_invite(
         "message": (
             "Convite criado e e-mail enviado."
             if emailed
-            else "Convite criado. Em desenvolvimento o link é devolvido na resposta (configure Resend para envio real)."
+            else "Convite criado. O link foi gerado para compartilhamento seguro com o convidado."
         ),
         "invite": _invite_dict(invite, invite_url=invite_url),
         "invite_url": invite_url,
@@ -285,4 +264,19 @@ async def accept_invite(
             "email": user.email,
             "tenant_name": tenant.name,
         },
+    }
+
+
+@router.get("/me")
+async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db)):
+    """Perfil da sessão atual (papel + instituição)."""
+    user = await db.get(User, auth.user_id) if auth.user_id else None
+    return {
+        "tenant_id": auth.tenant_id,
+        "tenant_name": auth.tenant.name,
+        "tenant_slug": auth.tenant_slug,
+        "user_id": auth.user_id,
+        "role": auth.role or (user.role if user else "admin"),
+        "display_name": user.display_name if user else None,
+        "email": user.email if user else None,
     }

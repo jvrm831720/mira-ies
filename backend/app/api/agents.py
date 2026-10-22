@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.orchestrator import RetentionOrchestrator, preview_message
-from app.core.auth import AuthContext, get_current_tenant
+from app.core.auth import AuthContext, get_current_tenant, require_min_role
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.intervention import InterventionLog
@@ -31,13 +31,14 @@ class RetentionRunRequest(BaseModel):
     dry_run: Optional[bool] = None
     channels: Optional[list[str]] = Field(default=None, max_length=3)
     prefer_whatsapp_medio: bool = False
+    student_ids: Optional[list[str]] = Field(default=None, max_length=500)
 
 
 @router.post("/agents/retention/run")
 async def run_retention(
     body: RetentionRunRequest,
     idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
-    auth: AuthContext = Depends(get_current_tenant),
+    auth: AuthContext = Depends(require_min_role("operator")),
     db: AsyncSession = Depends(get_db),
 ):
     invalid_levels = [lvl for lvl in body.risk_levels if lvl not in _VALID_RISK_LEVELS]
@@ -51,13 +52,18 @@ async def run_retention(
     if idempotency_key and len(idempotency_key) > 200:
         raise HTTPException(status_code=422, detail="Idempotency-Key muito longa")
 
-    orchestrator = RetentionOrchestrator(db, tenant_id=auth.tenant_id, prefer_whatsapp_medio=body.prefer_whatsapp_medio)
+    orchestrator = RetentionOrchestrator(
+        db, tenant_id=auth.tenant_id, prefer_whatsapp_medio=body.prefer_whatsapp_medio
+    )
     return await orchestrator.run(
-        risk_levels=body.risk_levels, batch_id=body.batch_id, limit=body.limit,
+        risk_levels=body.risk_levels,
+        batch_id=body.batch_id,
+        limit=body.limit,
         dry_run=body.dry_run,
         channels=body.channels,
         campaign_id=body.campaign_id,
         idempotency_key=idempotency_key,
+        student_ids=body.student_ids,
     )
 
 
@@ -65,7 +71,7 @@ async def run_retention(
 async def enqueue_retention(
     body: RetentionRunRequest,
     idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
-    auth: AuthContext = Depends(get_current_tenant),
+    auth: AuthContext = Depends(require_min_role("operator")),
 ):
     invalid_levels = [lvl for lvl in body.risk_levels if lvl not in _VALID_RISK_LEVELS]
     if invalid_levels:
@@ -112,6 +118,7 @@ async def list_retention_logs(
     limit: int = Query(50, ge=1, le=500),
     channel: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    student_id: Optional[str] = Query(None),
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -125,21 +132,33 @@ async def list_retention_logs(
         q = q.where(InterventionLog.channel == channel)
     if status:
         q = q.where(InterventionLog.status == status)
+    if student_id:
+        q = q.where(InterventionLog.student_id == student_id)
     q = q.order_by(InterventionLog.created_at.desc()).limit(limit)
     logs = (await db.execute(q)).scalars().all()
     return {
         "count": len(logs),
         "logs": [
             {
-                "id": log.id, "student_id": log.student_id, "matricula": log.matricula,
-                "channel": log.channel, "risk_level": log.risk_level, "status": log.status,
-                "skip_reason": log.skip_reason, "error": log.error, "provider": log.provider,
-                "external_id": log.external_id, "correlation_id": log.correlation_id,
-                "idempotency_key": log.idempotency_key, "job_id": log.job_id,
-                "campaign_id": log.campaign_id, "delivery_status": log.delivery_status,
+                "id": log.id,
+                "student_id": log.student_id,
+                "matricula": log.matricula,
+                "channel": log.channel,
+                "risk_level": log.risk_level,
+                "status": log.status,
+                "skip_reason": log.skip_reason,
+                "error": log.error,
+                "provider": log.provider,
+                "external_id": log.external_id,
+                "correlation_id": log.correlation_id,
+                "idempotency_key": log.idempotency_key,
+                "job_id": log.job_id,
+                "campaign_id": log.campaign_id,
+                "delivery_status": log.delivery_status,
                 "delivery_event_id": log.delivery_event_id,
                 "delivery_updated_at": log.delivery_updated_at,
-                "message_preview": log.message_preview, "created_at": log.created_at,
+                "message_preview": log.message_preview,
+                "created_at": log.created_at,
             }
             for log in logs
         ],
@@ -154,7 +173,10 @@ async def preview_retention_message(
     db: AsyncSession = Depends(get_db),
 ):
     result = await preview_message(
-        db, tenant_id=auth.tenant_id, student_id=student_id, prefer_whatsapp_medio=prefer_whatsapp_medio,
+        db,
+        tenant_id=auth.tenant_id,
+        student_id=student_id,
+        prefer_whatsapp_medio=prefer_whatsapp_medio,
     )
     if result is None:
         raise HTTPException(status_code=404, detail="Aluno nao encontrado")
@@ -187,9 +209,8 @@ async def agents_status(auth: AuthContext = Depends(get_current_tenant)):
 @router.get("/agents/retention/dead-letter")
 async def list_retention_dead_letters(
     limit: int = Query(50, ge=1, le=500),
-    auth: AuthContext = Depends(get_current_tenant),
+    auth: AuthContext = Depends(require_min_role("coordinator")),
 ):
-    """Lista jobs que excederam retries, sempre filtrados pelo tenant."""
     redis = redis_client()
     try:
         job_ids = await redis.lrange(get_settings().retention_dead_letter_queue_name, -limit, -1)
