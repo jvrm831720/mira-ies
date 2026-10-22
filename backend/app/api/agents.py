@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -21,6 +22,14 @@ router = APIRouter()
 _VALID_CHANNELS = {"whatsapp", "email", "sms"}
 _VALID_RISK_LEVELS = {"baixo", "medio", "critico"}
 _VALID_STATUSES = {"planned", "sending", "sent", "dry_run", "unknown", "failed", "skipped"}
+_VALID_OUTCOMES = {
+    "responded",
+    "no_response",
+    "stayed",
+    "dropped",
+    "transferred",
+    "unknown",
+}
 
 
 class RetentionRunRequest(BaseModel):
@@ -32,6 +41,45 @@ class RetentionRunRequest(BaseModel):
     channels: Optional[list[str]] = Field(default=None, max_length=3)
     prefer_whatsapp_medio: bool = False
     student_ids: Optional[list[str]] = Field(default=None, max_length=500)
+
+
+class OutcomeUpdateRequest(BaseModel):
+    outcome: Literal[
+        "responded", "no_response", "stayed", "dropped", "transferred", "unknown"
+    ]
+    note: Optional[str] = Field(default=None, max_length=240)
+    source: Literal["manual", "import", "system"] = "manual"
+
+
+def _serialize_log(log: InterventionLog) -> dict:
+    return {
+        "id": log.id,
+        "student_id": log.student_id,
+        "matricula": log.matricula,
+        "channel": log.channel,
+        "risk_level": log.risk_level,
+        "risk_score": log.risk_score,
+        "status": log.status,
+        "skip_reason": log.skip_reason,
+        "decision_reason": log.decision_reason,
+        "decision_context": log.decision_context,
+        "error": log.error,
+        "provider": log.provider,
+        "external_id": log.external_id,
+        "correlation_id": log.correlation_id,
+        "idempotency_key": log.idempotency_key,
+        "job_id": log.job_id,
+        "campaign_id": log.campaign_id,
+        "delivery_status": log.delivery_status,
+        "delivery_event_id": log.delivery_event_id,
+        "delivery_updated_at": log.delivery_updated_at,
+        "message_preview": log.message_preview,
+        "outcome": log.outcome,
+        "outcome_at": log.outcome_at,
+        "outcome_source": log.outcome_source,
+        "outcome_note": log.outcome_note,
+        "created_at": log.created_at,
+    }
 
 
 @router.post("/agents/retention/run")
@@ -119,6 +167,7 @@ async def list_retention_logs(
     channel: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     student_id: Optional[str] = Query(None),
+    outcome: Optional[str] = Query(None),
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -126,6 +175,8 @@ async def list_retention_logs(
         raise HTTPException(status_code=422, detail=f"channel invalido: {channel}")
     if status and status not in _VALID_STATUSES:
         raise HTTPException(status_code=422, detail=f"status invalido: {status}")
+    if outcome and outcome not in _VALID_OUTCOMES and outcome != "pending":
+        raise HTTPException(status_code=422, detail=f"outcome invalido: {outcome}")
 
     q = select(InterventionLog).where(InterventionLog.tenant_id == auth.tenant_id)
     if channel:
@@ -134,35 +185,40 @@ async def list_retention_logs(
         q = q.where(InterventionLog.status == status)
     if student_id:
         q = q.where(InterventionLog.student_id == student_id)
+    if outcome == "pending":
+        q = q.where(InterventionLog.outcome.is_(None))
+    elif outcome:
+        q = q.where(InterventionLog.outcome == outcome)
     q = q.order_by(InterventionLog.created_at.desc()).limit(limit)
     logs = (await db.execute(q)).scalars().all()
-    return {
-        "count": len(logs),
-        "logs": [
-            {
-                "id": log.id,
-                "student_id": log.student_id,
-                "matricula": log.matricula,
-                "channel": log.channel,
-                "risk_level": log.risk_level,
-                "status": log.status,
-                "skip_reason": log.skip_reason,
-                "error": log.error,
-                "provider": log.provider,
-                "external_id": log.external_id,
-                "correlation_id": log.correlation_id,
-                "idempotency_key": log.idempotency_key,
-                "job_id": log.job_id,
-                "campaign_id": log.campaign_id,
-                "delivery_status": log.delivery_status,
-                "delivery_event_id": log.delivery_event_id,
-                "delivery_updated_at": log.delivery_updated_at,
-                "message_preview": log.message_preview,
-                "created_at": log.created_at,
-            }
-            for log in logs
-        ],
-    }
+    return {"count": len(logs), "logs": [_serialize_log(log) for log in logs]}
+
+
+@router.patch("/agents/retention/logs/{log_id}/outcome")
+async def set_retention_outcome(
+    log_id: str,
+    body: OutcomeUpdateRequest,
+    auth: AuthContext = Depends(require_min_role("operator")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fecha o ciclo de aprendizado: registra o desfecho da intervenção."""
+    result = await db.execute(
+        select(InterventionLog).where(
+            InterventionLog.id == log_id,
+            InterventionLog.tenant_id == auth.tenant_id,
+        )
+    )
+    log = result.scalar_one_or_none()
+    if not log:
+        raise HTTPException(status_code=404, detail="Evento de retenção não encontrado")
+
+    log.outcome = body.outcome
+    log.outcome_at = datetime.now(timezone.utc)
+    log.outcome_source = body.source
+    log.outcome_note = body.note
+    await db.commit()
+    await db.refresh(log)
+    return _serialize_log(log)
 
 
 @router.get("/agents/retention/preview/{student_id}")
@@ -205,6 +261,7 @@ async def agents_status(auth: AuthContext = Depends(get_current_tenant)):
             "max_attempts": settings.retention_max_attempts,
             "retry_backoff_seconds": settings.retention_retry_backoff_seconds,
         },
+        "outcomes": sorted(_VALID_OUTCOMES),
     }
 
 

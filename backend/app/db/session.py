@@ -44,12 +44,10 @@ async def get_db():
 async def _dev_schema_patches(conn) -> None:
     """create_all não altera tabelas antigas — aplica patches mínimos em development."""
     patches = [
-        # Papéis de acesso (admin/coordinator/operator/viewer)
         """
         ALTER TABLE mira_users
         ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'coordinator'
         """,
-        # Garantir colunas de segurança caso a tabela seja bem antiga
         """
         ALTER TABLE mira_users
         ADD COLUMN IF NOT EXISTS auth_version INTEGER NOT NULL DEFAULT 0
@@ -66,12 +64,36 @@ async def _dev_schema_patches(conn) -> None:
         ALTER TABLE mira_org_invites
         ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'coordinator'
         """,
+        # Eventos de retenção
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS decision_reason VARCHAR(240) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS decision_context JSONB NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS outcome VARCHAR(40) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS outcome_at TIMESTAMPTZ NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS outcome_source VARCHAR(40) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS outcome_note VARCHAR(240) NULL
+        """,
     ]
     for sql in patches:
         try:
             await conn.execute(text(sql))
         except Exception as exc:
-            # Tabela pode ainda não existir neste momento; create_all cuida depois
             print(f"Aviso schema patch: {exc}")
 
 
@@ -81,5 +103,5 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        if settings.app_env == "development":
-            await _dev_schema_patches(conn)
+        # Patches também em produção quando create_all já rodou antes (Supabase)
+        await _dev_schema_patches(conn)

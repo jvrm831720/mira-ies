@@ -69,6 +69,19 @@ def _build_context(student: Student) -> MessageContext:
     )
 
 
+def _decision_context(student: Student, *, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    ctx = {
+        "risk_level": student.risk_level,
+        "risk_score": student.risk_score,
+        "has_phone": bool(student.telefone),
+        "has_email": bool(student.email),
+        "opt_out": bool(getattr(student, "communication_opt_out", False)),
+    }
+    if extra:
+        ctx.update(extra)
+    return ctx
+
+
 def _log_entry(
     *,
     tenant_id: str,
@@ -85,6 +98,8 @@ def _log_entry(
     job_id: str | None = None,
     campaign_id: str | None = None,
     delivery_status: str | None = None,
+    decision_reason: str | None = None,
+    decision_context: dict[str, Any] | None = None,
 ) -> InterventionLog:
     return InterventionLog(
         tenant_id=tenant_id,
@@ -105,6 +120,8 @@ def _log_entry(
         job_id=job_id,
         campaign_id=campaign_id,
         delivery_status=delivery_status,
+        decision_reason=decision_reason,
+        decision_context=decision_context or _decision_context(student),
     )
 
 
@@ -188,6 +205,8 @@ async def _reserve_send_log(
     idempotency_key: str,
     job_id: str | None,
     campaign_id: str | None,
+    decision_reason: str,
+    decision_context: dict[str, Any],
 ) -> tuple[InterventionLog, bool]:
     existing = await _find_by_idempotency_key(
         session, tenant_id=tenant_id, idempotency_key=idempotency_key
@@ -207,6 +226,8 @@ async def _reserve_send_log(
         job_id=job_id,
         campaign_id=campaign_id,
         delivery_status="queued",
+        decision_reason=decision_reason,
+        decision_context=decision_context,
     )
     session.add(log)
     try:
@@ -322,6 +343,8 @@ class RetentionOrchestrator:
                         channel=None,
                         status="skipped",
                         skip_reason="communication_opt_out",
+                        decision_reason="Aluno com opt-out de comunicação",
+                        decision_context=_decision_context(student),
                         delivery_status="not_applicable",
                         job_id=job_id,
                         campaign_id=campaign_id,
@@ -351,6 +374,10 @@ class RetentionOrchestrator:
                         channel=None,
                         status="skipped",
                         skip_reason=reason,
+                        decision_reason=f"Sem canal viável ({reason})",
+                        decision_context=_decision_context(
+                            student, extra={"candidates": [], "allowed_channels": list(allowed_channels)}
+                        ),
                         delivery_status="not_applicable",
                         job_id=job_id,
                         campaign_id=campaign_id,
@@ -393,6 +420,15 @@ class RetentionOrchestrator:
                             channel=channel,
                             status="skipped",
                             skip_reason=block_reason,
+                            decision_reason=f"Anti-spam bloqueou {channel}: {block_reason}",
+                            decision_context=_decision_context(
+                                student,
+                                extra={
+                                    "channel": channel,
+                                    "contacts_week": contacts_week,
+                                    "candidates": candidates,
+                                },
+                            ),
                             delivery_status="not_applicable",
                             job_id=job_id,
                             campaign_id=campaign_id,
@@ -405,6 +441,19 @@ class RetentionOrchestrator:
                 message = agent.render(ctx)
                 send_key = _message_key(execution_key, student.id, channel)
                 provider = _configured_provider(channel, self.settings)
+                decision_reason = (
+                    f"Risco {risk_level}; canal {channel}; "
+                    f"score={student.risk_score}; candidatos={candidates}"
+                )
+                dctx = _decision_context(
+                    student,
+                    extra={
+                        "channel": channel,
+                        "candidates": candidates,
+                        "contacts_week": contacts_week,
+                        "provider": provider,
+                    },
+                )
                 log, reserved = await _reserve_send_log(
                     self.session,
                     tenant_id=self.tenant_id,
@@ -415,6 +464,8 @@ class RetentionOrchestrator:
                     idempotency_key=send_key,
                     job_id=job_id,
                     campaign_id=campaign_id,
+                    decision_reason=decision_reason,
+                    decision_context=dctx,
                 )
 
                 if not reserved:
@@ -452,6 +503,8 @@ class RetentionOrchestrator:
                 log.external_id = result.external_id
                 log.delivery_status = delivery_status
                 log.delivery_updated_at = datetime.now(timezone.utc)
+                if not log.decision_reason:
+                    log.decision_reason = decision_reason
                 await self.session.commit()
                 _bump(channel, status)
 
@@ -503,6 +556,7 @@ async def preview_message(
             "channel": None,
             "message": None,
             "reason": "communication_opt_out",
+            "decision_reason": "Aluno com opt-out de comunicação",
         }
     candidates = decide_channels(
         risk_level=risk_level,
@@ -511,13 +565,15 @@ async def preview_message(
         prefer_whatsapp_medio=prefer_whatsapp_medio,
     )
     if not candidates:
+        reason = skip_reason_for_no_channel(risk_level)
         return {
             "student_id": student.id,
             "matricula": student.matricula,
             "risk_level": risk_level,
             "channel": None,
             "message": None,
-            "reason": skip_reason_for_no_channel(risk_level),
+            "reason": reason,
+            "decision_reason": f"Sem canal viável ({reason})",
         }
 
     ctx = _build_context(student)
@@ -530,4 +586,5 @@ async def preview_message(
         "channel": channel,
         "candidates": candidates,
         "message": agent.render(ctx),
+        "decision_reason": f"Risco {risk_level}; canal preferido {channel}",
     }
