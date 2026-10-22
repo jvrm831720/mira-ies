@@ -25,12 +25,12 @@ export function RiskDistribution({ data, loading }: { data?: RiskSummary; loadin
 
   return (
     <Card className="h-full overflow-hidden">
-      <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
+      <CardHeader className="flex-row items-start justify-between space-y-0 border-b border-black/[0.06] pb-4">
         <div>
-          <CardTitle className="text-[15px]">Panorama de risco</CardTitle>
+          <CardTitle className="text-[17px] tracking-[-0.03em]">Panorama de risco</CardTitle>
           <CardDescription className="mt-1">Distribuição dos alunos por faixa de risco</CardDescription>
         </div>
-        <span className="rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-medium text-secondary-foreground">Agora</span>
+        <span className="rounded-full bg-[rgba(64,80,205,0.1)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--brand-indigo)]">Agora</span>
       </CardHeader>
       <CardContent className="flex flex-col gap-7 pt-4 sm:flex-row sm:items-center sm:gap-9">
         <div className="relative mx-auto grid h-40 w-40 shrink-0 place-items-center sm:mx-0" role="img" aria-label={`Distribuição de risco: ${values.map((item) => `${item.label} ${item.value}`).join(", ")}${unscored ? `, sem score ${unscored}` : ""}`}>

@@ -45,16 +45,16 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       {items.map((item) => (
         <Card
           key={item.label}
-          className="group relative overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(0,0,0,0.06)]"
+          className="group relative overflow-hidden border-black/[0.07] bg-white transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(31,33,42,0.08)]"
         >
           <span className={`absolute inset-x-0 top-0 h-[3px] ${item.bar}`} />
-          <CardContent className="flex items-center justify-between p-5">
+          <CardContent className="flex items-center justify-between p-5 md:p-6">
             <div className="min-w-0">
-              <p className="text-[12px] font-medium text-neutral-500">{item.label}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">{item.label}</p>
               {loading ? (
                 <Skeleton className="mt-2 h-8 w-16" />
               ) : (
-                <p className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums text-neutral-900">
+                <p className="mt-3 text-[34px] font-semibold leading-none tracking-[-0.07em] tabular-nums text-neutral-950">
                   {item.value?.toLocaleString("pt-BR")}
                 </p>
               )}

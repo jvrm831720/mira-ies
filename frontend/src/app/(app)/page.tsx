@@ -80,15 +80,15 @@ export default function CommandCenterPage() {
 
   return (
     <>
-      <Header title="Página inicial" subtitle="Priorize risco e acompanhe a permanência estudantil." />
-      <main className="mx-auto w-full max-w-[1100px] space-y-6 px-4 pb-10 pt-5 md:px-9 md:pt-6">
-        <form onSubmit={onSearchSubmit} className="relative">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+      <Header title="Visão geral" subtitle="Comece por quem precisa de atenção hoje." />
+      <main className="mx-auto w-full max-w-[1240px] space-y-8 px-4 pb-12 pt-6 md:px-10 md:pt-8">
+        <form onSubmit={onSearchSubmit} className="relative max-w-2xl">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[var(--brand-indigo)]" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Busque aluno por nome, matrícula ou curso"
-            className="h-12 w-full rounded-full border border-neutral-200 bg-white pl-11 pr-4 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 focus:ring-2 focus:ring-neutral-900/10"
+            className="h-14 w-full rounded-2xl border border-black/[0.08] bg-white pl-12 pr-4 text-sm text-neutral-900 shadow-[0_12px_32px_rgba(31,33,42,0.05)] outline-none transition placeholder:text-neutral-400 focus:border-[var(--brand-indigo)] focus:ring-4 focus:ring-[rgba(64,80,205,0.12)]"
           />
           {searchHits.length > 0 && (
             <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-10 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
@@ -119,37 +119,36 @@ export default function CommandCenterPage() {
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center justify-center gap-2 rounded-[20px] border border-neutral-200 bg-white px-3 py-4 text-center transition hover:border-neutral-300 hover:shadow-sm"
+              className="group flex min-h-[112px] flex-col items-start justify-between rounded-2xl border border-black/[0.07] bg-white px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-black/15 hover:shadow-[0_14px_32px_rgba(31,33,42,0.08)]"
             >
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-neutral-100 text-neutral-900">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[rgba(64,80,205,0.1)] text-[var(--brand-indigo)] transition group-hover:bg-[var(--brand-indigo)] group-hover:text-white">
                 <Icon className="h-[18px] w-[18px]" />
               </span>
-              <span className="text-[12px] font-semibold text-neutral-800">{label}</span>
+              <span><span className="block text-[13px] font-semibold text-neutral-900">{label}</span><span className="mt-0.5 block text-[10px] text-neutral-400">{href === "/importar" ? "Atualize sua base" : href === "/retencao" ? "Aja sobre o risco" : "Explorar agora"}</span></span>
             </Link>
           ))}
         </div>
 
-        <section className="flex flex-col gap-4 rounded-[20px] border border-neutral-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium tracking-wide text-neutral-400">
-              Mira · permanência estudantil
-            </p>
-            <p className="mt-1 text-[15px] font-semibold leading-snug tracking-[-0.02em] text-neutral-900 sm:text-base">
+        <section className="relative overflow-hidden rounded-[24px] bg-[var(--brand-midnight)] px-5 py-5 text-white shadow-[0_18px_50px_rgba(23,25,29,0.14)] sm:px-7 sm:py-6">
+          <div className="pointer-events-none absolute -right-10 -top-24 h-64 w-64 rounded-full border-[28px] border-[rgba(64,80,205,0.5)]" />
+          <div className="relative min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">MIRA · painel de decisão</p>
+            <p className="mt-2 max-w-xl text-[20px] font-semibold leading-tight tracking-[-0.04em] text-white sm:text-[24px]">
               {isEmpty
-                ? "Importe a base para ver quem precisa de atenção."
-                : `${criticalCount.toLocaleString("pt-BR")} alunos em risco crítico · ${priorityRate}% da base`}
+                ? "Importe a base para transformar dados em próximos passos."
+                : `${criticalCount.toLocaleString("pt-BR")} alunos pedem atenção crítica · ${priorityRate}% da base`}
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="relative mt-5 flex shrink-0 flex-wrap gap-2 sm:absolute sm:bottom-6 sm:right-7 sm:mt-0">
             <Link
               href="/importar"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-neutral-950 px-3.5 text-[12px] font-medium text-white hover:bg-neutral-800"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white px-4 text-[12px] font-semibold text-[var(--brand-midnight)] hover:bg-white/90"
             >
               <Upload className="h-3.5 w-3.5" /> Importar
             </Link>
             <Link
               href="/retencao"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3.5 text-[12px] font-medium text-neutral-800 hover:bg-neutral-50"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-4 text-[12px] font-semibold text-white hover:bg-white/15"
             >
               Retenção
             </Link>
@@ -190,10 +189,8 @@ export default function CommandCenterPage() {
         <section aria-label="Indicadores de risco" className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
-                Sua base
-              </p>
-              <h2 className="mt-1 text-base font-semibold tracking-[-0.02em] text-neutral-900">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">Leitura rápida</p>
+              <h2 className="mt-1 text-[19px] font-semibold tracking-[-0.04em] text-neutral-950">
                 Indicadores de risco
               </h2>
             </div>

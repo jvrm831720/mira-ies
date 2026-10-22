@@ -18,15 +18,15 @@ export function CriticalList({
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 border-b border-black/[0.06] pb-4">
         <div>
-          <CardTitle>{copy.criticalNow}</CardTitle>
-          <CardDescription>Alunos em risco crítico, ordenados por score</CardDescription>
+          <CardTitle className="text-[17px] tracking-[-0.03em]">{copy.criticalNow}</CardTitle>
+          <CardDescription className="mt-1">Comece por quem combina maior risco e maior urgência.</CardDescription>
         </div>
         <Link
           href="/alunos?risk=critico"
           className={cn(
-            "inline-flex h-9 items-center rounded-xl border border-border bg-white px-3 text-xs font-semibold transition hover:border-primary/25 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            "inline-flex h-9 items-center rounded-xl bg-[var(--brand-indigo)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--brand-blue)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           )}
         >
           Ver todos
@@ -53,11 +53,11 @@ export function CriticalList({
               key={s.id}
               type="button"
               onClick={() => onSelect?.(s.id)}
-              className="flex w-full items-center gap-3 rounded-xl border border-border/80 bg-white px-3.5 py-3 text-left transition hover:border-primary/20 hover:bg-secondary/35 sm:gap-4 sm:px-4"
+              className="group flex w-full items-center gap-3 rounded-2xl border border-black/[0.06] bg-[var(--brand-paper)] px-3.5 py-3.5 text-left transition hover:border-[rgba(64,80,205,0.25)] hover:bg-white hover:shadow-sm sm:gap-4 sm:px-4"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate font-medium">{s.nome || "Sem nome"}</p>
+                  <p className="truncate text-[13px] font-semibold text-neutral-900">{s.nome || "Sem nome"}</p>
                   <RiskBadge level={s.risk_level} />
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -66,10 +66,10 @@ export function CriticalList({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-semibold tabular-nums">{formatScore(s.risk_score)}</p>
+                <p className="text-lg font-semibold tracking-[-0.04em] tabular-nums text-neutral-950">{formatScore(s.risk_score)}</p>
                 <p className="text-[11px] text-muted-foreground">score</p>
               </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300 transition group-hover:translate-x-0.5 group-hover:text-[var(--brand-indigo)]" />
             </button>
           ))}
       </CardContent>
