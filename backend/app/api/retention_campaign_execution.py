@@ -25,6 +25,36 @@ async def run_dry_run(campaign_id: str, limit: int = Query(200, ge=1, le=500),
     if campaign.status != "active":
         raise HTTPException(status_code=409, detail="Ative a campanha antes de executar.")
     decisions = await _evaluate(db, campaign, limit, student_ids)
+    # Persiste decisões negativas com chave diária para não duplicar auditoria em retries.
+    today = datetime.now(timezone.utc).date().isoformat()
+    for item in decisions:
+        if item["eligible"]:
+            continue
+        key = f"campaign-decision:{campaign.id}:v{campaign.version}:{item['student_id']}:{today}"
+        existing = await db.execute(select(InterventionLog.id).where(
+            InterventionLog.tenant_id == auth.tenant_id,
+            InterventionLog.idempotency_key == key
+        ))
+        if existing.scalar_one_or_none():
+            continue
+        db.add(InterventionLog(
+            tenant_id=auth.tenant_id,
+            student_id=item["student_id"],
+            matricula=item["matricula"],
+            channel=None,
+            risk_level=item["risk_level"],
+            risk_score=item["risk_score"],
+            status="skipped",
+            skip_reason=item["blocked_reason"] or "rule_not_matched",
+            decision_reason="; ".join(item["reasons"])[:240],
+            decision_context={"campaign_version": campaign.version, "matched_rules": [],
+                              "days_since_contact": item["days_since_contact"]},
+            campaign_id=campaign.id,
+            idempotency_key=key,
+            delivery_status="not_applicable",
+        ))
+    await db.commit()
+
     groups = {}
     rules_by_student = {}
     for item in decisions:
