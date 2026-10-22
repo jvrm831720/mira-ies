@@ -10,6 +10,7 @@ import {
   MessageSquareHeart,
   ScrollText,
   Settings,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const links = [
   { href: "/importar", label: "Importar", icon: Upload },
   { href: "/retencao", label: "Retenção", icon: MessageSquareHeart },
   { href: "/retencao/logs", label: "Logs de contato", icon: ScrollText },
+  { href: "/membros", label: "Membros", icon: UserCog },
   { href: "/config", label: "Configurações", icon: Settings },
 ];
 
@@ -31,7 +33,9 @@ export function Sidebar() {
         <Image src="/mira-logo.svg" alt="Mira" width={128} height={29} className="h-auto w-[118px]" priority />
       </div>
       <nav aria-label="Navegação principal" className="flex flex-1 flex-col gap-1 px-3 py-6">
-        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Workspace</p>
+        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+          Workspace
+        </p>
         {links.map((link) => {
           const active =
             link.href === "/"
@@ -50,8 +54,15 @@ export function Sidebar() {
               )}
               aria-current={active ? "page" : undefined}
             >
-              {active && <span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-[var(--brand-coral)]" />}
-              <link.icon className={cn("h-[17px] w-[17px]", active ? "text-[var(--brand-coral)]" : "text-white/55 group-hover:text-white")} />
+              {active && (
+                <span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-[var(--brand-coral)]" />
+              )}
+              <link.icon
+                className={cn(
+                  "h-[17px] w-[17px]",
+                  active ? "text-[var(--brand-coral)]" : "text-white/55 group-hover:text-white"
+                )}
+              />
               {link.label}
             </Link>
           );
