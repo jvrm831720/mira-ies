@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { ChevronRight, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -21,22 +21,26 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
-      <div className="flex items-center justify-between gap-4 px-4 py-4 md:px-8">
+      <div className="flex min-h-[76px] items-center justify-between gap-4 px-4 py-3 md:px-9">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold tracking-tight">{title}</h1>
-          {subtitle ? <p className="truncate text-sm text-muted-foreground">{subtitle}</p> : null}
+          <div className="mb-1 hidden items-center gap-1 text-[11px] font-medium text-muted-foreground sm:flex">
+            <span>Mira</span><ChevronRight className="h-3 w-3" /><span className="text-foreground/70">{title}</span>
+          </div>
+          <h1 className="truncate text-[19px] font-semibold tracking-[-0.03em] md:text-[21px]">{title}</h1>
+          {subtitle ? <p className="mt-0.5 hidden truncate text-[13px] text-muted-foreground sm:block">{subtitle}</p> : null}
         </div>
         <button
           type="button"
-          className="rounded-md border border-border p-2 md:hidden"
+          className="rounded-xl border border-border bg-white p-2.5 text-foreground transition hover:bg-muted md:hidden"
           onClick={() => setOpen((v) => !v)}
-          aria-label="Menu"
+          aria-label={open ? "Fechar menu" : "Abrir menu"}
+          aria-expanded={open}
         >
-          <Menu className="h-4 w-4" />
+          {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </button>
       </div>
       {open && (
-        <div className="border-t border-border px-4 py-2 md:hidden">
+        <nav aria-label="Navegação mobile" className="border-t border-border bg-white px-4 py-3 md:hidden">
           {mobileLinks.map((l) => (
             <Link
               key={l.href}
@@ -44,13 +48,13 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
               onClick={() => setOpen(false)}
               className={cn(
                 "block rounded-md px-2 py-2 text-sm",
-                pathname === l.href ? "bg-muted font-medium" : "text-muted-foreground"
+                pathname === l.href ? "bg-secondary font-semibold text-primary" : "text-muted-foreground hover:bg-muted"
               )}
             >
               {l.label}
             </Link>
           ))}
-        </div>
+        </nav>
       )}
     </header>
   );

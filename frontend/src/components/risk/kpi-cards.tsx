@@ -6,33 +6,36 @@ import { AlertTriangle, Activity, CheckCircle2, Users } from "lucide-react";
 export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: boolean }) {
   const s = data?.summary;
   const items = [
-    { label: "Crítico", value: s?.critico ?? 0, icon: AlertTriangle, accent: "text-red-600 bg-red-50", ring: "ring-red-100" },
-    { label: "Médio", value: s?.medio ?? 0, icon: Activity, accent: "text-amber-600 bg-amber-50", ring: "ring-amber-100" },
-    { label: "Baixo", value: s?.baixo ?? 0, icon: CheckCircle2, accent: "text-emerald-600 bg-emerald-50", ring: "ring-emerald-100" },
+    { label: "Risco crítico", note: "Atenção prioritária", value: s?.critico ?? 0, icon: AlertTriangle, accent: "text-[#e76e61] bg-[#fff0ed]", bar: "bg-[var(--brand-coral)]" },
+    { label: "Risco médio", note: "Acompanhar de perto", value: s?.medio ?? 0, icon: Activity, accent: "text-[var(--brand-indigo)] bg-[#eef0ff]", bar: "bg-[var(--brand-indigo)]" },
+    { label: "Risco baixo", note: "Evolução estável", value: s?.baixo ?? 0, icon: CheckCircle2, accent: "text-[var(--brand-blue)] bg-[#edf0fb]", bar: "bg-[var(--brand-blue)]" },
     {
       label: "Total pontuados",
+      note: "Alunos analisados",
       value: data?.total_scored ?? (s ? s.baixo + s.medio + s.critico : 0),
       icon: Users,
       accent: "text-primary bg-primary/10",
-      ring: "ring-primary/10",
+      bar: "bg-primary",
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
-        <Card key={item.label} className={`ring-1 ${item.ring}`}>
+        <Card key={item.label} className="group relative overflow-hidden border-white shadow-[0_2px_10px_rgba(16,13,80,0.035)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(16,13,80,0.08)]">
+          <span className={`absolute inset-x-0 top-0 h-[3px] ${item.bar}`} />
           <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-sm text-muted-foreground">{item.label}</p>
+            <div className="min-w-0">
+              <p className="text-[12px] font-medium text-muted-foreground">{item.label}</p>
               {loading ? (
                 <Skeleton className="mt-2 h-8 w-16" />
               ) : (
-                <p className="mt-1 text-3xl font-semibold tracking-tight">{item.value}</p>
+                <p className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums">{item.value?.toLocaleString("pt-BR")}</p>
               )}
+              <p className="mt-2 text-[11px] text-muted-foreground/80">{item.note}</p>
             </div>
-            <div className={`rounded-xl p-3 ${item.accent}`}>
-              <item.icon className="h-5 w-5" />
+            <div className={`rounded-xl p-3.5 ${item.accent}`}>
+              <item.icon className="h-[19px] w-[19px]" />
             </div>
           </CardContent>
         </Card>

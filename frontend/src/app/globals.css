@@ -3,28 +3,33 @@
 @tailwind utilities;
 
 :root {
-  --background: 210 40% 99%;
-  --foreground: 222 47% 11%;
+  --background: 225 33% 98%;
+  --foreground: 240 68% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --primary: 221 83% 45%;
+  --card-foreground: 240 68% 12%;
+  --primary: 234 61% 51%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 214 32% 95%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
+  --secondary: 233 55% 96%;
+  --secondary-foreground: 240 68% 12%;
+  --muted: 225 30% 95%;
+  --muted-foreground: 228 12% 43%;
+  --accent: 233 55% 96%;
+  --accent-foreground: 240 68% 12%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
   --success: 160 84% 30%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 50%;
   --warning-foreground: 26 83% 14%;
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 221 83% 45%;
-  --radius: 0.75rem;
+  --border: 226 24% 90%;
+  --input: 226 24% 87%;
+  --ring: 234 61% 51%;
+  --brand-indigo: #4050cd;
+  --brand-blue: #29399f;
+  --brand-coral: #f47769;
+  --brand-midnight: #100d50;
+  --brand-black: #090909;
+  --radius: 1rem;
 }
 
 * {
@@ -33,12 +38,14 @@
 
 body {
   color: hsl(var(--foreground));
-  background:
-    radial-gradient(1200px 600px at 10% -10%, hsl(221 83% 96% / 0.9), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, hsl(200 80% 96% / 0.7), transparent 50%),
-    hsl(var(--background));
+  background: hsl(var(--background));
   min-height: 100vh;
   font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+::selection {
+  color: #fff;
+  background: var(--brand-indigo);
 }
 
 :focus-visible {
