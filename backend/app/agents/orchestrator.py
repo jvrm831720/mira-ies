@@ -42,7 +42,6 @@ def _configured_provider(channel: Channel, settings: Any) -> str:
 
 
 def _message_key(execution_key: str, student_id: str, channel: str) -> str:
-    """Gera uma chave curta e não-identificável para um envio lógico."""
     raw = f"{execution_key}:{student_id}:{channel}".encode("utf-8")
     return f"mira-msg-{hashlib.sha256(raw).hexdigest()}"
 
@@ -114,6 +113,7 @@ async def fetch_eligible_students(
     risk_levels: list[str],
     batch_id: str | None = None,
     limit: int = 50,
+    student_ids: list[str] | None = None,
 ) -> list[Student]:
     levels = [lvl for lvl in risk_levels if lvl in VALID_RISK_LEVELS] or ["critico"]
     query = select(Student).where(
@@ -123,6 +123,8 @@ async def fetch_eligible_students(
     )
     if batch_id:
         query = query.where(Student.batch_id == batch_id)
+    if student_ids:
+        query = query.where(Student.id.in_(student_ids))
     query = query.order_by(Student.risk_score.desc()).limit(limit)
     result = await session.execute(query)
     return list(result.scalars().all())
@@ -185,7 +187,6 @@ async def _reserve_send_log(
     job_id: str | None,
     campaign_id: str | None,
 ) -> tuple[InterventionLog, bool]:
-    """Reserva o envio antes da rede; ``False`` indica uma chave já existente."""
     existing = await _find_by_idempotency_key(
         session, tenant_id=tenant_id, idempotency_key=idempotency_key
     )
@@ -207,8 +208,6 @@ async def _reserve_send_log(
     )
     session.add(log)
     try:
-        # O commit da reserva acontece antes da chamada externa. Assim, um
-        # crash após o aceite do provider não libera uma segunda tentativa.
         await session.commit()
         await session.refresh(log)
         return log, True
@@ -261,8 +260,6 @@ async def _send_with_guard(
             ambiguous=result.ambiguous or result.halt_fallback,
         )
     except Exception:
-        # O envio já foi classificado e será auditado; falha ao atualizar o
-        # circuito não deve apagar o resultado do provider.
         pass
     return result
 
@@ -291,6 +288,7 @@ class RetentionOrchestrator:
         job_id: str | None = None,
         campaign_id: str | None = None,
         idempotency_key: str | None = None,
+        student_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         dry_run = self.settings.agents_dry_run_default if dry_run is None else dry_run
         allowed_channels = set(channels) if channels else {"whatsapp", "email", "sms"}
@@ -302,6 +300,7 @@ class RetentionOrchestrator:
             risk_levels=risk_levels,
             batch_id=batch_id,
             limit=limit,
+            student_ids=student_ids,
         )
 
         by_channel: dict[str, dict[str, int]] = {}
@@ -417,8 +416,6 @@ class RetentionOrchestrator:
                 )
 
                 if not reserved:
-                    # Envio confirmado já é devolvido como resultado idempotente;
-                    # sending/unknown nunca deve ser reenviado automaticamente.
                     if log.status in _SUCCESS_STATUSES:
                         _bump(channel, log.status)
                         break
@@ -442,7 +439,7 @@ class RetentionOrchestrator:
                 if result.ambiguous:
                     delivery_status = "unknown"
                 elif result.ok and result.dry_run:
-                    delivery_status = "simulated"
+                    delivery_status = "queued"
                 elif result.ok:
                     delivery_status = "submitted"
                 else:
@@ -460,8 +457,6 @@ class RetentionOrchestrator:
                     contacts_week += 1
                     break
                 if result.ambiguous or result.halt_fallback:
-                    # Resultado desconhecido, rate limit ou circuito aberto:
-                    # nenhum segundo canal é acionado nesta mesma régua.
                     break
 
         await self.session.commit()
@@ -471,12 +466,18 @@ class RetentionOrchestrator:
             for key, value in counts.items():
                 totals[key] = totals.get(key, 0) + value
 
+        contacted = totals.get("sent", 0) + totals.get("dry_run", 0)
         return {
             "tenant_id": self.tenant_id,
             "dry_run": dry_run,
+            "campaign_id": campaign_id,
             "students_evaluated": len(students),
             "by_channel": by_channel,
             "totals": totals,
+            "message": (
+                f"Régua processada: {contacted} contatos, "
+                f"{totals.get('skipped', 0)} ignorados, {totals.get('failed', 0)} falhas."
+            ),
         }
 
 
@@ -487,7 +488,6 @@ async def preview_message(
     student_id: str,
     prefer_whatsapp_medio: bool = False,
 ) -> dict[str, Any] | None:
-    """Monta a mensagem para o canal prioritário sem enviar nem gravar log."""
     student = await session.get(Student, student_id)
     if not student or student.tenant_id != tenant_id:
         return None
