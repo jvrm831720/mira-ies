@@ -45,6 +45,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
 
+  if (res.status === 403) {
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/unauthorized")) {
+      window.location.href = "/unauthorized";
+    }
+    throw new ApiError(403, "Acesso não autorizado");
+  }
+
   if (res.status === 401) {
     if (!isAuthRoute) {
       clearAuth();
@@ -172,11 +179,17 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  retentionLogs: (params?: { limit?: number; channel?: string; status?: string }) => {
+  retentionLogs: (params?: {
+    limit?: number;
+    channel?: string;
+    status?: string;
+    student_id?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.channel) q.set("channel", params.channel);
     if (params?.status) q.set("status", params.status);
+    if (params?.student_id) q.set("student_id", params.student_id);
     const qs = q.toString();
     return request<LogsResponse>(`/api/v1/agents/retention/logs${qs ? `?${qs}` : ""}`);
   },
@@ -184,7 +197,6 @@ export const api = {
   retentionPreview: (studentId: string) =>
     request<PreviewMessage>(`/api/v1/agents/retention/preview/${studentId}`),
 
-  // Organization members
   listMembers: () => request<MembersResponse>("/api/v1/org/members"),
 
   listInvites: () => request<InvitesResponse>("/api/v1/org/invites"),
@@ -200,4 +212,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  me: () =>
+    request<{ role?: string; tenant_name?: string; display_name?: string; email?: string }>(
+      "/api/v1/org/me"
+    ),
+
+  listConnectors: () =>
+    request<{ count: number; connectors: Array<Record<string, unknown>> }>("/api/v1/connectors"),
+
+  ingestConnector: (connectorId: string, payload: unknown, autoScore = true) =>
+    request<Record<string, unknown>>(
+      `/api/v1/connectors/${encodeURIComponent(connectorId)}/students?auto_score=${autoScore}`,
+      { method: "POST", body: JSON.stringify(payload) }
+    ),
 };

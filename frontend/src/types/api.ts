@@ -149,11 +149,14 @@ export interface RetentionRunRequest {
   dry_run?: boolean | null;
   channels?: Array<"whatsapp" | "email" | "sms"> | null;
   prefer_whatsapp_medio?: boolean;
+  student_ids?: string[] | null;
 }
 
 export interface RetentionRunResult {
   message?: string;
   dry_run?: boolean;
+  campaign_id?: string | null;
+  students_evaluated?: number;
   totals?: Record<string, number>;
   by_channel?: Record<string, Record<string, number>>;
   results?: Array<Record<string, unknown>>;
