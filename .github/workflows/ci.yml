@@ -52,4 +52,4 @@ jobs:
 
       - name: Run tests (pytest)
         working-directory: backend
-        run: pytest -v
+        run: PYTHONPATH=. pytest -v
