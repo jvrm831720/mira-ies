@@ -14,6 +14,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Bancos novos podem não ter tabelas-base; materialize o metadata atual
+    # apenas onde faltar, antes das alterações compatíveis abaixo.
+    from app.db.session import Base
+    import app.models  # noqa: F401
+    import app.models.intervention  # noqa: F401
+
+    Base.metadata.create_all(bind=op.get_bind(), checkfirst=True)
+
     op.execute("""
     DO $$ BEGIN
       ALTER TABLE students ADD COLUMN IF NOT EXISTS telefone VARCHAR(30);
