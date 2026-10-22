@@ -13,15 +13,30 @@ import { cn } from "@/lib/utils";
 type LoginMode = "password" | "whatsapp" | "forgot";
 
 const COUNTRIES = [
-  { code: "BR", name: "Brasil", dial: "+55", flag: "🇧🇷" },
-  { code: "PT", name: "Portugal", dial: "+351", flag: "🇵🇹" },
-  { code: "US", name: "Estados Unidos", dial: "+1", flag: "🇺🇸" },
-  { code: "AR", name: "Argentina", dial: "+54", flag: "🇦🇷" },
-  { code: "CL", name: "Chile", dial: "+56", flag: "🇨🇱" },
-  { code: "CO", name: "Colômbia", dial: "+57", flag: "🇨🇴" },
-  { code: "MX", name: "México", dial: "+52", flag: "🇲🇽" },
-  { code: "ES", name: "Espanha", dial: "+34", flag: "🇪🇸" },
+  { iso: "br", code: "BR", name: "Brasil", dial: "+55" },
+  { iso: "pt", code: "PT", name: "Portugal", dial: "+351" },
+  { iso: "us", code: "US", name: "Estados Unidos", dial: "+1" },
+  { iso: "ar", code: "AR", name: "Argentina", dial: "+54" },
+  { iso: "cl", code: "CL", name: "Chile", dial: "+56" },
+  { iso: "co", code: "CO", name: "Colômbia", dial: "+57" },
+  { iso: "mx", code: "MX", name: "México", dial: "+52" },
+  { iso: "es", code: "ES", name: "Espanha", dial: "+34" },
 ] as const;
+
+function Flag({ iso, className }: { iso: string; className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://flagcdn.com/w40/${iso}.png`}
+      srcSet={`https://flagcdn.com/w80/${iso}.png 2x`}
+      alt=""
+      width={20}
+      height={15}
+      className={cn("h-[15px] w-5 shrink-0 rounded-[2px] object-cover shadow-sm ring-1 ring-black/10", className)}
+      loading="lazy"
+    />
+  );
+}
 
 function WhatsAppMark({ className }: { className?: string }) {
   return (
@@ -126,24 +141,22 @@ export default function LoginPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#1a1a1a]">
-      {/* Full-bleed artistic backdrop */}
       <div className="pointer-events-none absolute inset-0">
-        <Image
-          src="/login-art.svg"
-          alt=""
-          fill
-          priority
-          className="object-cover opacity-90"
-        />
+        <Image src="/login-art.svg" alt="" fill priority className="object-cover opacity-90" />
         <div className="absolute inset-0 bg-gradient-to-br from-black/35 via-black/20 to-black/45" />
       </div>
 
       <div className="relative z-10 flex min-h-screen items-center justify-center p-4 sm:p-6">
         <div className="grid w-full max-w-[980px] overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-[0_40px_120px_rgba(0,0,0,0.45)] md:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
-          {/* Form panel */}
           <section className="flex flex-col justify-center px-7 py-10 sm:px-10 lg:px-12">
             <div className="mb-8">
-              <Image src="/mira-logo.svg" alt="Mira" width={112} height={26} className="h-auto w-[104px] brightness-0" />
+              <Image
+                src="/mira-logo.svg"
+                alt="Mira"
+                width={112}
+                height={26}
+                className="h-auto w-[104px] brightness-0"
+              />
             </div>
 
             <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-neutral-900">
@@ -248,24 +261,25 @@ export default function LoginPage() {
                 <form onSubmit={onWhatsappSubmit} className="space-y-4">
                   {whatsappStep === "phone" ? (
                     <div className="space-y-1.5">
-                      <label className="text-[13px] font-medium text-neutral-700">Número com WhatsApp</label>
+                      <label className="text-[13px] font-medium text-neutral-700">
+                        Número com WhatsApp
+                      </label>
                       <div className="flex gap-2">
-                        {/* Country selector */}
                         <div className="relative" ref={countryRef}>
                           <button
                             type="button"
                             onClick={() => setCountryOpen((v) => !v)}
-                            className="flex h-11 min-w-[132px] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 text-left text-sm transition hover:bg-neutral-50"
+                            className="flex h-11 min-w-[148px] items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-left text-sm transition hover:bg-neutral-50"
                             aria-expanded={countryOpen}
                           >
-                            <span className="text-base leading-none">{country.flag}</span>
+                            <Flag iso={country.iso} />
                             <span className="truncate text-[12px] font-medium text-neutral-800">
                               {country.name}
                             </span>
                             <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-neutral-400" />
                           </button>
                           {countryOpen && (
-                            <ul className="absolute left-0 top-[calc(100%+6px)] z-20 max-h-56 w-[220px] overflow-y-auto rounded-2xl border border-neutral-200 bg-neutral-950 p-1.5 text-white shadow-2xl">
+                            <ul className="absolute left-0 top-[calc(100%+6px)] z-20 max-h-56 w-[240px] overflow-y-auto rounded-2xl border border-neutral-200 bg-neutral-950 p-1.5 text-white shadow-2xl">
                               {COUNTRIES.map((c) => (
                                 <li key={c.code}>
                                   <button
@@ -275,11 +289,11 @@ export default function LoginPage() {
                                       setCountryOpen(false);
                                     }}
                                     className={cn(
-                                      "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[13px] hover:bg-white/10",
+                                      "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13px] hover:bg-white/10",
                                       c.code === country.code && "bg-white/10"
                                     )}
                                   >
-                                    <span className="text-base">{c.flag}</span>
+                                    <Flag iso={c.iso} className="ring-white/20" />
                                     <span className="min-w-0 flex-1 truncate">{c.name}</span>
                                     <span className="text-[11px] text-white/50">{c.dial}</span>
                                     {c.code === country.code && (
@@ -405,7 +419,6 @@ export default function LoginPage() {
             </p>
           </section>
 
-          {/* Art panel */}
           <section className="relative hidden min-h-[560px] md:block">
             <Image src="/login-art.svg" alt="" fill className="object-cover" priority />
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/10" />
