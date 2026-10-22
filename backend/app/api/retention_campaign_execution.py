@@ -9,7 +9,6 @@ from app.agents.orchestrator import RetentionOrchestrator
 from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
 from app.models.intervention import InterventionLog
-from app.models.retention_campaign import RetentionCampaign
 from app.api.retention_campaigns import _evaluate, _get
 
 router = APIRouter(prefix="/agents/retention/campaigns", tags=["Campanhas de Retenção"])
