@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: beacon-api
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    preDeployCommand: python -m alembic upgrade head
+    healthCheckPath: /health
+    envVars:
+      - key: APP_NAME
+        value: Mira
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MIRA_ADMIN_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL_REQUIRE
+        value: "true"
+      - key: ALLOW_UNSIGNED_WEBHOOKS
+        value: "false"
+      - key: ALLOW_FORCE_TRAIN
+        value: "false"
+      - key: ALLOW_FORCE_ACTIVATE
+        value: "false"
+      - key: MODEL_STORAGE_DIR
+        value: /tmp/model_artifacts
+      - key: AGENTS_DRY_RUN_DEFAULT
+        value: "true"
+      - key: WHATSAPP_PROVIDER
+        value: evolution
+
+  - type: web
+    name: beacon-web
+    runtime: node
+    plan: free
+    region: virginia
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: BACKEND_API_URL
+        fromService:
+          type: web
+          name: beacon-api
+          property: hostport

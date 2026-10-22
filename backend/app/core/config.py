@@ -1,6 +1,7 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from typing import Literal
 
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
 _REPO_ROOT = _BACKEND_DIR.parent
@@ -35,7 +36,8 @@ class Settings(BaseSettings):
     mira_public_url: str = "http://localhost:3000"
 
     database_url: str = "postgresql+asyncpg://beacon:beacon_secret@127.0.0.1:5433/beacon"
-    database_url_sync: str = "postgresql://beacon:beacon_secret@127.0.0.1:5433/beacon"
+    database_url_sync: str | None = None
+    database_ssl_require: bool = False
     redis_url: str = "redis://localhost:6379/0"
     model_storage_dir: str = str(_REPO_ROOT / "data" / "model_artifacts")
     retention_queue_name: str = "beacon:retention:jobs"
@@ -65,6 +67,11 @@ class Settings(BaseSettings):
     evolution_api_url: str | None = None
     evolution_api_key: str | None = None
     evolution_instance: str | None = None
+    # Escolha explícita: não alternar silenciosamente nem duplicar o envio.
+    whatsapp_provider: Literal["evolution", "waha"] = "evolution"
+    waha_api_url: str | None = None
+    waha_api_key: str | None = None
+    waha_session: str = "default"
 
     resend_api_key: str | None = None
     email_from: str | None = None
@@ -72,6 +79,14 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_from: str | None = None
+
+    @property
+    def database_url_for_migrations(self) -> str:
+        url = self.database_url_sync or self.database_url.replace("+asyncpg", "", 1)
+        if self.database_ssl_require and "sslmode=" not in url:
+            url += "&" if "?" in url else "?"
+            url += "sslmode=require"
+        return url
 
     @property
     def allowed_extensions_list(self) -> list[str]:

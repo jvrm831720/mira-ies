@@ -24,7 +24,8 @@ import type {
   UploadResponse,
 } from "@/types/api";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_URL ??
+  (process.env.NODE_ENV === "development" ? "http://localhost:8000" : "");
 
 export class ApiError extends Error {
   status: number;
@@ -117,6 +118,18 @@ export const api = {
     request<AuthResponse>("/api/v1/auth/whatsapp/verify", {
       method: "POST",
       body: JSON.stringify({ phone, code }),
+    }),
+
+  requestEmailCode: (email: string) =>
+    request<AuthActionResponse>("/api/v1/auth/email/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  verifyEmailCode: (email: string, code: string) =>
+    request<AuthResponse>("/api/v1/auth/email/verify", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
     }),
 
   forgotPassword: (email: string) =>
@@ -227,7 +240,10 @@ export const api = {
     ),
 
   listConnectors: () =>
-    request<{ count: number; connectors: Array<Record<string, unknown>> }>("/api/v1/connectors"),
+    request<{
+      count: number;
+      connectors: Array<{ id: string; name: string; category?: string; description?: string }>;
+    }>("/api/v1/connectors"),
 
   ingestConnector: (connectorId: string, payload: unknown, autoScore = true) =>
     request<Record<string, unknown>>(

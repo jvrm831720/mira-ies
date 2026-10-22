@@ -4,6 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import secrets
 from starlette.requests import Request
 
 from app.core.config import get_settings
@@ -51,18 +52,28 @@ async def lifespan(app: FastAPI):
             r = await session.execute(select(Tenant).where(Tenant.slug == "default"))
             t = r.scalar_one_or_none()
             if not t:
+                bootstrap_key = (
+                    settings.dev_api_key
+                    if settings.app_env == "development"
+                    else secrets.token_urlsafe(32)
+                )
                 t = Tenant(
                     slug="default",
                     name="IES Demo",
                     is_active=True,
-                    api_key_hash=hash_api_key(settings.dev_api_key),
+                    api_key_hash=hash_api_key(bootstrap_key),
                 )
                 session.add(t)
                 await session.commit()
                 await session.refresh(t)
-                print(f"Tenant default criado. Dev API key: {settings.dev_api_key}")
+                print("Tenant default criado.")
             elif not t.api_key_hash:
-                t.api_key_hash = hash_api_key(settings.dev_api_key)
+                bootstrap_key = (
+                    settings.dev_api_key
+                    if settings.app_env == "development"
+                    else secrets.token_urlsafe(32)
+                )
+                t.api_key_hash = hash_api_key(bootstrap_key)
                 await session.commit()
                 print("API key hash do tenant default atualizado.")
 

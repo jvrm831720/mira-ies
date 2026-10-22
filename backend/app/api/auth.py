@@ -14,7 +14,11 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.channels.whatsapp import normalize_phone_br
-from app.agents.providers.evolution import send_whatsapp_evolution
+from app.agents.providers.whatsapp_dispatch import (
+    send_whatsapp_message,
+    selected_whatsapp_provider,
+    whatsapp_provider_configured,
+)
 from app.agents.providers.resend_provider import send_email_resend
 from app.core.config import get_settings
 from app.core.mira_security import hash_password, issue_access_token, verify_password
@@ -108,6 +112,10 @@ class WhatsAppVerifyPayload(WhatsAppRequestPayload):
     code: str = Field(pattern=r"^\d{6}$")
 
 
+class EmailCodeVerifyPayload(EmailPayload):
+    code: str = Field(pattern=r"^\d{6}$")
+
+
 class PasswordResetPayload(BaseModel):
     token: str = Field(min_length=20, max_length=512)
     new_password: str = Field(min_length=12, max_length=256)
@@ -148,8 +156,12 @@ async def login_password(body: PasswordLoginPayload, db: AsyncSession = Depends(
 @router.post("/whatsapp/request", status_code=status.HTTP_202_ACCEPTED)
 async def request_whatsapp_code(body: WhatsAppRequestPayload, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
-    if not settings.evolution_api_url or not settings.evolution_api_key:
-        raise HTTPException(status_code=503, detail="Login por WhatsApp indisponível: configure a integração Evolution API.")
+    if not whatsapp_provider_configured(settings):
+        provider = selected_whatsapp_provider(settings)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Login por WhatsApp indisponível: configure o provedor {provider} selecionado.",
+        )
     phone = normalize_phone_br(body.phone)
     if not phone:
         raise HTTPException(status_code=422, detail="Informe um número de telefone válido com DDD.")
@@ -180,7 +192,7 @@ async def request_whatsapp_code(body: WhatsAppRequestPayload, db: AsyncSession =
     await db.commit()
 
     if tenant:
-        delivery = await send_whatsapp_evolution(
+        delivery = await send_whatsapp_message(
             to=phone,
             message=f"Seu código de acesso Mira é {code}. Ele expira em 5 minutos. Não compartilhe este código.",
         )
@@ -214,6 +226,88 @@ async def verify_whatsapp_code(body: WhatsAppVerifyPayload, db: AsyncSession = D
         raise HTTPException(status_code=429, detail="Limite de tentativas atingido. Solicite um novo código.")
     challenge.attempts += 1
     expected = _token_digest("whatsapp", phone, body.code)
+    if not hmac.compare_digest(challenge.token_hash, expected):
+        if challenge.attempts >= _MAX_CHALLENGE_ATTEMPTS:
+            challenge.consumed_at = now
+        await db.commit()
+        raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
+    challenge.consumed_at = now
+    user = await db.get(User, challenge.user_id)
+    tenant = await _active_tenant(db, user) if user else None
+    if tenant is None:
+        await db.commit()
+        raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
+    await db.commit()
+    return _token_response(user, tenant)
+
+
+@router.post("/email/request", status_code=status.HTTP_202_ACCEPTED)
+async def request_email_code(body: EmailPayload, db: AsyncSession = Depends(get_db)):
+    settings = get_settings()
+    if not settings.resend_api_key or not settings.email_from:
+        raise HTTPException(status_code=503, detail="Login por e-mail indisponível: configure Resend e EMAIL_FROM.")
+    identifier_hash = _fingerprint("email", body.email)
+    await _check_cooldown(db, "email_login", identifier_hash)
+
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    tenant = await _active_tenant(db, user) if user else None
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    challenge = AuthChallenge(
+        user_id=user.id if tenant else None,
+        challenge_type="email_login",
+        identifier_hash=identifier_hash,
+        token_hash=_token_digest("email", body.email, code),
+        expires_at=_now() + timedelta(minutes=_OTP_TTL_MINUTES),
+    )
+    await db.execute(
+        update(AuthChallenge)
+        .where(
+            AuthChallenge.challenge_type == "email_login",
+            AuthChallenge.identifier_hash == identifier_hash,
+            AuthChallenge.consumed_at.is_(None),
+        )
+        .values(consumed_at=_now())
+    )
+    db.add(challenge)
+    await db.commit()
+
+    if tenant:
+        delivery = await send_email_resend(
+            to=user.email,
+            subject="Seu código de acesso Mira",
+            body=(
+                f"Seu código de acesso é {code}. Ele expira em {_OTP_TTL_MINUTES} minutos.\n\n"
+                "Não compartilhe este código. Se você não solicitou o acesso, ignore esta mensagem."
+            ),
+        )
+        if not delivery.ok:
+            logger.warning("Falha na entrega de código de acesso Mira via Resend.")
+    return {"message": "Se o e-mail estiver cadastrado, enviaremos um código de acesso."}
+
+
+@router.post("/email/verify")
+async def verify_email_code(body: EmailCodeVerifyPayload, db: AsyncSession = Depends(get_db)):
+    identifier_hash = _fingerprint("email", body.email)
+    result = await db.execute(
+        select(AuthChallenge)
+        .where(
+            AuthChallenge.challenge_type == "email_login",
+            AuthChallenge.identifier_hash == identifier_hash,
+            AuthChallenge.consumed_at.is_(None),
+        )
+        .order_by(AuthChallenge.created_at.desc())
+        .limit(1)
+        .with_for_update()
+    )
+    challenge = result.scalar_one_or_none()
+    now = _now()
+    if not challenge or not challenge.user_id or challenge.expires_at <= now:
+        raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
+    if challenge.attempts >= _MAX_CHALLENGE_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Limite de tentativas atingido. Solicite um novo código.")
+    challenge.attempts += 1
+    expected = _token_digest("email", body.email, body.code)
     if not hmac.compare_digest(challenge.token_hash, expected):
         if challenge.attempts >= _MAX_CHALLENGE_ATTEMPTS:
             challenge.consumed_at = now

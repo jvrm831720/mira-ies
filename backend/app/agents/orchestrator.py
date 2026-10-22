@@ -15,6 +15,10 @@ from app.agents.base import Channel, MessageContext, SendResult
 from app.agents.channels.email import EmailAgent
 from app.agents.channels.sms import SmsAgent
 from app.agents.channels.whatsapp import WhatsAppAgent
+from app.agents.providers.whatsapp_dispatch import (
+    selected_whatsapp_provider,
+    whatsapp_provider_configured,
+)
 from app.agents.rules import check_anti_spam, decide_channels, skip_reason_for_no_channel
 from app.core.config import get_settings
 from app.models.intervention import InterventionLog
@@ -32,8 +36,8 @@ _SUCCESS_STATUSES = ("sent", "dry_run")
 
 
 def _configured_provider(channel: Channel, settings: Any) -> str:
-    if channel == "whatsapp" and settings.evolution_api_url:
-        return "evolution"
+    if channel == "whatsapp" and whatsapp_provider_configured(settings):
+        return selected_whatsapp_provider(settings)
     if channel == "email" and settings.resend_api_key:
         return "resend"
     if channel == "sms" and settings.twilio_account_sid:

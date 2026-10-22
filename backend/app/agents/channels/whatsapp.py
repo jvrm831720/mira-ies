@@ -6,7 +6,11 @@ import re
 
 from app.agents.base import MessageContext, SendResult
 from app.agents.providers.dry_run import dry_run_send
-from app.agents.providers.evolution import send_whatsapp_evolution
+from app.agents.providers.whatsapp_dispatch import (
+    selected_whatsapp_provider,
+    send_whatsapp_message,
+    whatsapp_provider_configured,
+)
 from app.agents.templates import render_whatsapp
 from app.core.config import get_settings
 
@@ -46,11 +50,13 @@ class WhatsAppAgent:
             return SendResult(
                 ok=False,
                 channel="whatsapp",
-                provider="dry_run" if dry_run else "evolution",
+                provider="dry_run" if dry_run else selected_whatsapp_provider(),
                 error="telefone invalido ou ausente",
                 outcome="confirmed_failure",
             )
         settings = get_settings()
-        if dry_run or not settings.evolution_api_url:
+        if dry_run or not whatsapp_provider_configured(settings):
             return await dry_run_send(channel="whatsapp", to=phone, message=message)
-        return await send_whatsapp_evolution(to=phone, message=message, idempotency_key=idempotency_key)
+        return await send_whatsapp_message(
+            to=phone, message=message, idempotency_key=idempotency_key
+        )

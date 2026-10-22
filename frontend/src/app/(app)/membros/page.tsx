@@ -68,7 +68,7 @@ export default function MembersPage() {
     (invites.isError && invites.error instanceof ApiError && invites.error.status === 404);
 
   const memberList: OrgMember[] = members.data?.members ?? [];
-  const inviteList: OrgInvite[] = invites.data?.invites ?? [];
+  const inviteList: OrgInvite[] = useMemo(() => invites.data?.invites ?? [], [invites.data?.invites]);
 
   const pendingCount = useMemo(
     () => inviteList.filter((i) => i.status === "pending").length,

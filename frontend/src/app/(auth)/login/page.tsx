@@ -3,14 +3,14 @@
 import { type FormEvent, useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, ChevronDown, KeyRound } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, KeyRound, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
-type LoginMode = "password" | "whatsapp" | "forgot";
+type LoginMode = "password" | "whatsapp" | "email-code" | "forgot";
 
 const COUNTRIES = [
   { iso: "br", code: "BR", name: "Brasil", dial: "+55" },
@@ -56,6 +56,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<LoginMode>("password");
   const [whatsappStep, setWhatsappStep] = useState<"phone" | "code">("phone");
+  const [emailStep, setEmailStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [localPhone, setLocalPhone] = useState("");
@@ -83,6 +84,8 @@ export default function LoginPage() {
   function changeMode(next: LoginMode) {
     setMode(next);
     setWhatsappStep("phone");
+    setEmailStep("email");
+    setCode("");
     setError(null);
     setNotice(null);
   }
@@ -90,12 +93,12 @@ export default function LoginPage() {
   function humanError(err: unknown, fallback: string) {
     if (err instanceof ApiError) {
       if (err.status === 0 || /failed to fetch|network/i.test(err.message)) {
-        return "Não foi possível falar com o servidor. Confira se o backend está em http://127.0.0.1:8000.";
+        return "Não foi possível falar com o servidor. Confira sua conexão e tente novamente.";
       }
       return err.message || fallback;
     }
     if (err instanceof TypeError) {
-      return "Não foi possível falar com o servidor. Confira se o backend está em http://127.0.0.1:8000.";
+      return "Não foi possível falar com o servidor. Confira sua conexão e tente novamente.";
     }
     return fallback;
   }
@@ -149,6 +152,35 @@ export default function LoginPage() {
     }
   }
 
+  async function onEmailCodeSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setNotice(null);
+    setLoading(true);
+    try {
+      if (emailStep === "email") {
+        await api.requestEmailCode(email.trim());
+        setEmailStep("code");
+        setNotice("Se o e-mail estiver cadastrado, enviaremos um código de acesso.");
+      } else {
+        const response = await api.verifyEmailCode(email.trim(), code.trim());
+        setAccessToken(response.access_token);
+        router.replace("/");
+      }
+    } catch (err) {
+      setError(
+        humanError(
+          err,
+          emailStep === "email"
+            ? "Não foi possível enviar o código. Confira o e-mail."
+            : "Código inválido ou expirado."
+        )
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function onForgotSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -190,6 +222,10 @@ export default function LoginPage() {
                   ? whatsappStep === "code"
                     ? "Confirme o código"
                     : "Entrar com WhatsApp"
+                  : mode === "email-code"
+                    ? emailStep === "code"
+                      ? "Confirme o código"
+                      : "Entrar com código no e-mail"
                   : "Entrar"}
             </h1>
             <p className="mt-1.5 text-sm text-neutral-500">
@@ -199,6 +235,10 @@ export default function LoginPage() {
                   ? whatsappStep === "code"
                     ? `Código enviado para ${fullPhone}`
                     : "Informe o número cadastrado na instituição."
+                  : mode === "email-code"
+                    ? emailStep === "code"
+                      ? `Código enviado para ${email}`
+                      : "Informe o e-mail cadastrado na instituição."
                   : "Continue para o painel da sua instituição."}
             </p>
 
@@ -216,6 +256,14 @@ export default function LoginPage() {
 
               {mode === "password" && (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => changeMode("email-code")}
+                    className="flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-neutral-200 bg-white text-sm font-medium text-neutral-800 transition hover:bg-neutral-50"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Entrar com código no e-mail
+                  </button>
                   <button
                     type="button"
                     onClick={() => changeMode("whatsapp")}
@@ -286,6 +334,72 @@ export default function LoginPage() {
                     <code className="rounded bg-white px-1 py-0.5 text-[10px]">MiraAdmin123!</code>
                   </p>
                 </>
+              )}
+
+              {mode === "email-code" && (
+                <form onSubmit={onEmailCodeSubmit} className="space-y-4">
+                  {emailStep === "email" ? (
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-medium text-neutral-700" htmlFor="email-otp">
+                        E-mail institucional
+                      </label>
+                      <Input
+                        id="email-otp"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="voce@instituicao.edu.br"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="h-11 rounded-full border-neutral-200 px-4"
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-medium text-neutral-700" htmlFor="email-otp-code">
+                        Código de 6 dígitos
+                      </label>
+                      <Input
+                        id="email-otp-code"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                        required
+                        className="h-12 rounded-full border-neutral-200 px-4 text-center text-lg tracking-[0.35em]"
+                      />
+                    </div>
+                  )}
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="h-11 w-full rounded-full bg-neutral-950 text-white hover:bg-neutral-800"
+                  >
+                    <Mail className="h-4 w-4" />
+                    {loading
+                      ? emailStep === "email" ? "Enviando…" : "Validando…"
+                      : emailStep === "email" ? "Enviar código por e-mail" : "Confirmar e entrar"}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (emailStep === "code") {
+                        setEmailStep("email");
+                        setCode("");
+                        setNotice(null);
+                        setError(null);
+                      } else {
+                        changeMode("password");
+                      }
+                    }}
+                    className="flex w-full items-center justify-center gap-2 text-sm text-neutral-500 hover:text-neutral-900"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    {emailStep === "code" ? "Trocar e-mail" : "Voltar"}
+                  </button>
+                </form>
               )}
 
               {mode === "whatsapp" && (

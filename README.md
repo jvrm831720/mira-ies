@@ -10,7 +10,7 @@ MVP SaaS que une **Análise Preditiva de Evasão** + **Sistema Multiagente de Re
 Motor Preditivo → Agente Orquestrador → WhatsApp | E-mail | SMS
 ```
 
-Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção e `docs/AUTH.md` para os fluxos de autenticação Mira.
+Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção, `docs/AUTH.md` para os fluxos de autenticação Mira e `docs/DEPLOY_RENDER_SUPABASE.md` para o deploy gratuito de teste.
 
 ---
 
@@ -31,7 +31,7 @@ Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de rete
 | ML | XGBoost + SHAP |
 | Banco | PostgreSQL (Docker local ou Supabase) |
 | Frontend | Next.js |
-| Agentes de Retenção | Orquestrador próprio (dry-run) + Evolution API (WhatsApp) / Resend (e-mail) / Twilio (SMS), todos opcionais |
+| Agentes de Retenção | Orquestrador próprio (dry-run) + WAHA ou Evolution API (WhatsApp) / Resend (e-mail) / Twilio (SMS), todos opcionais |
 
 ---
 
@@ -62,7 +62,7 @@ python -m app.worker
 - PostgreSQL no host: `127.0.0.1:5433` (dentro da rede Docker: `db:5432`).
 - Artefatos de modelo ficam em `MODEL_STORAGE_DIR` (padrão `data/model_artifacts`), fora do
   diretório temporário do processo; em produção, configure esse caminho em um volume persistente.
-- Para habilitar recuperação de senha e login WhatsApp, configure `RESEND_API_KEY`, `EMAIL_FROM` e `EVOLUTION_API_*` no `.env`; veja `docs/AUTH.md`.
+- Para habilitar código de login/recuperação por e-mail e login WhatsApp, configure `RESEND_API_KEY`, `EMAIL_FROM` e os dados do provedor escolhido em `WHATSAPP_PROVIDER` (`WAHA_*` ou `EVOLUTION_API_*`) no `.env`; veja `docs/AUTH.md`.
 
 Em outro terminal, rode o frontend:
 

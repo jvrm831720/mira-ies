@@ -77,9 +77,10 @@ async def test_admin_user_provisioning_rejects_wrong_secret(client, tenant_facto
 
 
 async def test_invalid_password_validation_does_not_echo_password(client):
-    attempted_password = "too-short-secret"
+    attempted_password = "x9@noecho"
     response = await client.post(
         "/api/v1/auth/admin/users",
+        headers={"X-Admin-Secret": get_settings().secret_key},
         json={
             "tenant_slug": "default",
             "display_name": "User",
@@ -106,7 +107,7 @@ async def test_whatsapp_otp_login(client, tenant_factory, monkeypatch):
         return SendResult(ok=True, channel="whatsapp", provider="evolution")
 
     import app.api.auth as auth_api
-    monkeypatch.setattr(auth_api, "send_whatsapp_evolution", fake_send)
+    monkeypatch.setattr(auth_api, "send_whatsapp_message", fake_send)
 
     requested = await client.post("/api/v1/auth/whatsapp/request", json={"phone": "11987654321"})
     assert requested.status_code == 202

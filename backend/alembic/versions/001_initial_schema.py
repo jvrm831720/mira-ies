@@ -30,6 +30,13 @@ def upgrade() -> None:
       NULL;
     END $$;
     """)
+    # Um Supabase recém-criado ainda não tem as tabelas preexistentes que o
+    # baseline histórico pressupunha. Cria apenas as tabelas ausentes; revisões
+    # seguintes permanecem idempotentes para bancos existentes.
+    from app.db.session import Base
+    import app.models  # noqa: F401
+
+    Base.metadata.create_all(bind=op.get_bind(), checkfirst=True)
 
 
 def downgrade() -> None:

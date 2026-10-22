@@ -60,7 +60,7 @@ export default function ConectoresPage() {
               {(items.length
                 ? items
                 : [{ id: "generic", name: "Genérico", category: "generic", description: "JSON canônico" }]
-              ).map((c: { id: string; name: string; category?: string; description?: string }) => (
+              ).map((c) => (
                 <button
                   key={c.id}
                   type="button"

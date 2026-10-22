@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.orchestrator import RetentionOrchestrator, preview_message
+from app.agents.providers.whatsapp_dispatch import selected_whatsapp_provider, whatsapp_provider_configured
 from app.core.auth import AuthContext, get_current_tenant, require_min_role
 from app.core.config import get_settings
 from app.db.session import get_db
@@ -193,8 +194,8 @@ async def agents_status(auth: AuthContext = Depends(get_current_tenant)):
             "max_contacts_per_week": settings.agents_max_contacts_per_week,
         },
         "providers": {
-            "whatsapp": "evolution" if settings.evolution_api_url else "dry_run",
-            "email": "resend" if settings.resend_api_key else "dry_run",
+            "whatsapp": selected_whatsapp_provider(settings) if whatsapp_provider_configured(settings) else "dry_run",
+            "email": "resend" if settings.resend_api_key and settings.email_from else "dry_run",
             "sms": "twilio" if settings.twilio_account_sid else "dry_run",
         },
         "queue": {

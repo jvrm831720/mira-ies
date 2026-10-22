@@ -8,7 +8,7 @@ import {
   Phone,
   X,
 } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { RiskBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +22,7 @@ export function StudentDrawer({
   studentId: string | null;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const open = Boolean(studentId);
   const detail = useQuery({
     queryKey: ["student-risk", studentId],
@@ -166,17 +167,30 @@ export function StudentDrawer({
 
         <div className="border-t border-border p-4">
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button asChild className="flex-1 rounded-full" disabled={!studentId}>
-              <Link href={studentId ? `/alunos/${studentId}` : "#"} onClick={onClose}>
-                <ExternalLink className="h-4 w-4" />
-                Abrir ficha completa
-              </Link>
+            <Button
+              className="flex-1 rounded-full"
+              disabled={!studentId}
+              onClick={() => {
+                if (!studentId) return;
+                router.push(`/alunos/${studentId}`);
+                onClose();
+              }}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Abrir ficha completa
             </Button>
-            <Button asChild variant="outline" className="flex-1 rounded-full" disabled={!studentId}>
-              <Link href="/retencao" onClick={onClose}>
-                <MessageCircle className="h-4 w-4" />
-                Retenção
-              </Link>
+            <Button
+              variant="outline"
+              className="flex-1 rounded-full"
+              disabled={!studentId}
+              onClick={() => {
+                if (!studentId) return;
+                router.push("/retencao");
+                onClose();
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Retenção
             </Button>
           </div>
         </div>
