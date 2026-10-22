@@ -1,5 +1,7 @@
 export type RiskLevel = "baixo" | "medio" | "critico";
 
+export type MemberRole = "admin" | "coordinator" | "operator" | "viewer";
+
 export interface AuthUser {
   display_name: string;
   email: string;
@@ -15,6 +17,53 @@ export interface AuthResponse {
 
 export interface AuthActionResponse {
   message?: string;
+}
+
+export interface OrgMember {
+  id: string;
+  email: string;
+  display_name?: string | null;
+  role: MemberRole;
+  status: "active" | "invited" | "disabled" | string;
+  phone?: string | null;
+  created_at?: string | null;
+}
+
+export interface OrgInvite {
+  id: string;
+  email: string;
+  role: MemberRole;
+  status: "pending" | "accepted" | "expired" | "revoked" | string;
+  created_at?: string | null;
+  expires_at?: string | null;
+  invite_url?: string | null;
+}
+
+export interface MembersResponse {
+  members: OrgMember[];
+  organization_name?: string;
+}
+
+export interface InvitesResponse {
+  invites: OrgInvite[];
+}
+
+export interface InviteMemberRequest {
+  email: string;
+  role: MemberRole;
+}
+
+export interface InviteMemberResponse {
+  message?: string;
+  invite?: OrgInvite;
+  invite_url?: string;
+}
+
+export interface AcceptInviteRequest {
+  token: string;
+  password: string;
+  phone: string;
+  display_name?: string;
 }
 
 export interface RiskSummary {

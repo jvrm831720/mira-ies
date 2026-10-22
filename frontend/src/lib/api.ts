@@ -1,11 +1,16 @@
 import { clearAuth, getAccessToken, getApiKey } from "./auth";
 import type {
+  AcceptInviteRequest,
   AgentsStatus,
   AuthActionResponse,
   AuthResponse,
   CommunicationPreferenceResponse,
   CriticalResponse,
+  InviteMemberRequest,
+  InviteMemberResponse,
+  InvitesResponse,
   LogsResponse,
+  MembersResponse,
   ModelInfo,
   PreviewMessage,
   RetentionRunRequest,
@@ -27,7 +32,8 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const isAuthRoute = path.startsWith("/api/v1/auth/");
+  const isAuthRoute =
+    path.startsWith("/api/v1/auth/") || path.startsWith("/api/v1/org/invites/accept");
   const token = getAccessToken();
   const key = getApiKey();
   const headers = new Headers(init.headers || {});
@@ -45,7 +51,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       if (
         typeof window !== "undefined" &&
         !window.location.pathname.startsWith("/login") &&
-        !window.location.pathname.startsWith("/reset-password")
+        !window.location.pathname.startsWith("/reset-password") &&
+        !window.location.pathname.startsWith("/convite")
       ) {
         window.location.href = "/login";
       }
@@ -58,7 +65,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     try {
       const body = await res.json();
       detail = body.detail || body.message || detail;
-      if (Array.isArray(detail)) detail = detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join(", ");
+      if (Array.isArray(detail))
+        detail = detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join(", ");
     } catch {
       /* ignore */
     }
@@ -175,4 +183,21 @@ export const api = {
 
   retentionPreview: (studentId: string) =>
     request<PreviewMessage>(`/api/v1/agents/retention/preview/${studentId}`),
+
+  // Organization members
+  listMembers: () => request<MembersResponse>("/api/v1/org/members"),
+
+  listInvites: () => request<InvitesResponse>("/api/v1/org/invites"),
+
+  inviteMember: (body: InviteMemberRequest) =>
+    request<InviteMemberResponse>("/api/v1/org/invites", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  acceptInvite: (body: AcceptInviteRequest) =>
+    request<AuthResponse>("/api/v1/org/invites/accept", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
