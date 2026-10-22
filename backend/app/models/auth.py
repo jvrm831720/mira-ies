@@ -1,4 +1,4 @@
-"""Contas Mira e desafios temporários de autenticação."""
+"""Contas Mira, convites de organização e desafios de autenticação."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -32,6 +32,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     phone_e164: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), default="coordinator", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     auth_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -40,6 +41,32 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )
+
+
+class OrganizationInvite(Base):
+    """Convite pendente para entrar em um tenant (organização)."""
+
+    __tablename__ = "mira_org_invites"
+    __table_args__ = (
+        Index("ix_mira_org_invites_tenant_status", "tenant_id", "status"),
+        Index("ix_mira_org_invites_email", "email"),
+        Index("ix_mira_org_invites_token_hash", "token_hash", unique=True),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="coordinator")
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    invited_by_user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
 class AuthChallenge(Base):

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks
+from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org
 from app.db.session import init_db
 from app.ml.model import load_model
 
@@ -74,7 +74,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Mira — permanência estudantil, autenticação e isolamento multi-tenant",
-    version="0.5.0-safe-delivery",
+    version="0.6.0-org-members",
     lifespan=lifespan,
 )
 
@@ -110,16 +110,18 @@ app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outc
 app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
 app.include_router(delivery_webhooks.router, prefix="/api/v1", tags=["Webhooks de entrega"])
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(org.router, prefix="/api/v1")
 
 
 @app.get("/")
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.5.0-safe-delivery",
-        "phase": "Sistema multiagente de retencao (Orquestrador + WhatsApp/E-mail/SMS, dry-run)",
+        "version": "0.6.0-org-members",
+        "phase": "Organização: membros e convites",
         "status": "running",
         "docs": "/docs",
         "auth": "Sessão Mira via Bearer ou API key legada via X-API-Key nas rotas protegidas",
+        "org": "/api/v1/org/members · /api/v1/org/invites",
         "model_disclaimer": "Base treinado em sintético — score assistido, nao prediccao validada",
     }
