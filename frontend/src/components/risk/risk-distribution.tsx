@@ -21,7 +21,7 @@ export function RiskDistribution({ data, loading }: { data?: RiskSummary; loadin
     return `${item.color} ${start}% ${end}%`;
   });
   if (unscored > 0 && denominator > 0) stops.push(`#e7e9f1 ${(cursor / denominator) * 100}% 100%`);
-  const ring = stops.length ? `conic-gradient(${stops.join(", ")})` : "conic-gradient(#e7e9f1 0% 100%)";
+  const ring = denominator && stops.length ? `conic-gradient(${stops.join(", ")})` : "conic-gradient(#e7e9f1 0% 100%)";
 
   return (
     <Card className="h-full overflow-hidden">

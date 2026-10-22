@@ -106,7 +106,7 @@ export interface RetentionRunResult {
   message?: string;
   dry_run?: boolean;
   totals?: Record<string, number>;
-  by_channel?: Record<string, number>;
+  by_channel?: Record<string, Record<string, number>>;
   results?: Array<Record<string, unknown>>;
   [key: string]: unknown;
 }

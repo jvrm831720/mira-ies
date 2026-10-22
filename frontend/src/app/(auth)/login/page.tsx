@@ -107,10 +107,11 @@ export default function LoginPage() {
       : copy.loginSubtitle;
 
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <div className="mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-hidden rounded-3xl border border-border/80 bg-background shadow-xl md:min-h-[calc(100vh-4rem)] md:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden flex-col justify-between overflow-hidden bg-slate-950 p-8 text-slate-100 md:flex lg:p-12">
-          <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+    <main className="min-h-screen bg-[#f2f3fb] p-3 sm:p-5 md:p-8">
+      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-6xl overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_80px_rgba(16,13,80,0.12)] md:min-h-[calc(100vh-4rem)] md:grid-cols-[1.05fr_0.95fr]">
+        <section className="relative hidden flex-col justify-between overflow-hidden bg-[var(--brand-midnight)] p-8 text-white md:flex lg:p-12">
+          <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-[#4050cd]/25 blur-3xl" />
+          <div className="absolute -bottom-36 -left-28 h-80 w-80 rounded-full bg-[#f47769]/10 blur-3xl" />
           <div className="relative space-y-14">
             <Image src="/mira-logo.svg" alt="Mira" width={144} height={32} className="h-auto w-36" />
             <div className="space-y-5">
@@ -124,26 +125,17 @@ export default function LoginPage() {
               <p className="max-w-md text-sm leading-6 text-slate-300">{copy.productTagline}</p>
             </div>
           </div>
-          <ul className="relative space-y-3 text-sm text-slate-300">
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-blue-300" aria-hidden="true" />
-              Identifique alunos em risco em segundos
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-blue-300" aria-hidden="true" />
-              Entenda os fatores com linguagem clara
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-blue-300" aria-hidden="true" />
-              Aja com segurança e acompanhamento humano
-            </li>
+          <ul className="relative space-y-3 text-sm text-white/70">
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[var(--brand-coral)]" aria-hidden="true" />Identifique alunos em risco em segundos</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[var(--brand-coral)]" aria-hidden="true" />Entenda os fatores com linguagem clara</li>
+            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[var(--brand-coral)]" aria-hidden="true" />Aja com segurança e acompanhamento humano</li>
           </ul>
         </section>
 
         <section className="flex items-center p-5 sm:p-8 lg:p-12">
           <div className="mx-auto w-full max-w-md">
             <div className="mb-8 md:hidden">
-              <div className="mb-6 inline-flex rounded-xl bg-slate-950 px-4 py-3">
+              <div className="mb-6 inline-flex rounded-xl bg-[var(--brand-midnight)] px-4 py-3 shadow-sm">
                 <Image src="/mira-logo.svg" alt="Mira" width={112} height={25} className="h-auto w-28" />
               </div>
               <p className="text-sm text-muted-foreground">{copy.productTagline}</p>

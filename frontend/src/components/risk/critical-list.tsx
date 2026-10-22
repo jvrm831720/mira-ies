@@ -24,8 +24,9 @@ export function CriticalList({
         <Link
           href="/alunos?risk=critico"
           className={cn(
-            "inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium hover:bg-muted"
+            "inline-flex h-9 items-center rounded-xl border border-border bg-white px-3 text-xs font-semibold transition hover:border-primary/25 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           )}
+          aria-label="Ver todos os alunos em risco crítico"
         >
           Ver todos
         </Link>
@@ -37,8 +38,9 @@ export function CriticalList({
           ))}
 
         {!loading && (!students || students.length === 0) && (
-          <div className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-            {copy.emptyStudents}
+          <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
+            <p className="text-sm font-semibold text-foreground">{copy.emptyStudents}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Quando houver alunos prioritários, eles serão listados aqui.</p>
           </div>
         )}
 
@@ -47,7 +49,7 @@ export function CriticalList({
             <Link
               key={s.id}
               href={`/alunos/${s.id}`}
-              className="flex items-center gap-4 rounded-lg border border-border/80 px-4 py-3 transition hover:bg-muted/50"
+              className="flex items-center gap-3 rounded-xl border border-border/80 bg-white px-3.5 py-3 transition hover:border-primary/20 hover:bg-secondary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-4 sm:px-4"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">

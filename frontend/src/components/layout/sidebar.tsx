@@ -36,7 +36,8 @@ export function Sidebar() {
           const active =
             link.href === "/"
               ? pathname === "/"
-              : pathname === link.href || pathname.startsWith(link.href + "/");
+              : pathname === link.href ||
+                (link.href !== "/retencao" && pathname.startsWith(link.href + "/"));
           return (
             <Link
               key={link.href}
@@ -47,6 +48,7 @@ export function Sidebar() {
                   ? "bg-white/10 font-semibold text-white shadow-inner"
                   : "text-white/65 hover:bg-white/[0.07] hover:text-white"
               )}
+              aria-current={active ? "page" : undefined}
             >
               {active && <span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-[var(--brand-coral)]" />}
               <link.icon className={cn("h-[17px] w-[17px]", active ? "text-[var(--brand-coral)]" : "text-white/55 group-hover:text-white")} />

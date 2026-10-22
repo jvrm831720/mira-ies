@@ -49,14 +49,14 @@ function ResetPasswordForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-md">
+    <main className="flex min-h-screen items-center justify-center bg-[#f2f3fb] p-4 md:p-8">
+      <div className="w-full max-w-[460px]">
         <div className="mb-8 flex justify-center">
-          <div className="rounded-xl bg-slate-950 px-4 py-3">
+          <div className="rounded-xl bg-[var(--brand-midnight)] px-4 py-3 shadow-sm">
             <Image src="/mira-logo.svg" alt="Mira" width={128} height={29} className="h-auto w-32" />
           </div>
         </div>
-        <Card>
+        <Card className="shadow-[0_16px_50px_rgba(16,13,80,0.08)]">
           <CardHeader>
             <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               {success ? (
