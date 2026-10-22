@@ -3,32 +3,32 @@
 @tailwind utilities;
 
 :root {
-  /* Light premium — aligned with login card */
-  --background: 220 20% 97%;
-  --foreground: 240 30% 12%;
+  /* Login-level light system */
+  --background: 0 0% 97%;
+  --foreground: 0 0% 9%;
   --card: 0 0% 100%;
-  --card-foreground: 240 30% 12%;
-  --primary: 234 61% 51%;
+  --card-foreground: 0 0% 9%;
+  --primary: 0 0% 9%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 233 45% 96%;
-  --secondary-foreground: 240 30% 12%;
-  --muted: 220 16% 94%;
-  --muted-foreground: 228 10% 42%;
-  --accent: 233 45% 96%;
-  --accent-foreground: 240 30% 12%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 9%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
   --success: 160 72% 32%;
   --success-foreground: 0 0% 100%;
   --warning: 38 92% 50%;
   --warning-foreground: 26 83% 14%;
-  --border: 220 14% 90%;
-  --input: 220 14% 88%;
-  --ring: 234 61% 51%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 0 0% 9%;
   --brand-indigo: #4050cd;
   --brand-blue: #29399f;
   --brand-coral: #f47769;
-  --brand-midnight: #100d50;
+  --brand-midnight: #0a0a0a;
   --brand-black: #090909;
   --radius: 1rem;
 }
@@ -53,7 +53,7 @@ body {
 
 ::selection {
   color: #fff;
-  background: var(--brand-indigo);
+  background: #171717;
 }
 
 :focus-visible {

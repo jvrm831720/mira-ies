@@ -66,71 +66,76 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="hidden min-h-screen w-[260px] shrink-0 flex-col bg-[var(--brand-midnight)] text-white md:flex">
-      <div className="flex h-[64px] items-center border-b border-white/10 px-5">
+    <aside className="hidden min-h-screen w-[248px] shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
+      <div className="flex h-[64px] items-center px-5">
         <Image
           src="/mira-logo.svg"
           alt="Mira"
-          width={120}
-          height={28}
-          className="h-auto w-[108px]"
+          width={112}
+          height={26}
+          className="h-auto w-[100px] brightness-0"
           priority
         />
       </div>
 
-      <div className="relative border-b border-white/10 px-3 py-3" ref={orgRef}>
+      <div className="relative px-3 pb-3" ref={orgRef}>
         <button
           type="button"
           onClick={() => setOrgOpen((v) => !v)}
-          className="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2.5 text-left transition hover:bg-white/[0.09]"
+          className="flex w-full items-center gap-2.5 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-left transition hover:bg-neutral-100"
           aria-expanded={orgOpen}
           aria-haspopup="listbox"
         >
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--brand-coral)]/20 text-[var(--brand-coral)]">
-            <Building2 className="h-4 w-4" />
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-neutral-900 text-white">
+            <Building2 className="h-3.5 w-3.5" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold leading-tight">{orgName}</span>
-            <span className="mt-0.5 block truncate text-[10px] text-white/45">
+            <span className="block truncate text-[13px] font-semibold leading-tight text-neutral-900">
+              {orgName}
+            </span>
+            <span className="mt-0.5 block truncate text-[10px] text-neutral-500">
               {role ? `Perfil · ${role}` : "Organização ativa"}
             </span>
           </span>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 text-white/40" />
+          <ChevronsUpDown className="h-4 w-4 shrink-0 text-neutral-400" />
         </button>
 
         {orgOpen && (
           <div
             role="listbox"
-            className="absolute left-3 right-3 top-[calc(100%-4px)] z-30 overflow-hidden rounded-xl border border-white/10 bg-[#16143a] shadow-2xl"
+            className="absolute left-3 right-3 top-[calc(100%-4px)] z-30 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl"
           >
-            <p className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+            <p className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
               Suas organizações
             </p>
             <button
               type="button"
               role="option"
               aria-selected
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] hover:bg-white/[0.06]"
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] hover:bg-neutral-50"
               onClick={() => setOrgOpen(false)}
             >
-              <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--brand-coral)]/20 text-[var(--brand-coral)]">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-neutral-900 text-white">
                 <Building2 className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{orgName}</span>
-                <span className="block text-[10px] text-white/45">Ativa agora</span>
+                <span className="block truncate font-medium text-neutral-900">{orgName}</span>
+                <span className="block text-[10px] text-neutral-500">Ativa agora</span>
               </span>
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand-coral)]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </button>
-            <div className="border-t border-white/10 px-3 py-2.5 text-[11px] leading-relaxed text-white/45">
-              Quando você fizer parte de mais instituições, elas aparecerão aqui para troca rápida.
+            <div className="border-t border-neutral-100 px-3 py-2.5 text-[11px] leading-relaxed text-neutral-500">
+              Quando você fizer parte de mais instituições, elas aparecerão aqui.
             </div>
           </div>
         )}
       </div>
 
-      <nav aria-label="Navegação principal" className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-4">
-        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+      <nav
+        aria-label="Navegação principal"
+        className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-4"
+      >
+        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
           Workspace
         </p>
         {links.map((link) => {
@@ -146,18 +151,15 @@ export function Sidebar() {
               className={cn(
                 "group relative flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition duration-200",
                 active
-                  ? "bg-white/10 font-semibold text-white shadow-inner"
-                  : "text-white/65 hover:bg-white/[0.07] hover:text-white"
+                  ? "bg-neutral-900 font-semibold text-white"
+                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
               )}
               aria-current={active ? "page" : undefined}
             >
-              {active && (
-                <span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-[var(--brand-coral)]" />
-              )}
               <link.icon
                 className={cn(
                   "h-[17px] w-[17px]",
-                  active ? "text-[var(--brand-coral)]" : "text-white/50 group-hover:text-white"
+                  active ? "text-white" : "text-neutral-400 group-hover:text-neutral-700"
                 )}
               />
               {link.label}
@@ -166,19 +168,19 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-white/10 p-3">
-        <div className="mb-2 rounded-xl bg-white/[0.04] px-3 py-2.5">
-          <p className="truncate text-[12px] font-semibold text-white/90">{displayName}</p>
-          <p className="mt-0.5 truncate text-[10px] text-white/45">
+      <div className="border-t border-neutral-100 p-3">
+        <div className="mb-2 rounded-2xl bg-neutral-50 px-3 py-2.5">
+          <p className="truncate text-[12px] font-semibold text-neutral-900">{displayName}</p>
+          <p className="mt-0.5 truncate text-[10px] text-neutral-500">
             {me.data?.email || "Sessão da instituição"}
           </p>
         </div>
         <button
           type="button"
           onClick={logout}
-          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-white/65 transition hover:bg-white/[0.07] hover:text-white"
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900"
         >
-          <LogOut className="h-4 w-4 text-white/50" />
+          <LogOut className="h-4 w-4 text-neutral-400" />
           Sair da conta
         </button>
       </div>

@@ -19,8 +19,8 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       note: "Acompanhar de perto",
       value: s?.medio ?? 0,
       icon: Activity,
-      accent: "text-[var(--brand-indigo)] bg-[#eef0ff]",
-      bar: "bg-[var(--brand-indigo)]",
+      accent: "text-neutral-700 bg-neutral-100",
+      bar: "bg-neutral-900",
     },
     {
       label: "Risco baixo",
@@ -35,8 +35,8 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       note: "Alunos analisados",
       value: data?.total_scored ?? (s ? s.baixo + s.medio + s.critico : 0),
       icon: Users,
-      accent: "text-primary bg-primary/10",
-      bar: "bg-primary",
+      accent: "text-neutral-700 bg-neutral-100",
+      bar: "bg-neutral-400",
     },
   ];
 
@@ -45,22 +45,22 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       {items.map((item) => (
         <Card
           key={item.label}
-          className="group relative overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(16,13,80,0.08)]"
+          className="group relative overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(0,0,0,0.06)]"
         >
           <span className={`absolute inset-x-0 top-0 h-[3px] ${item.bar}`} />
           <CardContent className="flex items-center justify-between p-5">
             <div className="min-w-0">
-              <p className="text-[12px] font-medium text-muted-foreground">{item.label}</p>
+              <p className="text-[12px] font-medium text-neutral-500">{item.label}</p>
               {loading ? (
                 <Skeleton className="mt-2 h-8 w-16" />
               ) : (
-                <p className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums">
+                <p className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums text-neutral-900">
                   {item.value?.toLocaleString("pt-BR")}
                 </p>
               )}
-              <p className="mt-2 text-[11px] text-muted-foreground/80">{item.note}</p>
+              <p className="mt-2 text-[11px] text-neutral-400">{item.note}</p>
             </div>
-            <div className={`rounded-xl p-3.5 ${item.accent}`}>
+            <div className={`rounded-2xl p-3.5 ${item.accent}`}>
               <item.icon className="h-[19px] w-[19px]" />
             </div>
           </CardContent>

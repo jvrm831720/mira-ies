@@ -116,29 +116,31 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
   ];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border/80 bg-[hsl(var(--background))]/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-20 border-b border-neutral-200/80 bg-[#f7f7f7]/90 backdrop-blur-xl">
       <div className="flex min-h-[64px] items-center justify-between gap-4 px-4 py-2.5 md:px-9">
         <div className="min-w-0">
-          <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-muted-foreground sm:flex">
+          <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-neutral-400 sm:flex">
             <span className="inline-flex items-center gap-1">
               <Building2 className="h-3 w-3" />
               {me.data?.tenant_name || "Mira"}
             </span>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-foreground/80">{title}</span>
+            <span className="text-neutral-600">{title}</span>
           </div>
-          <h1 className="truncate text-[18px] font-semibold tracking-[-0.03em] md:text-[20px]">
+          <h1 className="truncate text-[22px] font-semibold tracking-[-0.04em] text-neutral-900 md:text-[24px]">
             {title}
           </h1>
           {subtitle ? (
-            <p className="mt-0.5 hidden truncate text-[12px] text-muted-foreground sm:block">
-              {subtitle}
-            </p>
+            <p className="mt-0.5 hidden truncate text-[13px] text-neutral-500 sm:block">{subtitle}</p>
           ) : null}
         </div>
 
         <div className="relative flex items-center gap-1" ref={panelRef}>
-          <IconButton label="Notificações" active={panel === "notifications"} onClick={() => toggle("notifications")}>
+          <IconButton
+            label="Notificações"
+            active={panel === "notifications"}
+            onClick={() => toggle("notifications")}
+          >
             <Bell className="h-[18px] w-[18px]" />
           </IconButton>
           <IconButton label="Ajuda" active={panel === "help"} onClick={() => toggle("help")}>
@@ -150,7 +152,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
 
           <button
             type="button"
-            className="ml-1 rounded-xl border border-border bg-card p-2.5 text-foreground transition hover:bg-muted md:hidden"
+            className="ml-1 rounded-full border border-neutral-200 bg-white p-2.5 text-neutral-700 transition hover:bg-neutral-50 md:hidden"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
             aria-expanded={mobileOpen}
@@ -159,17 +161,20 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
           </button>
 
           {panel === "notifications" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-              <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                <p className="text-sm font-semibold">Notificações</p>
-                <span className="text-[10px] text-muted-foreground">{notifications.length} recentes</span>
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+                <p className="text-sm font-semibold text-neutral-900">Notificações</p>
+                <span className="text-[10px] text-neutral-400">{notifications.length} recentes</span>
               </div>
               <ul className="max-h-[320px] overflow-y-auto">
                 {notifications.map((n) => (
-                  <li key={n.id} className="border-b border-border/70 px-4 py-3 last:border-0 hover:bg-muted/40">
-                    <p className="text-[13px] font-semibold">{n.title}</p>
-                    <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{n.body}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground/80">{n.time}</p>
+                  <li
+                    key={n.id}
+                    className="border-b border-neutral-100 px-4 py-3 last:border-0 hover:bg-neutral-50"
+                  >
+                    <p className="text-[13px] font-semibold text-neutral-900">{n.title}</p>
+                    <p className="mt-0.5 text-[12px] leading-relaxed text-neutral-500">{n.body}</p>
+                    <p className="mt-1 text-[10px] text-neutral-400">{n.time}</p>
                   </li>
                 ))}
               </ul>
@@ -177,16 +182,16 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
           )}
 
           {panel === "help" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,360px)] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-              <div className="border-b border-border px-4 py-3">
-                <p className="text-sm font-semibold">Pedir ajuda</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,360px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
+              <div className="border-b border-neutral-100 px-4 py-3">
+                <p className="text-sm font-semibold text-neutral-900">Pedir ajuda</p>
+                <p className="mt-0.5 text-[11px] text-neutral-500">
                   Descreva o que precisa. Enviamos para o suporte Mira.
                 </p>
               </div>
               <form onSubmit={submitHelp} className="space-y-3 p-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium" htmlFor="help-subject">
+                  <label className="text-[13px] font-medium text-neutral-700" htmlFor="help-subject">
                     Assunto
                   </label>
                   <Input
@@ -197,7 +202,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium" htmlFor="help-message">
+                  <label className="text-[13px] font-medium text-neutral-700" htmlFor="help-message">
                     Mensagem
                   </label>
                   <textarea
@@ -206,7 +211,7 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
                     onChange={(e) => setHelpMessage(e.target.value)}
                     rows={4}
                     placeholder="Conte o que aconteceu e o que você tentou fazer."
-                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+                    className="flex w-full rounded-[16px] border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15"
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={helpSending}>
@@ -217,12 +222,12 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
           )}
 
           {panel === "account" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,280px)] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-              <div className="border-b border-border px-4 py-3">
-                <p className="truncate text-sm font-semibold">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,280px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
+              <div className="border-b border-neutral-100 px-4 py-3">
+                <p className="truncate text-sm font-semibold text-neutral-900">
                   {me.data?.display_name || me.data?.email || "Conta"}
                 </p>
-                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                <p className="mt-0.5 truncate text-[11px] text-neutral-500">
                   {me.data?.tenant_name || "Instituição"}
                   {me.data?.role ? ` · ${me.data.role}` : ""}
                 </p>
@@ -231,17 +236,17 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
                 <Link
                   href="/config"
                   onClick={() => setPanel("none")}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] transition hover:bg-muted"
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-700 transition hover:bg-neutral-50"
                 >
-                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  <Settings className="h-4 w-4 text-neutral-400" />
                   Configurações
                 </Link>
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] transition hover:bg-muted"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-700 transition hover:bg-neutral-50"
                 >
-                  <LogOut className="h-4 w-4 text-muted-foreground" />
+                  <LogOut className="h-4 w-4 text-neutral-400" />
                   Sair da conta
                 </button>
               </div>
@@ -251,10 +256,13 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
       </div>
 
       {mobileOpen && (
-        <nav aria-label="Navegação mobile" className="border-t border-border bg-card px-4 py-3 md:hidden">
-          <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-2 text-xs text-muted-foreground">
+        <nav
+          aria-label="Navegação mobile"
+          className="border-t border-neutral-200 bg-white px-4 py-3 md:hidden"
+        >
+          <div className="mb-2 flex items-center gap-2 rounded-xl bg-neutral-50 px-2 py-2 text-xs text-neutral-500">
             <Building2 className="h-3.5 w-3.5" />
-            <span className="truncate font-medium text-foreground">
+            <span className="truncate font-medium text-neutral-900">
               {me.data?.tenant_name || "Instituição"}
             </span>
           </div>
@@ -264,10 +272,10 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
               href={l.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "block rounded-md px-2 py-2 text-sm",
+                "block rounded-xl px-2 py-2 text-sm",
                 pathname === l.href
-                  ? "bg-secondary font-semibold text-primary"
-                  : "text-muted-foreground hover:bg-muted"
+                  ? "bg-neutral-900 font-semibold text-white"
+                  : "text-neutral-600 hover:bg-neutral-50"
               )}
             >
               {l.label}
@@ -297,8 +305,8 @@ function IconButton({
       aria-label={label}
       aria-expanded={active}
       className={cn(
-        "grid h-10 w-10 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground",
-        active && "bg-muted text-foreground"
+        "grid h-10 w-10 place-items-center rounded-full text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900",
+        active && "bg-neutral-100 text-neutral-900"
       )}
     >
       {children}

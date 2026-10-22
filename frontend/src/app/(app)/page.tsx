@@ -83,27 +83,27 @@ export default function CommandCenterPage() {
       <Header title="Página inicial" subtitle="Priorize risco e acompanhe a permanência estudantil." />
       <main className="mx-auto w-full max-w-[1100px] space-y-6 px-4 pb-10 pt-5 md:px-9 md:pt-6">
         <form onSubmit={onSearchSubmit} className="relative">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Busque aluno por nome, matrícula ou curso"
-            className="h-12 w-full rounded-full border border-border bg-white pl-11 pr-4 text-sm shadow-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+            className="h-12 w-full rounded-full border border-neutral-200 bg-white pl-11 pr-4 text-sm text-neutral-900 shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 focus:ring-2 focus:ring-neutral-900/10"
           />
           {searchHits.length > 0 && (
-            <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-10 overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+            <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-10 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
               {searchHits.map((s) => (
                 <li key={s.id}>
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm hover:bg-muted/50"
+                    className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm hover:bg-neutral-50"
                     onClick={() => {
                       setSelectedId(s.id);
                       setQ("");
                     }}
                   >
-                    <span className="font-medium">{s.nome}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="font-medium text-neutral-900">{s.nome}</span>
+                    <span className="text-xs text-neutral-500">
                       {s.matricula}
                       {s.risk_level ? ` · ${s.risk_level}` : ""}
                     </span>
@@ -119,20 +119,22 @@ export default function CommandCenterPage() {
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-white px-3 py-4 text-center shadow-sm transition hover:border-primary/25 hover:shadow-md"
+              className="flex flex-col items-center justify-center gap-2 rounded-[20px] border border-neutral-200 bg-white px-3 py-4 text-center transition hover:border-neutral-300 hover:shadow-sm"
             >
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-primary">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-neutral-100 text-neutral-900">
                 <Icon className="h-[18px] w-[18px]" />
               </span>
-              <span className="text-[12px] font-semibold">{label}</span>
+              <span className="text-[12px] font-semibold text-neutral-800">{label}</span>
             </Link>
           ))}
         </div>
 
-        <section className="flex flex-col gap-4 rounded-2xl bg-[var(--brand-midnight)] px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <section className="flex flex-col gap-4 rounded-[20px] border border-neutral-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium tracking-wide text-white/55">Mira · permanência estudantil</p>
-            <p className="mt-1 text-[15px] font-semibold leading-snug sm:text-base">
+            <p className="text-[11px] font-medium tracking-wide text-neutral-400">
+              Mira · permanência estudantil
+            </p>
+            <p className="mt-1 text-[15px] font-semibold leading-snug tracking-[-0.02em] text-neutral-900 sm:text-base">
               {isEmpty
                 ? "Importe a base para ver quem precisa de atenção."
                 : `${criticalCount.toLocaleString("pt-BR")} alunos em risco crítico · ${priorityRate}% da base`}
@@ -141,13 +143,13 @@ export default function CommandCenterPage() {
           <div className="flex shrink-0 flex-wrap gap-2">
             <Link
               href="/importar"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--brand-coral)] px-3.5 text-[12px] font-semibold text-[var(--brand-midnight)]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-neutral-950 px-3.5 text-[12px] font-medium text-white hover:bg-neutral-800"
             >
               <Upload className="h-3.5 w-3.5" /> Importar
             </Link>
             <Link
               href="/retencao"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 text-[12px] font-medium text-white"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3.5 text-[12px] font-medium text-neutral-800 hover:bg-neutral-50"
             >
               Retenção
             </Link>
@@ -157,28 +159,28 @@ export default function CommandCenterPage() {
         {summary.isError && (
           <div
             role="alert"
-            className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+            className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">Não foi possível carregar o resumo agora.</p>
-              <p className="mt-0.5 text-xs text-red-800">Confira o backend e atualize a página.</p>
+              <p className="mt-0.5 text-xs text-red-700/80">Confira o backend e atualize a página.</p>
             </div>
           </div>
         )}
 
         {isEmpty && (
-          <section className="rounded-2xl border border-dashed border-border bg-white px-5 py-8 text-center">
-            <GraduationCap className="mx-auto h-8 w-8 text-primary/40" />
-            <p className="mt-3 text-sm font-semibold">Ainda não há alunos pontuados</p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+          <section className="rounded-[20px] border border-dashed border-neutral-200 bg-white px-5 py-10 text-center">
+            <GraduationCap className="mx-auto h-8 w-8 text-neutral-300" />
+            <p className="mt-3 text-sm font-semibold text-neutral-900">Ainda não há alunos pontuados</p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-neutral-500">
               Importe uma planilha ou sincronize um conector para montar o painel de risco.
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-3">
-              <Link href="/importar" className="text-sm font-semibold text-primary hover:underline">
+              <Link href="/importar" className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline">
                 Importar agora
               </Link>
-              <Link href="/conectores" className="text-sm font-semibold text-primary hover:underline">
+              <Link href="/conectores" className="text-sm font-semibold text-neutral-900 underline-offset-4 hover:underline">
                 Abrir conectores
               </Link>
             </div>
@@ -188,12 +190,16 @@ export default function CommandCenterPage() {
         <section aria-label="Indicadores de risco" className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Sua base</p>
-              <h2 className="mt-1 text-base font-semibold tracking-tight">Indicadores de risco</h2>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
+                Sua base
+              </p>
+              <h2 className="mt-1 text-base font-semibold tracking-[-0.02em] text-neutral-900">
+                Indicadores de risco
+              </h2>
             </div>
             <Link
               href="/alunos"
-              className="hidden items-center gap-1 text-xs font-medium text-primary hover:underline sm:flex"
+              className="hidden items-center gap-1 text-xs font-medium text-neutral-600 hover:text-neutral-900 sm:flex"
             >
               Ver alunos <ArrowRight className="h-3.5 w-3.5" />
             </Link>
@@ -213,11 +219,11 @@ export default function CommandCenterPage() {
         )}
 
         {(model.data?.disclaimer || model.data?.training_data === "synthetic") && (
-          <Card className="border-[#e8e4d9] bg-[#fbfaf7] shadow-none">
-            <CardContent className="flex items-start gap-3 p-4 text-xs text-[#5f594b]">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-indigo)]" />
+          <Card className="border-neutral-200 bg-neutral-50 shadow-none">
+            <CardContent className="flex items-start gap-3 p-4 text-xs text-neutral-600">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
               <div>
-                <p className="font-semibold">Apoio à decisão da coordenação</p>
+                <p className="font-semibold text-neutral-900">Apoio à decisão da coordenação</p>
                 <p className="mt-1 leading-relaxed">
                   {model.data?.disclaimer || copy.modelDisclaimerFallback}
                 </p>
