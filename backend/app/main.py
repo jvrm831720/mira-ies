@@ -14,6 +14,8 @@ from app.ml.model import load_model
 settings = get_settings()
 
 _DEFAULT_SECRET_KEY = "change-this-in-production"
+_DEV_ADMIN_EMAIL = "admin@mira.local"
+_DEV_ADMIN_PASSWORD = "MiraAdmin123!"
 
 
 @asynccontextmanager
@@ -39,9 +41,12 @@ async def lifespan(app: FastAPI):
 
     try:
         from app.core.security import hash_api_key
+        from app.core.mira_security import hash_password
         from app.db.session import AsyncSessionLocal
         from app.models.tenant import Tenant
+        from app.models.auth import User
         from sqlalchemy import select
+
         async with AsyncSessionLocal() as session:
             r = await session.execute(select(Tenant).where(Tenant.slug == "default"))
             t = r.scalar_one_or_none()
@@ -54,13 +59,34 @@ async def lifespan(app: FastAPI):
                 )
                 session.add(t)
                 await session.commit()
+                await session.refresh(t)
                 print(f"Tenant default criado. Dev API key: {settings.dev_api_key}")
             elif not t.api_key_hash:
                 t.api_key_hash = hash_api_key(settings.dev_api_key)
                 await session.commit()
                 print("API key hash do tenant default atualizado.")
+
+            if settings.app_env == "development" and t:
+                existing = await session.execute(select(User).where(User.email == _DEV_ADMIN_EMAIL))
+                admin = existing.scalar_one_or_none()
+                if not admin:
+                    admin = User(
+                        tenant_id=t.id,
+                        display_name="Admin Mira",
+                        email=_DEV_ADMIN_EMAIL,
+                        password_hash=hash_password(_DEV_ADMIN_PASSWORD),
+                        role="admin",
+                        is_active=True,
+                    )
+                    session.add(admin)
+                    await session.commit()
+                    print(
+                        f"Usuário admin de desenvolvimento criado: {_DEV_ADMIN_EMAIL} / {_DEV_ADMIN_PASSWORD}"
+                    )
+                else:
+                    print(f"Admin de desenvolvimento já existe: {_DEV_ADMIN_EMAIL}")
     except Exception as e:
-        print(f"Aviso bootstrap tenant: {e}")
+        print(f"Aviso bootstrap tenant/admin: {e}")
 
     try:
         load_model()
@@ -74,7 +100,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Mira — permanência estudantil, autenticação e isolamento multi-tenant",
-    version="0.6.0-org-members",
+    version="0.6.1-dev-admin",
     lifespan=lifespan,
 )
 
@@ -88,6 +114,7 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
         sanitized.pop("input", None)
         safe_errors.append(sanitized)
     return JSONResponse(status_code=422, content=jsonable_encoder({"detail": safe_errors}))
+
 
 _cors = (
     ["*"]
@@ -117,7 +144,7 @@ app.include_router(org.router, prefix="/api/v1")
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.6.0-org-members",
+        "version": "0.6.1-dev-admin",
         "phase": "Organização: membros e convites",
         "status": "running",
         "docs": "/docs",

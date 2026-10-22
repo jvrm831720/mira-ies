@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, ChevronDown, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,10 @@ function Flag({ iso, className }: { iso: string; className?: string }) {
       alt=""
       width={20}
       height={15}
-      className={cn("h-[15px] w-5 shrink-0 rounded-[2px] object-cover shadow-sm ring-1 ring-black/10", className)}
+      className={cn(
+        "h-[15px] w-5 shrink-0 rounded-[2px] object-cover shadow-sm ring-1 ring-black/10",
+        className
+      )}
       loading="lazy"
     />
   );
@@ -84,6 +87,19 @@ export default function LoginPage() {
     setNotice(null);
   }
 
+  function humanError(err: unknown, fallback: string) {
+    if (err instanceof ApiError) {
+      if (err.status === 0 || /failed to fetch|network/i.test(err.message)) {
+        return "Não foi possível falar com o servidor. Confira se o backend está em http://127.0.0.1:8000.";
+      }
+      return err.message || fallback;
+    }
+    if (err instanceof TypeError) {
+      return "Não foi possível falar com o servidor. Confira se o backend está em http://127.0.0.1:8000.";
+    }
+    return fallback;
+  }
+
   async function onPasswordSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -92,8 +108,13 @@ export default function LoginPage() {
       const response = await api.loginPassword({ email: email.trim(), password });
       setAccessToken(response.access_token);
       router.replace("/");
-    } catch {
-      setError("Não foi possível entrar. Verifique e-mail e senha.");
+    } catch (err) {
+      setError(
+        humanError(
+          err,
+          "Não foi possível entrar. Em desenvolvimento use admin@mira.local / MiraAdmin123!"
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -114,11 +135,14 @@ export default function LoginPage() {
         setAccessToken(response.access_token);
         router.replace("/");
       }
-    } catch {
+    } catch (err) {
       setError(
-        whatsappStep === "phone"
-          ? "Não foi possível enviar o código. Confira o telefone."
-          : "Código inválido ou expirado."
+        humanError(
+          err,
+          whatsappStep === "phone"
+            ? "Não foi possível enviar o código. Confira o telefone."
+            : "Código inválido ou expirado."
+        )
       );
     } finally {
       setLoading(false);
@@ -132,8 +156,8 @@ export default function LoginPage() {
     try {
       await api.forgotPassword(email.trim());
       setNotice("Se existir uma conta com esse e-mail, enviaremos as instruções.");
-    } catch {
-      setError("Não foi possível solicitar a recuperação agora.");
+    } catch (err) {
+      setError(humanError(err, "Não foi possível solicitar a recuperação agora."));
     } finally {
       setLoading(false);
     }
@@ -254,6 +278,13 @@ export default function LoginPage() {
                       {loading ? "Entrando…" : "Entrar"}
                     </Button>
                   </form>
+
+                  <p className="rounded-xl bg-neutral-50 px-3 py-2 text-[11px] leading-relaxed text-neutral-500">
+                    <strong className="font-semibold text-neutral-700">Dev local:</strong>{" "}
+                    <code className="rounded bg-white px-1 py-0.5 text-[10px]">admin@mira.local</code>{" "}
+                    /{" "}
+                    <code className="rounded bg-white px-1 py-0.5 text-[10px]">MiraAdmin123!</code>
+                  </p>
                 </>
               )}
 
