@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     evolution_api_key: str | None = None
     evolution_instance: str | None = None
 
+    waha_api_url: str | None = None
+    waha_api_key: str | None = None
+    waha_session: str = "default"
+
     resend_api_key: str | None = None
     email_from: str | None = None
 

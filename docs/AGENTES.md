@@ -17,12 +17,14 @@ backend/app/agents/
   rules.py              # decide_channels() e check_anti_spam() — logica pura, testavel sem DB
   templates.py          # mensagens PT-BR por canal/risco, com fallback para dados ausentes
   channels/
-    whatsapp.py          # normaliza telefone BR, delega a dry_run ou evolution
+    whatsapp.py          # normaliza telefone BR, delega a dry_run ou provider configurado
     email.py             # valida e-mail, delega a dry_run ou resend
     sms.py                # trunca a 160 chars, delega a dry_run ou twilio
   providers/
     dry_run.py            # provider padrao: loga e simula sucesso
-    evolution.py           # WhatsApp real (Evolution API) — so ativa com EVOLUTION_API_URL
+    whatsapp.py            # roteador: prioriza WAHA; mantém Evolution como alternativa
+    waha.py                # WhatsApp real (WAHA HTTP API) — só ativa com WAHA_API_URL e WAHA_API_KEY
+    evolution.py           # WhatsApp real (Evolution API) — alternativa com URL e chave
     resend_provider.py     # E-mail real (Resend) — so ativa com RESEND_API_KEY
     twilio_provider.py     # SMS real (Twilio) — so ativa com as 3 credenciais Twilio
 backend/app/services/
@@ -114,7 +116,12 @@ AGENTS_RATE_LIMIT_PER_PROVIDER_PER_MINUTE=120
 AGENTS_CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
 AGENTS_CIRCUIT_BREAKER_OPEN_SECONDS=60
 
-# WhatsApp real (opcional — sem isso, cai em dry-run automaticamente)
+# WhatsApp real via WAHA (prioritário; sem isso, usa Evolution se configurada)
+WAHA_API_URL=
+WAHA_API_KEY=
+WAHA_SESSION=default
+
+# Evolution API (alternativa)
 EVOLUTION_API_URL=
 EVOLUTION_API_KEY=
 EVOLUTION_INSTANCE=

@@ -32,7 +32,9 @@ _SUCCESS_STATUSES = ("sent", "dry_run")
 
 
 def _configured_provider(channel: Channel, settings: Any) -> str:
-    if channel == "whatsapp" and settings.evolution_api_url:
+    if channel == "whatsapp" and settings.waha_api_url and settings.waha_api_key:
+        return "waha"
+    if channel == "whatsapp" and settings.evolution_api_url and settings.evolution_api_key:
         return "evolution"
     if channel == "email" and settings.resend_api_key:
         return "resend"

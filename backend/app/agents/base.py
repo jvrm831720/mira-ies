@@ -12,7 +12,7 @@ Channel = Literal["whatsapp", "email", "sms"]
 class SendResult(BaseModel):
     ok: bool
     channel: Channel
-    provider: str  # "dry_run" | "evolution" | "resend" | "twilio"
+    provider: str  # "dry_run" | "waha" | "evolution" | "resend" | "twilio"
     external_id: str | None = None
     error: str | None = None
     dry_run: bool = False

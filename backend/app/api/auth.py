@@ -14,7 +14,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.channels.whatsapp import normalize_phone_br
-from app.agents.providers.evolution import send_whatsapp_evolution
+from app.agents.providers.whatsapp import send_whatsapp
 from app.agents.providers.resend_provider import send_email_resend
 from app.core.config import get_settings
 from app.core.mira_security import hash_password, issue_access_token, verify_password
@@ -148,8 +148,10 @@ async def login_password(body: PasswordLoginPayload, db: AsyncSession = Depends(
 @router.post("/whatsapp/request", status_code=status.HTTP_202_ACCEPTED)
 async def request_whatsapp_code(body: WhatsAppRequestPayload, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
-    if not settings.evolution_api_url or not settings.evolution_api_key:
-        raise HTTPException(status_code=503, detail="Login por WhatsApp indisponível: configure a integração Evolution API.")
+    waha_configured = bool(settings.waha_api_url and settings.waha_api_key)
+    evolution_configured = bool(settings.evolution_api_url and settings.evolution_api_key)
+    if not (waha_configured or evolution_configured):
+        raise HTTPException(status_code=503, detail="Login por WhatsApp indisponível: configure um provider WhatsApp.")
     phone = normalize_phone_br(body.phone)
     if not phone:
         raise HTTPException(status_code=422, detail="Informe um número de telefone válido com DDD.")
@@ -180,12 +182,12 @@ async def request_whatsapp_code(body: WhatsAppRequestPayload, db: AsyncSession =
     await db.commit()
 
     if tenant:
-        delivery = await send_whatsapp_evolution(
+        delivery = await send_whatsapp(
             to=phone,
             message=f"Seu código de acesso Mira é {code}. Ele expira em 5 minutos. Não compartilhe este código.",
         )
         if not delivery.ok:
-            logger.warning("Falha na entrega de código de acesso Mira via Evolution API.")
+            logger.warning("Falha na entrega de código de acesso Mira via provider WhatsApp.")
     return {"message": "Se o número estiver cadastrado, enviaremos um código pelo WhatsApp."}
 
 

@@ -96,17 +96,17 @@ async def test_whatsapp_otp_login(client, tenant_factory, monkeypatch):
     await _ensure_default_tenant(tenant_factory)
     await _provision(client)
     settings = get_settings()
-    monkeypatch.setattr(settings, "evolution_api_url", "https://evolution.test")
-    monkeypatch.setattr(settings, "evolution_api_key", "test-key")
+    monkeypatch.setattr(settings, "waha_api_url", "https://waha.test")
+    monkeypatch.setattr(settings, "waha_api_key", "test-key")
     sent: list[str] = []
 
     async def fake_send(*, to: str, message: str):
         assert to == "+5511987654321"
         sent.append(message)
-        return SendResult(ok=True, channel="whatsapp", provider="evolution")
+        return SendResult(ok=True, channel="whatsapp", provider="waha")
 
     import app.api.auth as auth_api
-    monkeypatch.setattr(auth_api, "send_whatsapp_evolution", fake_send)
+    monkeypatch.setattr(auth_api, "send_whatsapp", fake_send)
 
     requested = await client.post("/api/v1/auth/whatsapp/request", json={"phone": "11987654321"})
     assert requested.status_code == 202

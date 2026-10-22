@@ -193,7 +193,9 @@ async def agents_status(auth: AuthContext = Depends(get_current_tenant)):
             "max_contacts_per_week": settings.agents_max_contacts_per_week,
         },
         "providers": {
-            "whatsapp": "evolution" if settings.evolution_api_url else "dry_run",
+            "whatsapp": "waha" if settings.waha_api_url and settings.waha_api_key else (
+                "evolution" if settings.evolution_api_url and settings.evolution_api_key else "dry_run"
+            ),
             "email": "resend" if settings.resend_api_key else "dry_run",
             "sms": "twilio" if settings.twilio_account_sid else "dry_run",
         },

@@ -1,4 +1,4 @@
-"""Agente de canal WhatsApp — dry-run por padrao, Evolution API se EVOLUTION_API_URL configurado."""
+"""Agente de canal WhatsApp — dry-run por padrão; usa WAHA ou Evolution quando configurados."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import re
 
 from app.agents.base import MessageContext, SendResult
 from app.agents.providers.dry_run import dry_run_send
-from app.agents.providers.evolution import send_whatsapp_evolution
+from app.agents.providers.whatsapp import send_whatsapp
 from app.agents.templates import render_whatsapp
 from app.core.config import get_settings
 
@@ -41,16 +41,21 @@ class WhatsAppAgent:
         dry_run: bool,
         idempotency_key: str | None = None,
     ) -> SendResult:
+        settings = get_settings()
+        waha_configured = bool(settings.waha_api_url and settings.waha_api_key)
+        evolution_configured = bool(settings.evolution_api_url and settings.evolution_api_key)
         phone = normalize_phone_br(ctx.telefone)
         if not phone:
             return SendResult(
                 ok=False,
                 channel="whatsapp",
-                provider="dry_run" if dry_run else "evolution",
+                provider=(
+                    "dry_run" if dry_run or not (waha_configured or evolution_configured)
+                    else "waha" if waha_configured else "evolution"
+                ),
                 error="telefone invalido ou ausente",
                 outcome="confirmed_failure",
             )
-        settings = get_settings()
-        if dry_run or not settings.evolution_api_url:
+        if dry_run or not (waha_configured or evolution_configured):
             return await dry_run_send(channel="whatsapp", to=phone, message=message)
-        return await send_whatsapp_evolution(to=phone, message=message, idempotency_key=idempotency_key)
+        return await send_whatsapp(to=phone, message=message, idempotency_key=idempotency_key)

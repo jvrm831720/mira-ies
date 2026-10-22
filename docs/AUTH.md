@@ -51,12 +51,15 @@ MIRA_PUBLIC_URL=http://localhost:3000
 MIRA_ADMIN_SECRET=
 RESEND_API_KEY=
 EMAIL_FROM=
+WAHA_API_URL=
+WAHA_API_KEY=
+WAHA_SESSION=default
 EVOLUTION_API_URL=
 EVOLUTION_API_KEY=
 EVOLUTION_INSTANCE=
 ```
 
-Sem `RESEND_API_KEY` e `EMAIL_FROM`, o endpoint de recuperação retorna `503`. Sem URL e chave da Evolution API, o envio de códigos WhatsApp retorna `503`. Configure os serviços no `.env` local do backend ou no ambiente de implantação.
+Sem `RESEND_API_KEY` e `EMAIL_FROM`, o endpoint de recuperação retorna `503`. Para WhatsApp, configure `WAHA_API_URL`, `WAHA_API_KEY` e a sessão WAHA em `WAHA_SESSION`; quando WAHA não estiver configurado, o backend ainda aceita Evolution com `EVOLUTION_API_URL`, `EVOLUTION_API_KEY` e `EVOLUTION_INSTANCE`. Sem um provider completo, o envio de códigos retorna `503`. Configure as credenciais no `.env` local do backend ou no ambiente de implantação.
 
 ## Webhooks e chaves legadas
 
