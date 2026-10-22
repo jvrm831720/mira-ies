@@ -1,24 +1,38 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  KeyRound,
-  Mail,
-  MessageCircle,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
-import { copy } from "@/lib/copy";
+import { cn } from "@/lib/utils";
 
 type LoginMode = "password" | "whatsapp" | "forgot";
+
+const COUNTRIES = [
+  { code: "BR", name: "Brasil", dial: "+55", flag: "🇧🇷" },
+  { code: "PT", name: "Portugal", dial: "+351", flag: "🇵🇹" },
+  { code: "US", name: "Estados Unidos", dial: "+1", flag: "🇺🇸" },
+  { code: "AR", name: "Argentina", dial: "+54", flag: "🇦🇷" },
+  { code: "CL", name: "Chile", dial: "+56", flag: "🇨🇱" },
+  { code: "CO", name: "Colômbia", dial: "+57", flag: "🇨🇴" },
+  { code: "MX", name: "México", dial: "+52", flag: "🇲🇽" },
+  { code: "ES", name: "Espanha", dial: "+34", flag: "🇪🇸" },
+] as const;
+
+function WhatsAppMark({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#25D366"
+        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+      />
+    </svg>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,24 +40,36 @@ export default function LoginPage() {
   const [whatsappStep, setWhatsappStep] = useState<"phone" | "code">("phone");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
+  const [localPhone, setLocalPhone] = useState("");
+  const [country, setCountry] = useState<(typeof COUNTRIES)[number]>(COUNTRIES[0]);
+  const [countryOpen, setCountryOpen] = useState(false);
+  const countryRef = useRef<HTMLDivElement>(null);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  function changeMode(nextMode: LoginMode) {
-    setMode(nextMode);
+  const fullPhone = useMemo(() => {
+    const digits = localPhone.replace(/\D/g, "");
+    return `${country.dial}${digits}`;
+  }, [country.dial, localPhone]);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!countryRef.current?.contains(e.target as Node)) setCountryOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  function changeMode(next: LoginMode) {
+    setMode(next);
     setWhatsappStep("phone");
     setError(null);
     setNotice(null);
   }
 
-  function backToLogin() {
-    changeMode("password");
-  }
-
-  async function onPasswordSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onPasswordSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setLoading(true);
@@ -52,281 +78,344 @@ export default function LoginPage() {
       setAccessToken(response.access_token);
       router.replace("/");
     } catch {
-      setError("Não foi possível entrar. Verifique seu e-mail e sua senha.");
+      setError("Não foi possível entrar. Verifique e-mail e senha.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function onWhatsappSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onWhatsappSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setNotice(null);
     setLoading(true);
     try {
       if (whatsappStep === "phone") {
-        await api.requestWhatsappCode(phone.trim());
+        await api.requestWhatsappCode(fullPhone);
         setWhatsappStep("code");
-        setNotice("Se o número estiver cadastrado, enviaremos um código de uso único pelo WhatsApp.");
+        setNotice("Se o número estiver cadastrado, enviaremos um código pelo WhatsApp.");
       } else {
-        const response = await api.verifyWhatsappCode(phone.trim(), code.trim());
+        const response = await api.verifyWhatsappCode(fullPhone, code.trim());
         setAccessToken(response.access_token);
         router.replace("/");
       }
     } catch {
       setError(
         whatsappStep === "phone"
-          ? "Não foi possível enviar o código. Confira o telefone e tente novamente."
-          : "Código inválido ou expirado. Solicite um novo código."
+          ? "Não foi possível enviar o código. Confira o telefone."
+          : "Código inválido ou expirado."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  async function onForgotSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onForgotSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setLoading(true);
     try {
       await api.forgotPassword(email.trim());
-      setNotice(
-        "Se existir uma conta com esse e-mail, enviaremos instruções para recuperar sua senha."
-      );
+      setNotice("Se existir uma conta com esse e-mail, enviaremos as instruções.");
     } catch {
-      setError("Não foi possível solicitar a recuperação agora. Tente novamente.");
+      setError("Não foi possível solicitar a recuperação agora.");
     } finally {
       setLoading(false);
     }
   }
 
-  const title = mode === "forgot" ? "Recupere sua senha" : copy.loginTitle;
-  const description =
-    mode === "forgot"
-      ? "Informe seu e-mail institucional e enviaremos um link de recuperação."
-      : copy.loginSubtitle;
-
   return (
-    <main className="min-h-screen bg-[#f2f3fb] p-3 sm:p-5 md:p-8">
-      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-6xl overflow-hidden rounded-3xl border border-border/80 bg-white shadow-[0_24px_80px_rgba(16,13,80,0.12)] md:min-h-[calc(100vh-4rem)] md:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden flex-col justify-between overflow-hidden bg-[var(--brand-midnight)] p-8 text-white md:flex lg:p-12">
-          <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-[#4050cd]/25 blur-3xl" />
-          <div className="absolute -bottom-36 -left-28 h-80 w-80 rounded-full bg-[#f47769]/10 blur-3xl" />
-          <div className="relative space-y-14">
-            <Image src="/mira-logo.svg" alt="Mira" width={144} height={32} className="h-auto w-36" />
-            <div className="space-y-5">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">
-                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                Acesso seguro para sua instituição
-              </div>
-              <h1 className="max-w-md text-3xl font-semibold tracking-tight lg:text-4xl">
-                Decisões mais claras para cuidar da permanência.
-              </h1>
-              <p className="max-w-md text-sm leading-6 text-slate-300">{copy.productTagline}</p>
-            </div>
-          </div>
-          <ul className="relative space-y-3 text-sm text-white/70">
-            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[var(--brand-coral)]" aria-hidden="true" />Identifique alunos em risco em segundos</li>
-            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[var(--brand-coral)]" aria-hidden="true" />Entenda os fatores com linguagem clara</li>
-            <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[var(--brand-coral)]" aria-hidden="true" />Aja com segurança e acompanhamento humano</li>
-          </ul>
-        </section>
+    <main className="relative min-h-screen overflow-hidden bg-[#1a1a1a]">
+      {/* Full-bleed artistic backdrop */}
+      <div className="pointer-events-none absolute inset-0">
+        <Image
+          src="/login-art.svg"
+          alt=""
+          fill
+          priority
+          className="object-cover opacity-90"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-black/35 via-black/20 to-black/45" />
+      </div>
 
-        <section className="flex items-center p-5 sm:p-8 lg:p-12">
-          <div className="mx-auto w-full max-w-md">
-            <div className="mb-8 md:hidden">
-              <div className="mb-6 inline-flex rounded-xl bg-[var(--brand-midnight)] px-4 py-3 shadow-sm">
-                <Image src="/mira-logo.svg" alt="Mira" width={112} height={25} className="h-auto w-28" />
-              </div>
-              <p className="text-sm text-muted-foreground">{copy.productTagline}</p>
+      <div className="relative z-10 flex min-h-screen items-center justify-center p-4 sm:p-6">
+        <div className="grid w-full max-w-[980px] overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-[0_40px_120px_rgba(0,0,0,0.45)] md:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+          {/* Form panel */}
+          <section className="flex flex-col justify-center px-7 py-10 sm:px-10 lg:px-12">
+            <div className="mb-8">
+              <Image src="/mira-logo.svg" alt="Mira" width={112} height={26} className="h-auto w-[104px] brightness-0" />
             </div>
 
-            <Card className="border-0 shadow-none sm:border sm:border-border/80 sm:shadow-sm">
-              <CardHeader className="px-0 sm:px-6">
-                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                  {mode === "whatsapp" ? (
-                    <MessageCircle className="h-5 w-5" aria-hidden="true" />
-                  ) : mode === "forgot" ? (
-                    <KeyRound className="h-5 w-5" aria-hidden="true" />
-                  ) : (
-                    <Mail className="h-5 w-5" aria-hidden="true" />
-                  )}
-                </div>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 px-0 sm:px-6">
-                {error ? (
-                  <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {error}
-                  </p>
-                ) : null}
-                {notice ? (
-                  <p role="status" className="flex gap-2 rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>{notice}</span>
-                  </p>
-                ) : null}
+            <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-neutral-900">
+              {mode === "forgot"
+                ? "Recuperar senha"
+                : mode === "whatsapp"
+                  ? whatsappStep === "code"
+                    ? "Confirme o código"
+                    : "Entrar com WhatsApp"
+                  : "Entrar"}
+            </h1>
+            <p className="mt-1.5 text-sm text-neutral-500">
+              {mode === "forgot"
+                ? "Enviaremos um link para o e-mail da conta."
+                : mode === "whatsapp"
+                  ? whatsappStep === "code"
+                    ? `Código enviado para ${fullPhone}`
+                    : "Informe o número cadastrado na instituição."
+                  : "Continue para o painel da sua instituição."}
+            </p>
 
-                {mode === "password" ? (
-                  <form onSubmit={onPasswordSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium" htmlFor="email">
-                        E-mail institucional
+            <div className="mt-7 space-y-4">
+              {error && (
+                <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </p>
+              )}
+              {notice && (
+                <p role="status" className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                  {notice}
+                </p>
+              )}
+
+              {mode === "password" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => changeMode("whatsapp")}
+                    className="flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-neutral-200 bg-white text-sm font-medium text-neutral-800 transition hover:bg-neutral-50"
+                  >
+                    <WhatsAppMark className="h-5 w-5" />
+                    Entrar com WhatsApp
+                  </button>
+
+                  <div className="relative py-1 text-center text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-400">
+                    <span className="absolute inset-x-0 top-1/2 h-px bg-neutral-200" />
+                    <span className="relative bg-white px-3">ou</span>
+                  </div>
+
+                  <form onSubmit={onPasswordSubmit} className="space-y-3.5">
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-medium text-neutral-700" htmlFor="email">
+                        E-mail
                       </label>
                       <Input
                         id="email"
                         type="email"
                         autoComplete="email"
-                        placeholder={copy.loginPlaceholder}
+                        placeholder="voce@instituicao.edu.br"
                         value={email}
-                        onChange={(event) => setEmail(event.target.value)}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
+                        className="h-11 rounded-full border-neutral-200 px-4"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <label className="text-sm font-medium" htmlFor="password">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[13px] font-medium text-neutral-700" htmlFor="password">
                           Senha
                         </label>
                         <button
                           type="button"
                           onClick={() => changeMode("forgot")}
-                          className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                          className="text-xs font-medium text-neutral-500 hover:text-neutral-900"
                         >
-                          Esqueci minha senha
+                          Esqueci a senha
                         </button>
                       </div>
                       <Input
                         id="password"
                         type="password"
                         autoComplete="current-password"
+                        placeholder="••••••••"
                         value={password}
-                        onChange={(event) => setPassword(event.target.value)}
+                        onChange={(e) => setPassword(e.target.value)}
                         required
+                        className="h-11 rounded-full border-neutral-200 px-4"
                       />
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? "Entrando..." : copy.loginCta}
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="h-11 w-full rounded-full bg-neutral-950 text-white hover:bg-neutral-800"
+                    >
+                      {loading ? "Entrando…" : "Entrar"}
                     </Button>
                   </form>
-                ) : null}
+                </>
+              )}
 
-                {mode === "whatsapp" ? (
-                  <form onSubmit={onWhatsappSubmit} className="space-y-4">
-                    {whatsappStep === "phone" ? (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium" htmlFor="phone">
-                          Telefone com WhatsApp
-                        </label>
-                        <Input
-                          id="phone"
-                          type="tel"
-                          autoComplete="tel"
-                          placeholder="+55 (11) 99999-9999"
-                          value={phone}
-                          onChange={(event) => setPhone(event.target.value)}
-                          required
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Use o número cadastrado pela sua instituição.
-                        </p>
+              {mode === "whatsapp" && (
+                <form onSubmit={onWhatsappSubmit} className="space-y-4">
+                  {whatsappStep === "phone" ? (
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-medium text-neutral-700">Número com WhatsApp</label>
+                      <div className="flex gap-2">
+                        {/* Country selector */}
+                        <div className="relative" ref={countryRef}>
+                          <button
+                            type="button"
+                            onClick={() => setCountryOpen((v) => !v)}
+                            className="flex h-11 min-w-[132px] items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 text-left text-sm transition hover:bg-neutral-50"
+                            aria-expanded={countryOpen}
+                          >
+                            <span className="text-base leading-none">{country.flag}</span>
+                            <span className="truncate text-[12px] font-medium text-neutral-800">
+                              {country.name}
+                            </span>
+                            <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                          </button>
+                          {countryOpen && (
+                            <ul className="absolute left-0 top-[calc(100%+6px)] z-20 max-h-56 w-[220px] overflow-y-auto rounded-2xl border border-neutral-200 bg-neutral-950 p-1.5 text-white shadow-2xl">
+                              {COUNTRIES.map((c) => (
+                                <li key={c.code}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCountry(c);
+                                      setCountryOpen(false);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[13px] hover:bg-white/10",
+                                      c.code === country.code && "bg-white/10"
+                                    )}
+                                  >
+                                    <span className="text-base">{c.flag}</span>
+                                    <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                                    <span className="text-[11px] text-white/50">{c.dial}</span>
+                                    {c.code === country.code && (
+                                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                    )}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div className="relative min-w-0 flex-1">
+                          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-neutral-400">
+                            {country.dial}
+                          </span>
+                          <Input
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel-national"
+                            placeholder="11 99999-9999"
+                            value={localPhone}
+                            onChange={(e) => setLocalPhone(e.target.value)}
+                            required
+                            className="h-11 rounded-full border-neutral-200 pl-14 pr-4"
+                          />
+                        </div>
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium" htmlFor="code">
-                          Código de uso único
-                        </label>
-                        <Input
-                          id="code"
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          placeholder="000000"
-                          value={code}
-                          onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
-                          required
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Digite o código recebido no WhatsApp de {phone}.
-                        </p>
-                      </div>
-                    )}
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading
-                        ? whatsappStep === "phone"
-                          ? "Enviando código..."
-                          : "Validando código..."
-                        : whatsappStep === "phone"
-                          ? "Enviar código"
-                          : "Entrar com código"}
-                    </Button>
-                    {whatsappStep === "code" ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWhatsappStep("phone");
-                          setCode("");
-                          setNotice(null);
-                          setError(null);
-                        }}
-                        className="flex w-full items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-                      >
-                        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                        Trocar telefone
-                      </button>
-                    ) : null}
-                  </form>
-                ) : null}
-
-                {mode === "forgot" ? (
-                  <form onSubmit={onForgotSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium" htmlFor="recovery-email">
-                        E-mail institucional
+                      <p className="text-[11px] text-neutral-400">
+                        Selecione o país e digite o DDD + número.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-medium text-neutral-700" htmlFor="otp">
+                        Código de 6 dígitos
                       </label>
                       <Input
-                        id="recovery-email"
-                        type="email"
-                        autoComplete="email"
-                        placeholder={copy.loginPlaceholder}
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
+                        id="otp"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                         required
+                        className="h-12 rounded-full border-neutral-200 px-4 text-center text-lg tracking-[0.35em]"
                       />
                     </div>
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? "Enviando..." : "Enviar instruções"}
-                    </Button>
-                  </form>
-                ) : null}
-
-                <div className="border-t border-border pt-4 text-center">
-                  {mode === "password" ? (
-                    <button
-                      type="button"
-                      onClick={() => changeMode("whatsapp")}
-                      className="inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      <MessageCircle className="h-4 w-4" aria-hidden="true" />
-                      Entrar com WhatsApp
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={backToLogin}
-                      className="inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                      Voltar para o login
-                    </button>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-            <p className="mt-5 text-center text-xs text-muted-foreground">{copy.loginHelp}</p>
-          </div>
-        </section>
+
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="h-11 w-full rounded-full bg-[#25D366] text-white hover:bg-[#1ebe57]"
+                  >
+                    <WhatsAppMark className="h-4 w-4 brightness-0 invert" />
+                    {loading
+                      ? whatsappStep === "phone"
+                        ? "Enviando…"
+                        : "Validando…"
+                      : whatsappStep === "phone"
+                        ? "Enviar código no WhatsApp"
+                        : "Confirmar e entrar"}
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (whatsappStep === "code") {
+                        setWhatsappStep("phone");
+                        setCode("");
+                        setNotice(null);
+                        setError(null);
+                      } else {
+                        changeMode("password");
+                      }
+                    }}
+                    className="flex w-full items-center justify-center gap-2 text-sm text-neutral-500 hover:text-neutral-900"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    {whatsappStep === "code" ? "Trocar número" : "Voltar"}
+                  </button>
+                </form>
+              )}
+
+              {mode === "forgot" && (
+                <form onSubmit={onForgotSubmit} className="space-y-3.5">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium text-neutral-700" htmlFor="recovery">
+                      E-mail institucional
+                    </label>
+                    <Input
+                      id="recovery"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="h-11 rounded-full border-neutral-200 px-4"
+                      placeholder="voce@instituicao.edu.br"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="h-11 w-full rounded-full bg-neutral-950 text-white hover:bg-neutral-800"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    {loading ? "Enviando…" : "Enviar instruções"}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => changeMode("password")}
+                    className="flex w-full items-center justify-center gap-2 text-sm text-neutral-500 hover:text-neutral-900"
+                  >
+                    <ArrowLeft className="h-4 w-4" /> Voltar ao login
+                  </button>
+                </form>
+              )}
+            </div>
+
+            <p className="mt-8 text-center text-[11px] text-neutral-400">
+              Acesso protegido e vinculado à sua instituição.
+            </p>
+          </section>
+
+          {/* Art panel */}
+          <section className="relative hidden min-h-[560px] md:block">
+            <Image src="/login-art.svg" alt="" fill className="object-cover" priority />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-white/10" />
+            <div className="absolute bottom-8 left-8 right-8">
+              <p className="max-w-xs text-sm font-medium leading-relaxed text-neutral-900/80">
+                Clareza para agir. Presença para cuidar da permanência estudantil.
+              </p>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   );
