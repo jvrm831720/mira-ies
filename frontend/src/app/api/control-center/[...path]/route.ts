@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE = (process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\\/+$/, "");
+const API_BASE = (process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const COOKIE_NAME = "mira_control_center_session";
 const SESSION_TTL_SECONDS = 20 * 60;
 
