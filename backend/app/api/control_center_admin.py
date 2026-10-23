@@ -61,23 +61,7 @@ async def overview(
     members_total = await db.scalar(select(func.count()).select_from(User)) or 0
     members_active = await db.scalar(select(func.count()).select_from(User).where(User.is_active.is_(True))) or 0
     admins_total = await db.scalar(select(func.count()).select_from(AdminPrincipal)) or 0
-    recent_result = await db.execute(
-        select(AdminAuditEvent, AdminPrincipal.email)
-        .outerjoin(AdminPrincipal, AdminPrincipal.id == AdminAuditEvent.actor_admin_id)
-        .order_by(AdminAuditEvent.created_at.desc())
-        .limit(8)
-    )
-    recent_events = [
-        {
-            "id": event.id,
-            "actor_email": actor_email,
-            "action": event.action,
-            "result": event.result,
-            "reason": event.reason,
-            "created_at": event.created_at.isoformat() if event.created_at else None,
-        }
-        for event, actor_email in recent_result.all()
-    ]
+
     return {
         "metrics": {
             "organizations_total": tenants_total,
@@ -87,7 +71,6 @@ async def overview(
             "admins_total": admins_total,
         },
         "channels": _channel_status(get_settings()),
-        "recent_events": recent_events,
     }
 
 

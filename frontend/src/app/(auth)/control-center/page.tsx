@@ -12,7 +12,7 @@ type Tab = "overview" | "organizations" | "members" | "channels" | "audit" | "bi
 type Admin = { id: string; email: string; display_name: string; role: string };
 type Channel = { id: string; name: string; configured: boolean; providers: string[]; note: string };
 type Event = { id: string; actor_email?: string | null; action: string; result: string; reason?: string | null; created_at?: string | null; target_type?: string | null; target_id?: string | null; request_id?: string | null };
-type Overview = { metrics: { organizations_total: number; organizations_active: number; members_total: number; members_active: number; admins_total: number }; channels: Channel[]; recent_events: Event[] };
+type Overview = { metrics: { organizations_total: number; organizations_active: number; members_total: number; members_active: number; admins_total: number }; channels: Channel[] };
 type Organization = { id: string; name: string; slug: string; segment?: string | null; is_active: boolean; members_count: number; created_at?: string | null; model_ready: boolean };
 type Member = { id: string; name: string; email: string; role: string; is_active: boolean; organization: string; created_at?: string | null };
 type BillingRecord = { id: string; tenant_id: string; organization_name: string; plan_name: string; plan_price_brl: number; billing_cycle: "monthly" | "yearly"; payment_link?: string | null; due_at: string; plan_status: "active" | "paused" | "cancelled"; payment_status: "pending" | "paid"; is_overdue: boolean; days_until_due: number; notes?: string | null };
@@ -94,10 +94,10 @@ export default function ControlCenterPage() {
       const data = await apiGet<{ records: BillingRecord[]; summary: BillingSummary }>("billing-records?limit=500", currentToken);
       setBillingRecords(data.records);
       setBillingSummary(data.summary);
-      if (organizations.length === 0) setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200", currentToken)).organizations);
+      setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200", currentToken)).organizations);
     }
-    if (currentTab === "channels" && !overview) setOverview(await apiGet<Overview>("overview", currentToken));
-  }, [overview, organizations.length]);
+    if (currentTab === "channels") setOverview(await apiGet<Overview>("overview", currentToken));
+  }, []);
 
   useEffect(() => {
     const saved = window.sessionStorage.getItem(TOKEN_KEY);
@@ -216,9 +216,7 @@ export default function ControlCenterPage() {
           <Metric label="Canais configurados" value={overview?.channels.filter((channel) => channel.configured).length ?? 0} note="Credenciais presentes; não é teste de conectividade" icon={Activity} />
         </div>
         <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-2xl border border-neutral-200 bg-white p-5"><div className="flex items-center gap-2"><ClipboardList size={18} className="text-indigo-700" /><h2 className="font-semibold">Atividade administrativa recente</h2></div>
-            {(overview?.recent_events.length ?? 0) === 0 ? <p className="mt-5 text-sm text-neutral-500">Nenhum evento registrado ainda.</p> : <div className="mt-4 divide-y divide-neutral-100">{overview?.recent_events.map((event) => <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-medium">{event.action}</p><p className="mt-1 text-xs text-neutral-500">{event.actor_email || "Sistema"} · {dateLabel(event.created_at)}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${event.result === "success" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-600"}`}>{event.result}</span></div>)}</div>}
-          </section>
+          <section className="rounded-2xl border border-neutral-200 bg-white p-5"><div className="flex items-center gap-2"><ClipboardList size={18} className="text-indigo-700" /><h2 className="font-semibold">Trilha de auditoria</h2></div><p className="mt-4 text-sm leading-6 text-neutral-500">{permissions.audit ? "Consulte os eventos administrativos na seção de auditoria, com acesso controlado por perfil." : "A trilha de auditoria é restrita aos perfis autorizados."}</p>{permissions.audit && <button onClick={() => setTab("audit")} className="mt-4 rounded-xl border border-neutral-200 px-3 py-2 text-sm font-semibold hover:bg-neutral-50">Abrir auditoria</button>}</section>
           <section className="rounded-2xl border border-neutral-200 bg-white p-5"><div className="flex items-center gap-2"><Wifi size={18} className="text-indigo-700" /><h2 className="font-semibold">Estado de configuração dos canais</h2></div>
             <div className="mt-4 space-y-3">{overview?.channels.map((channel) => <div key={channel.id} className="rounded-xl border border-neutral-100 p-4"><div className="flex items-center justify-between gap-3"><p className="font-medium">{channel.name}</p><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${channel.configured ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{channel.configured ? <CheckCircle2 size={13} /> : <WifiOff size={13} />}{channel.configured ? "Configurado" : "Pendente"}</span></div><p className="mt-1 text-xs text-neutral-500">{channel.providers.length ? channel.providers.join(", ") : "Nenhum provedor configurado"} · {channel.note}</p></div>)}</div>
           </section>
