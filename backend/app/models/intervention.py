@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import String, Float, DateTime, Text, ForeignKey, Index, UniqueConstraint
+from sqlalchemy import String, Float, Date, Integer, DateTime, Text, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
@@ -82,3 +82,34 @@ class InterventionLog(Base):
     outcome_note: Mapped[Optional[str]] = mapped_column(String(240), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+class InterventionLogDailyAggregate(Base):
+    """Aggregated intervention statistics without student identifiers."""
+
+    __tablename__ = "intervention_log_daily_aggregates"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "metric_date",
+            "status",
+            "channel_bucket",
+            "risk_level_bucket",
+            "outcome_bucket",
+            name="uq_intervention_log_daily_aggregate_key",
+        ),
+        Index("ix_intervention_aggregate_tenant_date", "tenant_id", "metric_date"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    metric_date: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    channel_bucket: Mapped[str] = mapped_column(String(20), nullable=False, default="_none")
+    risk_level_bucket: Mapped[str] = mapped_column(String(20), nullable=False, default="_none")
+    outcome_bucket: Mapped[str] = mapped_column(String(40), nullable=False, default="_none")
+    event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    aggregated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )

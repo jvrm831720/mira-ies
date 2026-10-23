@@ -43,6 +43,7 @@ export type StudentRisk = {
   telefone?: string | null;
   email?: string | null;
   communication_opt_out?: boolean;
+  communication_preferences?: CommunicationPreferences;
   risk_score?: number | null;
   risk_level?: string | null;
   shap_summary?: string | null;
@@ -54,7 +55,48 @@ export type StudentRisk = {
   recommended_actions?: string[] | null;
 };
 
-export type CommunicationPreferenceResponse = { opt_out: boolean };
+export type CommunicationChannel = "whatsapp" | "email" | "sms";
+export type CommunicationTopic = "academic" | "retention" | "promotional";
+
+export type CommunicationPreferences = {
+  channels: Record<CommunicationChannel, boolean>;
+  topics: Record<CommunicationTopic, boolean>;
+};
+
+export type CommunicationPreferenceUpdate = {
+  opt_out?: boolean;
+  channels?: Partial<Record<CommunicationChannel, boolean>>;
+  topics?: Partial<Record<CommunicationTopic, boolean>>;
+  source_reference?: string;
+};
+
+export type CommunicationPreferenceResponse = {
+  student_id?: string;
+  opt_out: boolean;
+  communication_opt_out?: boolean;
+  communication_opted_out_at?: string | null;
+  channels: Record<CommunicationChannel, boolean>;
+  topics: Record<CommunicationTopic, boolean>;
+  audit_events_created?: number;
+};
+
+export type ConsentAuditEvent = {
+  id: string;
+  event_type: string;
+  channel?: CommunicationChannel | null;
+  topic?: CommunicationTopic | null;
+  previous_value?: boolean | null;
+  new_value?: boolean | null;
+  source: string;
+  method: string;
+  location: string;
+  source_reference?: string | null;
+  actor_user_id?: string | null;
+  occurred_at: string;
+  notes?: string | null;
+};
+
+export type ConsentAuditResponse = { count: number; events: ConsentAuditEvent[] };
 
 export type ImportField =
   | "matricula"

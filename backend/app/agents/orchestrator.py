@@ -21,6 +21,7 @@ from app.core.config import get_settings
 from app.models.intervention import InterventionLog
 from app.models.student import Student
 from app.services.provider_guard import acquire_send_slot, record_provider_outcome
+from app.services.consent import effective_preferences, is_communication_allowed
 
 CHANNEL_AGENTS: dict[Channel, Any] = {
     "whatsapp": WhatsAppAgent(),
@@ -392,6 +393,8 @@ class RetentionOrchestrator:
                 continue
 
             risk_level = student.risk_level or "baixo"
+            topic = campaign_action.get("topic", "retention") if campaign_action else "retention"
+            preference_blocked = False
             if campaign_action is not None:
                 requested_channel = campaign_action["channel"]
                 if requested_channel not in allowed_channels:
@@ -403,9 +406,16 @@ class RetentionOrchestrator:
                     if requested_channel == "email"
                     else bool(normalize_phone_br(student.telefone))
                 )
-                candidates = [requested_channel] if has_requested_contact else []
+                preference_blocked = has_requested_contact and not is_communication_allowed(
+                    student, requested_channel, topic
+                )
+                candidates = (
+                    [requested_channel]
+                    if has_requested_contact and not preference_blocked
+                    else []
+                )
             else:
-                candidates = [
+                raw_candidates = [
                     c
                     for c in decide_channels(
                         risk_level=risk_level,
@@ -415,9 +425,16 @@ class RetentionOrchestrator:
                     )
                     if c in allowed_channels
                 ]
+                candidates = [
+                    channel for channel in raw_candidates
+                    if is_communication_allowed(student, channel, topic)
+                ]
+                preference_blocked = bool(raw_candidates) and not candidates
 
             if not candidates:
-                if campaign_action is not None:
+                if preference_blocked:
+                    reason = "communication_preference_blocked"
+                elif campaign_action is not None:
                     reason = (
                         "missing_email" if campaign_action["channel"] == "email"
                         else "missing_phone"
@@ -439,6 +456,8 @@ class RetentionOrchestrator:
                                 "allowed_channels": list(allowed_channels),
                                 **campaign_audit,
                                 "blocked_reason": reason,
+                                "topic": topic,
+                                "effective_preferences": effective_preferences(student),
                             },
                         ),
                         delivery_status="not_applicable",
@@ -533,6 +552,8 @@ class RetentionOrchestrator:
                         "candidates": candidates,
                         "contacts_week": contacts_week,
                         "provider": provider,
+                        "topic": topic,
+                        "effective_preferences": effective_preferences(student),
                         **campaign_audit,
                         **({"email_subject": email_subject} if email_subject else {}),
                     },
@@ -643,14 +664,22 @@ async def preview_message(
             "reason": "communication_opt_out",
             "decision_reason": "Aluno com opt-out de comunicação",
         }
-    candidates = decide_channels(
+    raw_candidates = decide_channels(
         risk_level=risk_level,
         telefone=student.telefone,
         email=student.email,
         prefer_whatsapp_medio=prefer_whatsapp_medio,
     )
+    candidates = [
+        channel for channel in raw_candidates
+        if is_communication_allowed(student, channel, "retention")
+    ]
     if not candidates:
-        reason = skip_reason_for_no_channel(risk_level)
+        reason = (
+            "communication_preference_blocked"
+            if raw_candidates
+            else skip_reason_for_no_channel(risk_level)
+        )
         return {
             "student_id": student.id,
             "matricula": student.matricula,

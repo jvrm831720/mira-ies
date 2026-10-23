@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.core.auth import AuthContext, get_current_tenant
 from app.models.student import Student
+from app.services.consent import effective_preferences
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT
 from app.ml.scoring import score_batch, score_student_dict, score_all_pending, get_model_info
 from app.ml.model import train_model
@@ -171,6 +172,7 @@ async def get_student_risk(
         "id": student.id, "matricula": student.matricula, "nome": student.nome,
         "telefone": student.telefone, "email": student.email,
         "communication_opt_out": student.communication_opt_out,
+        "communication_preferences": effective_preferences(student),
         "risk_score": student.risk_score, "risk_level": student.risk_level,
         "shap_top_factors": student.shap_top_factors,
         "recommended_actions": (student.shap_top_factors or {}).get("recommended_actions"),

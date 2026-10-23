@@ -12,6 +12,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.student import Student, UploadBatch
+from app.services.consent import (
+    DEFAULT_COMMUNICATION_PREFERENCES,
+    apply_preference_changes,
+    record_initial_global_opt_out,
+)
 
 
 COLUMN_ALIASES: dict[str, list[str]] = {
@@ -449,6 +454,7 @@ async def create_batch_and_students(
     mapped_targets = set(rename_map.values())
     students: list[Student] = []
     new_students: list[Student] = []
+    initial_opt_out_students: list[Student] = []
     rows_created = 0
     rows_updated = 0
     mutable_fields = (
@@ -469,14 +475,17 @@ async def create_batch_and_students(
                 raw_value = raw.get(field)
                 if field == "communication_opt_out":
                     parsed_bool = safe_bool(raw_value)
-                    if safe_str(raw_value) is not None and parsed_bool is not None:
-                        existing.communication_opt_out = parsed_bool
-                        if parsed_bool:
-                            # Não removemos o carimbo de opt-out ao atualizar com True.
-                            if existing.communication_opted_out_at is None:
-                                existing.communication_opted_out_at = datetime.now(timezone.utc)
-                        else:
-                            existing.communication_opted_out_at = None
+                    if safe_str(raw_value) is not None and parsed_bool is not None and tenant_id:
+                        apply_preference_changes(
+                            session,
+                            tenant_id=tenant_id,
+                            student=existing,
+                            opt_out=parsed_bool,
+                            source="csv_upload",
+                            method="import_column",
+                            location="student_import",
+                            source_reference=batch.id,
+                        )
                     continue
                 if safe_str(raw_value) is None:
                     continue
@@ -500,10 +509,12 @@ async def create_batch_and_students(
                 forma_ingresso=data.get("forma_ingresso"),
                 telefone=data.get("telefone"),
                 email=data.get("email"),
-                communication_opt_out=data.get("communication_opt_out", False),
-                communication_opted_out_at=(
-                    datetime.now(timezone.utc) if data.get("communication_opt_out", False) else None
-                ),
+                communication_opt_out=False,
+                communication_opted_out_at=None,
+                communication_preferences={
+                    "channels": dict(DEFAULT_COMMUNICATION_PREFERENCES["channels"]),
+                    "topics": dict(DEFAULT_COMMUNICATION_PREFERENCES["topics"]),
+                },
                 dias_atraso_boleto=data.get("dias_atraso_boleto"),
                 recorrencia_atrasos=data.get("recorrencia_atrasos"),
                 dias_sem_login=data.get("dias_sem_login"),
@@ -512,12 +523,30 @@ async def create_batch_and_students(
                 reprovacoes=data.get("reprovacoes"),
                 raw_data=raw,
             )
+            explicit_opt_out = safe_bool(raw.get("communication_opt_out"))
+            if explicit_opt_out is True:
+                student.communication_opt_out = True
+                student.communication_opted_out_at = datetime.now(timezone.utc)
+                if tenant_id:
+                    initial_opt_out_students.append(student)
             students.append(student)
             new_students.append(student)
             rows_created += 1
 
     # Existing students are dirty-tracked; only newly created objects need add_all.
     session.add_all(new_students)
+    await session.flush()
+    for student in initial_opt_out_students:
+        record_initial_global_opt_out(
+            session,
+            tenant_id=tenant_id,
+            student=student,
+            opt_out=True,
+            source="csv_upload",
+            method="import_column",
+            location="student_import",
+            source_reference=batch.id,
+        )
     batch.status = "processed"
     batch.processed_rows = len(students)
     batch.processed_at = datetime.now(timezone.utc)

@@ -1,19 +1,18 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import pandas as pd
 import io
 import json
 import re
 from pathlib import Path
 import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.core.auth import AuthContext, get_current_tenant
+from app.core.auth import AuthContext, get_current_tenant, require_min_role
 from app.services.ingestion import (
     COLUMN_LABELS,
     RECOMMENDED_COLUMNS,
@@ -25,6 +24,8 @@ from app.services.ingestion import (
 )
 from app.schemas.student import UploadBatchResponse
 from app.models.student import Student
+from app.models.consent import ConsentAuditEvent
+from app.services.consent import apply_preference_changes, effective_preferences
 
 router = APIRouter()
 settings = get_settings()
@@ -33,7 +34,10 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class CommunicationPreferencePayload(BaseModel):
-    opt_out: bool
+    opt_out: bool | None = None
+    channels: dict[str, bool] | None = None
+    topics: dict[str, bool] | None = None
+    source_reference: str | None = Field(default=None, max_length=160)
 
 
 def sanitize_filename(filename: str) -> str:
@@ -224,10 +228,21 @@ async def list_students(
     } for s in students]}
 
 
-@router.patch("/students/{student_id}/communication-preferences")
-async def update_communication_preferences(
+def _preference_response(student: Student) -> dict:
+    preferences = effective_preferences(student)
+    return {
+        "student_id": student.id,
+        "opt_out": bool(student.communication_opt_out),
+        "communication_opt_out": bool(student.communication_opt_out),
+        "communication_opted_out_at": student.communication_opted_out_at,
+        "channels": preferences["channels"],
+        "topics": preferences["topics"],
+    }
+
+
+@router.get("/students/{student_id}/communication-preferences")
+async def get_communication_preferences(
     student_id: str,
-    body: CommunicationPreferencePayload,
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -236,15 +251,90 @@ async def update_communication_preferences(
     )
     student = result.scalar_one_or_none()
     if not student:
-        raise HTTPException(status_code=404, detail="Aluno nao encontrado")
-    student.communication_opt_out = body.opt_out
-    student.communication_opted_out_at = datetime.now(timezone.utc) if body.opt_out else None
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
+    return _preference_response(student)
+
+
+@router.patch("/students/{student_id}/communication-preferences")
+async def update_communication_preferences(
+    student_id: str,
+    body: CommunicationPreferencePayload,
+    auth: AuthContext = Depends(require_min_role("operator")),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.opt_out is None and not body.channels and not body.topics:
+        raise HTTPException(status_code=422, detail="Informe ao menos uma preferência para alterar.")
+    result = await db.execute(
+        select(Student).where(Student.id == student_id, Student.tenant_id == auth.tenant_id)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
+    try:
+        events_created = apply_preference_changes(
+            db,
+            tenant_id=auth.tenant_id,
+            student=student,
+            opt_out=body.opt_out,
+            channels=body.channels,
+            topics=body.topics,
+            source="authenticated_api",
+            method="manual_preferences_update",
+            location="student_profile_preferences",
+            source_reference=body.source_reference,
+            actor_user_id=auth.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(student)
+    response = _preference_response(student)
+    response["audit_events_created"] = events_created
+    return response
+
+
+@router.get("/students/{student_id}/consent-audit")
+async def list_consent_audit(
+    student_id: str,
+    limit: int = Query(50, ge=1, le=100),
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    student_result = await db.execute(
+        select(Student.id).where(Student.id == student_id, Student.tenant_id == auth.tenant_id)
+    )
+    if student_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
+    result = await db.execute(
+        select(ConsentAuditEvent)
+        .where(
+            ConsentAuditEvent.tenant_id == auth.tenant_id,
+            ConsentAuditEvent.student_id == student_id,
+        )
+        .order_by(ConsentAuditEvent.occurred_at.desc())
+        .limit(limit)
+    )
+    events = result.scalars().all()
     return {
-        "student_id": student.id,
-        "communication_opt_out": student.communication_opt_out,
-        "communication_opted_out_at": student.communication_opted_out_at,
+        "count": len(events),
+        "events": [
+            {
+                "id": event.id,
+                "event_type": event.event_type,
+                "channel": event.channel,
+                "topic": event.topic,
+                "previous_value": event.previous_value,
+                "new_value": event.new_value,
+                "source": event.source,
+                "method": event.method,
+                "location": event.location,
+                "source_reference": event.source_reference,
+                "actor_user_id": event.actor_user_id,
+                "occurred_at": event.occurred_at,
+                "notes": event.notes,
+            }
+            for event in events
+        ],
     }
 
 

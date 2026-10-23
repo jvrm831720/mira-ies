@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.intervention import InterventionLog
 from app.models.student import Student
+from app.services.consent import CHANNELS, apply_preference_changes
 
 
 DELIVERY_STATUSES = {
@@ -187,9 +188,39 @@ async def apply_delivery_event(
     log.delivery_event_id = event.event_id
     log.delivery_updated_at = datetime.now(timezone.utc)
     if event.status == "opted_out" and log.student_id:
-        student = await session.get(Student, log.student_id)
+        student_result = await session.execute(
+            select(Student).where(
+                Student.id == log.student_id,
+                Student.tenant_id == tenant_id,
+            )
+        )
+        student = student_result.scalar_one_or_none()
         if student:
-            student.communication_opt_out = True
-            student.communication_opted_out_at = datetime.now(timezone.utc)
+            if log.channel in CHANNELS:
+                # Descadastro recebido de um provedor afeta apenas aquele canal.
+                # Ex.: STOP por SMS não bloqueia e-mail nem WhatsApp.
+                apply_preference_changes(
+                    session,
+                    tenant_id=tenant_id,
+                    student=student,
+                    channels={log.channel: False},
+                    source="provider_webhook",
+                    method="unsubscribe_event",
+                    location=f"provider:{event.provider}",
+                    source_reference=event.event_id,
+                )
+            else:
+                # Se não houver um canal confiável no log, aplicar o bloqueio global
+                # é a opção fail-closed para evitar novos contatos indesejados.
+                apply_preference_changes(
+                    session,
+                    tenant_id=tenant_id,
+                    student=student,
+                    opt_out=True,
+                    source="provider_webhook",
+                    method="unsubscribe_event",
+                    location=f"provider:{event.provider}",
+                    source_reference=event.event_id,
+                )
     await session.commit()
     return {"updated": True, "log_id": log.id, "status": event.status}

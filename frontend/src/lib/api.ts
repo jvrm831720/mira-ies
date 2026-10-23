@@ -6,6 +6,8 @@ import type {
   AuthResponse,
   BillingSummary,
   CommunicationPreferenceResponse,
+  CommunicationPreferenceUpdate,
+  ConsentAuditResponse,
   CriticalResponse,
   InviteMemberRequest,
   InviteMemberResponse,
@@ -167,6 +169,15 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ opt_out: optOut }),
     }),
+
+  updateCommunicationPreferences: (id: string, body: CommunicationPreferenceUpdate) =>
+    request<CommunicationPreferenceResponse>(`/api/v1/students/${id}/communication-preferences`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  consentAudit: (id: string, limit = 10) =>
+    request<ConsentAuditResponse>(`/api/v1/students/${id}/consent-audit?limit=${limit}`),
 
   previewUpload: async (file: File, columnMapping?: Record<string, string>) => {
     const form = new FormData();
