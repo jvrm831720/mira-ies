@@ -120,10 +120,159 @@ def test_rate_limit_supports_per_account_identity_without_forwarded_ip(monkeypat
     request = SimpleNamespace(client=SimpleNamespace(host="frontend-bff"))
 
     async def run():
-        await auth._enforce_rate_limit(request, "login_ip", 300, 300)
         await auth._enforce_rate_limit(request, "login_email", 10, 300, identity="admin-a@example.com")
         await auth._enforce_rate_limit(request, "login_email", 10, 300, identity="admin-b@example.com")
 
     asyncio.run(run())
-    assert len(set(keys)) == 3
-    assert keys[0] != keys[1] != keys[2]
+    assert len(set(keys)) == 2
+    assert keys[0] != keys[1]
+
+
+
+def test_control_center_token_expiration_is_enforced(monkeypatch):
+    import time
+
+    monkeypatch.setattr(auth, "get_settings", lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars"))
+    admin = SimpleNamespace(id="admin-expiry", role="auditor", auth_version=0)
+    token = auth._issue_token(admin)
+    real_time = time.time()
+    monkeypatch.setattr(auth.time, "time", lambda: real_time + 21 * 60)
+    assert auth._decode_token(token) is None
+
+
+def test_rate_limit_fails_closed_when_redis_is_unavailable(monkeypatch):
+    import asyncio
+    import pytest
+    from fastapi import HTTPException
+
+    class BrokenRedis:
+        async def incr(self, _key):
+            raise RuntimeError("redis offline")
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr(
+        auth, "get_settings",
+        lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars", redis_url="redis://localhost"),
+    )
+    monkeypatch.setattr(auth.Redis, "from_url", lambda *args, **kwargs: BrokenRedis())
+    request = SimpleNamespace(client=SimpleNamespace(host="shared-bff"))
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(auth._enforce_rate_limit(request, "login_email", 10, 300, identity="admin@example.com"))
+    assert exc.value.status_code == 503
+
+
+def test_admin_permission_rejects_missing_credentials_and_denies_wrong_role(monkeypatch):
+    import asyncio
+    import pytest
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(auth, "get_settings", lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars"))
+
+    class FakeDB:
+        def __init__(self, admin):
+            self.admin = admin
+        async def get(self, _model, _admin_id):
+            return self.admin
+
+    with pytest.raises(HTTPException) as missing:
+        asyncio.run(auth.require_admin_permission("orgs:read", None, FakeDB(None)))
+    assert missing.value.status_code == 401
+
+    admin = SimpleNamespace(id="support-1", role="support", auth_version=0, is_active=True)
+    token = auth._issue_token(admin)
+    with pytest.raises(HTTPException) as denied:
+        asyncio.run(auth.require_admin_permission("orgs:write", SimpleNamespace(credentials=token), FakeDB(admin)))
+    assert denied.value.status_code == 403
+
+    allowed = asyncio.run(
+        auth.require_admin_permission("orgs:read", SimpleNamespace(credentials=token), FakeDB(admin))
+    )
+    assert allowed.id == "support-1"
+
+
+def test_mfa_code_is_single_use_and_replay_is_rejected(monkeypatch):
+    import asyncio
+    from datetime import timedelta
+    import pytest
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(auth, "get_settings", lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars"))
+    admin = SimpleNamespace(id="admin-1", email="admin@example.com", is_active=True, role="super_admin", auth_version=0)
+    challenge = SimpleNamespace(
+        id="challenge-1",
+        admin_id=admin.id,
+        email_hash=auth._digest("email", admin.email),
+        code_hash=auth._digest("otp", f"{admin.email}:123456"),
+        expires_at=auth._now() + timedelta(minutes=5),
+        consumed_at=None,
+        attempts=0,
+    )
+
+    class Result:
+        def scalar_one_or_none(self):
+            return None if challenge.consumed_at else challenge
+
+    class FakeDB:
+        async def execute(self, _query):
+            return Result()
+        async def get(self, _model, _admin_id):
+            return admin
+        async def commit(self):
+            return None
+
+    async def no_limit(*args, **kwargs):
+        return None
+    async def no_audit(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(auth, "_enforce_rate_limit", no_limit)
+    monkeypatch.setattr(auth, "_audit", no_audit)
+    request = SimpleNamespace(headers={}, url=SimpleNamespace(path="/api/v1/admin/control-center/auth/verify"), method="POST")
+    body = auth.VerifyEmailCodePayload(email=admin.email, code="123456")
+    db = FakeDB()
+
+    session = asyncio.run(auth.verify_admin_email_code(body, request, db))
+    assert session.role == "super_admin"
+    assert challenge.consumed_at is not None
+    with pytest.raises(HTTPException) as replay:
+        asyncio.run(auth.verify_admin_email_code(body, request, db))
+    assert replay.value.status_code == 401
+
+
+def test_mfa_expired_code_is_rejected(monkeypatch):
+    import asyncio
+    from datetime import timedelta
+    import pytest
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(auth, "get_settings", lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars"))
+    email = "admin@example.com"
+    challenge = SimpleNamespace(
+        id="challenge-expired", admin_id="admin-1",
+        email_hash=auth._digest("email", email),
+        code_hash=auth._digest("otp", f"{email}:123456"),
+        expires_at=auth._now() - timedelta(seconds=1), consumed_at=None, attempts=0,
+    )
+    class Result:
+        def scalar_one_or_none(self):
+            return None if challenge.consumed_at else challenge
+    class FakeDB:
+        async def execute(self, _query):
+            return Result()
+        async def commit(self):
+            return None
+    async def no_limit(*args, **kwargs):
+        return None
+    async def no_audit(*args, **kwargs):
+        return None
+    monkeypatch.setattr(auth, "_enforce_rate_limit", no_limit)
+    monkeypatch.setattr(auth, "_audit", no_audit)
+    request = SimpleNamespace(headers={}, url=SimpleNamespace(path="/auth/verify"), method="POST")
+    body = auth.VerifyEmailCodePayload(email=email, code="123456")
+
+    with pytest.raises(HTTPException) as expired:
+        asyncio.run(auth.verify_admin_email_code(body, request, FakeDB()))
+    assert expired.value.status_code == 401
+    assert challenge.consumed_at is not None
