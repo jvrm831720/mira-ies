@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import String, Float, Date, Integer, DateTime, Text, ForeignKey, Index, UniqueConstraint
+from sqlalchemy import String, Float, Date, Integer, DateTime, Text, ForeignKey, Index, UniqueConstraint, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
