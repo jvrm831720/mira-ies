@@ -72,6 +72,13 @@ class Student(Base):
     risk_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     risk_level: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     shap_top_factors: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Base model score is stored separately from the transparent interaction-based adjustment.
+    model_risk_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    dynamic_risk_adjustment: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    engagement_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    engagement_score_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Explicit allowlisted learning/behavior properties plus opt-in message field keys.
+    behavior_properties: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 
     raw_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)

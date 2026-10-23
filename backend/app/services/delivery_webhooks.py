@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.intervention import InterventionLog
 from app.models.student import Student
 from app.services.consent import CHANNELS, apply_preference_changes
+from app.services.engagement import record_engagement_event
 
 
 DELIVERY_STATUSES = {
@@ -109,6 +110,21 @@ def _status_from_payload(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _parse_event_datetime(value: Any) -> datetime | None:
+    if value is None or value == "":
+        return None
+    try:
+        if isinstance(value, (int, float)) or (isinstance(value, str) and value.isdigit()):
+            raw = float(value)
+            if raw > 10_000_000_000:
+                raw /= 1000.0
+            return datetime.fromtimestamp(raw, tz=timezone.utc)
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+    except (ValueError, TypeError, OverflowError, OSError):
+        return None
+
+
 def normalize_delivery_event(provider: str, payload: dict[str, Any]) -> DeliveryEvent | None:
     provider = provider.lower().strip()
     status = _status_from_payload(payload)
@@ -148,12 +164,24 @@ def normalize_delivery_event(provider: str, payload: dict[str, Any]) -> Delivery
         # do payload mantém delivered/read como eventos distintos.
         event_id = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
+    occurred_at = _parse_event_datetime(
+        _nested(
+            payload,
+            ("occurred_at",),
+            ("timestamp",),
+            ("created_at",),
+            ("date",),
+            ("data", "timestamp"),
+            ("data", "created_at"),
+        )
+    )
     return DeliveryEvent(
         provider=provider,
         status=status,
         event_id=event_id[:160],
         external_id=str(external_id)[:120] if external_id else None,
         idempotency_key=str(idempotency_key)[:255] if idempotency_key else None,
+        occurred_at=occurred_at,
     )
 
 
@@ -222,5 +250,29 @@ async def apply_delivery_event(
                     location=f"provider:{event.provider}",
                     source_reference=event.event_id,
                 )
-    await session.commit()
+    engagement_type = {
+        "delivered": "delivered",
+        "read": "read",
+        "failed": "failed",
+        "rejected": "failed",
+        "bounced": "failed",
+        "invalid": "failed",
+        "opted_out": "opted_out",
+    }.get(event.status)
+    if engagement_type and log.student_id:
+        await record_engagement_event(
+            session,
+            tenant_id=tenant_id,
+            student_id=log.student_id,
+            event_key=f"delivery:{log.id}:{event.provider}:{event.event_id[:120]}",
+            event_type=engagement_type,
+            channel=log.channel,
+            source="provider_webhook",
+            provider=event.provider,
+            intervention_log_id=log.id,
+            occurred_at=event.occurred_at or datetime.now(timezone.utc),
+            event_metadata={"delivery_status": event.status},
+        )
+    else:
+        await session.commit()
     return {"updated": True, "log_id": log.id, "status": event.status}

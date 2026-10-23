@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     data_retention_days: int = 365
     anonymize_on_export: bool = True
     intervention_log_retention_days: int = Field(default=180, ge=90, le=180)
+    engagement_timezone: str = "America/Sao_Paulo"
+    engagement_response_window_hours: int = Field(default=72, ge=24, le=168)
+    engagement_history_days: int = Field(default=90, ge=30, le=365)
+    engagement_sweep_interval_seconds: int = Field(default=3600, ge=60, le=86400)
 
     # Agentes de retencao (orquestrador + canais WhatsApp/E-mail/SMS)
     agents_dry_run_default: bool = True

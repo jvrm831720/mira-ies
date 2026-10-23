@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -26,6 +27,7 @@ from app.schemas.student import UploadBatchResponse
 from app.models.student import Student
 from app.models.consent import ConsentAuditEvent
 from app.services.consent import apply_preference_changes, effective_preferences
+from app.services.engagement import normalize_behavior_properties
 
 router = APIRouter()
 settings = get_settings()
@@ -38,6 +40,10 @@ class CommunicationPreferencePayload(BaseModel):
     channels: dict[str, bool] | None = None
     topics: dict[str, bool] | None = None
     source_reference: str | None = Field(default=None, max_length=160)
+
+
+class BehaviorPropertiesPayload(BaseModel):
+    properties: dict[str, Any]
 
 
 def sanitize_filename(filename: str) -> str:
@@ -335,6 +341,60 @@ async def list_consent_audit(
             }
             for event in events
         ],
+    }
+
+
+@router.get("/students/{student_id}/behavior-properties")
+async def get_student_behavior_properties(
+    student_id: str,
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Student).where(Student.id == student_id, Student.tenant_id == auth.tenant_id)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
+    return {
+        "student_id": student.id,
+        "properties": student.behavior_properties or {},
+        "engagement_score": student.engagement_score,
+        "engagement_score_updated_at": student.engagement_score_updated_at,
+        "model_risk_score": student.model_risk_score,
+        "risk_score": student.risk_score,
+        "risk_level": student.risk_level,
+        "dynamic_risk_adjustment": student.dynamic_risk_adjustment,
+    }
+
+
+@router.patch("/students/{student_id}/behavior-properties")
+async def update_student_behavior_properties(
+    student_id: str,
+    body: BehaviorPropertiesPayload,
+    auth: AuthContext = Depends(require_min_role("operator")),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Student).where(Student.id == student_id, Student.tenant_id == auth.tenant_id)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado")
+    if not body.properties:
+        raise HTTPException(status_code=422, detail="Informe ao menos uma propriedade comportamental.")
+    try:
+        student.behavior_properties = normalize_behavior_properties(
+            student.behavior_properties or {}, body.properties
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await db.commit()
+    await db.refresh(student)
+    return {
+        "student_id": student.id,
+        "properties": student.behavior_properties,
+        "message_fields": student.behavior_properties.get("message_fields", []),
     }
 
 

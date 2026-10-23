@@ -1,9 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  Activity,
   AlertCircle,
+  BookOpen,
+  Clock3,
+  TrendingUp,
   ExternalLink,
   History,
   Mail,
@@ -22,6 +27,7 @@ import type {
   CommunicationChannel,
   CommunicationPreferences,
   CommunicationTopic,
+  BehaviorProperties,
   CommunicationPreferenceUpdate,
   ConsentAuditEvent,
 } from "@/types/api";
@@ -162,6 +168,7 @@ export function StudentDrawer({
                 globalOptOut={globalOptOut}
                 preferences={preferences}
               />
+              <BehaviorPropertiesPanel key={studentId} studentId={studentId!} />
 
               {factors.length > 0 && (
                 <div className="space-y-2">
@@ -347,3 +354,202 @@ function ConsentPreferencesPanel({
     </section>
   );
 }
+
+const STANDARD_MESSAGE_FIELDS: Array<{ key: string; label: string }> = [
+  { key: "last_class_missed", label: "Última aula com falta" },
+  { key: "missed_classes_this_week", label: "Faltas nesta semana" },
+  { key: "current_module", label: "Módulo atual" },
+  { key: "module_progress_pct", label: "Progresso do módulo" },
+  { key: "recent_activity", label: "Atividade recente" },
+];
+
+function BehaviorPropertiesPanel({ studentId }: { studentId: string }) {
+  const queryClient = useQueryClient();
+  const me = useQuery({
+    queryKey: ["current-user"],
+    queryFn: () => api.me(),
+    enabled: Boolean(studentId),
+    retry: false,
+  });
+  const canEdit = ["admin", "coordinator", "operator"].includes(me.data?.role || "");
+  const detail = useQuery({
+    queryKey: ["student-behavior", studentId],
+    queryFn: () => api.studentBehaviorProperties(studentId),
+    enabled: Boolean(studentId),
+  });
+  const [lastClass, setLastClass] = useState("");
+  const [missedClasses, setMissedClasses] = useState("");
+  const [currentModule, setCurrentModule] = useState("");
+  const [progress, setProgress] = useState("");
+  const [recentActivity, setRecentActivity] = useState("");
+  const [customJson, setCustomJson] = useState("{}");
+  const [messageFields, setMessageFields] = useState<string[]>([]);
+  const [customJsonError, setCustomJsonError] = useState("");
+
+  useEffect(() => {
+    if (!detail.data) return;
+    const p = detail.data.properties || {};
+    setLastClass(p.last_class_missed || "");
+    setMissedClasses(p.missed_classes_this_week == null ? "" : String(p.missed_classes_this_week));
+    setCurrentModule(p.current_module || "");
+    setProgress(p.module_progress_pct == null ? "" : String(p.module_progress_pct));
+    setRecentActivity(p.recent_activity || "");
+    setCustomJson(JSON.stringify(p.custom_properties || {}, null, 2));
+    setMessageFields(p.message_fields || []);
+    setCustomJsonError("");
+  }, [detail.data]);
+
+  let customKeys: string[] = [];
+  try {
+    const parsed: unknown = JSON.parse(customJson);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      customKeys = Object.keys(parsed as Record<string, unknown>);
+    }
+  } catch {
+    customKeys = [];
+  }
+
+  const update = useMutation({
+    mutationFn: () => {
+      let customProperties: Record<string, string | number | boolean | null>;
+      try {
+        const parsed: unknown = JSON.parse(customJson);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("As propriedades customizadas precisam ser um objeto JSON.");
+        }
+        customProperties = parsed as Record<string, string | number | boolean | null>;
+      } catch (error) {
+        throw error instanceof Error ? error : new Error("JSON de propriedades inválido.");
+      }
+      setCustomJsonError("");
+      const properties: BehaviorProperties = {
+        last_class_missed: lastClass.trim() || null,
+        missed_classes_this_week: missedClasses === "" ? null : Number(missedClasses),
+        current_module: currentModule.trim() || null,
+        module_progress_pct: progress === "" ? null : Number(progress),
+        recent_activity: recentActivity.trim() || null,
+        custom_properties: customProperties,
+        message_fields: messageFields,
+      };
+      return api.updateStudentBehaviorProperties(studentId, properties);
+    },
+    onSuccess: async () => {
+      toast.success("Propriedades comportamentais salvas.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["student-behavior", studentId] }),
+        queryClient.invalidateQueries({ queryKey: ["student-risk", studentId] }),
+      ]);
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Não foi possível salvar as propriedades.";
+      setCustomJsonError(message);
+      toast.error(message);
+    },
+  });
+
+  function toggleMessageField(key: string, checked: boolean) {
+    setMessageFields((current) => checked ? [...current.filter((value) => value !== key), key] : current.filter((value) => value !== key));
+  }
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border">
+      <div className="flex items-start gap-3 border-b border-border bg-muted/25 px-4 py-3.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[rgba(64,80,205,0.09)] text-primary"><BookOpen className="h-4 w-4" /></span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-neutral-900">Contexto e personalização</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">Dados comportamentais ajudam a personalizar as mensagens. Escolha explicitamente quais campos podem aparecer no contato.</p>
+        </div>
+      </div>
+      <div className="space-y-4 p-4">
+        {!me.isLoading && !canEdit && (
+          <p role="status" className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[10px] leading-relaxed text-neutral-600">
+            Perfil somente leitura: suas permissões permitem consultar o contexto, mas não alterá-lo.
+          </p>
+        )}
+        {detail.isLoading ? (
+          <div className="space-y-2"><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-full" /><Skeleton className="h-9 w-full" /></div>
+        ) : detail.isError ? (
+          <p role="alert" className="text-xs text-red-700">Não foi possível carregar o contexto comportamental.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-border px-3 py-3">
+                <p className="flex items-center gap-1.5 text-[10px] font-medium text-neutral-500"><Activity className="h-3.5 w-3.5" /> Engajamento</p>
+                <p className="mt-1.5 text-xl font-semibold text-neutral-900">{detail.data?.engagement_score == null ? "—" : `${Math.round(detail.data.engagement_score)}/100`}</p>
+              </div>
+              <div className="rounded-xl border border-border px-3 py-3">
+                <p className="flex items-center gap-1.5 text-[10px] font-medium text-neutral-500"><TrendingUp className="h-3.5 w-3.5" /> Ajuste dinâmico de risco</p>
+                <p className="mt-1.5 text-xl font-semibold text-neutral-900">{detail.data?.dynamic_risk_adjustment == null ? "0" : `+${detail.data.dynamic_risk_adjustment}`}</p>
+              </div>
+            </div>
+            {detail.data?.engagement_score_updated_at && (
+              <p className="flex items-center gap-1.5 text-[10px] text-neutral-400"><Clock3 className="h-3 w-3" /> Atualizado em {formatAuditDate(detail.data.engagement_score_updated_at)}</p>
+            )}
+
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-medium text-neutral-600">Aula com falta recente</span>
+                <input value={lastClass} onChange={(event) => setLastClass(event.target.value)} maxLength={120} placeholder="Ex.: Cálculo II" className="h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-primary" />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-medium text-neutral-600">Faltas na semana</span>
+                  <input type="number" min={0} max={100} value={missedClasses} onChange={(event) => setMissedClasses(event.target.value)} className="h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-primary" />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-medium text-neutral-600">Progresso do módulo (%)</span>
+                  <input type="number" min={0} max={100} step={0.1} value={progress} onChange={(event) => setProgress(event.target.value)} className="h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-primary" />
+                </label>
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-medium text-neutral-600">Módulo atual</span>
+                <input value={currentModule} onChange={(event) => setCurrentModule(event.target.value)} maxLength={120} placeholder="Ex.: Módulo 3" className="h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-primary" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-medium text-neutral-600">Atividade recente</span>
+                <input value={recentActivity} onChange={(event) => setRecentActivity(event.target.value)} maxLength={160} placeholder="Ex.: último acesso ao AVA" className="h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-primary" />
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-500">Campos permitidos nas mensagens</p>
+                <p className="mt-1 text-[10px] text-neutral-400">Só os campos marcados abaixo serão inseridos no texto.</p>
+              </div>
+              <div className="space-y-2">
+                {STANDARD_MESSAGE_FIELDS.map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 text-xs text-neutral-700">
+                    <input type="checkbox" checked={messageFields.includes(key)} disabled={update.isPending || !canEdit} onChange={(event) => toggleMessageField(key, event.target.checked)} className="h-4 w-4 accent-[#4050cd]" />
+                    {label}
+                  </label>
+                ))}
+                {customKeys.map((key) => (
+                  <label key={key} className="flex items-center gap-2 text-xs text-neutral-700">
+                    <input type="checkbox" checked={messageFields.includes(`custom_properties.${key}`)} disabled={update.isPending || !canEdit} onChange={(event) => toggleMessageField(`custom_properties.${key}`, event.target.checked)} className="h-4 w-4 accent-[#4050cd]" />
+                    Campo customizado: {key.replaceAll("_", " ")}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-medium text-neutral-600">Propriedades customizadas (JSON)</span>
+              <textarea value={customJson} onChange={(event) => setCustomJson(event.target.value)} rows={4} spellCheck={false} className="w-full rounded-lg border border-border px-3 py-2 font-mono text-[11px] outline-none focus:border-primary" />
+              <span className="mt-1 block text-[10px] leading-relaxed text-neutral-400">Use apenas dados acadêmicos necessários à finalidade. O servidor aceita valores curtos de texto, número, booleano ou nulo.</span>
+            </label>
+            {customJsonError && <p role="alert" className="text-[10px] text-red-700">{customJsonError}</p>}
+            <button
+              type="button"
+              disabled={update.isPending || !canEdit}
+              onClick={() => update.mutate()}
+              className="inline-flex h-9 w-full items-center justify-center rounded-full bg-primary px-4 text-xs font-semibold text-white disabled:opacity-60"
+            >
+              {update.isPending ? "Salvando…" : "Salvar contexto e campos de mensagem"}
+            </button>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+

@@ -294,3 +294,65 @@ Agende o comando com cron, Task Scheduler ou o scheduler da implantação. O job
 `consent_audit_events`; o prazo de guarda dessa trilha deve ser definido separadamente pela
 instituição. Estes controles são mecanismos técnicos e não substituem uma avaliação jurídica
 da base legal, dos prazos de guarda e dos direitos dos titulares sob LGPD/GDPR.
+
+## Smart CRM: personalização contextual e engajamento preditivo
+
+### Propriedades comportamentais e campos de mensagem
+As propriedades ficam em `students.behavior_properties` e são gerenciadas por
+`GET/PATCH /api/v1/students/{student_id}/behavior-properties`. O contrato admite:
+`last_class_missed`, `missed_classes_this_week`, `current_module`,
+`module_progress_pct`, `recent_activity`, `last_activity_at`, além de
+`custom_properties` escalares. Não se aceita template/raw message arbitrário. Campos usados
+em mensagens precisam ser explicitamente incluídos em `message_fields`, por exemplo:
+
+```json
+{
+  "last_class_missed": "Cálculo II",
+  "current_module": "Módulo 3",
+  "module_progress_pct": 45,
+  "custom_properties": {"tutor_responsavel": "Prof. Almeida"},
+  "message_fields": [
+    "last_class_missed",
+    "current_module",
+    "module_progress_pct",
+    "custom_properties.tutor_responsavel"
+  ]
+}
+```
+
+O renderer limita o número e tamanho de fatos, não expõe propriedades customizadas sem opt-in e
+mantém o limite de 160 caracteres do SMS. Passe somente informações necessárias à finalidade
+de comunicação vigente.
+
+### Send-Time Optimization (STO)
+Use `GET /api/v1/agents/retention/send-time/{student_id}` para inspecionar a recomendação.
+Envios via `POST /api/v1/agents/retention/enqueue` podem incluir
+`"optimize_send_time": true`. Nesse modo o sistema cria jobs por aluno e agenda cada um no
+horário local associado à melhor taxa observada de leitura/resposta por horário de envio nos
+últimos `ENGAGEMENT_HISTORY_DAYS` dias. A recomendação exige pelo menos três envios no mesmo
+canal/horário; sem histórico suficiente usa fallback às 10h no fuso `ENGAGEMENT_TIMEZONE`.
+O worker da fila promove jobs agendados quando vencem. O endpoint síncrono `/run` continua
+imediato e rejeita a opção de otimização, para evitar alegar que agendou quando não o fez.
+
+### Score de engajamento e ajuste de risco
+A tabela `student_engagement_events` mantém eventos deduplicados de entrega, leitura, resposta,
+falha e ausência de resposta. O `engagement_score` (0–100) é um índice transparente e recência-
+ponderado, não uma nova probabilidade de evasão treinada. O modelo guarda seu score-base em
+`model_risk_score`; a ausência de resposta confirmada adiciona +5 por evento, limitado a +15,
+ao score de risco exibido. Uma resposta posterior ao mesmo log remove esse ajuste relacionado.
+
+Leitura/abertura atualiza o score de engajamento quando o webhook chega; não é tratada como
+evasão. Para identificar "lido e sem resposta", configure um job periódico (por exemplo, a cada
+hora) a partir do diretório `backend`:
+
+```bash
+# Prévia, sem escrita:
+PYTHONPATH=. python scripts/refresh_engagement.py
+
+# Aplica no_response após 72h e recalcula scores:
+PYTHONPATH=. python scripts/refresh_engagement.py --apply
+```
+
+A janela fica configurável em `ENGAGEMENT_RESPONSE_WINDOW_HOURS` (24–168 horas). O modo de
+prévia é o padrão. A otimização depende de histórico de envios reais e sinais recebidos pelos
+provedores; simulações `dry_run` não são tratadas como comportamento observado.

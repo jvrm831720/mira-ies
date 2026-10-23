@@ -86,8 +86,16 @@ async def score_batch(
         model_score = probability_to_risk_score(proba)
         rules = apply_business_rules(feature_dicts[i], model_score)
         top_factors = explain_instance(feature_dicts[i], top_k=3) if explain else []
-        student.risk_score = rules["adjusted_score"]
-        student.risk_level = rules["risk_level"]
+        student.model_risk_score = rules["adjusted_score"]
+        dynamic_adjustment = float(student.dynamic_risk_adjustment or 0.0)
+        final_score = round(min(100.0, rules["adjusted_score"] + dynamic_adjustment), 1)
+        final_level = (
+            "critico" if final_score >= 70
+            else "medio" if final_score >= 40
+            else "baixo"
+        )
+        student.risk_score = final_score
+        student.risk_level = final_level
         student.tenant_id = tenant_id
         student.shap_top_factors = {
             "top_3": top_factors,
@@ -104,10 +112,11 @@ async def score_batch(
             model_score=rules["model_score"], adjusted_score=rules["adjusted_score"],
             risk_level=rules["risk_level"], model_version=model_version, model_scope=model_scope,
         ))
-        summary[rules["risk_level"]] = summary.get(rules["risk_level"], 0) + 1
+        summary[final_level] = summary.get(final_level, 0) + 1
         scored_details.append({
-            "matricula": student.matricula, "nome": student.nome, "risk_score": rules["adjusted_score"],
-            "risk_level": rules["risk_level"], "confidence": rules["confidence"],
+            "matricula": student.matricula, "nome": student.nome, "risk_score": final_score,
+            "risk_level": final_level, "confidence": rules["confidence"],
+            "dynamic_risk_adjustment": dynamic_adjustment,
             "recommended_actions": rules["recommended_actions"][:2],
         })
     batch.status = "scored"
