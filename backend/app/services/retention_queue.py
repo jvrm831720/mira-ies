@@ -254,8 +254,8 @@ async def promote_due_retries(redis: Redis) -> int:
     await redis.zrem(delayed_key, *ids)
     if ids:
         for job_id in ids:
-            current_status = await redis.hget(_job_key(job_id), "status")
-            if current_status == "scheduled":
+            job = await get_job(job_id, redis=redis)
+            if job and job.get("status") == "scheduled":
                 await _update_job(redis, job_id, status="queued")
         await redis.rpush(settings.retention_queue_name, *ids)
         _event(logging.INFO, "retention_job_retries_promoted", queue_name=settings.retention_queue_name, count=len(ids))
