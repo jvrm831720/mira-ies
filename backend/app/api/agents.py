@@ -649,7 +649,9 @@ async def retention_analytics(
             latency_totals[channel][1] += attempt_count
     for channel in channels:
         weighted_sum, attempt_count = latency_totals[channel]
-        health[channel]["average_latency_ms"] = round(weighted_sum / attempt_count, 1) if attempt_count else None
+        average_latency_ms = round(weighted_sum / attempt_count, 1) if attempt_count else None
+        health[channel]["average_latency_ms"] = average_latency_ms
+        per_channel[channel]["average_latency_ms"] = average_latency_ms
 
     event_rows = (
         await db.execute(
