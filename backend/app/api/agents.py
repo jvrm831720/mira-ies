@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.orchestrator import RetentionOrchestrator, preview_message, fetch_eligible_students
@@ -15,8 +15,9 @@ from app.agents.rules import decide_channels
 from app.core.auth import AuthContext, get_current_tenant, require_min_role
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.models.intervention import InterventionLog
+from app.models.intervention import InterventionLog, ProviderCallMetric
 from app.models.student import Student
+from app.models.engagement import StudentEngagementEvent
 from app.services.consent import is_communication_allowed
 from app.services.engagement import record_engagement_event, recommend_send_time
 from app.services.retention_queue import enqueue_retention_job, get_job, redis_client
@@ -404,6 +405,283 @@ async def agents_status(auth: AuthContext = Depends(get_current_tenant)):
             "retry_backoff_seconds": settings.retention_retry_backoff_seconds,
         },
         "outcomes": sorted(_VALID_OUTCOMES),
+    }
+
+
+@router.get("/agents/retention/analytics")
+async def retention_analytics(
+    days: int = Query(30, ge=1, le=365),
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Indicadores agregados por tenant: entrega, engajamento, custo e desfecho acadêmico."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    channels = ("whatsapp", "email", "sms")
+    delivered_states = {"delivered", "read", "clicked", "replied"}
+    bounce_states = {"failed", "rejected", "bounced", "invalid"}
+    final_outcomes = ("stayed", "dropped", "transferred")
+
+    rows = (
+        await db.execute(
+            select(
+                InterventionLog.channel,
+                InterventionLog.status,
+                InterventionLog.delivery_status,
+                func.count(InterventionLog.id),
+            )
+            .where(
+                InterventionLog.tenant_id == auth.tenant_id,
+                InterventionLog.created_at >= cutoff,
+                InterventionLog.channel.in_(channels),
+            )
+            .group_by(
+                InterventionLog.channel,
+                InterventionLog.status,
+                InterventionLog.delivery_status,
+            )
+        )
+    ).all()
+    health = {
+        channel: {
+            "messages_attempted": 0,
+            "messages_sent": 0,
+            "delivered_messages": 0,
+            "bounced_messages": 0,
+            "engaged_messages": 0,
+            "clicked_messages": 0,
+            "replied_messages": 0,
+            "failed_messages": 0,
+            "unknown_messages": 0,
+        }
+        for channel in channels
+    }
+    for channel, status, delivery_status, count in rows:
+        if channel not in health:
+            continue
+        metric = health[channel]
+        if status in {"sent", "failed", "unknown", "sending"}:
+            metric["messages_attempted"] += int(count)
+        if status == "sent":
+            metric["messages_sent"] += int(count)
+        elif status == "failed":
+            metric["failed_messages"] += int(count)
+        elif status == "unknown":
+            metric["unknown_messages"] += int(count)
+        if delivery_status in delivered_states:
+            metric["delivered_messages"] += int(count)
+        if delivery_status in bounce_states:
+            metric["bounced_messages"] += int(count)
+        if delivery_status in {"read", "clicked", "replied"}:
+            metric["engaged_messages"] += int(count)
+        if delivery_status == "clicked":
+            metric["clicked_messages"] += int(count)
+        if delivery_status == "replied":
+            metric["replied_messages"] += int(count)
+
+    contact_rows = (
+        await db.execute(
+            select(InterventionLog.channel, func.count(func.distinct(InterventionLog.student_id)))
+            .where(
+                InterventionLog.tenant_id == auth.tenant_id,
+                InterventionLog.created_at >= cutoff,
+                InterventionLog.status == "sent",
+                InterventionLog.channel.in_(channels),
+                InterventionLog.student_id.is_not(None),
+            )
+            .group_by(InterventionLog.channel)
+        )
+    ).all()
+    unique_contacts = {channel: int(count) for channel, count in contact_rows}
+
+    outcome_rows = (
+        await db.execute(
+            select(
+                InterventionLog.channel,
+                InterventionLog.outcome,
+                func.count(func.distinct(InterventionLog.student_id)),
+            )
+            .where(
+                InterventionLog.tenant_id == auth.tenant_id,
+                InterventionLog.created_at >= cutoff,
+                InterventionLog.status == "sent",
+                InterventionLog.channel.in_(channels),
+                InterventionLog.student_id.is_not(None),
+                InterventionLog.outcome.in_(final_outcomes),
+            )
+            .group_by(InterventionLog.channel, InterventionLog.outcome)
+        )
+    ).all()
+    outcomes_by_channel = {
+        channel: {"stayed": 0, "dropped": 0, "transferred": 0}
+        for channel in channels
+    }
+    for channel, outcome, count in outcome_rows:
+        if channel in outcomes_by_channel and outcome in outcomes_by_channel[channel]:
+            outcomes_by_channel[channel][outcome] = int(count)
+
+    attributed_rows = (
+        await db.execute(
+            select(InterventionLog.channel, func.count(func.distinct(InterventionLog.student_id)))
+            .where(
+                InterventionLog.tenant_id == auth.tenant_id,
+                InterventionLog.created_at >= cutoff,
+                InterventionLog.status == "sent",
+                InterventionLog.channel.in_(channels),
+                InterventionLog.student_id.is_not(None),
+                InterventionLog.outcome.in_(final_outcomes),
+            )
+            .group_by(InterventionLog.channel)
+        )
+    ).all()
+    attributed_contacts = {channel: int(count) for channel, count in attributed_rows}
+
+    settings = get_settings()
+    cost_rates = {
+        "whatsapp": settings.agents_cost_per_whatsapp_message_brl,
+        "email": settings.agents_cost_per_email_message_brl,
+        "sms": settings.agents_cost_per_sms_message_brl,
+    }
+    per_channel = {}
+    total_sent = 0
+    estimated_cost_total = 0.0
+    cost_configured_channels = 0
+    for channel in channels:
+        metric = health[channel]
+        sent = metric["messages_sent"]
+        delivered = metric["delivered_messages"]
+        bounced = metric["bounced_messages"]
+        retained = outcomes_by_channel[channel]["stayed"]
+        attributed = attributed_contacts.get(channel, 0)
+        contacted = unique_contacts.get(channel, 0)
+        unit_cost = cost_rates[channel]
+        total_cost = round(sent * unit_cost, 2) if unit_cost > 0 else None
+        if unit_cost > 0:
+            estimated_cost_total += total_cost or 0.0
+            cost_configured_channels += 1
+        metric.update({
+            "unique_students_contacted": contacted,
+            "delivery_rate_pct": round(delivered / sent * 100, 1) if sent else None,
+            "bounce_rate_pct": round(bounced / sent * 100, 1) if sent else None,
+            "engagement_rate_pct": round(metric["engaged_messages"] / sent * 100, 1) if sent else None,
+            "estimated_cost_brl_per_send": round(unit_cost, 4) if unit_cost > 0 else None,
+            "estimated_cost_brl_total": total_cost,
+        })
+        per_channel[channel] = {
+            **metric,
+            "attribution": {
+                "attributed_students": attributed,
+                "retained_students": retained,
+                "dropped_students": outcomes_by_channel[channel]["dropped"],
+                "transferred_students": outcomes_by_channel[channel]["transferred"],
+                "retention_rate_pct": round(retained / attributed * 100, 1) if attributed else None,
+                "attribution_coverage_pct": round(attributed / contacted * 100, 1) if contacted else None,
+            },
+        }
+        total_sent += sent
+
+    overall_contacts = (
+        await db.execute(
+            select(func.count(func.distinct(InterventionLog.student_id))).where(
+                InterventionLog.tenant_id == auth.tenant_id,
+                InterventionLog.created_at >= cutoff,
+                InterventionLog.status == "sent",
+                InterventionLog.student_id.is_not(None),
+            )
+        )
+    ).scalar_one()
+    overall_attributed = (
+        await db.execute(
+            select(func.count(func.distinct(InterventionLog.student_id))).where(
+                InterventionLog.tenant_id == auth.tenant_id,
+                InterventionLog.created_at >= cutoff,
+                InterventionLog.status == "sent",
+                InterventionLog.student_id.is_not(None),
+                InterventionLog.outcome.in_(final_outcomes),
+            )
+        )
+    ).scalar_one()
+    overall_retained = (
+        await db.execute(
+            select(func.count(func.distinct(InterventionLog.student_id))).where(
+                InterventionLog.tenant_id == auth.tenant_id,
+                InterventionLog.created_at >= cutoff,
+                InterventionLog.status == "sent",
+                InterventionLog.student_id.is_not(None),
+                InterventionLog.outcome == "stayed",
+            )
+        )
+    ).scalar_one()
+
+    provider_rows = (
+        await db.execute(
+            select(
+                ProviderCallMetric.channel,
+                ProviderCallMetric.provider,
+                func.count(ProviderCallMetric.id),
+                func.avg(ProviderCallMetric.latency_ms),
+                func.sum(case((ProviderCallMetric.succeeded.is_(True), 1), else_=0)),
+            )
+            .where(
+                ProviderCallMetric.tenant_id == auth.tenant_id,
+                ProviderCallMetric.occurred_at >= cutoff,
+                ProviderCallMetric.channel.in_(channels),
+            )
+            .group_by(ProviderCallMetric.channel, ProviderCallMetric.provider)
+        )
+    ).all()
+    providers = []
+    latency_totals: dict[str, list[float]] = {channel: [0.0, 0.0] for channel in channels}
+    for channel, provider, attempts, average_latency, successes in provider_rows:
+        attempt_count = int(attempts or 0)
+        success_count = int(successes or 0)
+        latency = round(float(average_latency), 1) if average_latency is not None else None
+        providers.append({
+            "channel": channel,
+            "provider": provider,
+            "attempts": attempt_count,
+            "successes": success_count,
+            "failures": attempt_count - success_count,
+            "success_rate_pct": round(success_count / attempt_count * 100, 1) if attempt_count else None,
+            "average_latency_ms": latency,
+        })
+        if average_latency is not None and channel in latency_totals:
+            latency_totals[channel][0] += float(average_latency) * attempt_count
+            latency_totals[channel][1] += attempt_count
+    for channel in channels:
+        weighted_sum, attempt_count = latency_totals[channel]
+        health[channel]["average_latency_ms"] = round(weighted_sum / attempt_count, 1) if attempt_count else None
+
+    event_rows = (
+        await db.execute(
+            select(StudentEngagementEvent.event_type, func.count(StudentEngagementEvent.id))
+            .where(
+                StudentEngagementEvent.tenant_id == auth.tenant_id,
+                StudentEngagementEvent.occurred_at >= cutoff,
+            )
+            .group_by(StudentEngagementEvent.event_type)
+        )
+    ).all()
+    engagement_events = {event_type: int(count) for event_type, count in event_rows}
+
+    return {
+        "period_days": days,
+        "period_start": cutoff.isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "summary": {
+            "messages_sent": total_sent,
+            "unique_students_contacted": int(overall_contacts or 0),
+            "attributed_students": int(overall_attributed or 0),
+            "retained_students": int(overall_retained or 0),
+            "retention_rate_pct": round(float(overall_retained) / float(overall_attributed) * 100, 1) if overall_attributed else None,
+            "attribution_coverage_pct": round(float(overall_attributed) / float(overall_contacts) * 100, 1) if overall_contacts else None,
+            "estimated_cost_brl_total": round(estimated_cost_total, 2) if cost_configured_channels else None,
+            "cost_configured_channels": cost_configured_channels,
+        },
+        "channels": per_channel,
+        "providers": providers,
+        "engagement_events": engagement_events,
+        "attribution_note": "Associação observacional entre status acadêmico importado e envios nos 90 dias anteriores; não demonstra causalidade.",
+        "cost_note": "Custos BRL são estimados somente para canais com custo unitário configurado.",
     }
 
 
