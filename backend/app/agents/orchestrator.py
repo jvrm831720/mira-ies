@@ -20,7 +20,7 @@ from app.agents.channels.sms import SmsAgent
 from app.agents.channels.whatsapp import WhatsAppAgent, normalize_phone_br
 from app.agents.rules import check_anti_spam, decide_channels, skip_reason_for_no_channel
 from app.core.config import get_settings
-from app.models.intervention import InterventionLog
+from app.models.intervention import InterventionLog, ProviderCallMetric
 from app.models.student import Student
 from app.services.provider_guard import (
     acquire_send_slot,
@@ -30,6 +30,7 @@ from app.services.provider_guard import (
 )
 from app.agents.providers.errors import is_retryable_provider_error
 from app.services.consent import effective_preferences, is_communication_allowed
+from app.services.engagement import is_sms_suppressed_by_recent_engagement
 
 logger = logging.getLogger(__name__)
 
@@ -325,6 +326,7 @@ async def _send_with_guard(
     # consumir a idempotência se outro provedor ainda puder assumir o canal.
     claim_acquired = False
     uncertain_provider_failure = False
+    provider_attempts: list[dict[str, Any]] = []
     final_result: SendResult | None = None
     for index, provider in enumerate(providers):
         guard = await acquire_send_slot(
@@ -383,6 +385,12 @@ async def _send_with_guard(
         started = time.monotonic()
         result = await agent.send(ctx, message, **provider_kwargs)
         elapsed = time.monotonic() - started
+        provider_attempts.append({
+            "provider": provider,
+            "latency_ms": round(elapsed * 1000.0, 1),
+            "succeeded": bool(result.ok),
+            "outcome": result.outcome,
+        })
         try:
             await record_provider_outcome(
                 provider=provider,
@@ -427,6 +435,7 @@ async def _send_with_guard(
         final_result.ambiguous = True
         final_result.outcome = "unknown"
         final_result.halt_fallback = True
+    final_result.provider_attempts = provider_attempts
 
     if claim_acquired:
         try:
@@ -579,9 +588,19 @@ class RetentionOrchestrator:
                 ]
                 preference_blocked = bool(raw_candidates) and not candidates
 
+            sms_suppressed_by_engagement = False
+            if "sms" in candidates:
+                sms_suppressed_by_engagement = await is_sms_suppressed_by_recent_engagement(
+                    self.session, tenant_id=self.tenant_id, student_id=student.id,
+                )
+                if sms_suppressed_by_engagement:
+                    candidates = [channel for channel in candidates if channel != "sms"]
+
             if not candidates:
                 if preference_blocked:
                     reason = "communication_preference_blocked"
+                elif sms_suppressed_by_engagement:
+                    reason = "recent_engagement_suppression"
                 elif campaign_action is not None:
                     reason = (
                         "missing_email" if campaign_action["channel"] == "email"
@@ -757,6 +776,19 @@ class RetentionOrchestrator:
                 log.external_id = result.external_id
                 log.delivery_status = delivery_status
                 log.delivery_updated_at = datetime.now(timezone.utc)
+                for attempt_metric in result.provider_attempts:
+                    self.session.add(
+                        ProviderCallMetric(
+                            tenant_id=self.tenant_id,
+                            intervention_log_id=log.id,
+                            channel=channel,
+                            provider=str(attempt_metric["provider"]),
+                            latency_ms=float(attempt_metric["latency_ms"]),
+                            succeeded=bool(attempt_metric["succeeded"]),
+                            provider_outcome=str(attempt_metric["outcome"]),
+                            occurred_at=log.delivery_updated_at,
+                        )
+                    )
                 if not log.decision_reason:
                     log.decision_reason = decision_reason
                 await self.session.commit()

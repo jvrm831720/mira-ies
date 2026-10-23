@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import hmac
 import secrets
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from pydantic import BaseModel, Field
 
 from app.db.session import get_db
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
+from app.models.intervention import InterventionLog
 from app.ml.targets import (
     EXCLUDED_OUTCOMES, SUPPORTED_OUTCOMES, TARGET_DEFINITION_VERSION,
     derive_target_label, normalize_utc_timestamp,
@@ -93,6 +94,7 @@ async def register_outcomes(body: OutcomeBatchRequest, auth: AuthContext = Depen
     tenant = auth.tenant
     now = datetime.now(timezone.utc)
     updated = created = labeled = 0
+    attributed_interventions = 0
     errors, deferred, excluded = [], [], []
     for item in body.outcomes:
         outcome_key = item.outcome.strip().lower()
@@ -131,6 +133,34 @@ async def register_outcomes(body: OutcomeBatchRequest, auth: AuthContext = Depen
         event.labeled_at = now
         event.outcome_notes = item.notes
         updated += 1
+
+        # Link imported academic outcomes to real messages sent within the previous 90 days.
+        # This is observational attribution, not proof the message caused the outcome.
+        final_status = {
+            "ativo": "stayed", "concluiu": "stayed", "formou": "stayed",
+            "evadiu": "dropped", "trancou": "dropped", "transferiu": "transferred",
+        }.get(outcome_key)
+        if item.observed_at is not None and final_status:
+            observed_at = normalize_utc_timestamp(item.observed_at)
+            attributed = await db.execute(
+                update(InterventionLog)
+                .where(
+                    InterventionLog.tenant_id == tenant.id,
+                    InterventionLog.matricula == item.matricula,
+                    InterventionLog.status == "sent",
+                    InterventionLog.outcome.is_(None),
+                    InterventionLog.created_at >= observed_at - timedelta(days=90),
+                    InterventionLog.created_at <= observed_at,
+                )
+                .values(
+                    outcome=final_status,
+                    outcome_at=observed_at,
+                    outcome_source="import",
+                    outcome_note=f"Status acadêmico importado: {outcome_key}"[:240],
+                )
+            )
+            attributed_interventions += max(0, attributed.rowcount or 0)
+
         if label is not None:
             labeled += 1
         elif outcome_key in EXCLUDED_OUTCOMES:
@@ -143,6 +173,7 @@ async def register_outcomes(body: OutcomeBatchRequest, auth: AuthContext = Depen
     return {
         "message": f"{updated} outcomes registrados; {labeled} rotulos elegiveis para o alvo de 90 dias",
         "updated": updated, "created": created, "labeled": labeled,
+        "attributed_interventions": attributed_interventions,
         "deferred": deferred, "excluded_from_training": excluded,
         "errors": errors, "target_definition": TARGET_DEFINITION_VERSION, "learning": stats,
     }

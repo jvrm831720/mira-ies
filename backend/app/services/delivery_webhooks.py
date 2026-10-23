@@ -22,6 +22,8 @@ DELIVERY_STATUSES = {
     "submitted",
     "delivered",
     "read",
+    "clicked",
+    "replied",
     "failed",
     "rejected",
     "bounced",
@@ -69,6 +71,10 @@ def _normalize_status(raw: Any) -> str | None:
         "não quero receber",
     }:
         return "opted_out"
+    if "click" in value:
+        return "clicked"
+    if value in {"replied", "reply", "response", "responded", "reply_received"} or "replied" in value:
+        return "replied"
     if value in {"read", "seen", "opened", "open"} or "read" in value:
         return "read"
     if "deliver" in value:
@@ -207,9 +213,10 @@ async def apply_delivery_event(
         return {"updated": False, "duplicate": True, "log_id": log.id, "status": log.delivery_status}
 
     current = log.delivery_status
-    if current == "read" and event.status != "read":
+    progress = {"queued": 0, "submitted": 1, "delivered": 2, "read": 3, "clicked": 4, "replied": 5}
+    if current in progress and event.status in progress and progress[event.status] < progress[current]:
         return {"updated": False, "stale": True, "log_id": log.id, "status": current}
-    if current == "delivered" and event.status in {"queued", "submitted", "failed"}:
+    if current in {"read", "clicked", "replied"} and event.status in _TERMINAL_FAILURES | {"queued", "submitted", "delivered"}:
         return {"updated": False, "stale": True, "log_id": log.id, "status": current}
 
     log.delivery_status = event.status
@@ -253,6 +260,8 @@ async def apply_delivery_event(
     engagement_type = {
         "delivered": "delivered",
         "read": "read",
+        "clicked": "clicked",
+        "replied": "replied",
         "failed": "failed",
         "rejected": "failed",
         "bounced": "failed",
