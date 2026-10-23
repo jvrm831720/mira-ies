@@ -24,7 +24,8 @@ def test_control_center_rejects_customer_token_audience(monkeypatch):
     import json
     import time
 
-    enc = lambda value: base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+    def enc(value):
+        return base64.urlsafe_b64encode(value).rstrip(b"=").decode()
     header = enc(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
     claims = enc(json.dumps({
         "iss": "mira", "aud": "customer-app", "sub": "customer-1",
