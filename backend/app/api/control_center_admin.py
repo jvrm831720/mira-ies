@@ -182,12 +182,12 @@ def _safe_audit_metadata(action: str, metadata: dict | None) -> dict | None:
         fields = metadata.get("fields_updated")
         allowed_fields = {"plan_name", "plan_price_brl", "billing_cycle", "due_at", "plan_status", "payment_status"}
         if isinstance(fields, list):
-            return {"fields_updated": [key for key in fields if key in allowed_fields and isinstance(key, str)]}
+            return {"fields_updated": [key for key in fields if isinstance(key, str) and key in allowed_fields]}
         return None
 
     if action == "billing_record_created":
         cycle = metadata.get("billing_cycle")
-        return {"billing_cycle": cycle} if cycle in {"monthly", "yearly"} else None
+        return {"billing_cycle": cycle} if isinstance(cycle, str) and cycle in {"monthly", "yearly"} else None
 
     # Authentication events may expose only the route and method, never credentials.
     path, method = metadata.get("path"), metadata.get("method")
