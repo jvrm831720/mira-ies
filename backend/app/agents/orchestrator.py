@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
@@ -18,10 +20,19 @@ from app.agents.channels.sms import SmsAgent
 from app.agents.channels.whatsapp import WhatsAppAgent, normalize_phone_br
 from app.agents.rules import check_anti_spam, decide_channels, skip_reason_for_no_channel
 from app.core.config import get_settings
-from app.models.intervention import InterventionLog
+from app.models.intervention import InterventionLog, ProviderCallMetric
 from app.models.student import Student
-from app.services.provider_guard import acquire_send_slot, record_provider_outcome
+from app.services.provider_guard import (
+    acquire_send_slot,
+    claim_message_send,
+    finish_message_send,
+    record_provider_outcome,
+)
+from app.agents.providers.errors import is_retryable_provider_error
 from app.services.consent import effective_preferences, is_communication_allowed
+from app.services.engagement import is_sms_suppressed_by_recent_engagement
+
+logger = logging.getLogger(__name__)
 
 CHANNEL_AGENTS: dict[Channel, Any] = {
     "whatsapp": WhatsAppAgent(),
@@ -50,6 +61,39 @@ def _message_key(execution_key: str, student_id: str, channel: str) -> str:
     return f"mira-msg-{hashlib.sha256(raw).hexdigest()}"
 
 
+def _configured_providers(channel: Channel, settings: Any) -> list[str]:
+    """Lista providers utilizáveis na ordem definida, sem duplicar fallback entre canais."""
+    if channel == "whatsapp":
+        available = {
+            "waha": bool(settings.waha_api_url and settings.waha_api_key),
+            "evolution": bool(settings.evolution_api_url and settings.evolution_api_key),
+        }
+        configured_order = [
+            name.strip().lower()
+            for name in settings.whatsapp_provider_order.split(",")
+            if name.strip()
+        ]
+        providers = [name for name in configured_order if available.get(name)]
+        providers.extend(name for name, enabled in available.items() if enabled and name not in providers)
+        return providers or ["dry_run"]
+    if channel == "email" and settings.resend_api_key:
+        return ["resend"]
+    if channel == "sms" and settings.twilio_account_sid:
+        return ["twilio"]
+    return ["dry_run"]
+
+
+def _provider_guard_can_failover(reason: str | None) -> bool:
+    if not reason:
+        return False
+    lowered = reason.lower()
+    return (
+        "circuit breaker aberto para" in lowered
+        or "rate limit de provider excedido" in lowered
+        or "backpressure adaptativo" in lowered
+    )
+
+
 def _build_context(student: Student) -> MessageContext:
     shap = student.shap_top_factors or {}
     top3 = shap.get("top_3") or []
@@ -68,6 +112,8 @@ def _build_context(student: Student) -> MessageContext:
         recommended_action=recommended_action,
         telefone=student.telefone,
         email=student.email,
+        behavior_properties=getattr(student, "behavior_properties", None) or {},
+        engagement_score=getattr(student, "engagement_score", None),
     )
 
 
@@ -78,6 +124,8 @@ def _decision_context(student: Student, *, extra: dict[str, Any] | None = None) 
         "has_phone": bool(student.telefone),
         "has_email": bool(student.email),
         "opt_out": bool(getattr(student, "communication_opt_out", False)),
+        "engagement_score": getattr(student, "engagement_score", None),
+        "dynamic_risk_adjustment": getattr(student, "dynamic_risk_adjustment", 0.0),
     }
     if extra:
         ctx.update(extra)
@@ -264,42 +312,151 @@ async def _send_with_guard(
     email_subject: str | None = None,
 ) -> SendResult:
     settings = get_settings()
-    configured_provider = _configured_provider(channel, settings)
+    providers = _configured_providers(channel, settings)
     send_kwargs: dict[str, Any] = {
         "dry_run": dry_run,
         "idempotency_key": idempotency_key,
     }
     if channel == "email" and email_subject is not None:
         send_kwargs["subject_override"] = email_subject
-    if dry_run or configured_provider == "dry_run":
+    if dry_run or providers == ["dry_run"]:
         return await agent.send(ctx, message, **send_kwargs)
 
-    guard = await acquire_send_slot(
-        tenant_id=tenant_id, channel=channel, provider=configured_provider
-    )
-    if not guard.allowed:
-        return SendResult(
-            ok=False,
-            channel=channel,
-            provider=configured_provider,
-            error=guard.reason,
-            outcome="unknown" if guard.ambiguous else "confirmed_failure",
-            ambiguous=guard.ambiguous,
-            halt_fallback=guard.halt_fallback,
+    # Verifica o provedor antes de reservar a chave: circuitos abertos não devem
+    # consumir a idempotência se outro provedor ainda puder assumir o canal.
+    claim_acquired = False
+    uncertain_provider_failure = False
+    provider_attempts: list[dict[str, Any]] = []
+    final_result: SendResult | None = None
+    for index, provider in enumerate(providers):
+        guard = await acquire_send_slot(
+            tenant_id=tenant_id, channel=channel, provider=provider
+        )
+        if not guard.allowed:
+            final_result = SendResult(
+                ok=False,
+                channel=channel,
+                provider=provider,
+                error=guard.reason,
+                outcome="unknown" if guard.ambiguous else "confirmed_failure",
+                ambiguous=guard.ambiguous,
+                halt_fallback=guard.halt_fallback,
+            )
+            if (
+                channel == "whatsapp"
+                and index + 1 < len(providers)
+                and _provider_guard_can_failover(guard.reason)
+            ):
+                continue
+            break
+
+        if not claim_acquired:
+            try:
+                claim_acquired = await claim_message_send(
+                    tenant_id=tenant_id,
+                    idempotency_key=idempotency_key,
+                    ttl_seconds=settings.agents_idempotency_ttl_seconds,
+                )
+            except Exception:
+                return SendResult(
+                    ok=False,
+                    channel=channel,
+                    provider=provider,
+                    error="proteção de idempotência indisponível (Redis)",
+                    outcome="unknown",
+                    ambiguous=True,
+                    halt_fallback=True,
+                )
+            if not claim_acquired:
+                return SendResult(
+                    ok=False,
+                    channel=channel,
+                    provider=provider,
+                    error="chave de idempotência já reservada por outro worker",
+                    outcome="unknown",
+                    ambiguous=True,
+                    halt_fallback=True,
+                )
+
+        provider_kwargs = dict(send_kwargs)
+        if channel == "whatsapp":
+            provider_kwargs["provider_override"] = provider
+
+        started = time.monotonic()
+        result = await agent.send(ctx, message, **provider_kwargs)
+        elapsed = time.monotonic() - started
+        provider_attempts.append({
+            "provider": provider,
+            "latency_ms": round(elapsed * 1000.0, 1),
+            "succeeded": bool(result.ok),
+            "outcome": result.outcome,
+        })
+        try:
+            await record_provider_outcome(
+                provider=provider,
+                success=result.ok,
+                ambiguous=result.ambiguous or result.halt_fallback,
+                latency_seconds=elapsed,
+            )
+        except Exception:
+            # O erro de telemetria não deve mascarar o resultado do envio.
+            pass
+
+        if result.ok:
+            final_result = result
+            break
+
+        final_result = result
+        retryable = is_retryable_provider_error(result.error)
+        if retryable and result.ambiguous:
+            uncertain_provider_failure = True
+        if (
+            channel == "whatsapp"
+            and index + 1 < len(providers)
+            and retryable
+        ):
+            logger.warning(
+                "WhatsApp provider failover after retryable HTTP response",
+                extra={"event_name": "provider_failover", "channel": channel,
+                       "from_provider": provider, "to_provider": providers[index + 1]},
+            )
+            continue
+        break
+
+    if final_result is None:
+        final_result = SendResult(
+            ok=False, channel=channel, provider=providers[0],
+            error="nenhum provider de envio disponível",
+            outcome="confirmed_failure",
         )
 
-    send_kwargs["dry_run"] = False
-    result = await agent.send(ctx, message, **send_kwargs)
-    try:
-        await record_provider_outcome(
-            provider=configured_provider,
-            success=result.ok,
-            ambiguous=result.ambiguous or result.halt_fallback,
-        )
-    except Exception:
-        pass
-    return result
+    if uncertain_provider_failure and not final_result.ok:
+        # Um secundário com falha definitiva não apaga a incerteza do 5xx primário.
+        final_result.ambiguous = True
+        final_result.outcome = "unknown"
+        final_result.halt_fallback = True
+    final_result.provider_attempts = provider_attempts
 
+    if claim_acquired:
+        try:
+            if final_result.ok:
+                await finish_message_send(
+                    tenant_id=tenant_id, idempotency_key=idempotency_key, state="sent"
+                )
+            elif final_result.ambiguous or final_result.halt_fallback:
+                # Resultado incerto: preservar a trava evita duplicar uma mensagem
+                # que pode já ter sido aceita pelo provedor.
+                await finish_message_send(
+                    tenant_id=tenant_id, idempotency_key=idempotency_key, state="unknown"
+                )
+            else:
+                await finish_message_send(
+                    tenant_id=tenant_id, idempotency_key=idempotency_key, state="failed"
+                )
+        except Exception:
+            # A chave inicial já tem TTL; falha ao gravar estado não a libera.
+            pass
+    return final_result
 
 class RetentionOrchestrator:
     def __init__(
@@ -431,9 +588,19 @@ class RetentionOrchestrator:
                 ]
                 preference_blocked = bool(raw_candidates) and not candidates
 
+            sms_suppressed_by_engagement = False
+            if "sms" in candidates:
+                sms_suppressed_by_engagement = await is_sms_suppressed_by_recent_engagement(
+                    self.session, tenant_id=self.tenant_id, student_id=student.id,
+                )
+                if sms_suppressed_by_engagement:
+                    candidates = [channel for channel in candidates if channel != "sms"]
+
             if not candidates:
                 if preference_blocked:
                     reason = "communication_preference_blocked"
+                elif sms_suppressed_by_engagement:
+                    reason = "recent_engagement_suppression"
                 elif campaign_action is not None:
                     reason = (
                         "missing_email" if campaign_action["channel"] == "email"
@@ -609,6 +776,19 @@ class RetentionOrchestrator:
                 log.external_id = result.external_id
                 log.delivery_status = delivery_status
                 log.delivery_updated_at = datetime.now(timezone.utc)
+                for attempt_metric in result.provider_attempts:
+                    self.session.add(
+                        ProviderCallMetric(
+                            tenant_id=self.tenant_id,
+                            intervention_log_id=log.id,
+                            channel=channel,
+                            provider=str(attempt_metric["provider"]),
+                            latency_ms=float(attempt_metric["latency_ms"]),
+                            succeeded=bool(attempt_metric["succeeded"]),
+                            provider_outcome=str(attempt_metric["outcome"]),
+                            occurred_at=log.delivery_updated_at,
+                        )
+                    )
                 if not log.decision_reason:
                     log.decision_reason = decision_reason
                 await self.session.commit()
