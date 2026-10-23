@@ -99,7 +99,7 @@ async def _dev_schema_patches(conn) -> None:
 
 async def init_db():
     from app.models import student, tenant, intervention  # noqa: F401
-    from app.models import auth  # noqa: F401
+    from app.models import auth, control_center  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
