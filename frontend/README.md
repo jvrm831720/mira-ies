@@ -26,3 +26,7 @@ O GitHub Actions executa lint e build do frontend além dos testes de backend. O
 ## Dashboard
 
 A visão geral combina indicadores de risco, distribuição da base, fila crítica, atividade de retenção recente e configuração operacional. Quando os endpoints não respondem, a interface apresenta estados de erro e opções para tentar novamente; não substitui falhas por números fictícios. O painel operacional é somente informativo e não dispara comunicações.
+
+## Importação guiada de planilhas
+
+A página `/importar` oferece prévia autenticada antes de persistir qualquer dado, auto-mapeamento determinístico por aliases, edição manual de colunas, alertas de qualidade e um modelo CSV para download. O backend compartilha as regras de limpeza entre prévia e upload. Matrículas existentes são atualizadas apenas dentro da instituição autenticada; células vazias não apagam dados existentes. Nenhuma IA é utilizada nesta etapa.
