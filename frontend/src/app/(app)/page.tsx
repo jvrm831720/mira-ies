@@ -3,7 +3,7 @@ import Link from "next/link";
 import { type FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, ArrowUpRight, Database, GraduationCap, Info, MessageSquareHeart, Plug, RefreshCw, Search, ShieldCheck, Sparkles, Upload, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, Database, GraduationCap, Info, Plug, RefreshCw, Search, ShieldCheck, Sparkles, Upload } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { KpiCards } from "@/components/risk/kpi-cards";
 import { CriticalList } from "@/components/risk/critical-list";
@@ -14,14 +14,6 @@ import { ChannelHealthDashboard } from "@/components/dashboard/channel-health-da
 import { StudentDrawer } from "@/components/students/student-drawer";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import { copy } from "@/lib/copy";
-
-const quickActions = [
-  { href: "/importar", label: "Importar dados", icon: Upload },
-  { href: "/alunos", label: "Explorar alunos", icon: Users },
-  { href: "/retencao", label: "Régua de retenção", icon: MessageSquareHeart },
-  { href: "/conectores", label: "Conectores", icon: Plug },
-];
 
 export default function CommandCenterPage() {
   const router = useRouter();
@@ -71,8 +63,8 @@ export default function CommandCenterPage() {
 
   return (
     <>
-      <Header title="Visão geral" subtitle="Uma leitura clara dos riscos e das próximas ações da sua instituição." />
-      <main className="mx-auto w-full max-w-[1600px] space-y-6 px-4 pb-12 pt-5 md:px-8 md:pt-7 xl:px-10">
+      <Header title="Visão geral" subtitle="Priorize quem precisa de atenção hoje." />
+      <main className="mx-auto w-full max-w-[1600px] space-y-5 px-4 pb-10 pt-4 md:px-8 md:pt-6 xl:px-10">
         <section className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <form onSubmit={onSearchSubmit} className="relative w-full xl:max-w-[520px]">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-[var(--brand-indigo)]" />
@@ -107,17 +99,7 @@ export default function CommandCenterPage() {
           </div>
         </section>
 
-        <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="Ações rápidas">
-          {quickActions.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} className="group flex items-center gap-3 rounded-2xl border border-black/[0.07] bg-white px-3.5 py-3 transition duration-200 hover:-translate-y-0.5 hover:border-[rgba(64,80,205,0.25)] hover:shadow-[0_12px_28px_rgba(31,33,42,0.06)]">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[rgba(64,80,205,0.09)] text-[var(--brand-indigo)] transition group-hover:bg-[var(--brand-indigo)] group-hover:text-white"><Icon className="h-[17px] w-[17px]" /></span>
-              <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-neutral-800">{label}</span>
-              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-neutral-300 transition group-hover:text-[var(--brand-indigo)]" />
-            </Link>
-          ))}
-        </section>
-
-        <section className="relative isolate overflow-hidden rounded-[26px] bg-[var(--brand-midnight)] px-5 py-6 text-white shadow-[0_18px_48px_rgba(23,25,29,0.13)] sm:px-7 sm:py-7 lg:px-9">
+        <section className="relative isolate overflow-hidden rounded-[22px] bg-[var(--brand-midnight)] px-5 py-6 text-white shadow-[0_18px_48px_rgba(23,25,29,0.12)] sm:px-7 sm:py-7 lg:px-9">
           <div className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full border-[32px] border-[rgba(64,80,205,0.25)]" />
           <div className="pointer-events-none absolute -bottom-36 right-[18%] h-64 w-64 rounded-full border border-white/[0.07]" />
           <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
@@ -125,8 +107,8 @@ export default function CommandCenterPage() {
               <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/65">
                 <Sparkles className="h-3.5 w-3.5 text-[#9da6ff]" /> Mira · inteligência para permanência
               </div>
-              <h2 className="mt-4 max-w-2xl text-[25px] font-semibold leading-[1.12] tracking-[-0.045em] sm:text-[31px]">Transforme sinais de risco em ações de permanência.</h2>
-              <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-white/60">
+              <h2 className="mt-4 max-w-2xl text-[24px] font-semibold leading-[1.12] tracking-[-0.045em] sm:text-[29px]">Transforme risco em próxima ação.</h2>
+              <p className="mt-2 max-w-xl text-[12px] leading-relaxed text-white/60">
                 {summary.isError ? "Não foi possível carregar os indicadores agora. Atualize os dados para consultar a situação da sua base."
                   : isEmpty ? "Sua instituição ainda não tem uma base analisada. Importe os dados para começar a identificar quem precisa de apoio."
                     : `${allStudents.toLocaleString("pt-BR")} alunos na base · ${total.toLocaleString("pt-BR")} com score de risco · ${criticalCount.toLocaleString("pt-BR")} em faixa crítica.`}
@@ -149,9 +131,9 @@ export default function CommandCenterPage() {
           </div>
         </section>
 
-        <section aria-label="Indicadores de risco" className="space-y-3">
+        <section aria-label="Indicadores de risco" className="space-y-2.5">
           <div className="flex flex-wrap items-end justify-between gap-3">
-            <div><p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-neutral-400">Visão da base</p><h2 className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-neutral-950">Resumo de risco</h2></div>
+            <div><p className="text-[9px] font-semibold uppercase tracking-[0.17em] text-neutral-400">Agora</p><h2 className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-neutral-950">Resumo de risco</h2></div>
             {!summary.isError && !summary.isLoading && <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-white px-3 py-1.5 text-[10px] font-medium text-neutral-500"><Database className="h-3 w-3 text-[var(--brand-indigo)]" /> {allStudents.toLocaleString("pt-BR")} registros na base</span>}
           </div>
           {summary.isError ? (
@@ -192,7 +174,7 @@ export default function CommandCenterPage() {
           <div className="min-w-0 xl:col-span-5"><RecentActivity logs={activity.data?.logs} loading={activity.isLoading} error={activity.isError} onRetry={() => void activity.refetch()} /></div>
         </section>
 
-        {(model.data?.disclaimer || model.data?.training_data === "synthetic") && <Card className="border-neutral-200 bg-neutral-50 shadow-none"><CardContent className="flex items-start gap-3 p-4 text-xs text-neutral-600"><Info className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" /><div><p className="font-semibold text-neutral-900">Apoio à decisão da coordenação</p><p className="mt-1 leading-relaxed">{model.data?.disclaimer || copy.modelDisclaimerFallback}</p></div></CardContent></Card>}
+        {(model.data?.disclaimer || model.data?.training_data === "synthetic") && <div className="flex items-center justify-center gap-2 px-2 text-[10px] text-neutral-400"><Info className="h-3.5 w-3.5 shrink-0 text-neutral-400" /><span>Indicadores de apoio à decisão da coordenação.</span></div>}
 
         <div className="flex items-center justify-center gap-2 pb-1 text-[10px] text-neutral-400"><ShieldCheck className="h-3.5 w-3.5 text-[var(--brand-indigo)]" /> Dados e indicadores limitados à instituição autenticada.</div>
       </main>
