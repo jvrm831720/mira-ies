@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE = process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\\/+$/, "");
 const COOKIE_NAME = "mira_control_center_session";
 const SESSION_TTL_SECONDS = 20 * 60;
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function proxy(request: NextRequest, context: RouteContext): Promise<NextResponse> {
+  const origin = request.headers.get("origin");
+  if (request.method !== "GET" && request.method !== "HEAD" && origin !== request.nextUrl.origin) {
+    return NextResponse.json({ detail: "Origem da requisição não autorizada." }, { status: 403 });
+  }
+
   const { path: segments } = await context.params;
   const path = segments.join("/");
 

@@ -17,9 +17,9 @@ A implementação está em uma branch de trabalho e a PR permanece em rascunho. 
 
 ## Bloqueadores antes do release
 
-1. **Sessão via BFF:** o token administrativo agora é mantido em cookie HttpOnly, com Secure em produção, SameSite=Lax e expiração curta; o token não é devolvido ao JavaScript nem salvo em sessionStorage. Ainda é necessário validar a política de cookies e o domínio real de hospedagem em staging, e manter proteção contra XSS.
+1. **Sessão via BFF:** o token administrativo agora é mantido em cookie HttpOnly, com Secure em produção, SameSite=Lax e expiração curta; o token não é devolvido ao JavaScript nem salvo em sessionStorage. O BFF também exige origem same-origin para requisições que alteram estado. Ainda é necessário validar a política de cookies e o domínio real de hospedagem em staging, e manter proteção contra XSS.
 2. **Infraestrutura de autenticação:** confirmar Redis gerenciado, TLS quando aplicável, segredo forte e exclusivo, CORS_ORIGINS restrito aos domínios reais e HTTPS no frontend/backend.
-3. **IP e proxies:** confirmar como a hospedagem define request.client.host. Não confiar cegamente em cabeçalhos X-Forwarded-For; testar rate limiting no caminho real de produção.
+3. **IP e proxies:** confirmar como a hospedagem define request.client.host. Como o BFF faz chamadas server-to-server, o backend pode enxergar o IP do servidor frontend para todas as sessões. Configurar extração de IP do cliente apenas atrás de um proxy confiável/allowlisted ou outro rate limit com identidade de cliente segura; não confiar cegamente em X-Forwarded-For. Testar rate limiting no caminho real de produção.
 4. **E-mail MFA:** validar Resend e remetente em ambiente controlado, entregabilidade, monitoramento de falhas e processo seguro de recuperação de acesso.
 5. **Banco/migrations:** a migration 012_control_center_admin depende de 011_retention_observability da branch base; a 013_control_center_billing depende da 012. Validar a sequência em uma cópia/staging do banco antes de qualquer merge e não aplicar downgrade destrutivo em produção sem backup/restore testado.
 6. **Testes de integração:** adicionar/rodar cenários de concorrência de MFA, replay de código, bloqueio e desbloqueio, Redis indisponível, e-mail falho, token expirado/revogado, isolamento de permissões e auditoria de ações negadas.
