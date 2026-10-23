@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+import re
+
 import httpx
+
+
+def is_retryable_provider_error(error: str | None) -> bool:
+    """429/5xx podem ser roteados a outro provider do mesmo canal."""
+    if not error:
+        return False
+    match = re.search(r"HTTP\s+(\d{3})", error)
+    if not match:
+        return False
+    status = int(match.group(1))
+    return status == 429 or 500 <= status <= 599
 
 
 def classify_provider_exception(exc: Exception) -> tuple[bool, bool]:

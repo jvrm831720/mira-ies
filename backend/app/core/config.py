@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     agents_rate_limit_per_provider_per_minute: int = 120
     agents_circuit_breaker_failure_threshold: int = 5
     agents_circuit_breaker_open_seconds: int = 60
+    agents_provider_latency_threshold_ms: int = Field(default=2500, ge=100, le=60000)
+    agents_provider_backpressure_factor: float = Field(default=0.5, gt=0.0, le=1.0)
+    agents_idempotency_ttl_seconds: int = Field(default=86400, ge=300, le=604800)
+    whatsapp_provider_order: str = "waha,evolution"
 
     evolution_api_url: str | None = None
     evolution_api_key: str | None = None
