@@ -61,6 +61,8 @@ export default function ControlCenterPage() {
   const [billingSummary, setBillingSummary] = useState<BillingSummary>({ total: 0, overdue: 0, due_soon: 0, pending: 0 });
   const [billingForm, setBillingForm] = useState({ tenant_id: "", plan_name: "MIRA Growth", plan_price_brl: "497", billing_cycle: "monthly" as "monthly" | "yearly", due_date: "", payment_link: "", notes: "" });
   const [savingBilling, setSavingBilling] = useState(false);
+  const [editingBilling, setEditingBilling] = useState<BillingRecord | null>(null);
+  const [editBillingForm, setEditBillingForm] = useState({ plan_name: "", plan_price_brl: "", billing_cycle: "monthly" as "monthly" | "yearly", due_date: "", payment_link: "", plan_status: "active" as "active" | "paused" | "cancelled", payment_status: "pending" as "pending" | "paid", notes: "" });
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -163,6 +165,56 @@ export default function ControlCenterPage() {
       await loadTab(token, "overview");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar membro.");
+    }
+  }
+
+
+  function startEditBilling(record: BillingRecord) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date(record.due_at));
+    const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+    setEditingBilling(record);
+    setEditBillingForm({
+      plan_name: record.plan_name,
+      plan_price_brl: String(record.plan_price_brl),
+      billing_cycle: record.billing_cycle,
+      due_date: `${part("year")}-${part("month")}-${part("day")}`,
+      payment_link: record.payment_link || "",
+      plan_status: record.plan_status,
+      payment_status: record.payment_status,
+      notes: record.notes || "",
+    });
+  }
+
+  async function saveBillingEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !editingBilling || !editBillingForm.due_date) return;
+    setSavingBilling(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/billing-records/${editingBilling.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          plan_name: editBillingForm.plan_name,
+          plan_price_brl: Number(editBillingForm.plan_price_brl),
+          billing_cycle: editBillingForm.billing_cycle,
+          due_at: new Date(`${editBillingForm.due_date}T23:59:59-03:00`).toISOString(),
+          payment_link: editBillingForm.payment_link.trim() || null,
+          plan_status: editBillingForm.plan_status,
+          payment_status: editBillingForm.payment_status,
+          notes: editBillingForm.notes.trim() || null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "Não foi possível atualizar o registro financeiro.");
+      setEditingBilling(null);
+      await loadTab(token, "billing");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar registro financeiro.");
+    } finally {
+      setSavingBilling(false);
     }
   }
 
@@ -294,9 +346,22 @@ export default function ControlCenterPage() {
           <label className="space-y-1.5 text-sm md:col-span-2 xl:col-span-3"><span className="font-medium">Observações (opcional)</span><input maxLength={500} value={billingForm.notes} onChange={(e) => setBillingForm({ ...billingForm, notes: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
           <div className="md:col-span-2 xl:col-span-3"><button disabled={savingBilling} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#4050cd] px-4 text-sm font-semibold text-white disabled:opacity-50">{savingBilling ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Registrar acompanhamento</button></div>
         </form>}
+
+        {editingBilling && permissions.billing && admin.role !== "auditor" && <form onSubmit={saveBillingEdit} className="grid gap-4 rounded-2xl border border-indigo-200 bg-white p-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="md:col-span-2 xl:col-span-3 flex items-start justify-between gap-3"><div><h2 className="font-semibold">Editar plano e cobrança</h2><p className="mt-1 text-sm text-neutral-500">{editingBilling.organization_name} · Atualize preço, ciclo, link e vencimento.</p></div><button type="button" onClick={() => setEditingBilling(null)} className="rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold">Cancelar</button></div>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Plano</span><input required minLength={2} maxLength={120} value={editBillingForm.plan_name} onChange={(e) => setEditBillingForm({ ...editBillingForm, plan_name: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Valor (R$)</span><input required type="number" min="0" max="100000000" step="0.01" value={editBillingForm.plan_price_brl} onChange={(e) => setEditBillingForm({ ...editBillingForm, plan_price_brl: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Ciclo</span><select value={editBillingForm.billing_cycle} onChange={(e) => setEditBillingForm({ ...editBillingForm, billing_cycle: e.target.value as "monthly" | "yearly" })} className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3"><option value="monthly">Mensal</option><option value="yearly">Anual</option></select></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Vencimento</span><input required type="date" value={editBillingForm.due_date} onChange={(e) => setEditBillingForm({ ...editBillingForm, due_date: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Link externo (HTTPS)</span><input type="url" value={editBillingForm.payment_link} onChange={(e) => setEditBillingForm({ ...editBillingForm, payment_link: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" placeholder="https://..." /></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Status do plano</span><select value={editBillingForm.plan_status} onChange={(e) => setEditBillingForm({ ...editBillingForm, plan_status: e.target.value as "active" | "paused" | "cancelled" })} className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3"><option value="active">Ativo</option><option value="paused">Pausado</option><option value="cancelled">Cancelado</option></select></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Status do pagamento</span><select value={editBillingForm.payment_status} onChange={(e) => setEditBillingForm({ ...editBillingForm, payment_status: e.target.value as "pending" | "paid" })} className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3"><option value="pending">Pendente</option><option value="paid">Pago</option></select></label>
+          <label className="space-y-1.5 text-sm md:col-span-2"><span className="font-medium">Observações</span><input maxLength={500} value={editBillingForm.notes} onChange={(e) => setEditBillingForm({ ...editBillingForm, notes: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <div className="md:col-span-2 xl:col-span-3"><button disabled={savingBilling} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#4050cd] px-4 text-sm font-semibold text-white disabled:opacity-50">{savingBilling ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Salvar alterações</button></div>
+        </form>}
         <section className="rounded-2xl border border-neutral-200 bg-white">
           <div className="border-b border-neutral-100 p-5"><h2 className="font-semibold">Planos e vencimentos</h2><p className="mt-1 text-sm text-neutral-500">Status financeiro manual; confirme pagamentos na fonte externa antes de marcar como pagos.</p></div>
-          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Instituição / Plano</th><th className="px-5 py-3">Valor</th><th className="px-5 py-3">Vencimento</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Pagamento</th><th className="px-5 py-3">Ação</th></tr></thead><tbody className="divide-y divide-neutral-100">{billingRecords.map((record) => <tr key={record.id}><td className="px-5 py-4"><p className="font-semibold">{record.organization_name}</p><p className="mt-1 text-xs text-neutral-500">{record.plan_name} · {record.billing_cycle === "monthly" ? "Mensal" : "Anual"}</p>{record.payment_link && <a href={record.payment_link} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-medium text-indigo-700 underline">Abrir link de pagamento ↗</a>}</td><td className="whitespace-nowrap px-5 py-4">R$ {record.plan_price_brl.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td className="whitespace-nowrap px-5 py-4"><p>{dateLabel(record.due_at)}</p>{record.is_overdue ? <p className="mt-1 text-xs font-semibold text-red-700">Vencido há {Math.abs(record.days_until_due)} dia(s)</p> : record.payment_status !== "paid" && record.days_until_due <= 30 ? <p className="mt-1 text-xs font-semibold text-amber-700">{record.days_until_due === 0 ? "Vence hoje" : `Vence em ${record.days_until_due} dia(s)`}</p> : null}</td><td className="px-5 py-4 capitalize">{record.plan_status === "active" ? "Ativo" : record.plan_status === "paused" ? "Pausado" : "Cancelado"}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${record.payment_status === "paid" ? "bg-emerald-50 text-emerald-700" : record.is_overdue ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>{record.payment_status === "paid" ? "Pago" : record.is_overdue ? "Em atraso" : "Pendente"}</span></td><td className="px-5 py-4">{permissions.billing && admin.role !== "auditor" && <button onClick={() => void setPaymentStatus(record, record.payment_status === "paid" ? "pending" : "paid")} className="whitespace-nowrap rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold hover:bg-neutral-50">{record.payment_status === "paid" ? "Reabrir pendência" : "Marcar como pago"}</button>}</td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Instituição / Plano</th><th className="px-5 py-3">Valor</th><th className="px-5 py-3">Vencimento</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Pagamento</th><th className="px-5 py-3">Ação</th></tr></thead><tbody className="divide-y divide-neutral-100">{billingRecords.map((record) => <tr key={record.id}><td className="px-5 py-4"><p className="font-semibold">{record.organization_name}</p><p className="mt-1 text-xs text-neutral-500">{record.plan_name} · {record.billing_cycle === "monthly" ? "Mensal" : "Anual"}</p>{record.payment_link && <a href={record.payment_link} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-medium text-indigo-700 underline">Abrir link de pagamento ↗</a>}</td><td className="whitespace-nowrap px-5 py-4">R$ {record.plan_price_brl.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td className="whitespace-nowrap px-5 py-4"><p>{dateLabel(record.due_at)}</p>{record.is_overdue ? <p className="mt-1 text-xs font-semibold text-red-700">Vencido há {Math.abs(record.days_until_due)} dia(s)</p> : record.payment_status !== "paid" && record.days_until_due <= 30 ? <p className="mt-1 text-xs font-semibold text-amber-700">{record.days_until_due === 0 ? "Vence hoje" : `Vence em ${record.days_until_due} dia(s)`}</p> : null}</td><td className="px-5 py-4 capitalize">{record.plan_status === "active" ? "Ativo" : record.plan_status === "paused" ? "Pausado" : "Cancelado"}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${record.payment_status === "paid" ? "bg-emerald-50 text-emerald-700" : record.is_overdue ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>{record.payment_status === "paid" ? "Pago" : record.is_overdue ? "Em atraso" : "Pendente"}</span></td><td className="px-5 py-4">{permissions.billing && admin.role !== "auditor" && <div className="flex flex-col items-start gap-2"><button onClick={() => startEditBilling(record)} className="whitespace-nowrap rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold hover:bg-neutral-50">Editar</button><button onClick={() => void setPaymentStatus(record, record.payment_status === "paid" ? "pending" : "paid")} className="whitespace-nowrap rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold hover:bg-neutral-50">{record.payment_status === "paid" ? "Reabrir pendência" : "Marcar como pago"}</button></div>}</td></tr>)}</tbody></table></div>
           {billingRecords.length === 0 && <p className="p-6 text-sm text-neutral-500">Nenhum registro financeiro cadastrado.</p>}
         </section>
       </section>}
