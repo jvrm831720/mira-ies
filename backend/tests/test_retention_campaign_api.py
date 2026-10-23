@@ -25,8 +25,12 @@ def test_campaign_rule_set_can_contain_multiple_versioned_rules():
             "action": {"channel": "email", "template_id": "score_alto_v1"},
         },
     ]
+    rules[0]["priority"] = 10
+    rules[1]["priority"] = 80
     decisions = evaluate_rules(rules, {"risk_level": "critico", "risk_score": 94, "opt_out": False})
     assert [d.matched for d in decisions] == [True, True]
+    assert [d.rule_id for d in decisions] == ["risk_score_90", "critical_48h"]
+    assert [d.priority for d in decisions] == [80, 10]
 
 
 def test_rule_rejects_unrecognized_fields_before_campaign_activation():

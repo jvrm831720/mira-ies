@@ -9,6 +9,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.channels.email import is_valid_email
+from app.agents.channels.whatsapp import normalize_phone_br
+from app.agents.campaign_templates import validate_campaign_template
 from app.agents.rule_engine import RuleValidationError, evaluate_rules, validate_rule
 from app.core.auth import AuthContext, get_current_tenant, require_min_role
 from app.db.session import get_db
@@ -48,7 +51,8 @@ def _validate(rules):
     for rule in rules:
         try:
             validate_rule(rule)
-        except RuleValidationError as exc:
+            validate_campaign_template(rule["action"]["channel"], rule["action"]["template_id"])
+        except (RuleValidationError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if rule["id"] in seen:
             raise HTTPException(status_code=422, detail=f"ID de regra duplicado: {rule['id']}")
@@ -97,21 +101,62 @@ async def _evaluate(db, campaign, limit, student_ids=None):
                  "has_email": bool(s.email)}
         risk_data_complete = _has_complete_risk_data(s)
         decisions = evaluate_rules(campaign.rules, facts)
-        hits = [{"rule_id": d.rule_id, "rule_version": d.rule_version,
-                 "reason": d.reason, "action": d.action} for d in decisions if d.matched]
+        winner = next((decision for decision in decisions if decision.matched), None)
         blocked = (
             "communication_opt_out" if facts["opt_out"] else
             "missing_risk_data" if not risk_data_complete else
             "missing_contact" if not facts["has_phone"] and not facts["has_email"] else
             None
         )
-        if blocked:
-            hits = []
-        output.append({"student_id": s.id, "matricula": s.matricula, "risk_level": facts["risk_level"],
-                       "risk_score": facts["risk_score"], "days_since_contact": facts["days_since_contact"],
-                       "eligible": bool(hits), "matched_rules": hits, "blocked_reason": blocked,
-                       "reasons": [h["reason"] for h in hits] if hits else
-                       ([f"Bloqueio de segurança: {blocked}"] if blocked else [d.reason for d in decisions])})
+        if not blocked and winner:
+            channel = winner.action["channel"]
+            if channel == "email" and not is_valid_email(s.email):
+                blocked = "missing_email"
+            elif channel in {"whatsapp", "sms"} and not normalize_phone_br(s.telefone):
+                blocked = "missing_phone"
+
+        selected = winner if not blocked else None
+        selected_rule = None
+        hits = []
+        if selected:
+            selected_rule = {
+                "rule_id": selected.rule_id,
+                "rule_version": selected.rule_version,
+                "priority": selected.priority,
+                "reason": selected.reason,
+                "action": selected.action,
+            }
+            hits = [selected_rule]
+        evaluated_rules = [
+            {
+                "rule_id": decision.rule_id,
+                "rule_version": decision.rule_version,
+                "priority": decision.priority,
+                "matched": decision.matched,
+                "selected": bool(selected and decision.rule_id == selected.rule_id),
+                "reason": decision.reason,
+                "action": decision.action,
+            }
+            for decision in decisions
+        ]
+        reasons = (
+            [f"Bloqueio de segurança: {blocked}"] if blocked else
+            [selected.reason] if selected else
+            [decision.reason for decision in decisions]
+        )
+        output.append({
+            "student_id": s.id,
+            "matricula": s.matricula,
+            "risk_level": facts["risk_level"],
+            "risk_score": facts["risk_score"],
+            "days_since_contact": facts["days_since_contact"],
+            "eligible": selected is not None,
+            "selected_rule": selected_rule,
+            "matched_rules": hits,
+            "rule_evaluations": evaluated_rules,
+            "blocked_reason": blocked,
+            "reasons": reasons,
+        })
     return output
 
 

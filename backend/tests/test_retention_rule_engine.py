@@ -79,3 +79,30 @@ def test_duplicate_rule_ids_rejected():
 def test_invalid_channel_is_rejected():
     with pytest.raises(RuleValidationError, match="action.channel"):
         validate_rule(make_rule(action={"channel": "carrier_pigeon", "template_id": "x"}))
+
+
+def test_priority_is_descending_and_ties_are_resolved_by_rule_id():
+    low = make_rule(id="z_low", priority=10)
+    high_b = make_rule(id="b_high", priority=90)
+    high_a = make_rule(id="a_high", priority=90)
+    decisions = evaluate_rules(
+        [low, high_b, high_a],
+        {"risk_level": "critico", "days_since_contact": 10, "opt_out": False},
+    )
+    assert [decision.rule_id for decision in decisions] == ["a_high", "b_high", "z_low"]
+    assert [decision.priority for decision in decisions] == [90, 90, 10]
+    assert all(decision.matched for decision in decisions)
+
+
+@pytest.mark.parametrize("priority", [True, -1, 1.5, "90"])
+def test_priority_must_be_a_nonnegative_integer(priority):
+    with pytest.raises(RuleValidationError, match="priority"):
+        validate_rule(make_rule(priority=priority))
+
+
+def test_missing_priority_uses_compatibility_default():
+    decision = evaluate_rule(
+        make_rule(),
+        {"risk_level": "critico", "days_since_contact": 8, "opt_out": False},
+    )
+    assert decision.priority == 100
