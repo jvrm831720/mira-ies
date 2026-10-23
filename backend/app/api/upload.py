@@ -157,11 +157,12 @@ async def upload_students_file(
     if dest_path.parent != UPLOAD_DIR.resolve():
         raise HTTPException(status_code=400, detail="Nome de arquivo invalido")
     dest_path.write_bytes(content)
+    mapping = parse_column_mapping(column_mapping)
     try:
         batch, students, quality = await create_batch_and_students(
             db, filename=safe_filename, original_filename=file.filename or "unknown",
             df=df, tenant_id=auth.tenant_id,
-            column_mapping=parse_column_mapping(column_mapping),
+            column_mapping=mapping,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
