@@ -96,3 +96,34 @@ def test_only_super_admin_can_write_organizations_and_members():
     for role in ("operations", "finance", "support", "auditor"):
         assert write_permissions.isdisjoint(auth._ROLE_PERMISSIONS[role])
     assert "*" in auth._ROLE_PERMISSIONS["super_admin"]
+
+
+
+def test_rate_limit_supports_per_account_identity_without_forwarded_ip(monkeypatch):
+    import asyncio
+
+    keys = []
+    class FakeRedis:
+        async def incr(self, key):
+            keys.append(key)
+            return 1
+        async def expire(self, key, seconds):
+            return True
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr(
+        auth, "get_settings",
+        lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars", redis_url="redis://localhost"),
+    )
+    monkeypatch.setattr(auth.Redis, "from_url", lambda *args, **kwargs: FakeRedis())
+    request = SimpleNamespace(client=SimpleNamespace(host="frontend-bff"))
+
+    async def run():
+        await auth._enforce_rate_limit(request, "login_ip", 300, 300)
+        await auth._enforce_rate_limit(request, "login_email", 10, 300, identity="admin-a@example.com")
+        await auth._enforce_rate_limit(request, "login_email", 10, 300, identity="admin-b@example.com")
+
+    asyncio.run(run())
+    assert len(set(keys)) == 3
+    assert keys[0] != keys[1] != keys[2]
