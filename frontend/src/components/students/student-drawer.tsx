@@ -217,6 +217,13 @@ function ConsentPreferencesPanel({
   preferences: CommunicationPreferences;
 }) {
   const queryClient = useQueryClient();
+  const me = useQuery({
+    queryKey: ["current-user"],
+    queryFn: () => api.me(),
+    enabled: Boolean(studentId),
+    retry: false,
+  });
+  const canEdit = ["admin", "coordinator", "operator"].includes(me.data?.role || "");
   const audit = useQuery({
     queryKey: ["consent-audit", studentId],
     queryFn: () => api.consentAudit(studentId, 6),
@@ -247,11 +254,16 @@ function ConsentPreferencesPanel({
         </div>
       </div>
       <div className="space-y-4 p-4">
+        {!me.isLoading && !canEdit && (
+          <p role="status" className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[10px] leading-relaxed text-neutral-600">
+            Perfil somente leitura: suas permissões permitem consultar preferências e histórico, mas não alterá-los.
+          </p>
+        )}
         <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#f2d5d1] bg-[#fff6f4] p-3">
           <input
             type="checkbox"
             checked={globalOptOut}
-            disabled={update.isPending}
+            disabled={update.isPending || !canEdit}
             onChange={(event) => update.mutate({ opt_out: event.target.checked })}
             className="mt-0.5 h-4 w-4 accent-[#b84336]"
           />
@@ -273,7 +285,7 @@ function ConsentPreferencesPanel({
               <input
                 type="checkbox"
                 checked={preferences.channels[key]}
-                disabled={update.isPending}
+                disabled={update.isPending || !canEdit}
                 onChange={(event) => update.mutate({ channels: { [key]: event.target.checked } })}
                 aria-label={`${label} permitido`}
                 className="h-4 w-4 accent-[#4050cd]"
@@ -289,7 +301,7 @@ function ConsentPreferencesPanel({
               <input
                 type="checkbox"
                 checked={preferences.topics[key]}
-                disabled={update.isPending}
+                disabled={update.isPending || !canEdit}
                 onChange={(event) => update.mutate({ topics: { [key]: event.target.checked } })}
                 aria-label={`${label} permitido`}
                 className="mt-0.5 h-4 w-4 accent-[#4050cd]"
