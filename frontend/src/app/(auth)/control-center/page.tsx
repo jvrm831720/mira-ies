@@ -4,9 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Activity, Building2, CheckCircle2, CircleAlert, ClipboardList, Fingerprint, LoaderCircle, LogOut, RefreshCw, ShieldCheck, Users, Wifi, WifiOff } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const TOKEN_KEY = "mira_control_center_token";
-const ROLE_KEY = "mira_control_center_role";
 
 type Tab = "overview" | "organizations" | "members" | "channels" | "audit" | "billing";
 type Admin = { id: string; email: string; display_name: string; role: string };
@@ -21,9 +18,9 @@ type BillingSummary = { total: number; overdue: number; due_soon: number; pendin
 const roleLabels: Record<string, string> = { super_admin: "Super administrador", operations: "Operações", finance: "Financeiro", support: "Suporte", auditor: "Auditoria" };
 const tabLabels: Record<Tab, string> = { overview: "Visão geral", organizations: "Instituições", members: "Membros", channels: "Canais", audit: "Auditoria", billing: "Financeiro" };
 
-async function apiGet<T>(path: string, token: string): Promise<T> {
-  const response = await fetch(`${API_BASE}/api/v1/admin/control-center/${path}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+async function apiGet<T>(path: string): Promise<T> {
+  const response = await fetch(`/api/control-center/${path}`, {
+    headers: { Accept: "application/json" },
     cache: "no-store",
   });
   const payload = await response.json().catch(() => ({})) as { detail?: string };
@@ -51,7 +48,6 @@ function Metric({ label, value, note, icon: Icon }: { label: string; value: numb
 
 export default function ControlCenterPage() {
   const router = useRouter();
-  const [token, setToken] = useState("");
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -80,51 +76,44 @@ export default function ControlCenterPage() {
     };
   }, [admin?.role]);
 
-  const signOut = useCallback(() => {
-    window.sessionStorage.removeItem(TOKEN_KEY);
-    window.sessionStorage.removeItem(ROLE_KEY);
+  const signOut = useCallback(async () => {
+    await fetch("/api/control-center/auth/logout", { method: "POST" }).catch(() => undefined);
     router.replace("/control-center/login");
   }, [router]);
 
-  const loadTab = useCallback(async (currentToken: string, currentTab: Tab) => {
+  const loadTab = useCallback(async (currentTab: Tab) => {
     setError("");
-    if (currentTab === "overview") setOverview(await apiGet<Overview>("overview", currentToken));
-    if (currentTab === "organizations") setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200", currentToken)).organizations);
-    if (currentTab === "members") setMembers((await apiGet<{ members: Member[] }>("members?limit=200", currentToken)).members);
-    if (currentTab === "audit") setEvents((await apiGet<{ events: Event[] }>("audit?limit=200", currentToken)).events);
+    if (currentTab === "overview") setOverview(await apiGet<Overview>("overview"));
+    if (currentTab === "organizations") setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200")).organizations);
+    if (currentTab === "members") setMembers((await apiGet<{ members: Member[] }>("members?limit=200")).members);
+    if (currentTab === "audit") setEvents((await apiGet<{ events: Event[] }>("audit?limit=200")).events);
     if (currentTab === "billing") {
-      const data = await apiGet<{ records: BillingRecord[]; summary: BillingSummary }>("billing-records?limit=500", currentToken);
+      const data = await apiGet<{ records: BillingRecord[]; summary: BillingSummary }>("billing-records?limit=500");
       setBillingRecords(data.records);
       setBillingSummary(data.summary);
-      setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200", currentToken)).organizations);
+      setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200")).organizations);
     }
-    if (currentTab === "channels") setOverview(await apiGet<Overview>("overview", currentToken));
+    if (currentTab === "channels") setOverview(await apiGet<Overview>("overview"));
   }, []);
 
   useEffect(() => {
-    const saved = window.sessionStorage.getItem(TOKEN_KEY);
-    if (!saved) { router.replace("/control-center/login"); return; }
-    setToken(saved);
-    apiGet<Admin>("auth/me", saved).then((me) => {
+    apiGet<Admin>("auth/me").then((me) => {
       setAdmin(me);
-      const cachedRole = window.sessionStorage.getItem(ROLE_KEY);
-      if (cachedRole !== me.role) window.sessionStorage.setItem(ROLE_KEY, me.role);
       setLoading(false);
     }).catch(() => signOut());
-  }, [router, signOut]);
+  }, [signOut]);
 
   useEffect(() => {
-    if (!token || loading) return;
-    void loadTab(token, tab).catch((err: unknown) => {
+    if (loading) return;
+    void loadTab(tab).catch((err: unknown) => {
       if (err instanceof Error && err.message === "SESSION_EXPIRED") { signOut(); return; }
       setError(err instanceof Error && err.message === "PERMISSION_DENIED" ? "Seu perfil não tem permissão para consultar esta seção." : err instanceof Error ? err.message : "Erro ao consultar a API.");
     });
-  }, [token, tab, loading, loadTab, signOut]);
+  }, [tab, loading, loadTab, signOut]);
 
   const refresh = async () => {
-    if (!token) return;
     setRefreshing(true);
-    try { await loadTab(token, tab); }
+    try { await loadTab(tab); }
     catch (err) {
       if (err instanceof Error && err.message === "SESSION_EXPIRED") signOut();
       else setError(err instanceof Error ? err.message : "Não foi possível atualizar.");
@@ -133,53 +122,53 @@ export default function ControlCenterPage() {
 
 
   async function toggleOrganization(org: Organization) {
-    if (!token || admin?.role !== "super_admin") return;
+    if (admin?.role !== "super_admin") return;
     setError("");
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/organizations/${org.id}`, {
+      const response = await fetch(`/api/control-center/organizations/${org.id}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ is_active: !org.is_active }),
       });
       const payload = await response.json().catch(() => ({})) as { detail?: string };
       if (!response.ok) throw new Error(payload.detail || "Não foi possível atualizar a instituição.");
-      await loadTab(token, "organizations");
-      await loadTab(token, "overview");
+      await loadTab("organizations");
+      await loadTab("overview");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar instituição.");
     }
   }
 
   async function changeMemberRole(member: Member, role: string) {
-    if (!token || admin?.role !== "super_admin" || role === member.role) return;
+    if (admin?.role !== "super_admin" || role === member.role) return;
     setError("");
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/members/${member.id}`, {
+      const response = await fetch(`/api/control-center/members/${member.id}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ role }),
       });
       const payload = await response.json().catch(() => ({})) as { detail?: string };
       if (!response.ok) throw new Error(payload.detail || "Não foi possível alterar o perfil.");
-      await loadTab(token, "members");
+      await loadTab("members");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao alterar perfil do membro.");
     }
   }
 
   async function toggleMember(member: Member) {
-    if (!token || admin?.role !== "super_admin") return;
+    if (admin?.role !== "super_admin") return;
     setError("");
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/members/${member.id}`, {
+      const response = await fetch(`/api/control-center/members/${member.id}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ is_active: !member.is_active }),
       });
       const payload = await response.json().catch(() => ({})) as { detail?: string };
       if (!response.ok) throw new Error(payload.detail || "Não foi possível atualizar o membro.");
-      await loadTab(token, "members");
-      await loadTab(token, "overview");
+      await loadTab("members");
+      await loadTab("overview");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar membro.");
     }
@@ -206,13 +195,13 @@ export default function ControlCenterPage() {
 
   async function saveBillingEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || !editingBilling || !editBillingForm.due_date) return;
+    if (!editingBilling || !editBillingForm.due_date) return;
     setSavingBilling(true);
     setError("");
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/billing-records/${editingBilling.id}`, {
+      const response = await fetch(`/api/control-center/billing-records/${editingBilling.id}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
           plan_name: editBillingForm.plan_name,
           plan_price_brl: Number(editBillingForm.plan_price_brl),
@@ -227,7 +216,7 @@ export default function ControlCenterPage() {
       const payload = await response.json().catch(() => ({})) as { detail?: string };
       if (!response.ok) throw new Error(payload.detail || "Não foi possível atualizar o registro financeiro.");
       setEditingBilling(null);
-      await loadTab(token, "billing");
+      await loadTab("billing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar registro financeiro.");
     } finally {
@@ -237,16 +226,16 @@ export default function ControlCenterPage() {
 
   async function createBillingRecord(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token || !billingForm.tenant_id || !billingForm.due_date) {
+    if (!billingForm.tenant_id || !billingForm.due_date) {
       setError("Selecione a instituição e informe o vencimento.");
       return;
     }
     setSavingBilling(true);
     setError("");
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/billing-records`, {
+      const response = await fetch(`/api/control-center/billing-records`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
           tenant_id: billingForm.tenant_id,
           plan_name: billingForm.plan_name,
@@ -260,7 +249,7 @@ export default function ControlCenterPage() {
       const payload = await response.json().catch(() => ({})) as { detail?: string };
       if (!response.ok) throw new Error(payload.detail || "Não foi possível salvar o registro financeiro.");
       setBillingForm((current) => ({ ...current, tenant_id: "", due_date: "", payment_link: "", notes: "" }));
-      await loadTab(token, "billing");
+      await loadTab("billing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao salvar registro financeiro.");
     } finally {
@@ -269,17 +258,16 @@ export default function ControlCenterPage() {
   }
 
   async function setPaymentStatus(record: BillingRecord, payment_status: "paid" | "pending") {
-    if (!token) return;
     setError("");
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/billing-records/${record.id}`, {
+      const response = await fetch(`/api/control-center/billing-records/${record.id}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ payment_status }),
       });
       const payload = await response.json().catch(() => ({})) as { detail?: string };
       if (!response.ok) throw new Error(payload.detail || "Não foi possível atualizar o pagamento.");
-      await loadTab(token, "billing");
+      await loadTab("billing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar pagamento.");
     }

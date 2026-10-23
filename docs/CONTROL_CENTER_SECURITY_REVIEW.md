@@ -17,7 +17,7 @@ A implementação está em uma branch de trabalho e a PR permanece em rascunho. 
 
 ## Bloqueadores antes do release
 
-1. **Armazenamento de sessão no navegador:** o token administrativo está em sessionStorage, acessível a JavaScript e portanto exposto caso exista XSS. Preferir cookie HttpOnly; Secure; SameSite ou um BFF antes de disponibilizar em produção.
+1. **Sessão via BFF:** o token administrativo agora é mantido em cookie HttpOnly, com Secure em produção, SameSite=Lax e expiração curta; o token não é devolvido ao JavaScript nem salvo em sessionStorage. Ainda é necessário validar a política de cookies e o domínio real de hospedagem em staging, e manter proteção contra XSS.
 2. **Infraestrutura de autenticação:** confirmar Redis gerenciado, TLS quando aplicável, segredo forte e exclusivo, CORS_ORIGINS restrito aos domínios reais e HTTPS no frontend/backend.
 3. **IP e proxies:** confirmar como a hospedagem define request.client.host. Não confiar cegamente em cabeçalhos X-Forwarded-For; testar rate limiting no caminho real de produção.
 4. **E-mail MFA:** validar Resend e remetente em ambiente controlado, entregabilidade, monitoramento de falhas e processo seguro de recuperação de acesso.

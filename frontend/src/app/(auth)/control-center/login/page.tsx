@@ -4,17 +4,14 @@ import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Fingerprint, KeyRound, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const SESSION_KEY = "mira_control_center_token";
-const SESSION_ROLE_KEY = "mira_control_center_role";
 
 type LoginResponse = { message?: string; expires_in?: number };
-type SessionResponse = { access_token: string; token_type: string; expires_in: number; role: string };
+type SessionResponse = { token_type: string; expires_in: number; role: string };
 
 async function post<T>(path: string, body: Record<string, string>): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}/api/v1/admin/control-center/auth/${path}`, {
+    response = await fetch(`/api/control-center/auth/${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(body),
@@ -74,14 +71,10 @@ export default function ControlCenterLoginPage() {
     setNotice("");
     setLoading(true);
     try {
-      const result = await post<SessionResponse>("verify", {
+      await post<SessionResponse>("verify", {
         email: email.trim().toLowerCase(),
         code: code.trim(),
       });
-      // Admin session is deliberately isolated from the regular MIRA user/API-key session.
-      // sessionStorage limits persistence to this browser tab; do not store credentials or OTPs.
-      window.sessionStorage.setItem(SESSION_KEY, result.access_token);
-      window.sessionStorage.setItem(SESSION_ROLE_KEY, result.role);
       setCode("");
       router.replace("/control-center");
     } catch (err) {
