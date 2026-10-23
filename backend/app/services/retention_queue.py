@@ -6,6 +6,7 @@ Jobs são idempotentes quando o cliente envia ``Idempotency-Key``.
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Any
 from uuid import uuid4
@@ -18,6 +19,12 @@ DELAYED_SUFFIX = ":delayed"
 JOB_PREFIX = "beacon:retention:job:"
 DEDUPE_PREFIX = "beacon:retention:dedupe:"
 LOCK_SUFFIX = ":lock"
+logger = logging.getLogger(__name__)
+
+
+def _event(level: int, event_name: str, **fields: Any) -> None:
+    """Log operacional estruturado sem payload, conteúdo de mensagens ou credenciais."""
+    logger.log(level, event_name, extra={"event_name": event_name, **fields})
 
 
 def _job_key(job_id: str) -> str:
@@ -49,6 +56,7 @@ async def enqueue_retention_job(
             if existing:
                 job = await get_job(existing, tenant_id=tenant_id, redis=redis)
                 if job:
+                    _event(logging.INFO, "retention_job_deduplicated", job_id=job["id"], tenant_id=tenant_id, status=job.get("status"))
                     return {**job, "deduplicated": True}
                 await redis.delete(dedupe_key)
             job_id = str(uuid4())
@@ -59,6 +67,7 @@ async def enqueue_retention_job(
                 existing = await redis.get(dedupe_key)
                 job = await get_job(existing, tenant_id=tenant_id, redis=redis) if existing else None
                 if job:
+                    _event(logging.INFO, "retention_job_deduplicated", job_id=job["id"], tenant_id=tenant_id, status=job.get("status"))
                     return {**job, "deduplicated": True}
                 raise RuntimeError("Nao foi possivel reservar a chave de idempotencia")
         else:
@@ -91,6 +100,7 @@ async def enqueue_retention_job(
         )
         await redis.expire(_job_key(job_id), settings.retention_job_ttl_seconds)
         await redis.rpush(settings.retention_queue_name, job_id)
+        _event(logging.INFO, "retention_job_enqueued", job_id=job_id, tenant_id=tenant_id, status="queued", attempt=0, deduplicated=False)
         return record
     finally:
         await redis.aclose()
@@ -134,7 +144,7 @@ async def _update_job(redis: Redis, job_id: str, **fields: Any) -> None:
     await redis.hset(_job_key(job_id), mapping=encoded)
 
 
-async def _schedule_retry(redis: Redis, job_id: str, *, attempt: int, error: str) -> None:
+async def _schedule_retry(redis: Redis, job_id: str, *, attempt: int, error: str, error_type: str | None = None) -> None:
     settings = get_settings()
     delay = settings.retention_retry_backoff_seconds * (2 ** max(0, attempt - 1))
     next_retry_at = time.time() + delay
@@ -147,6 +157,7 @@ async def _schedule_retry(redis: Redis, job_id: str, *, attempt: int, error: str
         next_retry_at=next_retry_at,
     )
     await redis.zadd(f"{settings.retention_queue_name}{DELAYED_SUFFIX}", {job_id: next_retry_at})
+    _event(logging.WARNING, "retention_job_retry_scheduled", job_id=job_id, status="retrying", attempt=attempt, backoff_seconds=delay, error_type=error_type or "Exception")
 
 
 async def process_retention_job(job_id: str, redis: Redis) -> bool:
@@ -165,6 +176,7 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
             return True
         attempt = int(job.get("attempt", 0)) + 1
         await _update_job(redis, job_id, status="running", attempt=attempt)
+        _event(logging.INFO, "retention_job_started", job_id=job_id, tenant_id=job.get("tenant_id"), attempt=attempt, max_attempts=int(job.get("max_attempts", settings.retention_max_attempts)))
         try:
             from app.agents.orchestrator import RetentionOrchestrator
             from app.db.session import AsyncSessionLocal
@@ -186,7 +198,7 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
                 )
         except Exception as exc:
             if attempt < int(job.get("max_attempts", settings.retention_max_attempts)):
-                await _schedule_retry(redis, job_id, attempt=attempt, error=str(exc))
+                await _schedule_retry(redis, job_id, attempt=attempt, error=str(exc), error_type=type(exc).__name__)
                 return False
             await _update_job(
                 redis,
@@ -196,8 +208,10 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
                 dead_lettered_at=time.time(),
             )
             await redis.rpush(settings.retention_dead_letter_queue_name, job_id)
+            _event(logging.ERROR, "retention_job_dead_lettered", job_id=job_id, tenant_id=job.get("tenant_id"), status="dead_letter", attempt=attempt, max_attempts=int(job.get("max_attempts", settings.retention_max_attempts)), error_type=type(exc).__name__)
             return True
         await _update_job(redis, job_id, status="completed", result=result)
+        _event(logging.INFO, "retention_job_completed", job_id=job_id, tenant_id=job.get("tenant_id"), status="completed", attempt=attempt)
         return True
     finally:
         await redis.delete(lock_key)
@@ -212,4 +226,5 @@ async def promote_due_retries(redis: Redis) -> int:
     await redis.zrem(delayed_key, *ids)
     if ids:
         await redis.rpush(settings.retention_queue_name, *ids)
+        _event(logging.INFO, "retention_job_retries_promoted", queue_name=settings.retention_queue_name, count=len(ids))
     return len(ids)

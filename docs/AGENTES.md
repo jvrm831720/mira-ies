@@ -196,11 +196,27 @@ O worker consome Redis, abre uma sessão de banco por job e tenta novamente falh
 exponencial. Os defaults são 3 tentativas e atrasos de 5s, 10s e 20s; o estado fica disponível
 por 24 horas. Após esgotar as tentativas, o job é enviado para a fila
 `RETENTION_DEAD_LETTER_QUEUE_NAME` e fica consultável em
-`GET /api/v1/agents/retention/dead-letter`. Execute a partir de `backend`:
+`GET /api/v1/agents/retention/dead-letter`. A consulta `GET /api/v1/agents/retention/jobs/{job_id}`
+é tenant-scoped; uma chave de idempotência também é isolada por tenant. Execute a partir de
+`backend`:
 
 ```bash
 PYTHONPATH=. python -m app.worker
 ```
+
+### Eventos operacionais e recuperação
+
+O serviço emite registros padrão do Python logging com `event_name` e campos de baixa
+sensibilidade (`job_id`, `tenant_id`, `status`, `attempt` e tempo de backoff). Eventos:
+`retention_job_enqueued`, `retention_job_deduplicated`, `retention_job_started`,
+`retention_job_completed`, `retention_job_retry_scheduled`, `retention_job_dead_lettered`
+e `retention_job_retries_promoted`. Os logs operacionais não incluem o payload, conteúdo
+de mensagens nem credenciais. O detalhe técnico de exceções permanece apenas no estado do job,
+por TTL limitado; trate o endpoint de status como dado operacional interno.
+
+A suite `backend/tests/test_retention_queue_reliability.py` cobre deduplicação multi-tenant,
+backoff exponencial, dead-letter, promoção apenas de retries vencidos, eventos estruturados e
+consulta de job isolada por tenant usando Redis simulado.
 
 ### `GET /api/v1/agents/retention/preview/{student_id}`
 
