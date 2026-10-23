@@ -40,6 +40,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+      - name: Validate Alembic revision graph
+        working-directory: backend
+        run: |
+          heads="$(PYTHONPATH=. alembic heads)"
+          echo "$heads"
+          test "$(printf '%s\n' "$heads" | grep -c '(head)')" -eq 1
+          printf '%s\n' "$heads" | grep -q '013_control_center_billing'
       - name: Lint (ruff)
         working-directory: backend
         run: ruff check app
