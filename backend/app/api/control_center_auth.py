@@ -1,6 +1,7 @@
 """Autenticação independente do Control Center: senha + código MFA por e-mail."""
 from __future__ import annotations
 
+import binascii
 import hashlib
 import hmac
 import json
@@ -116,7 +117,7 @@ def _decode_token(token: str) -> dict | None:
         if int(claims.get("exp", 0)) <= int(time.time()):
             return None
         return claims
-    except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+    except (ValueError, TypeError, KeyError, json.JSONDecodeError, binascii.Error, UnicodeDecodeError, OverflowError):
         return None
 
 

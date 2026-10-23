@@ -82,3 +82,9 @@ def test_billing_record_rejects_invalid_tenant_id():
             plan_price_brl=497,
             due_at=datetime.now(timezone.utc).isoformat(),
         )
+
+
+
+def test_malformed_control_center_tokens_are_rejected_without_exception():
+    for token in ("", "not-a-token", "...", "....", "%%%.%%%.%%%", "a.b.c"):
+        assert auth._decode_token(token) is None
