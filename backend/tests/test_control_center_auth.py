@@ -455,3 +455,34 @@ def test_admin_session_version_change_revokes_existing_token(monkeypatch):
     with pytest.raises(HTTPException) as revoked:
         asyncio.run(auth.require_admin_permission("orgs:read", SimpleNamespace(credentials=token), FakeDB()))
     assert revoked.value.status_code == 401
+
+
+
+def test_rate_limit_does_not_trust_forwarded_for_headers(monkeypatch):
+    import asyncio
+
+    keys = []
+    class FakeRedis:
+        async def incr(self, key):
+            keys.append(key)
+            return 1
+        async def expire(self, _key, _seconds):
+            return True
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr(
+        auth, "get_settings",
+        lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars", redis_url="redis://localhost"),
+    )
+    monkeypatch.setattr(auth.Redis, "from_url", lambda *args, **kwargs: FakeRedis())
+    request_a = SimpleNamespace(headers={"x-forwarded-for": "203.0.113.10"}, client=SimpleNamespace(host="shared-bff"))
+    request_b = SimpleNamespace(headers={"x-forwarded-for": "198.51.100.20"}, client=SimpleNamespace(host="shared-bff"))
+
+    async def run():
+        await auth._enforce_rate_limit(request_a, "login_email", 10, 300, identity="admin@example.com")
+        await auth._enforce_rate_limit(request_b, "login_email", 10, 300, identity="admin@example.com")
+
+    asyncio.run(run())
+    assert len(keys) == 2
+    assert keys[0] == keys[1]
