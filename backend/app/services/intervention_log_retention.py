@@ -27,8 +27,8 @@ async def purge_expired_intervention_logs(
     """
     settings = get_settings()
     days = settings.intervention_log_retention_days if retention_days is None else retention_days
-    if days < 1:
-        raise ValueError("retention_days precisa ser maior que zero.")
+    if not 90 <= days <= 180:
+        raise ValueError("retention_days precisa estar entre 90 e 180 dias.")
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)

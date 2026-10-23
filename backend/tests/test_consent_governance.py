@@ -289,3 +289,10 @@ async def test_purge_aggregates_expired_logs_without_retaining_student_identifie
     assert second["deleted_logs"] == 0
     await db_session.refresh(aggregate)
     assert aggregate.event_count == 1
+
+@pytest.mark.asyncio
+async def test_retention_period_must_stay_within_the_governed_range(db_session):
+    with pytest.raises(ValueError, match="entre 90 e 180"):
+        await purge_expired_intervention_logs(db_session, retention_days=89, dry_run=True)
+    with pytest.raises(ValueError, match="entre 90 e 180"):
+        await purge_expired_intervention_logs(db_session, retention_days=181, dry_run=True)
