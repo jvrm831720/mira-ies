@@ -1,4 +1,5 @@
 from pathlib import Path
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
@@ -49,6 +50,7 @@ class Settings(BaseSettings):
 
     data_retention_days: int = 365
     anonymize_on_export: bool = True
+    intervention_log_retention_days: int = Field(default=180, ge=90, le=180)
 
     # Agentes de retencao (orquestrador + canais WhatsApp/E-mail/SMS)
     agents_dry_run_default: bool = True

@@ -58,6 +58,9 @@ class Student(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     communication_opt_out: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     communication_opted_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Shape: {"channels": {"whatsapp": bool, "email": bool, "sms": bool},
+    #         "topics": {"academic": bool, "retention": bool, "promotional": bool}}
+    communication_preferences: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 
     dias_atraso_boleto: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     recorrencia_atrasos: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

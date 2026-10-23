@@ -13,6 +13,7 @@ from app.db.session import Base
 import app.models.student  # noqa: F401
 import app.models.tenant  # noqa: F401
 import app.models.intervention  # noqa: F401
+import app.models.consent  # noqa: F401
 import app.models.retention_campaign  # noqa: F401
 
 config = context.config

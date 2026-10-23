@@ -88,10 +88,10 @@ ou foram puladas não contam).
 | `delivery_status` | `queued\|submitted\|delivered\|read\|failed\|rejected\|bounced\|unknown` |
 | `delivery_event_id` / `delivery_updated_at` | deduplicação e auditoria do último callback |
 
-`Student` ganhou telefone/e-mail e a preferência global de comunicação:
-`communication_opt_out` (boolean) e `communication_opted_out_at` (timestamp). A preferência
-é global para WhatsApp, e-mail e SMS e pode ser revogada pela mesma API.
-Aceitos via upload CSV/XLSX (aliases: `telefone`, `celular`, `whatsapp`, `phone`, `contato` /
+`Student` mantém os campos legados `communication_opt_out` e
+`communication_opted_out_at`, e possui `communication_preferences` para permissões por canal/
+finalidade. O bloqueio global prevalece sobre as permissões individuais. Aceitos via upload
+CSV/XLSX (aliases: `telefone`, `celular`, `whatsapp`, `phone`, `contato` /
 `email`, `e_mail`, `opt_out`, `optout`, `nao_contatar`, `do_not_contact`) e via conector genérico
 (`POST /api/v1/ingest/students`). Os conectores ERP/LMS específicos também mapeiam os campos
 nativos de telefone/e-mail para o schema canônico.
@@ -256,3 +256,41 @@ recebe uma solicitação de descadastro.
   o sistema continua em dry-run por padrão.
 - RBAC fino, campanhas agendadas completas e dashboard operacional ficam para as próximas
   fases; a API já expõe correlação, entrega e dead-letter para operação segura.
+
+## Governança avançada de consentimento e retenção
+
+Além do bloqueio global legado `communication_opt_out`, o modelo `communication_preferences`
+permite configurar `whatsapp`, `email` e `sms` separadamente, assim como as finalidades
+`academic`, `retention` e `promotional`. As restrições são aplicadas no backend antes de
+qualquer chamada ao provedor. Para a régua atual, a finalidade é `retention`; campanhas com
+canal fixado são bloqueadas quando essa combinação canal/finalidade não está permitida.
+Os valores promocionais ficam desativados por padrão e a ausência de opt-out não é tratada
+como consentimento promocional.
+
+Use `GET/PATCH /api/v1/students/{student_id}/communication-preferences` para consultar e alterar
+preferências e `GET /api/v1/students/{student_id}/consent-audit` para consultar a trilha. A ficha
+do aluno tem a seção **Preferências de comunicação**. Cada alteração registra data/hora, valor
+anterior/novo, origem, método, localização lógica, usuário autenticado quando disponível e
+referência do lote/evento. As entradas de `consent_audit_events` são separadas dos logs de
+intervenção e a API não permite editá-las nem apagá-las.
+
+Os webhooks reconhecem descadastro por provedor (incluindo comandos como `STOP`/`PARAR` quando
+o provider os envia no payload). Quando o log identifica o canal, o descadastro bloqueia apenas
+esse canal; se o canal não puder ser identificado, aplica-se o bloqueio global por segurança.
+
+### TTL dos logs de intervenção
+
+Configure `INTERVENTION_LOG_RETENTION_DAYS` entre 90 e 180 dias (default 180). O job agrega os
+logs vencidos em `intervention_log_daily_aggregates`, por instituição/dia/estado/canal/risco/
+desfecho, sem matrícula nem identificador do aluno, e depois exclui o material bruto. A execução
+tem modo de prévia seguro; rode a partir de `backend`:
+
+```bash
+PYTHONPATH=. python scripts/purge_intervention_logs.py
+PYTHONPATH=. python scripts/purge_intervention_logs.py --apply
+```
+
+Agende o comando com cron, Task Scheduler ou o scheduler da implantação. O job não elimina
+`consent_audit_events`; o prazo de guarda dessa trilha deve ser definido separadamente pela
+instituição. Estes controles são mecanismos técnicos e não substituem uma avaliação jurídica
+da base legal, dos prazos de guarda e dos direitos dos titulares sob LGPD/GDPR.

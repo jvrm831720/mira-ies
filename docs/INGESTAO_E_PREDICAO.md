@@ -71,3 +71,12 @@ O relatório final inclui `rows_created`, `rows_updated`, `rows_discarded`, `dup
 - 0–39 → **baixo**
 - 40–69 → **médio**
 - 70–100 → **crítico**
+
+## Preferências e auditoria de comunicação
+
+A API de preferência tenant-scoped é `GET/PATCH /api/v1/students/{id}/communication-preferences`.
+Ela permite atualizar canais `whatsapp/email/sms` e finalidades `academic/retention/promotional`
+independentemente. Alterações são registradas em `consent_audit_events` com horário, origem,
+método, localização lógica e referência de lote ou evento do provedor. A prévia de importação
+não cria eventos; o upload efetivo registra mudanças explícitas de opt-out. Consulte
+`docs/AGENTES.md` para as regras de TTL dos logs brutos.

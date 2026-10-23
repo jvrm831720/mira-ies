@@ -30,3 +30,7 @@ A visão geral combina indicadores de risco, distribuição da base, fila críti
 ## Importação guiada de planilhas
 
 A página `/importar` oferece prévia autenticada antes de persistir qualquer dado, auto-mapeamento determinístico por aliases, edição manual de colunas, alertas de qualidade e um modelo CSV para download. O backend compartilha as regras de limpeza entre prévia e upload. Matrículas existentes são atualizadas apenas dentro da instituição autenticada; células vazias não apagam dados existentes. Nenhuma IA é utilizada nesta etapa.
+
+## Governança de comunicação e retenção
+
+Na ficha do aluno, a seção **Preferências de comunicação** controla bloqueio global, canais (WhatsApp, e-mail e SMS) e finalidades (acadêmico, retenção e promocional). Alterações são auditadas pelo backend. Os logs brutos de intervenção usam TTL configurável de 90 a 180 dias, default 180, com agregação estatística antes do expurgo. Consulte `docs/AGENTES.md` para executar o job de retenção e detalhes sobre as trilhas de auditoria.
