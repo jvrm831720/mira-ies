@@ -1,0 +1,261 @@
+"""Autenticação independente do Control Center: senha + código MFA por e-mail."""
+from __future__ import annotations
+
+import hashlib
+import hmac
+import json
+import logging
+import secrets
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Callable
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.mira_security import hash_password, verify_password
+from app.db.session import get_db
+from app.models.control_center import AdminAuditEvent, AdminEmailChallenge, AdminPrincipal
+from app.agents.providers.resend_provider import send_email_resend
+
+router = APIRouter(prefix="/admin/control-center/auth", tags=["MIRA Control Center - Auth"])
+logger = logging.getLogger(__name__)
+_bearer = HTTPBearer(auto_error=False)
+
+_CODE_TTL_SECONDS = 300
+_CODE_COOLDOWN_SECONDS = 60
+_MAX_CODE_ATTEMPTS = 5
+_MAX_PASSWORD_ATTEMPTS = 8
+_LOCK_MINUTES = 15
+_TOKEN_TTL_SECONDS = 20 * 60
+_ALLOWED_ROLES = {"super_admin", "operations", "finance", "support", "auditor"}
+_ROLE_PERMISSIONS = {
+    "super_admin": {"*"},
+    "operations": {"ops:read", "channels:read", "channels:write", "orgs:read"},
+    "finance": {"billing:read", "billing:write", "plans:read", "plans:write", "orgs:read"},
+    "support": {"orgs:read", "members:read", "channels:read"},
+    "auditor": {"audit:read", "ops:read", "billing:read", "plans:read", "orgs:read"},
+}
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _normal_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def _digest(kind: str, value: str) -> str:
+    secret = get_settings().secret_key.encode("utf-8")
+    return hmac.new(secret, f"mira-control-center:{kind}:{value}".encode(), hashlib.sha256).hexdigest()
+
+
+def _b64(data: bytes) -> str:
+    import base64
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _unb64(value: str) -> bytes:
+    import base64
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def _issue_token(admin: AdminPrincipal) -> str:
+    now = int(time.time())
+    header = {"alg": "HS256", "typ": "JWT"}
+    claims = {
+        "iss": "mira-control-center", "aud": "mira-control-center",
+        "sub": admin.id, "role": admin.role, "ver": admin.auth_version,
+        "iat": now, "exp": now + _TOKEN_TTL_SECONDS,
+    }
+    unsigned = f"{_b64(json.dumps(header, separators=(',', ':')).encode())}.{_b64(json.dumps(claims, separators=(',', ':')).encode())}"
+    signature = hmac.new(get_settings().secret_key.encode(), unsigned.encode("ascii"), hashlib.sha256).digest()
+    return f"{unsigned}.{_b64(signature)}"
+
+
+def _decode_token(token: str) -> dict | None:
+    try:
+        encoded_header, encoded_claims, encoded_signature = token.split(".")
+        unsigned = f"{encoded_header}.{encoded_claims}"
+        expected = hmac.new(get_settings().secret_key.encode(), unsigned.encode("ascii"), hashlib.sha256).digest()
+        if not hmac.compare_digest(expected, _unb64(encoded_signature)):
+            return None
+        header, claims = json.loads(_unb64(encoded_header)), json.loads(_unb64(encoded_claims))
+        if header != {"alg": "HS256", "typ": "JWT"}:
+            return None
+        if claims.get("iss") != "mira-control-center" or claims.get("aud") != "mira-control-center":
+            return None
+        if int(claims.get("exp", 0)) <= int(time.time()):
+            return None
+        return claims
+    except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+        return None
+
+
+async def _audit(db: AsyncSession, action: str, result: str, actor_id: str | None = None,
+                 request: Request | None = None, reason: str | None = None) -> None:
+    db.add(AdminAuditEvent(
+        actor_admin_id=actor_id, action=action, result=result, reason=reason,
+        request_id=request.headers.get("x-request-id") if request else None,
+        metadata_redacted={"path": request.url.path, "method": request.method} if request else None,
+    ))
+
+
+class PasswordPayload(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=256)
+
+
+class VerifyEmailCodePayload(BaseModel):
+    email: EmailStr
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class AdminSession(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = _TOKEN_TTL_SECONDS
+    role: str
+
+
+@router.post("/login", status_code=202)
+async def start_admin_login(body: PasswordPayload, request: Request, db: AsyncSession = Depends(get_db)):
+    email = _normal_email(str(body.email))
+    result = await db.execute(select(AdminPrincipal).where(AdminPrincipal.email == email).with_for_update())
+    admin = result.scalar_one_or_none()
+    now = _now()
+
+    if admin and admin.locked_until and admin.locked_until > now:
+        await _audit(db, "admin_login_password", "blocked", admin.id, request)
+        await db.commit()
+        raise HTTPException(status_code=429, detail="Acesso temporariamente bloqueado. Tente mais tarde.")
+
+    dummy = "scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    password_ok = verify_password(body.password, admin.password_hash if admin else dummy)
+    if not admin or not admin.is_active or not password_ok:
+        if admin:
+            admin.failed_login_attempts += 1
+            if admin.failed_login_attempts >= _MAX_PASSWORD_ATTEMPTS:
+                admin.failed_login_attempts = 0
+                admin.locked_until = now + timedelta(minutes=_LOCK_MINUTES)
+        await _audit(db, "admin_login_password", "denied", admin.id if admin else None, request)
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Credenciais inválidas.")
+
+    email_hash = _digest("email", email)
+    recent = await db.execute(select(AdminEmailChallenge.id).where(
+        AdminEmailChallenge.email_hash == email_hash,
+        AdminEmailChallenge.created_at >= now - timedelta(seconds=_CODE_COOLDOWN_SECONDS),
+    ).limit(1))
+    if recent.scalar_one_or_none():
+        raise HTTPException(status_code=429, detail="Aguarde antes de solicitar outro código.")
+
+    admin.failed_login_attempts = 0
+    admin.locked_until = None
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    await db.execute(update(AdminEmailChallenge).where(
+        AdminEmailChallenge.email_hash == email_hash,
+        AdminEmailChallenge.consumed_at.is_(None),
+    ).values(consumed_at=now))
+    challenge = AdminEmailChallenge(
+        admin_id=admin.id, email_hash=email_hash, code_hash=_digest("otp", f"{email}:{code}"),
+        expires_at=now + timedelta(seconds=_CODE_TTL_SECONDS),
+    )
+    db.add(challenge)
+    await _audit(db, "admin_login_password", "mfa_pending", admin.id, request)
+    await db.commit()
+
+    settings = get_settings()
+    if not settings.resend_api_key or not settings.email_from:
+        challenge.consumed_at = _now()
+        await db.commit()
+        logger.error("Control Center MFA email provider is not configured.")
+        raise HTTPException(status_code=503, detail="MFA por e-mail indisponível. Contate a equipe responsável.")
+
+    delivery = await send_email_resend(
+        to=admin.email,
+        subject="Código de acesso — MIRA Control Center",
+        body=f"Olá, {admin.display_name}.\n\nSeu código de acesso é {code}. Ele expira em 5 minutos e só pode ser usado uma vez. Não compartilhe este código.\n\nSe você não solicitou o acesso, ignore este e-mail.",
+    )
+    if not delivery.ok:
+        challenge.consumed_at = _now()
+        await db.commit()
+        logger.warning("Falha na entrega do código MFA do Control Center.")
+        raise HTTPException(status_code=503, detail="Não foi possível enviar o código MFA. Tente novamente mais tarde.")
+
+    return {"message": "Se as credenciais forem válidas, enviaremos um código de acesso.", "expires_in": _CODE_TTL_SECONDS}
+
+
+@router.post("/verify", response_model=AdminSession)
+async def verify_admin_email_code(body: VerifyEmailCodePayload, request: Request, db: AsyncSession = Depends(get_db)):
+    email = _normal_email(str(body.email))
+    email_hash = _digest("email", email)
+    result = await db.execute(select(AdminEmailChallenge).where(
+        AdminEmailChallenge.email_hash == email_hash,
+        AdminEmailChallenge.consumed_at.is_(None),
+    ).order_by(AdminEmailChallenge.created_at.desc()).limit(1).with_for_update())
+    challenge = result.scalar_one_or_none()
+    now = _now()
+    if not challenge or challenge.expires_at <= now:
+        if challenge:
+            challenge.consumed_at = now
+        await _audit(db, "admin_mfa_verify", "denied", challenge.admin_id if challenge else None, request)
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Código inválido ou expirado.")
+    if challenge.attempts >= _MAX_CODE_ATTEMPTS:
+        challenge.consumed_at = now
+        await _audit(db, "admin_mfa_verify", "rate_limited", challenge.admin_id, request)
+        await db.commit()
+        raise HTTPException(status_code=429, detail="Limite de tentativas atingido. Inicie o login novamente.")
+
+    challenge.attempts += 1
+    expected = _digest("otp", f"{email}:{body.code}")
+    if not hmac.compare_digest(challenge.code_hash, expected):
+        if challenge.attempts >= _MAX_CODE_ATTEMPTS:
+            challenge.consumed_at = now
+        await _audit(db, "admin_mfa_verify", "denied", challenge.admin_id, request)
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Código inválido ou expirado.")
+
+    challenge.consumed_at = now
+    admin = await db.get(AdminPrincipal, challenge.admin_id)
+    if not admin or not admin.is_active:
+        await _audit(db, "admin_mfa_verify", "denied", challenge.admin_id, request)
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Código inválido ou expirado.")
+    await _audit(db, "admin_mfa_verify", "success", admin.id, request)
+    await db.commit()
+    return AdminSession(access_token=_issue_token(admin), role=admin.role)
+
+
+async def require_admin_permission(permission: str, credentials: HTTPAuthorizationCredentials | None = Security(_bearer),
+                                   db: AsyncSession = Depends(get_db)) -> AdminPrincipal:
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Autenticação interna necessária.")
+    claims = _decode_token(credentials.credentials)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Sessão administrativa inválida ou expirada.")
+    admin = await db.get(AdminPrincipal, claims.get("sub"))
+    if not admin or not admin.is_active or admin.auth_version != claims.get("ver"):
+        raise HTTPException(status_code=401, detail="Sessão administrativa inválida ou expirada.")
+    permissions = _ROLE_PERMISSIONS.get(admin.role, set())
+    if "*" not in permissions and permission not in permissions:
+        raise HTTPException(status_code=403, detail="Permissão insuficiente.")
+    return admin
+
+
+def admin_permission(permission: str) -> Callable:
+    async def dependency(credentials: HTTPAuthorizationCredentials | None = Security(_bearer),
+                         db: AsyncSession = Depends(get_db)) -> AdminPrincipal:
+        return await require_admin_permission(permission, credentials, db)
+    return dependency
+
+
+@router.get("/me")
+async def current_admin(admin: AdminPrincipal = Depends(admin_permission("orgs:read"))):
+    return {"id": admin.id, "email": admin.email, "display_name": admin.display_name, "role": admin.role}
