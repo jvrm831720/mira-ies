@@ -1,37 +1,36 @@
-# Motor de regras da régua de retenção — MVP
+# Motor de regras da régua de retenção
 
-O motor está em `backend/app/agents/rule_engine.py`. Ele é uma função pura:
-não consulta banco, não acessa dados de outro tenant e não envia mensagens.
-Isso permite validar e testar a decisão antes de ligar persistência e execução.
+O motor em `backend/app/agents/rule_engine.py` é puro: valida e avalia JSON sem acessar banco, ORM ou canais de envio. As campanhas e versões são persistidas por tenant em `retention_campaigns`.
 
-## Exemplo de regra
-
-```json
-{
-  "id": "critical_48h",
-  "name": "Críticos sem contato",
-  "version": 1,
-  "conditions": {
-    "all": [
-      {"field": "risk_level", "op": "eq", "value": "critico"},
-      {"field": "days_since_contact", "op": "gte", "value": 7},
-      {"field": "opt_out", "op": "eq", "value": false}
-    ]
-  },
-  "action": {"channel": "whatsapp", "template_id": "critico_v1"}
-}
-```
-
-## Contrato atual
+## Regras
 
 - Campos permitidos: `risk_level`, `risk_score`, `days_since_contact`, `opt_out`, `has_phone` e `has_email`.
 - Operadores: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in` e `not_in`.
-- `conditions.all`: todas precisam ser verdadeiras; `conditions.any`: ao menos uma precisa ser verdadeira. Se os dois grupos existirem, ambos precisam passar.
-- Campos ausentes nunca satisfazem uma condição — inclusive `neq` — para evitar elegibilidade acidental com dados incompletos.
-- Ação aceita canais `whatsapp`, `email`, `sms` e exige `template_id`.
-- `version` deve ser um inteiro positivo. O chamador deve criar uma nova versão em vez de sobrescrever uma versão já publicada.
-- Campos e operadores desconhecidos são rejeitados antes da avaliação. Não há `eval`, código executável ou acesso dinâmico a atributos do ORM.
+- `conditions.all`: todas precisam passar; `conditions.any`: ao menos uma precisa passar. Se ambos existem, os dois grupos devem passar.
+- Campos ausentes nunca satisfazem condições, inclusive `neq`.
+- A ação exige um canal suportado e `template_id`; a execução não deve presumir que esse identificador foi entregue ao provider.
+- IDs de regra duplicados são rejeitados dentro do conjunto. Use novas versões em vez de sobrescrever regras publicadas.
 
-## API e persistência
+## Campanhas e endpoints
 
-Esta entrega implementa a validação e a avaliação isoladas com testes unitários. Ainda não cria endpoints de CRUD, tabela de campanhas ou ativa o envio por regras. O próximo incremento deve persistir regras por `tenant_id`, manter versões imutáveis, gravar a versão e o motivo em `intervention_logs`, e oferecer simulação antes de chamar o orquestrador existente. Até lá, o endpoint operacional atual de retenção continua usando a lógica existente e `dry_run` por padrão.
+As rotas têm prefixo `/api/v1/agents/retention/campaigns` e são isoladas por tenant.
+
+- `POST /`: cria uma campanha na versão 1 em estado `draft`.
+- `GET /`: lista campanhas; `?status=draft|active|paused` filtra pelo estado.
+- `GET /{campaign_id}`: consulta uma versão da campanha.
+- `POST /{campaign_id}/versions`: cria a próxima versão imutável em estado `draft`.
+- `PATCH /{campaign_id}/status`: ativa, pausa ou devolve uma versão a `draft`.
+- `POST /{campaign_id}/simulate`: avalia regras e devolve as decisões, sem envio.
+- `POST /{campaign_id}/run-dry-run`: passa decisões elegíveis pelo orquestrador em modo dry-run; nenhuma mensagem real é enviada.
+
+## Salvaguardas da etapa 3.1
+
+- A avaliação falha de forma segura: nível de risco deve ser `baixo`, `medio` ou `critico`, e score deve ser numérico, finito e estar entre 0 e 100. Dados de risco ausentes ou inválidos bloqueiam a elegibilidade, com `blocked_reason=missing_risk_data`.
+- Opt-out bloqueia a campanha; ausência de telefone e e-mail também bloqueia ação de contato.
+- Ativar uma versão pausa as outras versões ativas com o mesmo `tenant_id` e `slug` na mesma transação.
+- Um índice único parcial no PostgreSQL impede duas versões ativas, inclusive em ativações concorrentes. A migração normaliza dados antigos mantendo ativa a versão mais alta antes de criar o índice.
+- As versões continuam escopadas por tenant. A idempotência e o dry-run do orquestrador permanecem obrigatórios para a execução segura.
+
+## Escopo
+
+Esta etapa não habilita envios reais nem altera as credenciais dos providers. O envio real depende de uma etapa futura com prioridades de regras, templates efetivos, limites operacionais e testes dedicados.

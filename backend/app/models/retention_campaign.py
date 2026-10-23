@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,13 @@ class RetentionCampaign(Base):
     __tablename__ = "retention_campaigns"
     __table_args__ = (
         UniqueConstraint("tenant_id", "slug", "version", name="uq_retention_campaign_tenant_slug_version"),
+        Index(
+            "uq_retention_campaigns_one_active_version",
+            "tenant_id",
+            "slug",
+            unique=True,
+            postgresql_where=text("status = 'active' AND archived IS FALSE"),
+        ),
         Index("ix_retention_campaigns_tenant_status", "tenant_id", "status"),
     )
 
