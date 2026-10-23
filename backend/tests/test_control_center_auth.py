@@ -397,3 +397,61 @@ def test_login_email_provider_failure_consumes_mfa_challenge(monkeypatch):
         asyncio.run(auth.start_admin_login(auth.PasswordPayload(email=admin.email, password="valid"), request, FakeDB()))
     assert failure.value.status_code == 503
     assert challenges and challenges[0].consumed_at is not None
+
+
+
+def test_mfa_attempt_limit_consumes_challenge(monkeypatch):
+    import asyncio
+    from datetime import timedelta
+    import pytest
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(auth, "get_settings", lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars"))
+    email = "admin@example.com"
+    challenge = SimpleNamespace(
+        id="challenge-attempt-limit", admin_id="admin-1",
+        email_hash=auth._digest("email", email),
+        code_hash=auth._digest("otp", f"{email}:123456"),
+        expires_at=auth._now() + timedelta(minutes=5), consumed_at=None, attempts=4,
+    )
+    class Result:
+        def scalar_one_or_none(self):
+            return None if challenge.consumed_at else challenge
+    class FakeDB:
+        async def execute(self, _query):
+            return Result()
+        async def commit(self):
+            return None
+    async def no_limit(*args, **kwargs):
+        return None
+    async def no_audit(*args, **kwargs):
+        return None
+    monkeypatch.setattr(auth, "_enforce_rate_limit", no_limit)
+    monkeypatch.setattr(auth, "_audit", no_audit)
+    request = SimpleNamespace(headers={}, url=SimpleNamespace(path="/auth/verify"), method="POST")
+    body = auth.VerifyEmailCodePayload(email=email, code="999999")
+
+    with pytest.raises(HTTPException) as invalid:
+        asyncio.run(auth.verify_admin_email_code(body, request, FakeDB()))
+    assert invalid.value.status_code == 401
+    assert challenge.attempts == 5
+    assert challenge.consumed_at is not None
+
+
+def test_admin_session_version_change_revokes_existing_token(monkeypatch):
+    import asyncio
+    import pytest
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(auth, "get_settings", lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars"))
+    admin = SimpleNamespace(id="admin-revoked", role="super_admin", auth_version=0, is_active=True)
+    token = auth._issue_token(admin)
+    admin.auth_version = 1
+
+    class FakeDB:
+        async def get(self, _model, _admin_id):
+            return admin
+
+    with pytest.raises(HTTPException) as revoked:
+        asyncio.run(auth.require_admin_permission("orgs:read", SimpleNamespace(credentials=token), FakeDB()))
+    assert revoked.value.status_code == 401
