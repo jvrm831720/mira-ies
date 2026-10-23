@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -43,7 +43,7 @@ class AdminEmailChallenge(Base):
     )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    admin_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    admin_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_control_admins.id", ondelete="CASCADE"), nullable=False)
     email_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -60,7 +60,7 @@ class AdminAuditEvent(Base):
     )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    actor_admin_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    actor_admin_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_control_admins.id", ondelete="SET NULL"), nullable=True)
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     result: Mapped[str] = mapped_column(String(32), nullable=False)
     target_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
