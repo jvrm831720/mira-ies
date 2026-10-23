@@ -8,7 +8,10 @@ O motor em `backend/app/agents/rule_engine.py` é puro: valida e avalia JSON sem
 - Operadores: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in` e `not_in`.
 - `conditions.all`: todas precisam passar; `conditions.any`: ao menos uma precisa passar. Se ambos existem, os dois grupos devem passar.
 - Campos ausentes nunca satisfazem condições, inclusive `neq`.
-- A ação exige um canal suportado e `template_id`; a execução não deve presumir que esse identificador foi entregue ao provider.
+- Cada regra aceita `priority` como inteiro >= 0; se omitida, usa 100 para compatibilidade. Prioridade maior é avaliada primeiro; empates são resolvidos por `id` em ordem lexicográfica.
+- A decisão executável usa somente a primeira regra correspondente nesta ordem. As demais regras continuam registradas na avaliação com status de correspondência e marcação da escolhida.
+- O par `(channel, template_id)` precisa existir no registry de templates implementados. IDs desconhecidos e combinações de canal/template inválidas são rejeitados ao criar/ativar a campanha.
+- IDs atuais: `retention_v1` para os três canais; `critico_v1`, `whatsapp_critical_v1` e `whatsapp_default_v1`; `score_alto_v1`, `email_critical_v1` e `email_default_v1`; `sms_default_v1`.
 - IDs de regra duplicados são rejeitados dentro do conjunto. Use novas versões em vez de sobrescrever regras publicadas.
 
 ## Campanhas e endpoints
@@ -31,6 +34,13 @@ As rotas têm prefixo `/api/v1/agents/retention/campaigns` e são isoladas por t
 - Um índice único parcial no PostgreSQL impede duas versões ativas, inclusive em ativações concorrentes. A migração normaliza dados antigos mantendo ativa a versão mais alta antes de criar o índice.
 - As versões continuam escopadas por tenant. A idempotência e o dry-run do orquestrador permanecem obrigatórios para a execução segura.
 
+## Execução previsível — etapa 3.2
+
+- O canal da ação vencedora é o único canal tentado para aquele aluno; a execução não volta para a heurística geral nem faz fallback para outro canal.
+- O `template_id` é resolvido por um registry allowlist. Corpo e, no e-mail, assunto são renderizados pelo template registrado; o ID efetivamente usado é persistido em `intervention_logs.template_id`.
+- Simulação e dry-run retornam `selected_rule` e `rule_evaluations` por aluno. O log salva campanha/versão, prioridade, regra escolhida, avaliação ordenada, canal, template e assunto efetivo do e-mail.
+- A execução usa uma ação selecionada por aluno, idempotência estável e as proteções existentes de opt-out e anti-spam.
+
 ## Escopo
 
-Esta etapa não habilita envios reais nem altera as credenciais dos providers. O envio real depende de uma etapa futura com prioridades de regras, templates efetivos, limites operacionais e testes dedicados.
+Os envios reais continuam desabilitados no endpoint de campanhas. Novos templates precisam ser implementados e incluídos no registry antes de poderem ser selecionados.

@@ -34,6 +34,7 @@ class RuleDecision:
     matched: bool
     rule_id: str
     rule_version: int
+    priority: int
     reason: str
     action: dict[str, Any] | None = None
 
@@ -54,6 +55,9 @@ def validate_rule(rule: Mapping[str, Any]) -> None:
         raise RuleValidationError("'name' deve ser uma string não vazia.")
     if type(rule["version"]) is not int or rule["version"] < 1:
         raise RuleValidationError("'version' deve ser um inteiro >= 1.")
+    priority = rule.get("priority", 100)
+    if type(priority) is not int or priority < 0:
+        raise RuleValidationError("'priority' deve ser um inteiro >= 0.")
 
     conditions = rule["conditions"]
     if not isinstance(conditions, Mapping) or set(conditions) - {"all", "any"}:
@@ -172,19 +176,19 @@ def evaluate_rule(rule: Mapping[str, Any], facts: Mapping[str, Any]) -> RuleDeci
         matched=matched,
         rule_id=rule["id"],
         rule_version=rule["version"],
+        priority=rule.get("priority", 100),
         reason=reason,
         action=dict(rule["action"]) if matched else None,
     )
 
 
 def evaluate_rules(rules: list[Mapping[str, Any]], facts: Mapping[str, Any]) -> list[RuleDecision]:
-    """Avalia as regras na ordem recebida; não escolhe silenciosamente uma só."""
-    decisions = []
+    """Ordena por prioridade descendente e desempata de forma estável pelo ID."""
     seen_ids: set[str] = set()
     for rule in rules:
         validate_rule(rule)
         if rule["id"] in seen_ids:
             raise RuleValidationError(f"ID de regra duplicado no conjunto: {rule['id']}.")
         seen_ids.add(rule["id"])
-        decisions.append(evaluate_rule(rule, facts))
-    return decisions
+    ordered = sorted(rules, key=lambda rule: (-rule.get("priority", 100), rule["id"]))
+    return [evaluate_rule(rule, facts) for rule in ordered]

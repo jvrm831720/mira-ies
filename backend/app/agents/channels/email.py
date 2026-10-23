@@ -33,6 +33,7 @@ class EmailAgent:
         *,
         dry_run: bool,
         idempotency_key: str | None = None,
+        subject_override: str | None = None,
     ) -> SendResult:
         if not is_valid_email(ctx.email):
             return SendResult(
@@ -47,7 +48,7 @@ class EmailAgent:
             return await dry_run_send(channel="email", to=ctx.email, message=message)
         return await send_email_resend(
             to=ctx.email,
-            subject=self.render_subject(ctx),
+            subject=subject_override or self.render_subject(ctx),
             body=message,
             idempotency_key=idempotency_key,
         )

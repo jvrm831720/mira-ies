@@ -9,7 +9,7 @@ from app.agents.orchestrator import RetentionOrchestrator
 from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
 from app.models.intervention import InterventionLog
-from app.api.retention_campaigns import _evaluate, _get
+from app.api.retention_campaigns import _evaluate, _get, _validate
 
 router = APIRouter(prefix="/agents/retention/campaigns", tags=["Campanhas de Retenção"])
 
@@ -23,6 +23,7 @@ async def run_dry_run(campaign_id: str, limit: int = Query(200, ge=1, le=500),
     campaign = await _get(db, auth.tenant_id, campaign_id)
     if campaign.status != "active":
         raise HTTPException(status_code=409, detail="Ative a campanha antes de executar.")
+    _validate(campaign.rules)
     decisions = await _evaluate(db, campaign, limit, student_ids)
     # Persiste decisões negativas com chave diária para não duplicar auditoria em retries.
     today = datetime.now(timezone.utc).date().isoformat()
@@ -46,51 +47,59 @@ async def run_dry_run(campaign_id: str, limit: int = Query(200, ge=1, le=500),
             status="skipped",
             skip_reason=item["blocked_reason"] or "rule_not_matched",
             decision_reason="; ".join(item["reasons"])[:240],
-            decision_context={"campaign_version": campaign.version, "matched_rules": [],
-                              "days_since_contact": item["days_since_contact"]},
+            decision_context={
+                "campaign_version": campaign.version,
+                "selected_rule": None,
+                "evaluated_rules": item["rule_evaluations"],
+                "days_since_contact": item["days_since_contact"],
+                "blocked_reason": item["blocked_reason"],
+            },
             campaign_id=campaign.id,
             idempotency_key=key,
             delivery_status="not_applicable",
         ))
     await db.commit()
 
-    groups = {}
-    rules_by_student = {}
-    for item in decisions:
-        if not item["eligible"]:
-            continue
-        rules_by_student[item["student_id"]] = item["matched_rules"]
-        for channel in {hit["action"]["channel"] for hit in item["matched_rules"]}:
-            key = (channel, item["risk_level"])
-            groups.setdefault(key, [])
-            if item["student_id"] not in groups[key]:
-                groups[key].append(item["student_id"])
+    eligible_items = [item for item in decisions if item["eligible"]]
+    campaign_actions: dict[str, dict] = {}
+    for item in eligible_items:
+        selected = item["selected_rule"]
+        action = selected["action"]
+        campaign_actions[item["student_id"]] = {
+            "channel": action["channel"],
+            "template_id": action["template_id"],
+            "campaign_version": campaign.version,
+            "rule_id": selected["rule_id"],
+            "rule_version": selected["rule_version"],
+            "priority": selected["priority"],
+            "evaluated_rules": item["rule_evaluations"],
+            "days_since_contact": item["days_since_contact"],
+        }
+
     executions = []
-    for (channel, risk_level), ids in groups.items():
+    if campaign_actions:
         runner = RetentionOrchestrator(db, tenant_id=auth.tenant_id)
+        channels = sorted({action["channel"] for action in campaign_actions.values()})
+        risk_levels = sorted({item["risk_level"] for item in eligible_items if item["risk_level"]})
         result = await runner.run(
-            risk_levels=[risk_level], limit=min(limit, 500), dry_run=True,
-            channels=[channel], campaign_id=campaign.id,
-            idempotency_key=f"campaign:{campaign.id}:v{campaign.version}:{datetime.now(timezone.utc).date()}:{channel}:{risk_level}",
-            student_ids=ids,
+            risk_levels=risk_levels,
+            limit=min(limit, 500),
+            dry_run=True,
+            channels=channels,
+            campaign_id=campaign.id,
+            idempotency_key=(
+                f"campaign:{campaign.id}:v{campaign.version}:"
+                f"{datetime.now(timezone.utc).date().isoformat()}"
+            ),
+            student_ids=list(campaign_actions),
+            campaign_actions=campaign_actions,
         )
-        executions.append({"channel": channel, "risk_level": risk_level, **result})
-        logs = await db.execute(select(InterventionLog).where(
-            InterventionLog.tenant_id == auth.tenant_id,
-            InterventionLog.campaign_id == campaign.id,
-            InterventionLog.student_id.in_(ids)
-        ).order_by(InterventionLog.created_at.desc()).limit(len(ids) * 10))
-        for log in logs.scalars().all():
-            hits = rules_by_student.get(log.student_id, [])
-            if not hits or log.status == "skipped":
-                continue
-            context = dict(log.decision_context or {})
-            context["campaign_version"] = campaign.version
-            context["matched_rules"] = hits
-            log.decision_context = context
-            log.decision_reason = ((log.decision_reason or "") + "; rules=" +
-                                   ",".join(h["rule_id"] + ":v" + str(h["rule_version"]) for h in hits))[:240]
-        await db.commit()
+        executions.append({
+            "channels": channels,
+            "students_with_selected_action": len(campaign_actions),
+            **result,
+        })
+
     return {"campaign_id": campaign.id, "campaign_version": campaign.version,
             "dry_run": True, "students_evaluated": len(decisions),
             "eligible": sum(x["eligible"] for x in decisions),

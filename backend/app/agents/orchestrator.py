@@ -12,9 +12,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.base import Channel, MessageContext, SendResult
-from app.agents.channels.email import EmailAgent
+from app.agents.campaign_templates import render_campaign_template
+from app.agents.channels.email import EmailAgent, is_valid_email
 from app.agents.channels.sms import SmsAgent
-from app.agents.channels.whatsapp import WhatsAppAgent
+from app.agents.channels.whatsapp import WhatsAppAgent, normalize_phone_br
 from app.agents.rules import check_anti_spam, decide_channels, skip_reason_for_no_channel
 from app.core.config import get_settings
 from app.models.intervention import InterventionLog
@@ -97,6 +98,7 @@ def _log_entry(
     idempotency_key: str | None = None,
     job_id: str | None = None,
     campaign_id: str | None = None,
+    template_id: str | None = None,
     delivery_status: str | None = None,
     decision_reason: str | None = None,
     decision_context: dict[str, Any] | None = None,
@@ -108,7 +110,10 @@ def _log_entry(
         channel=channel,
         risk_level=student.risk_level,
         risk_score=student.risk_score,
-        template_id=f"{channel}_{student.risk_level}" if channel else None,
+        template_id=(
+            template_id if template_id is not None
+            else f"{channel}_{student.risk_level}" if channel else None
+        ),
         message_preview=(message[:120] if message else None),
         status=status,
         skip_reason=skip_reason,
@@ -205,6 +210,7 @@ async def _reserve_send_log(
     idempotency_key: str,
     job_id: str | None,
     campaign_id: str | None,
+    template_id: str | None,
     decision_reason: str,
     decision_context: dict[str, Any],
 ) -> tuple[InterventionLog, bool]:
@@ -225,6 +231,7 @@ async def _reserve_send_log(
         idempotency_key=idempotency_key,
         job_id=job_id,
         campaign_id=campaign_id,
+        template_id=template_id,
         delivery_status="queued",
         decision_reason=decision_reason,
         decision_context=decision_context,
@@ -253,11 +260,18 @@ async def _send_with_guard(
     tenant_id: str,
     channel: Channel,
     idempotency_key: str,
+    email_subject: str | None = None,
 ) -> SendResult:
     settings = get_settings()
     configured_provider = _configured_provider(channel, settings)
+    send_kwargs: dict[str, Any] = {
+        "dry_run": dry_run,
+        "idempotency_key": idempotency_key,
+    }
+    if channel == "email" and email_subject is not None:
+        send_kwargs["subject_override"] = email_subject
     if dry_run or configured_provider == "dry_run":
-        return await agent.send(ctx, message, dry_run=dry_run, idempotency_key=idempotency_key)
+        return await agent.send(ctx, message, **send_kwargs)
 
     guard = await acquire_send_slot(
         tenant_id=tenant_id, channel=channel, provider=configured_provider
@@ -273,9 +287,8 @@ async def _send_with_guard(
             halt_fallback=guard.halt_fallback,
         )
 
-    result = await agent.send(
-        ctx, message, dry_run=False, idempotency_key=idempotency_key
-    )
+    send_kwargs["dry_run"] = False
+    result = await agent.send(ctx, message, **send_kwargs)
     try:
         await record_provider_outcome(
             provider=configured_provider,
@@ -312,6 +325,7 @@ class RetentionOrchestrator:
         campaign_id: str | None = None,
         idempotency_key: str | None = None,
         student_ids: list[str] | None = None,
+        campaign_actions: dict[str, dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         dry_run = self.settings.agents_dry_run_default if dry_run is None else dry_run
         allowed_channels = set(channels) if channels else {"whatsapp", "email", "sms"}
@@ -335,6 +349,29 @@ class RetentionOrchestrator:
             bucket[status] = bucket.get(status, 0) + 1
 
         for student in students:
+            campaign_action = (
+                campaign_actions.get(student.id) if campaign_actions is not None else None
+            )
+            if campaign_actions is not None and campaign_action is None:
+                continue
+
+            campaign_audit: dict[str, Any] = {}
+            if campaign_action is not None:
+                selected_rule = {
+                    "rule_id": campaign_action["rule_id"],
+                    "rule_version": campaign_action["rule_version"],
+                    "priority": campaign_action["priority"],
+                    "channel": campaign_action["channel"],
+                    "template_id": campaign_action["template_id"],
+                }
+                campaign_audit = {
+                    "campaign_version": campaign_action["campaign_version"],
+                    "selected_rule": selected_rule,
+                    "evaluated_rules": campaign_action["evaluated_rules"],
+                    "days_since_contact": campaign_action["days_since_contact"],
+                    "template_id": campaign_action["template_id"],
+                }
+
             if student.communication_opt_out:
                 self.session.add(
                     _log_entry(
@@ -344,29 +381,49 @@ class RetentionOrchestrator:
                         status="skipped",
                         skip_reason="communication_opt_out",
                         decision_reason="Aluno com opt-out de comunicação",
-                        decision_context=_decision_context(student),
+                        decision_context=_decision_context(student, extra=campaign_audit),
                         delivery_status="not_applicable",
                         job_id=job_id,
                         campaign_id=campaign_id,
+                        template_id=campaign_action.get("template_id") if campaign_action else None,
                     )
                 )
                 _bump("_none", "skipped")
                 continue
 
             risk_level = student.risk_level or "baixo"
-            candidates = [
-                c
-                for c in decide_channels(
-                    risk_level=risk_level,
-                    telefone=student.telefone,
-                    email=student.email,
-                    prefer_whatsapp_medio=self.prefer_whatsapp_medio,
+            if campaign_action is not None:
+                requested_channel = campaign_action["channel"]
+                if requested_channel not in allowed_channels:
+                    raise ValueError(
+                        f"Canal {requested_channel!r} não está liberado para a execução da campanha."
+                    )
+                has_requested_contact = (
+                    is_valid_email(student.email)
+                    if requested_channel == "email"
+                    else bool(normalize_phone_br(student.telefone))
                 )
-                if c in allowed_channels
-            ]
+                candidates = [requested_channel] if has_requested_contact else []
+            else:
+                candidates = [
+                    c
+                    for c in decide_channels(
+                        risk_level=risk_level,
+                        telefone=student.telefone,
+                        email=student.email,
+                        prefer_whatsapp_medio=self.prefer_whatsapp_medio,
+                    )
+                    if c in allowed_channels
+                ]
 
             if not candidates:
-                reason = skip_reason_for_no_channel(risk_level)
+                if campaign_action is not None:
+                    reason = (
+                        "missing_email" if campaign_action["channel"] == "email"
+                        else "missing_phone"
+                    )
+                else:
+                    reason = skip_reason_for_no_channel(risk_level)
                 self.session.add(
                     _log_entry(
                         tenant_id=self.tenant_id,
@@ -376,11 +433,18 @@ class RetentionOrchestrator:
                         skip_reason=reason,
                         decision_reason=f"Sem canal viável ({reason})",
                         decision_context=_decision_context(
-                            student, extra={"candidates": [], "allowed_channels": list(allowed_channels)}
+                            student,
+                            extra={
+                                "candidates": [],
+                                "allowed_channels": list(allowed_channels),
+                                **campaign_audit,
+                                "blocked_reason": reason,
+                            },
                         ),
                         delivery_status="not_applicable",
                         job_id=job_id,
                         campaign_id=campaign_id,
+                        template_id=campaign_action.get("template_id") if campaign_action else None,
                     )
                 )
                 _bump("_none", "skipped")
@@ -427,24 +491,41 @@ class RetentionOrchestrator:
                                     "channel": channel,
                                     "contacts_week": contacts_week,
                                     "candidates": candidates,
+                                    **campaign_audit,
                                 },
                             ),
                             delivery_status="not_applicable",
                             job_id=job_id,
                             campaign_id=campaign_id,
+                            template_id=campaign_action.get("template_id") if campaign_action else None,
                         )
                     )
                     _bump(channel, "skipped")
                     continue
 
                 agent = CHANNEL_AGENTS[channel]
-                message = agent.render(ctx)
+                email_subject = None
+                if campaign_action is not None:
+                    rendered = render_campaign_template(
+                        ctx, channel, campaign_action["template_id"]
+                    )
+                    message = rendered.body
+                    email_subject = rendered.subject
+                    selected_rule = campaign_audit["selected_rule"]
+                    decision_reason = (
+                        f"Campanha {campaign_id} v{campaign_action['campaign_version']}; "
+                        f"regra {selected_rule['rule_id']} v{selected_rule['rule_version']} "
+                        f"priority={selected_rule['priority']}; canal={channel}; "
+                        f"template={campaign_action['template_id']}; score={student.risk_score}"
+                    )
+                else:
+                    message = agent.render(ctx)
+                    decision_reason = (
+                        f"Risco {risk_level}; canal {channel}; "
+                        f"score={student.risk_score}; candidatos={candidates}"
+                    )
                 send_key = _message_key(execution_key, student.id, channel)
                 provider = _configured_provider(channel, self.settings)
-                decision_reason = (
-                    f"Risco {risk_level}; canal {channel}; "
-                    f"score={student.risk_score}; candidatos={candidates}"
-                )
                 dctx = _decision_context(
                     student,
                     extra={
@@ -452,6 +533,8 @@ class RetentionOrchestrator:
                         "candidates": candidates,
                         "contacts_week": contacts_week,
                         "provider": provider,
+                        **campaign_audit,
+                        **({"email_subject": email_subject} if email_subject else {}),
                     },
                 )
                 log, reserved = await _reserve_send_log(
@@ -464,6 +547,7 @@ class RetentionOrchestrator:
                     idempotency_key=send_key,
                     job_id=job_id,
                     campaign_id=campaign_id,
+                    template_id=campaign_action.get("template_id") if campaign_action else None,
                     decision_reason=decision_reason,
                     decision_context=dctx,
                 )
@@ -487,6 +571,7 @@ class RetentionOrchestrator:
                     tenant_id=self.tenant_id,
                     channel=channel,
                     idempotency_key=send_key,
+                    email_subject=email_subject,
                 )
                 status = "unknown" if result.ambiguous else ("failed" if not result.ok else ("dry_run" if result.dry_run else "sent"))
                 if result.ambiguous:
