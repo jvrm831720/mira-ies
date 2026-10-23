@@ -26,6 +26,28 @@ A implementação está em uma branch de trabalho e a PR permanece em rascunho. 
 7. **Operação:** criar o primeiro Super Admin pelo script de bootstrap, proteger a senha, confirmar que não existe outro admin inicializado indevidamente e documentar revogação/rotação de credenciais.
 8. **Observabilidade:** configurar alertas para falhas repetidas de MFA, indisponibilidade de Redis/e-mail e mudanças de privilégios; garantir que logs não incluam senha, OTP, token, API key ou link com segredo.
 
+## Revisão de segurança — 23/10/2026
+
+### Correção aplicada nesta revisão
+
+- O rate limit de autenticação agora separa o teto de origem (300 tentativas/5 minutos) do limite por conta (10/5 minutos), tanto no login quanto na verificação MFA. Isso reduz o risco de um único BFF compartilhar um teto muito baixo entre todos os administradores. A identidade da conta é protegida por HMAC ao formar a chave Redis; o sistema não confia em `X-Forwarded-For`.
+- Foi adicionado teste unitário para verificar que identidades diferentes geram chaves de limite separadas.
+
+### Resultado da análise estática do fluxo
+
+- **RBAC:** as mutações de instituição e membro exigem permissões `orgs:write` e `members:write`, concedidas apenas a `super_admin` no mapa atual de permissões do backend. A checagem visual no frontend não é a barreira de segurança.
+- **Revogação de sessão de usuário:** a alteração de perfil/status incrementa `auth_version`; a autenticação comum compara essa versão e rejeita tokens antigos. Instituições inativas também são rejeitadas pelo fluxo de autenticação comum.
+- **Cookies/CSRF:** o BFF usa cookie HttpOnly, SameSite=Lax, Secure em produção e valida Origin exata em métodos que alteram estado. A validação em navegador com o domínio real continua pendente.
+- **Auditoria:** mudanças em instituição e membro registram ator, alvo, campos alterados e valores anteriores/posteriores. Não foi executado teste end-to-end em ambiente real para comprovar a persistência e consulta desses eventos.
+- **Limitação do rate limit:** o teto de origem continua baseado em `request.client.host`. É intencional não confiar em cabeçalhos de proxy sem configuração de proxy confiável; validar esse comportamento no caminho de rede real é obrigatório.
+
+### Validação executada e pendente
+
+- CI anterior ao ajuste de rate limit: frontend lint/build, Ruff, pytest e grafo de migrations passaram no run [40021139281](https://github.com/jvrm831720/mira-ies/actions/runs/40021139281).
+- O commit que inclui a correção e seu teste precisa concluir a CI antes de ser considerado validado.
+- **Não foi possível confirmar um fluxo em staging:** não houve execução autenticada contra banco, Redis e Resend de homologação nem teste real de cookies no domínio hospedado. Não marcar esses itens como aprovados.
+- O diff branch/base informa que a branch de trabalho está divergente da base de PR; revisar a integração da migration `011_retention_observability` antes de aplicar as migrations ou integrar a PR.
+
 ## Limites atuais do MVP
 
 - Instituições e membros têm consulta e ativação/desativação; o restante da gestão de cadastro deve evoluir conforme regras de negócio.
