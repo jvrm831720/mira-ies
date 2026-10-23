@@ -90,12 +90,12 @@ export default function LoginPage() {
   function humanError(err: unknown, fallback: string) {
     if (err instanceof ApiError) {
       if (err.status === 0 || /failed to fetch|network/i.test(err.message)) {
-        return "Não foi possível falar com o servidor. Confira se o backend está em http://127.0.0.1:8000.";
+        return "Não foi possível conectar à API da Mira. Verifique se o serviço está disponível e tente novamente.";
       }
       return err.message || fallback;
     }
     if (err instanceof TypeError) {
-      return "Não foi possível falar com o servidor. Confira se o backend está em http://127.0.0.1:8000.";
+      return "Não foi possível conectar à API da Mira. Verifique se o serviço está disponível e tente novamente.";
     }
     return fallback;
   }
