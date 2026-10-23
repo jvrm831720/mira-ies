@@ -336,7 +336,6 @@ def test_http_permission_boundary_returns_403_for_non_super_admin(monkeypatch):
 
 def test_login_email_provider_failure_consumes_mfa_challenge(monkeypatch):
     import asyncio
-    from datetime import timedelta
     import pytest
     from fastapi import HTTPException
 
