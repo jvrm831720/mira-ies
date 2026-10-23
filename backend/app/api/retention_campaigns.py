@@ -1,10 +1,12 @@
 """CRUD and safe simulation for tenant-scoped retention campaigns."""
 from datetime import datetime, timezone
+import math
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.rule_engine import RuleValidationError, evaluate_rules, validate_rule
@@ -15,6 +17,19 @@ from app.models.retention_campaign import RetentionCampaign
 from app.models.student import Student
 
 router = APIRouter(prefix="/agents/retention/campaigns", tags=["Campanhas de Retenção"])
+
+_VALID_RISK_LEVELS = frozenset({"baixo", "medio", "critico"})
+
+
+def _has_complete_risk_data(student: Student) -> bool:
+    """Retorna False se o snapshot de risco estiver ausente ou fora do contrato."""
+    risk_level = student.risk_level
+    risk_score = student.risk_score
+    if risk_level not in _VALID_RISK_LEVELS:
+        return False
+    if isinstance(risk_score, bool) or not isinstance(risk_score, (int, float)):
+        return False
+    return math.isfinite(risk_score) and 0 <= risk_score <= 100
 
 
 class CampaignInput(BaseModel):
@@ -76,15 +91,20 @@ async def _evaluate(db, campaign, limit, student_ids=None):
     output = []
     for s in students:
         contacted = last.get(s.id)
-        facts = {"risk_level": s.risk_level or "baixo", "risk_score": s.risk_score,
+        facts = {"risk_level": s.risk_level, "risk_score": s.risk_score,
                  "days_since_contact": max(0, (now-contacted).days) if contacted else 36500,
                  "opt_out": bool(s.communication_opt_out), "has_phone": bool(s.telefone),
                  "has_email": bool(s.email)}
+        risk_data_complete = _has_complete_risk_data(s)
         decisions = evaluate_rules(campaign.rules, facts)
         hits = [{"rule_id": d.rule_id, "rule_version": d.rule_version,
                  "reason": d.reason, "action": d.action} for d in decisions if d.matched]
-        blocked = "communication_opt_out" if facts["opt_out"] else (
-            "missing_contact" if not facts["has_phone"] and not facts["has_email"] else None)
+        blocked = (
+            "communication_opt_out" if facts["opt_out"] else
+            "missing_risk_data" if not risk_data_complete else
+            "missing_contact" if not facts["has_phone"] and not facts["has_email"] else
+            None
+        )
         if blocked:
             hits = []
         output.append({"student_id": s.id, "matricula": s.matricula, "risk_level": facts["risk_level"],
@@ -159,12 +179,35 @@ async def set_status(campaign_id: str, body: StatusInput,
                      auth: AuthContext = Depends(require_min_role("coordinator")),
                      db: AsyncSession = Depends(get_db)):
     c = await _get(db, auth.tenant_id, campaign_id)
+    now = datetime.now(timezone.utc)
     if body.status == "active":
         _validate(c.rules)
-        c.activated_at = datetime.now(timezone.utc)
+        # Troca de versão numa única transação; o índice parcial no banco é a
+        # última barreira contra ativações concorrentes.
+        await db.execute(update(RetentionCampaign).where(
+            RetentionCampaign.tenant_id == auth.tenant_id,
+            RetentionCampaign.slug == c.slug,
+            RetentionCampaign.id != c.id,
+            RetentionCampaign.status == "active",
+            RetentionCampaign.archived.is_(False),
+        ).values(status="paused", updated_at=now))
+        c.activated_at = now
     c.status = body.status
-    c.updated_at = datetime.now(timezone.utc)
-    await db.commit()
+    c.updated_at = now
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        constraint_name = (
+            getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+            or getattr(exc.orig, "constraint_name", None)
+        )
+        if constraint_name == "uq_retention_campaigns_one_active_version":
+            raise HTTPException(
+                status_code=409,
+                detail="Outra versão desta campanha foi ativada simultaneamente. Recarregue e tente novamente.",
+            ) from exc
+        raise
     await db.refresh(c)
     return _serialize(c)
 
