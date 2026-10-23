@@ -32,6 +32,8 @@ A implementação está em uma branch de trabalho e a PR permanece em rascunho. 
 
 - O rate limit de autenticação usa somente identidade de conta (10 tentativas/5 minutos) no login e na verificação MFA. O teto por IP foi removido para evitar bloqueio coletivo quando vários administradores chegam pelo mesmo BFF. A identidade é protegida por HMAC na chave Redis; o sistema não confia em `X-Forwarded-For`.
 - Testes cobrem chaves separadas por conta e falha fechada quando Redis está indisponível.
+- A API de auditoria agora retorna somente metadados explicitamente permitidos para alterações de instituição/membro; a tela mostra os valores anterior → novo e os campos alterados. Metadados de outros eventos são filtrados por ação e não incluem segredos.
+- A suíte agora inclui teste HTTP de RBAC (403 para perfil sem permissão), expiração de token, replay/expiração de MFA, indisponibilidade do Redis, falha do provedor de e-mail e redaction da auditoria. Ainda faltam testes de concorrência do MFA, bloqueio/desbloqueio da conta e revogação de sessão via alteração de versão, além do fluxo end-to-end hospedado.
 
 ### Resultado da análise estática do fluxo
 
