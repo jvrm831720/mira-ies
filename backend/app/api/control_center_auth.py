@@ -15,6 +15,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from redis.asyncio import Redis
 
 from app.core.config import get_settings
 from app.core.mira_security import hash_password, verify_password
@@ -45,6 +46,27 @@ _ROLE_PERMISSIONS = {
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+async def _enforce_rate_limit(request: Request, scope: str, limit: int, window_seconds: int) -> None:
+    """Distributed rate limit; fail closed if Redis is unavailable."""
+    settings = get_settings()
+    client_host = request.client.host if request.client else "unknown"
+    key = _digest("rate-limit", f"{scope}:{client_host}")
+    redis = Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=2, socket_timeout=2)
+    try:
+        count = await redis.incr(f"mira:control-center:rl:{key}")
+        if count == 1:
+            await redis.expire(f"mira:control-center:rl:{key}", window_seconds)
+        if count > limit:
+            raise HTTPException(status_code=429, detail="Muitas tentativas. Aguarde antes de tentar novamente.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Redis indisponível para rate limit do Control Center: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Autenticação temporariamente indisponível.") from exc
+    finally:
+        await redis.aclose()
 
 
 def _normal_email(email: str) -> str:
@@ -126,6 +148,7 @@ class AdminSession(BaseModel):
 
 @router.post("/login", status_code=202)
 async def start_admin_login(body: PasswordPayload, request: Request, db: AsyncSession = Depends(get_db)):
+    await _enforce_rate_limit(request, "login", 10, 300)
     email = _normal_email(str(body.email))
     result = await db.execute(select(AdminPrincipal).where(AdminPrincipal.email == email).with_for_update())
     admin = result.scalar_one_or_none()
@@ -193,6 +216,7 @@ async def start_admin_login(body: PasswordPayload, request: Request, db: AsyncSe
 
 @router.post("/verify", response_model=AdminSession)
 async def verify_admin_email_code(body: VerifyEmailCodePayload, request: Request, db: AsyncSession = Depends(get_db)):
+    await _enforce_rate_limit(request, "mfa_verify", 10, 300)
     email = _normal_email(str(body.email))
     email_hash = _digest("email", email)
     result = await db.execute(select(AdminEmailChallenge).where(
