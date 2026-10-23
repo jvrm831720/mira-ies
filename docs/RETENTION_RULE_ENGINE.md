@@ -41,6 +41,49 @@ As rotas têm prefixo `/api/v1/agents/retention/campaigns` e são isoladas por t
 - Simulação e dry-run retornam `selected_rule` e `rule_evaluations` por aluno. O log salva campanha/versão, prioridade, regra escolhida, avaliação ordenada, canal, template e assunto efetivo do e-mail.
 - A execução usa uma ação selecionada por aluno, idempotência estável e as proteções existentes de opt-out e anti-spam.
 
+## Etapa 3.3 — Testes de integração e operação
+
+### Executar testes
+
+A suíte de backend usa PostgreSQL real (UUID/JSONB e índices parciais), não SQLite. Execute em PowerShell na raiz do repositório:
+
+```powershell
+docker compose up -d db redis
+cd backend
+py -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+$env:DATABASE_URL = "postgresql+asyncpg://beacon:beacon_secret@127.0.0.1:5433/beacon"
+$env:DATABASE_URL_SYNC = "postgresql://beacon:beacon_secret@127.0.0.1:5433/beacon"
+$env:PYTHONPATH = "."
+ruff check app
+pytest -v
+```
+
+O `conftest.py` deriva e cria automaticamente o banco isolado `beacon_test` a partir de `DATABASE_URL`; no CI, o serviço PostgreSQL é preparado no workflow. Não execute estes testes com credenciais de produção.
+
+### Matriz de regressão
+
+| Área | Cenários automatizados |
+|---|---|
+| Isolamento multi-tenant | Orquestrador não retorna alunos de outro tenant; preview retorna 404 para aluno alheio; campanhas com o mesmo slug coexistem por tenant; consulta, simulação, ativação, criação de versão e execução de campanha alheia retornam 404. |
+| Dados de risco | Nível ausente/inválido e score ausente/fora de 0–100 bloqueiam a elegibilidade. |
+| Regras | Prioridade descendente, desempate estável por ID, prioridade inválida, campos/operadores não permitidos e prioridade padrão. |
+| Canal e template | Regra vencedora determina um único canal; pares channel/template não registrados são rejeitados; template e assunto selecionados ficam no log. |
+| Anti-spam e opt-out | Recontato pelo mesmo canal dentro da janela é ignorado; opt-out impede contato; a decisão deixa motivo legível no histórico. |
+| Idempotência | Reexecutar uma campanha não duplica o registro de dry-run para a mesma ação; a segunda tentativa fica registrada como bloqueada pelo anti-spam. |
+| Versionamento | Ativação pausa a versão anterior e índice do banco impede duas versões ativas da mesma campanha. |
+
+### Contrato de auditoria
+
+Logs de execução incluem `tenant_id`, `campaign_id`, versão da campanha, `idempotency_key`, canal, `template_id`, regra selecionada, prioridade, regras avaliadas, motivo da decisão e estado da entrega. O preview da mensagem é truncado; evite colocar dados pessoais em nomes/descrições de regra ou nos motivos.
+
+### Limites conhecidos
+
+- A execução de campanha permanece em `dry_run=True`; estes testes não autorizam nem demonstram envio real a provedores.
+- A prova de idempotência garante uma única ação de dry-run na mesma janela de execução; não substitui testes de caos/rede com providers reais.
+- O CI testa o modelo e as rotas contra PostgreSQL. Redis/filas e callbacks de providers exigem testes adicionais de ambiente quando a integração real for planejada.
+
 ## Escopo
 
 Os envios reais continuam desabilitados no endpoint de campanhas. Novos templates precisam ser implementados e incluídos no registry antes de poderem ser selecionados.
