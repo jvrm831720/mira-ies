@@ -8,7 +8,6 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
   const items = [
     {
       label: "Risco crítico",
-      note: "Atenção prioritária",
       value: s?.critico ?? 0,
       icon: AlertTriangle,
       accent: "text-[#e76e61] bg-[#fff0ed]",
@@ -16,7 +15,6 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
     },
     {
       label: "Risco médio",
-      note: "Acompanhar de perto",
       value: s?.medio ?? 0,
       icon: Activity,
       accent: "text-neutral-700 bg-neutral-100",
@@ -24,7 +22,6 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
     },
     {
       label: "Risco baixo",
-      note: "Evolução estável",
       value: s?.baixo ?? 0,
       icon: CheckCircle2,
       accent: "text-emerald-700 bg-emerald-50",
@@ -32,7 +29,6 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
     },
     {
       label: "Total pontuados",
-      note: "Alunos analisados",
       value: data?.total_scored ?? (s ? s.baixo + s.medio + s.critico : 0),
       icon: Users,
       accent: "text-neutral-700 bg-neutral-100",
@@ -50,7 +46,7 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
           <span className={`absolute inset-x-0 top-0 h-[3px] ${item.bar}`} />
           <CardContent className="flex items-center justify-between p-5 md:p-6">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-neutral-400">{item.label}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400">{item.label}</p>
               {loading ? (
                 <Skeleton className="mt-2 h-8 w-16" />
               ) : (
@@ -58,7 +54,6 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
                   {item.value?.toLocaleString("pt-BR")}
                 </p>
               )}
-              <p className="mt-2 text-[11px] text-neutral-400">{item.note}</p>
             </div>
             <div className={`rounded-2xl p-3.5 ${item.accent}`}>
               <item.icon className="h-[19px] w-[19px]" />
