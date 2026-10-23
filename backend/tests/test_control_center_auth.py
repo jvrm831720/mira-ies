@@ -48,3 +48,37 @@ def test_rbac_roles_do_not_grant_finance_to_support():
     assert "billing:write" not in auth._ROLE_PERMISSIONS["support"]
     assert "billing:write" in auth._ROLE_PERMISSIONS["finance"]
     assert "*" in auth._ROLE_PERMISSIONS["super_admin"]
+
+
+
+def test_billing_record_requires_https_payment_link():
+    import pytest
+    from datetime import datetime, timezone
+    from pydantic import ValidationError
+    from app.api.control_center_admin import BillingRecordCreate
+
+    base = {
+        "tenant_id": "9c78bde7-52d3-4c45-9f5a-8c6d3b29d71a",
+        "plan_name": "MIRA Growth",
+        "plan_price_brl": 497,
+        "due_at": datetime.now(timezone.utc).isoformat(),
+    }
+    accepted = BillingRecordCreate(**base, payment_link="https://pay.example.com/checkout")
+    assert accepted.payment_link == "https://pay.example.com/checkout"
+    with pytest.raises(ValidationError):
+        BillingRecordCreate(**base, payment_link="http://pay.example.com/checkout")
+
+
+def test_billing_record_rejects_invalid_tenant_id():
+    import pytest
+    from datetime import datetime, timezone
+    from pydantic import ValidationError
+    from app.api.control_center_admin import BillingRecordCreate
+
+    with pytest.raises(ValidationError):
+        BillingRecordCreate(
+            tenant_id="not-a-uuid",
+            plan_name="MIRA Growth",
+            plan_price_brl=497,
+            due_at=datetime.now(timezone.utc).isoformat(),
+        )

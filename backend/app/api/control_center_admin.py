@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Literal
+from uuid import UUID as PyUUID
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -169,6 +170,14 @@ async def list_audit_events(
 
 class BillingRecordCreate(BaseModel):
     tenant_id: str = Field(min_length=1, max_length=64)
+    @field_validator("tenant_id")
+    @classmethod
+    def normalize_tenant_id(cls, value: str) -> str:
+        try:
+            return str(PyUUID(value))
+        except ValueError as exc:
+            raise ValueError("Identificador de instituição inválido.") from exc
+
     plan_name: str = Field(min_length=2, max_length=120)
     plan_price_brl: float = Field(ge=0, le=100000000)
     billing_cycle: Literal["monthly", "yearly"] = "monthly"
@@ -292,6 +301,7 @@ async def create_billing_record(
     data = body.model_dump()
     record = AdminBillingRecord(**data, created_by_admin_id=admin.id)
     db.add(record)
+    await db.flush()
     db.add(AdminAuditEvent(
         actor_admin_id=admin.id, action="billing_record_created", result="success",
         target_type="billing_record", target_id=record.id, reason="Registro financeiro criado",
@@ -328,3 +338,80 @@ async def update_billing_record(
     await db.refresh(record)
     tenant = await db.get(Tenant, record.tenant_id)
     return _billing_dict(record, tenant.name if tenant else "Instituição removida")
+
+
+
+class OrganizationUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    segment: str | None = Field(default=None, max_length=80)
+    is_active: bool | None = None
+
+
+class MemberUpdate(BaseModel):
+    is_active: bool | None = None
+    role: Literal["admin", "coordinator", "operator", "viewer"] | None = None
+
+
+@router.patch("/organizations/{tenant_id}")
+async def update_organization(
+    tenant_id: str,
+    body: OrganizationUpdate,
+    request: Request,
+    admin: AdminPrincipal = Depends(admin_permission("orgs:write")),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        normalized_id = str(PyUUID(tenant_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Identificador de instituição inválido.") from exc
+    tenant = await db.get(Tenant, normalized_id)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Instituição não encontrada.")
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=422, detail="Informe ao menos um campo para atualizar.")
+    for key, value in changes.items():
+        if value is not None or key in {"segment", "name"}:
+            setattr(tenant, key, value)
+    db.add(AdminAuditEvent(
+        actor_admin_id=admin.id, action="organization_updated", result="success",
+        target_type="organization", target_id=tenant.id,
+        reason="Dados da instituição atualizados",
+        request_id=request.headers.get("x-request-id"),
+        metadata_redacted={"fields_updated": sorted(changes.keys())},
+    ))
+    await db.commit()
+    return {"id": tenant.id, "name": tenant.name, "slug": tenant.slug, "segment": tenant.segment, "is_active": tenant.is_active}
+
+
+@router.patch("/members/{member_id}")
+async def update_member(
+    member_id: str,
+    body: MemberUpdate,
+    request: Request,
+    admin: AdminPrincipal = Depends(admin_permission("members:write")),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        normalized_id = str(PyUUID(member_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Identificador de membro inválido.") from exc
+    member = await db.get(User, normalized_id)
+    if not member:
+        raise HTTPException(status_code=404, detail="Membro não encontrado.")
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status_code=422, detail="Informe ao menos um campo para atualizar.")
+    for key, value in changes.items():
+        if value is not None:
+            setattr(member, key, value)
+    member.auth_version += 1
+    db.add(AdminAuditEvent(
+        actor_admin_id=admin.id, action="member_updated", result="success",
+        target_type="member", target_id=member.id,
+        reason="Permissões ou status do membro atualizados",
+        request_id=request.headers.get("x-request-id"),
+        metadata_redacted={"fields_updated": sorted(changes.keys())},
+    ))
+    await db.commit()
+    return {"id": member.id, "name": member.display_name, "email": member.email, "role": member.role, "is_active": member.is_active}

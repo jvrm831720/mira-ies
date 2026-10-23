@@ -130,6 +130,42 @@ export default function ControlCenterPage() {
   };
 
 
+  async function toggleOrganization(org: Organization) {
+    if (!token || admin?.role !== "super_admin") return;
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/organizations/${org.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ is_active: !org.is_active }),
+      });
+      const payload = await response.json().catch(() => ({})) as { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "Não foi possível atualizar a instituição.");
+      await loadTab(token, "organizations");
+      await loadTab(token, "overview");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar instituição.");
+    }
+  }
+
+  async function toggleMember(member: Member) {
+    if (!token || admin?.role !== "super_admin") return;
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/members/${member.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ is_active: !member.is_active }),
+      });
+      const payload = await response.json().catch(() => ({})) as { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "Não foi possível atualizar o membro.");
+      await loadTab(token, "members");
+      await loadTab(token, "overview");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar membro.");
+    }
+  }
+
   async function createBillingRecord(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token || !billingForm.tenant_id || !billingForm.due_date) {
@@ -225,13 +261,13 @@ export default function ControlCenterPage() {
 
       {tab === "organizations" && <section className="mt-6 rounded-2xl border border-neutral-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-neutral-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">Instituições</h2><p className="mt-1 text-sm text-neutral-500">Visão de leitura dos tenants cadastrados.</p></div><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar instituição…" className="h-10 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-indigo-500 sm:w-72" /></div>
-        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Instituição</th><th className="px-5 py-3">Segmento</th><th className="px-5 py-3">Membros</th><th className="px-5 py-3">Modelo</th><th className="px-5 py-3">Status</th></tr></thead><tbody className="divide-y divide-neutral-100">{visibleOrgs.map((org) => <tr key={org.id}><td className="px-5 py-4"><p className="font-semibold">{org.name}</p><p className="mt-1 text-xs text-neutral-500">{org.slug}</p></td><td className="px-5 py-4">{org.segment || "—"}</td><td className="px-5 py-4">{org.members_count}</td><td className="px-5 py-4">{org.model_ready ? "Pronto" : "Não configurado"}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${org.is_active ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"}`}>{org.is_active ? "Ativa" : "Inativa"}</span></td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Instituição</th><th className="px-5 py-3">Segmento</th><th className="px-5 py-3">Membros</th><th className="px-5 py-3">Modelo</th><th className="px-5 py-3">Status</th>{admin.role === "super_admin" && <th className="px-5 py-3">Ação</th>}</tr></thead><tbody className="divide-y divide-neutral-100">{visibleOrgs.map((org) => <tr key={org.id}><td className="px-5 py-4"><p className="font-semibold">{org.name}</p><p className="mt-1 text-xs text-neutral-500">{org.slug}</p></td><td className="px-5 py-4">{org.segment || "—"}</td><td className="px-5 py-4">{org.members_count}</td><td className="px-5 py-4">{org.model_ready ? "Pronto" : "Não configurado"}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${org.is_active ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"}`}>{org.is_active ? "Ativa" : "Inativa"}</span></td>{admin.role === "super_admin" && <td className="px-5 py-4"><button onClick={() => void toggleOrganization(org)} className="whitespace-nowrap rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold hover:bg-neutral-50">{org.is_active ? "Desativar" : "Reativar"}</button></td>}</tr>)}</tbody></table></div>
         {visibleOrgs.length === 0 && <p className="p-6 text-sm text-neutral-500">Nenhuma instituição encontrada.</p>}
       </section>}
 
       {tab === "members" && <section className="mt-6 rounded-2xl border border-neutral-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-neutral-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">Membros</h2><p className="mt-1 text-sm text-neutral-500">Contas de usuários das instituições.</p></div><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar membro…" className="h-10 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-indigo-500 sm:w-72" /></div>
-        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Pessoa</th><th className="px-5 py-3">Instituição</th><th className="px-5 py-3">Perfil</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Criado em</th></tr></thead><tbody className="divide-y divide-neutral-100">{visibleMembers.map((member) => <tr key={member.id}><td className="px-5 py-4"><p className="font-semibold">{member.name}</p><p className="mt-1 text-xs text-neutral-500">{member.email}</p></td><td className="px-5 py-4">{member.organization}</td><td className="px-5 py-4 capitalize">{member.role}</td><td className="px-5 py-4">{member.is_active ? "Ativo" : "Inativo"}</td><td className="px-5 py-4">{dateLabel(member.created_at)}</td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Pessoa</th><th className="px-5 py-3">Instituição</th><th className="px-5 py-3">Perfil</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Criado em</th>{admin.role === "super_admin" && <th className="px-5 py-3">Ação</th>}</tr></thead><tbody className="divide-y divide-neutral-100">{visibleMembers.map((member) => <tr key={member.id}><td className="px-5 py-4"><p className="font-semibold">{member.name}</p><p className="mt-1 text-xs text-neutral-500">{member.email}</p></td><td className="px-5 py-4">{member.organization}</td><td className="px-5 py-4 capitalize">{member.role}</td><td className="px-5 py-4">{member.is_active ? "Ativo" : "Inativo"}</td><td className="px-5 py-4">{dateLabel(member.created_at)}</td>{admin.role === "super_admin" && <td className="px-5 py-4"><button onClick={() => void toggleMember(member)} className="whitespace-nowrap rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold hover:bg-neutral-50">{member.is_active ? "Desativar" : "Reativar"}</button></td>}</tr>)}</tbody></table></div>
         {visibleMembers.length === 0 && <p className="p-6 text-sm text-neutral-500">Nenhum membro encontrado.</p>}
       </section>}
 
