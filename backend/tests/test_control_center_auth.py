@@ -276,3 +276,31 @@ def test_mfa_expired_code_is_rejected(monkeypatch):
         asyncio.run(auth.verify_admin_email_code(body, request, FakeDB()))
     assert expired.value.status_code == 401
     assert challenge.consumed_at is not None
+
+
+
+def test_audit_metadata_exposes_only_allowlisted_before_after_fields():
+    from app.api.control_center_admin import _safe_audit_metadata
+
+    metadata = {
+        "fields_updated": ["is_active", "role", "password_hash", {"unexpected": True}],
+        "before": {"is_active": True, "role": "admin", "password_hash": "never-expose"},
+        "after": {"is_active": False, "role": "viewer", "password_hash": "secret"},
+    }
+    result = _safe_audit_metadata("member_updated", metadata)
+    assert result == {
+        "fields_updated": ["is_active", "role"],
+        "before": {"is_active": True, "role": "admin"},
+        "after": {"is_active": False, "role": "viewer"},
+    }
+    assert "password_hash" not in str(result)
+
+
+def test_audit_metadata_omits_unreviewed_actions_and_billing_notes():
+    from app.api.control_center_admin import _safe_audit_metadata
+
+    assert _safe_audit_metadata("unknown_action", {"secret": "do-not-return"}) is None
+    assert _safe_audit_metadata(
+        "billing_record_updated",
+        {"fields_updated": ["notes", "payment_status", "payment_link"]},
+    ) == {"fields_updated": ["payment_status"]}
