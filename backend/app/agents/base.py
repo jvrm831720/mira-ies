@@ -19,6 +19,8 @@ class SendResult(BaseModel):
     outcome: Literal["confirmed_success", "confirmed_failure", "unknown"] = "confirmed_success"
     ambiguous: bool = False
     halt_fallback: bool = False
+    # Technical attempt metadata only; never message content or recipient data.
+    provider_attempts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class MessageContext(BaseModel):

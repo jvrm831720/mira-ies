@@ -292,6 +292,34 @@ async def record_engagement_event(
     return {"created": True, "duplicate": False, "event_id": event.id, "profile": profile}
 
 
+async def is_sms_suppressed_by_recent_engagement(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    student_id: str,
+    now: datetime | None = None,
+) -> bool:
+    """Pause redundant SMS contacts after a recent click or reply."""
+    settings = get_settings()
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    cutoff = current.astimezone(timezone.utc) - timedelta(
+        hours=settings.engagement_channel_suppression_hours
+    )
+    result = await session.execute(
+        select(StudentEngagementEvent.id)
+        .where(
+            StudentEngagementEvent.tenant_id == tenant_id,
+            StudentEngagementEvent.student_id == student_id,
+            StudentEngagementEvent.event_type.in_(["clicked", "replied"]),
+            StudentEngagementEvent.occurred_at >= cutoff,
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def recommend_send_time(
     session: AsyncSession,
     *,

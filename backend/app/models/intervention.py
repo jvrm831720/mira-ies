@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import String, Float, Date, Integer, DateTime, Text, ForeignKey, Index, UniqueConstraint
+from sqlalchemy import String, Float, Date, Integer, DateTime, Text, ForeignKey, Index, UniqueConstraint, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
@@ -82,6 +82,30 @@ class InterventionLog(Base):
     outcome_note: Mapped[Optional[str]] = mapped_column(String(240), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+class ProviderCallMetric(Base):
+    """Latency and result for each provider call, without message content or PII."""
+
+    __tablename__ = "provider_call_metrics"
+    __table_args__ = (
+        Index("ix_provider_call_metrics_tenant_time", "tenant_id", "occurred_at"),
+        Index("ix_provider_call_metrics_tenant_channel_provider_time", "tenant_id", "channel", "provider", "occurred_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    intervention_log_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("intervention_logs.id", ondelete="CASCADE"), nullable=False
+    )
+    channel: Mapped[str] = mapped_column(String(20), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
+    succeeded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    provider_outcome: Mapped[str] = mapped_column(String(40), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
 
 class InterventionLogDailyAggregate(Base):
     """Aggregated intervention statistics without student identifiers."""
