@@ -1,7 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form
 from pydantic import BaseModel
 import pandas as pd
 import io
+import json
 import re
 from pathlib import Path
 import uuid
@@ -13,7 +14,16 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.core.auth import AuthContext, get_current_tenant
-from app.services.ingestion import create_batch_and_students, get_batch, get_students_by_batch
+from app.services.ingestion import (
+    COLUMN_LABELS,
+    RECOMMENDED_COLUMNS,
+    REQUIRED_COLUMNS,
+    create_batch_and_students,
+    get_batch,
+    get_students_by_batch,
+    normalize_header,
+    prepare_import_rows,
+)
 from app.schemas.student import UploadBatchResponse
 from app.models.student import Student
 
@@ -69,10 +79,66 @@ def read_file_to_dataframe(file_content: bytes, ext: str) -> pd.DataFrame:
         raise HTTPException(status_code=422, detail=f"Erro ao processar arquivo: {str(e)}")
 
 
+def parse_column_mapping(value: str | None) -> dict[str, str] | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        parsed = json.loads(value)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=422, detail="Mapeamento de colunas em formato inválido.") from exc
+    if not isinstance(parsed, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in parsed.items()):
+        raise HTTPException(status_code=422, detail="O mapeamento deve ser um objeto de cabeçalho para campo.")
+    return parsed
+
+
+@router.post("/upload/preview")
+async def preview_students_file(
+    file: UploadFile = File(...),
+    column_mapping: str | None = Form(default=None),
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Prévia autenticada e sem persistência; usa a mesma validação do upload."""
+    ext = validate_extension(file.filename)
+    content = await file.read()
+    size_mb = len(content) / (1024 * 1024)
+    if size_mb > settings.max_upload_size_mb:
+        raise HTTPException(status_code=413, detail=f"Arquivo muito grande. Maximo: {settings.max_upload_size_mb}MB")
+    if not content:
+        raise HTTPException(status_code=422, detail="Arquivo vazio")
+    df = read_file_to_dataframe(content, ext)
+    if df.empty:
+        raise HTTPException(status_code=422, detail="Arquivo nao contem dados")
+    try:
+        prepared = prepare_import_rows(df, parse_column_mapping(column_mapping))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    result = {key: value for key, value in prepared.items() if not key.startswith("_")}
+    matriculas = [item["data"]["matricula"] for item in prepared["_cleaned_rows"]]
+    existing_matriculas: set[str] = set()
+    if matriculas:
+        query = select(Student.matricula).where(
+            Student.tenant_id == auth.tenant_id,
+            Student.matricula.in_(matriculas),
+        )
+        existing_matriculas = set((await db.execute(query)).scalars().all())
+
+    result["existing_matches"] = len(existing_matriculas)
+    result["rows_that_will_be_created"] = max(0, result["rows_to_import"] - len(existing_matriculas))
+    result["field_labels"] = COLUMN_LABELS
+    result["message"] = (
+        "A prévia não salva dados. Matrículas já existentes nesta instituição serão atualizadas; "
+        "células vazias não apagarão valores existentes."
+    )
+    return result
+
+
 @router.post("/upload", status_code=201)
 async def upload_students_file(
     file: UploadFile = File(...),
     auto_score: bool = Query(True),
+    column_mapping: str | None = Form(default=None),
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -96,6 +162,7 @@ async def upload_students_file(
         batch, students, quality = await create_batch_and_students(
             db, filename=safe_filename, original_filename=file.filename or "unknown",
             df=df, tenant_id=auth.tenant_id,
+            column_mapping=parse_column_mapping(column_mapping),
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -183,7 +250,11 @@ async def update_communication_preferences(
 
 @router.get("/upload/expected-columns")
 async def expected_columns():
-    from app.services.ingestion import COLUMN_ALIASES, REQUIRED_COLUMNS, RECOMMENDED_COLUMNS
-    return {"required": sorted(REQUIRED_COLUMNS), "recommended_for_risk_model": sorted(RECOMMENDED_COLUMNS),
-            "all_supported_aliases": {k: v for k, v in COLUMN_ALIASES.items()},
-            "tip": "A planilha precisa ter pelo menos matricula e nome."}
+    from app.services.ingestion import COLUMN_ALIASES
+    return {
+        "required": sorted(REQUIRED_COLUMNS),
+        "recommended_for_risk_model": sorted(RECOMMENDED_COLUMNS),
+        "field_labels": COLUMN_LABELS,
+        "all_supported_aliases": {key: values for key, values in COLUMN_ALIASES.items()},
+        "tip": "A planilha precisa ter pelo menos matrícula e nome. O mapeamento é determinístico por aliases e pode ser ajustado manualmente.",
+    }

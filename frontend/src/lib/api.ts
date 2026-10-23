@@ -22,6 +22,7 @@ import type {
   StudentsResponse,
   StudentRisk,
   UploadResponse,
+  UploadPreviewResponse,
 } from "@/types/api";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -167,9 +168,20 @@ export const api = {
       body: JSON.stringify({ opt_out: optOut }),
     }),
 
-  upload: async (file: File, autoScore = true) => {
+  previewUpload: async (file: File, columnMapping?: Record<string, string>) => {
     const form = new FormData();
     form.append("file", file);
+    if (columnMapping) form.append("column_mapping", JSON.stringify(columnMapping));
+    return request<UploadPreviewResponse>("/api/v1/upload/preview", {
+      method: "POST",
+      body: form,
+    });
+  },
+
+  upload: async (file: File, autoScore = true, columnMapping?: Record<string, string>) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (columnMapping) form.append("column_mapping", JSON.stringify(columnMapping));
     return request<UploadResponse>(`/api/v1/upload?auto_score=${autoScore}`, {
       method: "POST",
       body: form,

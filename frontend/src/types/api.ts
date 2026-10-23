@@ -56,10 +56,71 @@ export type StudentRisk = {
 
 export type CommunicationPreferenceResponse = { opt_out: boolean };
 
+export type ImportField =
+  | "matricula"
+  | "nome"
+  | "curso"
+  | "turma"
+  | "semestre"
+  | "forma_ingresso"
+  | "dias_atraso_boleto"
+  | "recorrencia_atrasos"
+  | "dias_sem_login"
+  | "presenca_percentual"
+  | "nota_media"
+  | "reprovacoes"
+  | "telefone"
+  | "email"
+  | "communication_opt_out";
+
+export type UploadPreviewResponse = {
+  columns: Array<{
+    key: string;
+    label: string;
+    suggested_field?: ImportField | null;
+    sample?: string;
+  }>;
+  mapped_columns: Record<string, ImportField>;
+  required_columns: string[];
+  missing_required_columns: string[];
+  recommended_columns: string[];
+  missing_recommended_columns: string[];
+  rows_received: number;
+  rows_to_import: number;
+  rows_that_will_be_created?: number;
+  invalid_rows_count: number;
+  invalid_rows: Array<{ line: number; message: string }>;
+  duplicates_in_file: number;
+  existing_matches: number;
+  sample_rows: Array<Record<string, string | number | null>>;
+  warnings: string[];
+  warnings_total: number;
+  quality_score: number;
+  columns_original: string[];
+  columns_recognized: string[];
+  null_rates_pct: Record<string, number>;
+  can_import: boolean;
+  field_labels: Record<ImportField, string>;
+  message?: string;
+};
+
 export type UploadResponse = {
   message?: string;
   students_imported?: number;
   batch?: { id?: string };
+  quality?: {
+    rows_received?: number;
+    rows_imported?: number;
+    rows_discarded?: number;
+    rows_created?: number;
+    rows_updated?: number;
+    duplicates_removed?: number;
+    existing_matches?: number;
+    quality_score?: number;
+    warnings?: string[];
+    warnings_total?: number;
+    missing_recommended_columns?: string[];
+  };
   scoring?: {
     scored?: number;
     summary?: { critico?: number; medio?: number; baixo?: number };
