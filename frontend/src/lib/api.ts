@@ -5,9 +5,13 @@ import type {
   AuthActionResponse,
   AuthResponse,
   BillingSummary,
+  BehaviorProperties,
+  BehaviorPropertiesResponse,
   CommunicationPreferenceResponse,
   CommunicationPreferenceUpdate,
   ConsentAuditResponse,
+  OptimizedEnqueueResponse,
+  SendTimeRecommendation,
   CriticalResponse,
   InviteMemberRequest,
   InviteMemberResponse,
@@ -175,6 +179,32 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+
+  studentBehaviorProperties: (id: string) =>
+    request<BehaviorPropertiesResponse>(`/api/v1/students/${id}/behavior-properties`),
+
+  updateStudentBehaviorProperties: (id: string, properties: BehaviorProperties) =>
+    request<{ student_id: string; properties: BehaviorProperties; message_fields: string[] }>(
+      `/api/v1/students/${id}/behavior-properties`,
+      { method: "PATCH", body: JSON.stringify({ properties }) }
+    ),
+
+  retentionSendTime: (id: string, channels?: Array<"whatsapp" | "email" | "sms">) => {
+    const q = new URLSearchParams();
+    channels?.forEach((channel) => q.append("channels", channel));
+    const suffix = q.toString() ? `?${q.toString()}` : "";
+    return request<SendTimeRecommendation>(`/api/v1/agents/retention/send-time/${id}${suffix}`);
+  },
+
+  enqueueRetention: (body: RetentionRunRequest, idempotencyKey?: string) =>
+    request<OptimizedEnqueueResponse | { job_id: string; status: string; created_at: number }>(
+      "/api/v1/agents/retention/enqueue",
+      {
+        method: "POST",
+        headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+        body: JSON.stringify(body),
+      }
+    ),
 
   consentAudit: (id: string, limit = 10) =>
     request<ConsentAuditResponse>(`/api/v1/students/${id}/consent-audit?limit=${limit}`),

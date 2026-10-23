@@ -6,8 +6,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import time
 
 from app.core.config import get_settings
+from app.db.session import AsyncSessionLocal
+from app.services.engagement import sweep_unanswered_reads
 from app.services.retention_queue import (
     process_retention_job,
     promote_due_retries,
@@ -19,9 +22,24 @@ async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
     settings = get_settings()
     redis = redis_client()
     print(f"Retention worker ouvindo {settings.retention_queue_name}")
+    last_engagement_sweep = 0.0
     try:
         while True:
             await promote_due_retries(redis)
+            now_monotonic = time.monotonic()
+            if now_monotonic - last_engagement_sweep >= settings.engagement_sweep_interval_seconds:
+                try:
+                    async with AsyncSessionLocal() as session:
+                        summary = await sweep_unanswered_reads(session, dry_run=False)
+                    print(
+                        "Engagement sweep: "
+                        f"{summary.get('events_created', 0)} no_response; "
+                        f"{summary.get('students_updated', 0)} scores recalculados."
+                    )
+                except Exception as exc:
+                    # Keep processing the message queue if the periodic refresh fails.
+                    print(f"Aviso: engagement sweep falhou ({type(exc).__name__}).")
+                last_engagement_sweep = now_monotonic
             item = await redis.blpop(settings.retention_queue_name, timeout=poll_seconds)
             if item:
                 await process_retention_job(item[1], redis)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Channel = Literal["whatsapp", "email", "sms"]
 
@@ -35,6 +35,8 @@ class MessageContext(BaseModel):
     recommended_action: str | None = None
     telefone: str | None = None
     email: str | None = None
+    behavior_properties: dict[str, Any] = Field(default_factory=dict)
+    engagement_score: float | None = None
 
 
 class ChannelAgent(Protocol):

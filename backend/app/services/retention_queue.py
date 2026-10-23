@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -46,6 +47,7 @@ async def enqueue_retention_job(
     tenant_slug: str | None,
     payload: dict[str, Any],
     idempotency_key: str | None = None,
+    scheduled_at: datetime | str | float | None = None,
 ) -> dict[str, Any]:
     settings = get_settings()
     redis = redis_client()
@@ -74,33 +76,52 @@ async def enqueue_retention_job(
             job_id = str(uuid4())
 
         now = time.time()
+        scheduled_ts: float | None = None
+        if isinstance(scheduled_at, datetime):
+            scheduled_ts = scheduled_at.timestamp()
+        elif isinstance(scheduled_at, str):
+            scheduled_ts = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00")).timestamp()
+        elif isinstance(scheduled_at, (int, float)):
+            scheduled_ts = float(scheduled_at)
+        is_scheduled = scheduled_ts is not None and scheduled_ts > now + 60
+        initial_status = "scheduled" if is_scheduled else "queued"
         record = {
             "id": job_id,
             "tenant_id": tenant_id,
             "tenant_slug": tenant_slug or "",
             "payload": payload,
-            "status": "queued",
+            "status": initial_status,
             "attempt": 0,
             "max_attempts": settings.retention_max_attempts,
             "created_at": now,
             "updated_at": now,
         }
+        if is_scheduled and scheduled_ts is not None:
+            record["scheduled_for"] = scheduled_ts
         await redis.hset(
             _job_key(job_id),
             mapping={
                 "tenant_id": tenant_id,
                 "tenant_slug": tenant_slug or "",
                 "payload": _encode(payload),
-                "status": "queued",
+                "status": initial_status,
                 "attempt": "0",
                 "max_attempts": str(settings.retention_max_attempts),
                 "created_at": str(now),
                 "updated_at": str(now),
+                **({"scheduled_for": str(scheduled_ts)} if is_scheduled and scheduled_ts is not None else {}),
             },
         )
         await redis.expire(_job_key(job_id), settings.retention_job_ttl_seconds)
-        await redis.rpush(settings.retention_queue_name, job_id)
-        _event(logging.INFO, "retention_job_enqueued", job_id=job_id, tenant_id=tenant_id, status="queued", attempt=0, deduplicated=False)
+        if is_scheduled and scheduled_ts is not None:
+            await redis.zadd(
+                f"{settings.retention_queue_name}{DELAYED_SUFFIX}",
+                {job_id: scheduled_ts},
+            )
+            _event(logging.INFO, "retention_job_scheduled", job_id=job_id, tenant_id=tenant_id, status="scheduled", scheduled_for=scheduled_ts)
+        else:
+            await redis.rpush(settings.retention_queue_name, job_id)
+            _event(logging.INFO, "retention_job_enqueued", job_id=job_id, tenant_id=tenant_id, status="queued", attempt=0, deduplicated=False)
         return record
     finally:
         await redis.aclose()
@@ -126,7 +147,7 @@ async def get_job(
         for field in ("attempt", "max_attempts"):
             if field in result:
                 result[field] = int(result[field])
-        for field in ("created_at", "updated_at", "next_retry_at"):
+        for field in ("created_at", "updated_at", "next_retry_at", "scheduled_for"):
             if field in result:
                 result[field] = float(result[field])
         return result
@@ -195,6 +216,7 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
                     channels=payload.get("channels"),
                     job_id=job_id,
                     campaign_id=payload.get("campaign_id"),
+                    student_ids=payload.get("student_ids"),
                 )
         except Exception as exc:
             if attempt < int(job.get("max_attempts", settings.retention_max_attempts)):
@@ -225,6 +247,10 @@ async def promote_due_retries(redis: Redis) -> int:
         return 0
     await redis.zrem(delayed_key, *ids)
     if ids:
+        for job_id in ids:
+            current_status = await redis.hget(_job_key(job_id), "status")
+            if current_status == "scheduled":
+                await _update_job(redis, job_id, status="queued")
         await redis.rpush(settings.retention_queue_name, *ids)
         _event(logging.INFO, "retention_job_retries_promoted", queue_name=settings.retention_queue_name, count=len(ids))
     return len(ids)

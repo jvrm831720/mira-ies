@@ -68,6 +68,8 @@ def _build_context(student: Student) -> MessageContext:
         recommended_action=recommended_action,
         telefone=student.telefone,
         email=student.email,
+        behavior_properties=getattr(student, "behavior_properties", None) or {},
+        engagement_score=getattr(student, "engagement_score", None),
     )
 
 
@@ -78,6 +80,8 @@ def _decision_context(student: Student, *, extra: dict[str, Any] | None = None) 
         "has_phone": bool(student.telefone),
         "has_email": bool(student.email),
         "opt_out": bool(getattr(student, "communication_opt_out", False)),
+        "engagement_score": getattr(student, "engagement_score", None),
+        "dynamic_risk_adjustment": getattr(student, "dynamic_risk_adjustment", 0.0),
     }
     if extra:
         ctx.update(extra)

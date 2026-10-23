@@ -44,6 +44,11 @@ export type StudentRisk = {
   email?: string | null;
   communication_opt_out?: boolean;
   communication_preferences?: CommunicationPreferences;
+  behavior_properties?: BehaviorProperties;
+  engagement_score?: number | null;
+  engagement_score_updated_at?: string | null;
+  model_risk_score?: number | null;
+  dynamic_risk_adjustment?: number;
   risk_score?: number | null;
   risk_level?: string | null;
   shap_summary?: string | null;
@@ -68,6 +73,60 @@ export type CommunicationPreferenceUpdate = {
   channels?: Partial<Record<CommunicationChannel, boolean>>;
   topics?: Partial<Record<CommunicationTopic, boolean>>;
   source_reference?: string;
+};
+
+export type BehaviorProperties = {
+  last_class_missed?: string | null;
+  missed_classes_this_week?: number | null;
+  current_module?: string | null;
+  module_progress_pct?: number | null;
+  recent_activity?: string | null;
+  last_activity_at?: string | null;
+  custom_properties?: Record<string, string | number | boolean | null>;
+  message_fields?: string[];
+};
+
+export type BehaviorPropertiesResponse = {
+  student_id: string;
+  properties: BehaviorProperties;
+  engagement_score?: number | null;
+  engagement_score_updated_at?: string | null;
+  model_risk_score?: number | null;
+  risk_score?: number | null;
+  risk_level?: RiskLevel;
+  dynamic_risk_adjustment?: number;
+};
+
+export type SendTimeRecommendation = {
+  student_id: string;
+  channel: "whatsapp" | "email" | "sms";
+  preferred_hour_local: number;
+  timezone: string;
+  next_send_at: string;
+  confidence: "fallback" | "medium" | "high";
+  reason: string;
+  historical_attempts_at_hour: number;
+  engagement_rate_pct_at_hour?: number | null;
+  history_days: number;
+};
+
+export type OptimizedEnqueueResponse = {
+  optimize_send_time: true;
+  scheduled_count: number;
+  skipped_count: number;
+  failed_scheduling_count: number;
+  scheduled_jobs: Array<{
+    job_id: string;
+    student_id: string;
+    channel: string;
+    status: string;
+    scheduled_for: string;
+    timezone: string;
+    confidence: string;
+    reason: string;
+    historical_attempts_at_hour: number;
+  }>;
+  message: string;
 };
 
 export type CommunicationPreferenceResponse = {
@@ -208,6 +267,7 @@ export type RetentionRunRequest = {
   student_ids?: string[];
   campaign_name?: string;
   campaign_id?: string;
+  optimize_send_time?: boolean;
 };
 
 export type RetentionRunResult = {
