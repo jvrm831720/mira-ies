@@ -10,6 +10,7 @@ import { CriticalList } from "@/components/risk/critical-list";
 import { RiskDistribution } from "@/components/risk/risk-distribution";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { OperationalOverview } from "@/components/dashboard/operational-overview";
+import { ChannelHealthDashboard } from "@/components/dashboard/channel-health-dashboard";
 import { StudentDrawer } from "@/components/students/student-drawer";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
@@ -31,6 +32,7 @@ export default function CommandCenterPage() {
   const model = useQuery({ queryKey: ["model-info"], queryFn: () => api.modelInfo(), retry: false });
   const agents = useQuery({ queryKey: ["agents-status"], queryFn: () => api.agentsStatus(), retry: false });
   const activity = useQuery({ queryKey: ["dashboard-recent-activity"], queryFn: () => api.retentionLogs({ limit: 6 }), retry: false });
+  const analytics = useQuery({ queryKey: ["retention-analytics", 30], queryFn: () => api.retentionAnalytics(30), retry: false });
   const students = useQuery({ queryKey: ["students-home"], queryFn: () => api.students({ limit: 80 }), retry: false });
 
   const total = summary.data?.total_scored ?? (summary.data?.summary
@@ -63,9 +65,9 @@ export default function CommandCenterPage() {
   }
 
   async function refreshDashboard() {
-    await Promise.all([summary.refetch(), critical.refetch(), model.refetch(), agents.refetch(), activity.refetch(), students.refetch()]);
+    await Promise.all([summary.refetch(), critical.refetch(), model.refetch(), agents.refetch(), activity.refetch(), students.refetch(), analytics.refetch()]);
   }
-  const isRefreshing = summary.isFetching || critical.isFetching || model.isFetching || agents.isFetching || activity.isFetching || students.isFetching;
+  const isRefreshing = summary.isFetching || critical.isFetching || model.isFetching || agents.isFetching || activity.isFetching || students.isFetching || analytics.isFetching;
 
   return (
     <>
@@ -176,6 +178,10 @@ export default function CommandCenterPage() {
               : <RiskDistribution data={summary.data} loading={summary.isLoading} />}
           </div>
           <div className="min-w-0 xl:col-span-7"><OperationalOverview model={model.data} agents={agents.data} modelLoading={model.isLoading} agentsLoading={agents.isLoading} modelError={model.isError} agentsError={agents.isError} /></div>
+        </section>
+
+        <section aria-label="Observabilidade e retorno da retenção">
+          <ChannelHealthDashboard data={analytics.data} loading={analytics.isLoading} error={analytics.isError} onRetry={() => void analytics.refetch()} />
         </section>
 
         <section className="grid gap-4 xl:grid-cols-12" aria-label="Prioridades e atividade recente">

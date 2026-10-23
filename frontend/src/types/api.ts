@@ -377,3 +377,59 @@ export type PurchaseCreditsResponse = {
   added: number;
   balance: number;
 };
+
+export type RetentionAnalyticsChannel = {
+  messages_attempted: number;
+  messages_sent: number;
+  delivered_messages: number;
+  bounced_messages: number;
+  engaged_messages: number;
+  clicked_messages: number;
+  replied_messages: number;
+  failed_messages: number;
+  unknown_messages: number;
+  unique_students_contacted: number;
+  delivery_rate_pct: number | null;
+  bounce_rate_pct: number | null;
+  engagement_rate_pct: number | null;
+  average_latency_ms: number | null;
+  estimated_cost_brl_per_send: number | null;
+  estimated_cost_brl_total: number | null;
+  attribution: {
+    attributed_students: number;
+    retained_students: number;
+    dropped_students: number;
+    transferred_students: number;
+    retention_rate_pct: number | null;
+    attribution_coverage_pct: number | null;
+  };
+};
+
+export type RetentionAnalytics = {
+  period_days: number;
+  period_start: string;
+  generated_at: string;
+  summary: {
+    messages_sent: number;
+    unique_students_contacted: number;
+    attributed_students: number;
+    retained_students: number;
+    retention_rate_pct: number | null;
+    attribution_coverage_pct: number | null;
+    estimated_cost_brl_total: number | null;
+    cost_configured_channels: number;
+  };
+  channels: Record<"whatsapp" | "email" | "sms", RetentionAnalyticsChannel>;
+  providers: Array<{
+    channel: string;
+    provider: string;
+    attempts: number;
+    successes: number;
+    failures: number;
+    success_rate_pct: number | null;
+    average_latency_ms: number | null;
+  }>;
+  engagement_events: Record<string, number>;
+  attribution_note: string;
+  cost_note: string;
+};

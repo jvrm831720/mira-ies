@@ -24,6 +24,7 @@ import type {
   PurchaseCreditsResponse,
   RetentionRunRequest,
   RetentionRunResult,
+  RetentionAnalytics,
   RiskSummary,
   StudentsResponse,
   StudentRisk,
@@ -232,6 +233,9 @@ export const api = {
   modelInfo: () => request<ModelInfo>("/api/v1/model/info"),
 
   agentsStatus: () => request<AgentsStatus>("/api/v1/agents/status"),
+
+  retentionAnalytics: (days = 30) =>
+    request<RetentionAnalytics>(`/api/v1/agents/retention/analytics?days=${days}`),
 
   retentionRun: (body: RetentionRunRequest, idempotencyKey?: string) =>
     request<RetentionRunResult>("/api/v1/agents/retention/run", {
