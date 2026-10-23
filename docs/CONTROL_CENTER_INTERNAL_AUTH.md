@@ -40,6 +40,12 @@ Não registrar senha, OTP, segredo TOTP, token de sessão, chave de API, link co
 - `AdminAuditEvent`: ator, ação, alvo, tenant alvo opcional, motivo, resultado, request ID, metadados minimizados e timestamp.
 - Opcionalmente `AdminSession` se a revogação por sessão exigir persistência; caso contrário, versão de autenticação para revogar todas as sessões.
 
+## Bootstrap inicial e configuração operacional
+
+Depois de aplicar as migrations em um ambiente controlado, o primeiro Super Admin é criado pelo comando `python -m scripts.bootstrap_control_center_admin`, executado a partir de `backend/`. Exige as variáveis de ambiente `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD` (mínimo 14 caracteres) e `ADMIN_BOOTSTRAP_CONFIRM=CREATE_FIRST_ADMIN`. O comando só funciona quando ainda não existe nenhuma identidade interna; não passa a senha pela linha de comando nem a registra em logs.
+
+O login depende de `RESEND_API_KEY`, `EMAIL_FROM`, `REDIS_URL` e de uma `SECRET_KEY` forte já exigida pelo backend em produção. Redis é necessário para rate limiting distribuído; se indisponível, o endpoint de autenticação falha fechado. Configure o proxy reverso para que `request.client.host` represente o endereço real do cliente de forma confiável antes de expor o endpoint publicamente.
+
 ## Ordem segura de implementação
 
 1. Revisar convenções atuais de migrations Alembic e testes; identificar o head real antes de criar migration.
