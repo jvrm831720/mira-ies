@@ -24,6 +24,7 @@ from app.agents.providers.resend_provider import send_email_resend
 
 router = APIRouter(prefix="/admin/control-center/auth", tags=["MIRA Control Center - Auth"])
 logger = logging.getLogger(__name__)
+_DUMMY_PASSWORD_HASH = hash_password(secrets.token_urlsafe(32))
 _bearer = HTTPBearer(auto_error=False)
 
 _CODE_TTL_SECONDS = 300
@@ -135,9 +136,8 @@ async def start_admin_login(body: PasswordPayload, request: Request, db: AsyncSe
         await db.commit()
         raise HTTPException(status_code=429, detail="Acesso temporariamente bloqueado. Tente mais tarde.")
 
-    dummy = "scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    password_ok = verify_password(body.password, admin.password_hash if admin else dummy)
-    if not admin or not admin.is_active or not password_ok:
+    password_ok = verify_password(body.password, admin.password_hash if admin else _DUMMY_PASSWORD_HASH)
+    if not admin or not admin.is_active or admin.role not in _ALLOWED_ROLES or not password_ok:
         if admin:
             admin.failed_login_attempts += 1
             if admin.failed_login_attempts >= _MAX_PASSWORD_ATTEMPTS:
