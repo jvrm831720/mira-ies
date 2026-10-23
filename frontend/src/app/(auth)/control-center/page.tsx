@@ -150,6 +150,23 @@ export default function ControlCenterPage() {
     }
   }
 
+  async function changeMemberRole(member: Member, role: string) {
+    if (!token || admin?.role !== "super_admin" || role === member.role) return;
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/members/${member.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const payload = await response.json().catch(() => ({})) as { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "Não foi possível alterar o perfil.");
+      await loadTab(token, "members");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao alterar perfil do membro.");
+    }
+  }
+
   async function toggleMember(member: Member) {
     if (!token || admin?.role !== "super_admin") return;
     setError("");
@@ -319,7 +336,7 @@ export default function ControlCenterPage() {
 
       {tab === "members" && <section className="mt-6 rounded-2xl border border-neutral-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-neutral-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">Membros</h2><p className="mt-1 text-sm text-neutral-500">Contas de usuários das instituições.</p></div><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar membro…" className="h-10 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-indigo-500 sm:w-72" /></div>
-        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Pessoa</th><th className="px-5 py-3">Instituição</th><th className="px-5 py-3">Perfil</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Criado em</th>{admin.role === "super_admin" && <th className="px-5 py-3">Ação</th>}</tr></thead><tbody className="divide-y divide-neutral-100">{visibleMembers.map((member) => <tr key={member.id}><td className="px-5 py-4"><p className="font-semibold">{member.name}</p><p className="mt-1 text-xs text-neutral-500">{member.email}</p></td><td className="px-5 py-4">{member.organization}</td><td className="px-5 py-4 capitalize">{member.role}</td><td className="px-5 py-4">{member.is_active ? "Ativo" : "Inativo"}</td><td className="px-5 py-4">{dateLabel(member.created_at)}</td>{admin.role === "super_admin" && <td className="px-5 py-4"><button onClick={() => void toggleMember(member)} className="whitespace-nowrap rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold hover:bg-neutral-50">{member.is_active ? "Desativar" : "Reativar"}</button></td>}</tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Pessoa</th><th className="px-5 py-3">Instituição</th><th className="px-5 py-3">Perfil</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Criado em</th>{admin.role === "super_admin" && <th className="px-5 py-3">Ação</th>}</tr></thead><tbody className="divide-y divide-neutral-100">{visibleMembers.map((member) => <tr key={member.id}><td className="px-5 py-4"><p className="font-semibold">{member.name}</p><p className="mt-1 text-xs text-neutral-500">{member.email}</p></td><td className="px-5 py-4">{member.organization}</td><td className="px-5 py-4">{admin.role === "super_admin" ? <select aria-label={`Perfil de ${member.name}`} value={member.role} onChange={(e) => void changeMemberRole(member, e.target.value)} className="h-9 rounded-lg border border-neutral-200 bg-white px-2 text-xs capitalize"><option value="admin">Admin</option><option value="coordinator">Coordenador</option><option value="operator">Operador</option><option value="viewer">Leitor</option></select> : <span className="capitalize">{member.role}</span>}</td><td className="px-5 py-4">{member.is_active ? "Ativo" : "Inativo"}</td><td className="px-5 py-4">{dateLabel(member.created_at)}</td>{admin.role === "super_admin" && <td className="px-5 py-4"><button onClick={() => void toggleMember(member)} className="whitespace-nowrap rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold hover:bg-neutral-50">{member.is_active ? "Desativar" : "Reativar"}</button></td>}</tr>)}</tbody></table></div>
         {visibleMembers.length === 0 && <p className="p-6 text-sm text-neutral-500">Nenhum membro encontrado.</p>}
       </section>}
 
