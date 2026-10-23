@@ -80,6 +80,7 @@ async def test_invalid_password_validation_does_not_echo_password(client):
     attempted_password = "too-short-secret"
     response = await client.post(
         "/api/v1/auth/admin/users",
+        headers={"X-Admin-Secret": get_settings().secret_key},
         json={
             "tenant_slug": "default",
             "display_name": "User",
