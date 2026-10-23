@@ -137,6 +137,65 @@ async def list_members(
     }
 
 
+def _safe_audit_metadata(action: str, metadata: dict | None) -> dict | None:
+    """Return only reviewed, non-secret fields for the internal audit UI."""
+    if not isinstance(metadata, dict):
+        return None
+
+    if action == "organization_updated":
+        allowed_fields = {"name", "segment", "is_active"}
+        result: dict = {}
+        for side in ("before", "after"):
+            values = metadata.get(side)
+            if isinstance(values, dict):
+                result[side] = {
+                    key: value[:160] if isinstance(value, str) else value
+                    for key, value in values.items()
+                    if key in allowed_fields and (
+                        value is None or isinstance(value, (str, bool, int, float))
+                    )
+                }
+        fields = metadata.get("fields_updated")
+        if isinstance(fields, list):
+            result["fields_updated"] = [key for key in fields if key in allowed_fields and isinstance(key, str)]
+        return result or None
+
+    if action == "member_updated":
+        allowed_fields = {"role", "is_active"}
+        result = {}
+        for side in ("before", "after"):
+            values = metadata.get(side)
+            if isinstance(values, dict):
+                result[side] = {
+                    key: value[:80] if isinstance(value, str) else value
+                    for key, value in values.items()
+                    if key in allowed_fields and (
+                        value is None or isinstance(value, (str, bool, int, float))
+                    )
+                }
+        fields = metadata.get("fields_updated")
+        if isinstance(fields, list):
+            result["fields_updated"] = [key for key in fields if key in allowed_fields and isinstance(key, str)]
+        return result or None
+
+    if action == "billing_record_updated":
+        fields = metadata.get("fields_updated")
+        allowed_fields = {"plan_name", "plan_price_brl", "billing_cycle", "due_at", "plan_status", "payment_status"}
+        if isinstance(fields, list):
+            return {"fields_updated": [key for key in fields if key in allowed_fields and isinstance(key, str)]}
+        return None
+
+    if action == "billing_record_created":
+        cycle = metadata.get("billing_cycle")
+        return {"billing_cycle": cycle} if cycle in {"monthly", "yearly"} else None
+
+    # Authentication events may expose only the route and method, never credentials.
+    path, method = metadata.get("path"), metadata.get("method")
+    if isinstance(path, str) and path.startswith("/api/v1/admin/control-center/") and isinstance(method, str):
+        return {"path": path[:200], "method": method[:10]}
+    return None
+
+
 @router.get("/audit")
 async def list_audit_events(
     _admin: AdminPrincipal = Depends(admin_permission("audit:read")),
@@ -160,6 +219,7 @@ async def list_audit_events(
                 "target_type": event.target_type,
                 "target_id": event.target_id,
                 "request_id": event.request_id,
+                "metadata_redacted": _safe_audit_metadata(event.action, event.metadata_redacted),
                 "created_at": event.created_at.isoformat() if event.created_at else None,
             }
             for event, actor_email in result.all()
