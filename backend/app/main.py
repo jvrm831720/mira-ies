@@ -118,13 +118,9 @@ _cors = (
     if settings.debug and settings.app_env == "development"
     else [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 )
-_vercel_preview_origin_regex = (
-    r"^https://mira(?:-[a-z0-9]+)*-joaovictorux-1030s-projects\.vercel\.app$"
-)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors,
-    allow_origin_regex=_vercel_preview_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
