@@ -1,43 +1,28 @@
-# Mira Frontend
+# Mira — Frontend
 
-Interface SaaS (Next.js 15 + TypeScript + Tailwind + TanStack Query) para a Mira.
+Interface Next.js da plataforma Mira, com identidade visual baseada em carvão, off-white e índigo, e tipografia Inter. O layout autenticado usa navegação lateral, páginas responsivas e dados carregados pela API com React Query.
 
-## Telas
+## Rodar localmente
 
-- `/login` — e-mail e senha ou código de uso único via WhatsApp
-- `/reset-password?token=...` — redefinição de senha por link enviado por e-mail
-- `/` — Command Center (KPIs + críticos)
-- `/alunos` — lista filtrável
-- `/alunos/[id]` — ficha (score, fatores, preview de contato)
-- `/importar` — upload CSV/XLSX + auto-score
-- `/retencao` — régua com dry-run por padrão
-- `/retencao/logs` — InterventionLog
-- `/config` — providers, disclaimer do modelo, logout
+Na raiz do repositório, suba banco e Redis; em seguida:
 
-## Pré-requisitos
-
-1. Backend da Mira rodando (`http://localhost:8000`)
-2. Usuário já cadastrado por uma instituição
-
-## Rodar
-
-```bash
+```powershell
 cd frontend
-cp .env.example .env.local   # ajuste NEXT_PUBLIC_API_URL se preciso
-npm install
+npm ci
 npm run dev
 ```
 
-Abra http://localhost:3000 e entre com seu e-mail e senha ou via WhatsApp.
+O frontend fica em http://localhost:3000. Por padrão, a API esperada é http://localhost:8000; para alterar, defina `NEXT_PUBLIC_API_URL` no ambiente.
 
-## Variáveis
+## Verificações
 
-| Var | Default |
-|-----|---------|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` |
+```bash
+npm run lint
+npm run build
+```
 
-## Stack
+O GitHub Actions executa lint e build do frontend além dos testes de backend. O dashboard principal não usa dados de demonstração para métricas: lê os resumos, alunos prioritários, status do modelo, configuração dos agentes e histórico de retenção da API autenticada.
 
-Next.js App Router · React 19 · Tailwind · shadcn-style UI · TanStack Query · Sonner
+## Dashboard
 
-Auth: token Bearer no `localStorage` com a chave `mira_access_token`, enviado nos requests autenticados.
+A visão geral combina indicadores de risco, distribuição da base, fila crítica, atividade de retenção recente e configuração operacional. Quando os endpoints não respondem, a interface apresenta estados de erro e opções para tentar novamente; não substitui falhas por números fictícios. O painel operacional é somente informativo e não dispara comunicações.
