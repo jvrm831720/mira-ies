@@ -9,7 +9,7 @@ A console terá autenticação própria para a equipe interna da MIRA, independe
 1. O operador informa e-mail e senha em uma tela interna dedicada.
 2. O backend valida credenciais com hash resistente a brute force, limitação de tentativas, mensagens de erro que não revelem a existência da conta e logs sem dados sensíveis.
 3. Mesmo com senha correta, a sessão administrativa não é emitida antes de concluir MFA.
-4. MFA deve usar TOTP (aplicativo autenticador) ou mecanismo equivalente com verificação no servidor. Códigos de recuperação devem ser de uso único, armazenados como hashes e entregues uma única vez.
+4. MFA usa código numérico enviado por e-mail após a senha correta. O código expira em 5 minutos, é armazenado somente como HMAC, fica vinculado ao e-mail, é de uso único e permite no máximo 5 tentativas. A solicitação tem cooldown de 60 segundos por identidade e rate limit distribuído por IP no Redis; se o Redis estiver indisponível, a autenticação falha fechada. Nunca registrar o código em logs.
 5. Sessão curta e revogável, cookies `HttpOnly`, `Secure`, `SameSite` quando usar cookie; proteção CSRF se aplicável. Nunca guardar tokens privilegiados em localStorage.
 6. MFA obrigatório em cada nova sessão administrativa; exigir nova autenticação/MFA para ações críticas, como desativar organização, alterar papéis privilegiados ou registrar cobrança como paga.
 7. Processo de recuperação de MFA precisa de verificação reforçada e trilha de auditoria; suporte não pode simplesmente desabilitar MFA sem aprovação.
@@ -35,7 +35,7 @@ Não registrar senha, OTP, segredo TOTP, token de sessão, chave de API, link co
 
 ## Modelo de dados sugerido
 
-- `AdminPrincipal`: e-mail normalizado único, nome, hash de senha, papel/estado, MFA habilitado, segredo TOTP protegido por criptografia de aplicação/KMS, versão de autenticação, contadores de falha e timestamps.
+- `AdminPrincipal`: e-mail normalizado único, nome, hash de senha, papel/estado, MFA habilitado, estado de MFA por e-mail e metadados de autenticação, versão de autenticação, contadores de falha e timestamps.
 - `AdminRecoveryCode`: hash de código de recuperação, uso único e data de consumo.
 - `AdminAuditEvent`: ator, ação, alvo, tenant alvo opcional, motivo, resultado, request ID, metadados minimizados e timestamp.
 - Opcionalmente `AdminSession` se a revogação por sessão exigir persistência; caso contrário, versão de autenticação para revogar todas as sessões.
@@ -44,11 +44,11 @@ Não registrar senha, OTP, segredo TOTP, token de sessão, chave de API, link co
 
 1. Revisar convenções atuais de migrations Alembic e testes; identificar o head real antes de criar migration.
 2. Criar modelos/migration e testes de persistência para identidade interna, MFA e auditoria.
-3. Implementar enrollment TOTP, confirmação, login em duas etapas, rate limiting e recuperação.
+3. Implementar login em duas etapas com código por e-mail, expiração curta, uso único, rate limiting distribuído e recuperação operacional auditada.
 4. Criar dependência `require_admin_permission` independente de `get_current_tenant`.
 5. Testar explicitamente que token de cliente, API key de tenant e segredo administrativo antigo não dão acesso à console.
 6. Implementar primeiro os endpoints de leitura e depois mutações financeiras/organizacionais.
-7. Testar autorização negativa por papel, tenant alvo, MFA ausente, sessão expirada/revogada, brute force e eventos de auditoria.
+7. Testar autorização negativa por papel, tenant alvo, MFA ausente, código expirado/reutilizado, limite de tentativas, Redis indisponível, sessão expirada/revogada, brute force e eventos de auditoria.
 8. Executar testes backend, lint e build frontend; revisar diff e resultados do CI antes de qualquer merge/deploy.
 
 ## Critérios de aceite
