@@ -83,7 +83,7 @@ def test_behavior_properties_are_validated_and_only_selected_fields_are_rendered
     email = render_email_body(ctx)
     assert "aula de Cálculo II" in whatsapp
     assert "Módulo 4 está em 45%" in email
-    assert "tutor responsável: Prof. Almeida" in email
+    assert "tutor responsavel: Prof. Almeida" in email
     assert "Noturno" not in email
     assert "2 falta(s)" not in email  # The tenant did not opt in that property.
     sms = render_sms(ctx)

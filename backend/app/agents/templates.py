@@ -63,6 +63,10 @@ def _personalized_facts(ctx: MessageContext) -> str:
     if "recent_activity" in selected and activity:
         facts.append(f"Atividade recente registrada: {_safe_value(activity, 90)}.")
 
+    last_activity_at = properties.get("last_activity_at")
+    if "last_activity_at" in selected and last_activity_at:
+        facts.append(f"Última atividade registrada em {_safe_value(last_activity_at, 35)}.")
+
     custom = properties.get("custom_properties") or {}
     for field in sorted(selected):
         if not field.startswith("custom_properties."):
@@ -74,7 +78,7 @@ def _personalized_facts(ctx: MessageContext) -> str:
         label = key.replace("_", " ")
         facts.append(f"Informação atualizada — {_safe_value(label, 40)}: {_safe_value(value, 70)}.")
 
-    return " ".join(facts[:2])
+    return " ".join(facts[:3])
 
 
 def render_whatsapp(ctx: MessageContext) -> str:

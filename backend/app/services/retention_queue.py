@@ -78,9 +78,15 @@ async def enqueue_retention_job(
         now = time.time()
         scheduled_ts: float | None = None
         if isinstance(scheduled_at, datetime):
-            scheduled_ts = scheduled_at.timestamp()
+            schedule_dt = scheduled_at
+            if schedule_dt.tzinfo is None:
+                schedule_dt = schedule_dt.replace(tzinfo=timezone.utc)
+            scheduled_ts = schedule_dt.timestamp()
         elif isinstance(scheduled_at, str):
-            scheduled_ts = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00")).timestamp()
+            schedule_dt = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
+            if schedule_dt.tzinfo is None:
+                schedule_dt = schedule_dt.replace(tzinfo=timezone.utc)
+            scheduled_ts = schedule_dt.timestamp()
         elif isinstance(scheduled_at, (int, float)):
             scheduled_ts = float(scheduled_at)
         is_scheduled = scheduled_ts is not None and scheduled_ts > now + 60

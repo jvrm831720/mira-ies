@@ -27,6 +27,7 @@ MESSAGEABLE_STANDARD_FIELDS = {
     "current_module",
     "module_progress_pct",
     "recent_activity",
+    "last_activity_at",
 }
 _ALLOWED_EVENT_TYPES = {
     "delivered", "read", "opened", "clicked", "replied",
@@ -115,6 +116,8 @@ def normalize_behavior_properties(
         for key, value in raw_custom.items():
             if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,39}", key):
                 raise ValueError(f"Nome de propriedade customizada inválido: {key!r}")
+            if any(part in key.lower() for part in ("password", "secret", "token", "api_key", "cpf", "documento", "email", "telefone", "phone", "endereco", "address", "senha", "birth", "nascimento")):
+                raise ValueError(f"Propriedade customizada com nome sensível não permitida: {key!r}")
             if value is None or isinstance(value, bool):
                 custom[key] = value
             elif isinstance(value, int):
