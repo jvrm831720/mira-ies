@@ -93,7 +93,7 @@ async def test_enqueue_idempotency_is_tenant_scoped_and_emits_events(monkeypatch
 async def test_failed_job_is_scheduled_for_exponential_retry(monkeypatch, caplog):
     redis = FakeRedis()
     settings = queue.get_settings()
-    settings.retention_retry_backoff_seconds = 3
+    monkeypatch.setattr(settings, "retention_retry_backoff_seconds", 3)
     job_id = "retry-test"
     await redis.hset(queue._job_key(job_id), mapping=_job_mapping())
     from app.agents import orchestrator as orch_module
