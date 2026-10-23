@@ -1,267 +1,189 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
-import { ArrowLeft, CheckCircle2, Fingerprint, KeyRound, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Activity, Building2, CheckCircle2, CircleAlert, ClipboardList, Fingerprint, LoaderCircle, LogOut, RefreshCw, ShieldCheck, Users, Wifi, WifiOff } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const SESSION_KEY = "mira_control_center_token";
-const SESSION_ROLE_KEY = "mira_control_center_role";
+const TOKEN_KEY = "mira_control_center_token";
+const ROLE_KEY = "mira_control_center_role";
 
-type LoginResponse = { message?: string; expires_in?: number };
-type SessionResponse = { access_token: string; token_type: string; expires_in: number; role: string };
+type Tab = "overview" | "organizations" | "members" | "channels" | "audit";
+type Admin = { id: string; email: string; display_name: string; role: string };
+type Channel = { id: string; name: string; configured: boolean; providers: string[]; note: string };
+type Event = { id: string; actor_email?: string | null; action: string; result: string; reason?: string | null; created_at?: string | null; target_type?: string | null; target_id?: string | null; request_id?: string | null };
+type Overview = { metrics: { organizations_total: number; organizations_active: number; members_total: number; members_active: number; admins_total: number }; channels: Channel[]; recent_events: Event[] };
+type Organization = { id: string; name: string; slug: string; segment?: string | null; is_active: boolean; members_count: number; created_at?: string | null; model_ready: boolean };
+type Member = { id: string; name: string; email: string; role: string; is_active: boolean; organization: string; created_at?: string | null };
 
-async function post<T>(path: string, body: Record<string, string>): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}/api/v1/admin/control-center/auth/${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    });
-  } catch {
-    throw new Error("Não foi possível conectar à API. Confira a URL do backend e tente novamente.");
-  }
+const roleLabels: Record<string, string> = { super_admin: "Super administrador", operations: "Operações", finance: "Financeiro", support: "Suporte", auditor: "Auditoria" };
+const tabLabels: Record<Tab, string> = { overview: "Visão geral", organizations: "Instituições", members: "Membros", channels: "Canais", audit: "Auditoria" };
 
-  const payload = (await response.json().catch(() => ({}))) as {
-    detail?: string | Array<{ msg?: string }>;
-    message?: string;
-  };
+async function apiGet<T>(path: string, token: string): Promise<T> {
+  const response = await fetch(`${API_BASE}/api/v1/admin/control-center/${path}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    cache: "no-store",
+  });
+  const payload = await response.json().catch(() => ({})) as { detail?: string };
   if (!response.ok) {
-    const detail = Array.isArray(payload.detail)
-      ? payload.detail.map((item) => item.msg || "Dados inválidos").join(". ")
-      : payload.detail;
-    throw new Error(detail || payload.message || "Não foi possível concluir a solicitação.");
+    if (response.status === 401) throw new Error("SESSION_EXPIRED");
+    if (response.status === 403) throw new Error("PERMISSION_DENIED");
+    throw new Error(payload.detail || "Não foi possível carregar os dados administrativos.");
   }
   return payload as T;
 }
 
-function friendlyRole(role: string) {
-  const labels: Record<string, string> = {
-    super_admin: "Super administrador",
-    operations: "Operações",
-    finance: "Financeiro",
-    support: "Suporte",
-    auditor: "Auditoria",
-  };
-  return labels[role] || "Administrador";
+function dateLabel(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-export default function ControlCenterLoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [step, setStep] = useState<"credentials" | "mfa" | "authenticated">("credentials");
-  const [loading, setLoading] = useState(false);
+function Metric({ label, value, note, icon: Icon }: { label: string; value: number; note: string; icon: typeof Building2 }) {
+  return <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+    <div className="flex items-center justify-between gap-3"><span className="text-sm text-neutral-500">{label}</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><Icon size={19} /></span></div>
+    <p className="mt-4 text-3xl font-semibold tracking-tight text-neutral-950">{value.toLocaleString("pt-BR")}</p>
+    <p className="mt-1 text-xs text-neutral-500">{note}</p>
+  </article>;
+}
+
+export default function ControlCenterPage() {
+  const router = useRouter();
+  const [token, setToken] = useState("");
+  const [admin, setAdmin] = useState<Admin | null>(null);
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [tab, setTab] = useState<Tab>("overview");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [search, setSearch] = useState("");
 
-  async function submitCredentials(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const permissions = useMemo(() => {
+    const role = admin?.role || "";
+    return {
+      organizations: ["super_admin", "operations", "finance", "support", "auditor"].includes(role),
+      members: ["super_admin", "support"].includes(role),
+      channels: ["super_admin", "operations", "support"].includes(role),
+      audit: ["super_admin", "auditor"].includes(role),
+    };
+  }, [admin?.role]);
+
+  const signOut = useCallback(() => {
+    window.sessionStorage.removeItem(TOKEN_KEY);
+    window.sessionStorage.removeItem(ROLE_KEY);
+    router.replace("/control-center/login");
+  }, [router]);
+
+  const loadTab = useCallback(async (currentToken: string, currentTab: Tab) => {
     setError("");
-    setNotice("");
-    setLoading(true);
-    try {
-      const result = await post<LoginResponse>("login", {
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      setPassword("");
-      setStep("mfa");
-      setNotice(result.message || "Se as credenciais forem válidas, enviaremos um código de acesso.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível iniciar o login.");
-    } finally {
+    if (currentTab === "overview") setOverview(await apiGet<Overview>("overview", currentToken));
+    if (currentTab === "organizations") setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200", currentToken)).organizations);
+    if (currentTab === "members") setMembers((await apiGet<{ members: Member[] }>("members?limit=200", currentToken)).members);
+    if (currentTab === "audit") setEvents((await apiGet<{ events: Event[] }>("audit?limit=200", currentToken)).events);
+    if (currentTab === "channels" && !overview) setOverview(await apiGet<Overview>("overview", currentToken));
+  }, [overview]);
+
+  useEffect(() => {
+    const saved = window.sessionStorage.getItem(TOKEN_KEY);
+    if (!saved) { router.replace("/control-center/login"); return; }
+    setToken(saved);
+    apiGet<Admin>("auth/me", saved).then((me) => {
+      setAdmin(me);
+      const cachedRole = window.sessionStorage.getItem(ROLE_KEY);
+      if (cachedRole !== me.role) window.sessionStorage.setItem(ROLE_KEY, me.role);
       setLoading(false);
-    }
-  }
+    }).catch(() => signOut());
+  }, [router, signOut]);
 
-  async function submitCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setNotice("");
-    setLoading(true);
-    try {
-      const result = await post<SessionResponse>("verify", {
-        email: email.trim().toLowerCase(),
-        code: code.trim(),
-      });
-      // Admin session is deliberately isolated from the regular MIRA user/API-key session.
-      // sessionStorage limits persistence to this browser tab; do not store credentials or OTPs.
-      window.sessionStorage.setItem(SESSION_KEY, result.access_token);
-      window.sessionStorage.setItem(SESSION_ROLE_KEY, result.role);
-      setSession(result);
-      setCode("");
-      setStep("authenticated");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Código inválido ou expirado.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    if (!token || loading) return;
+    void loadTab(token, tab).catch((err: unknown) => {
+      if (err instanceof Error && err.message === "SESSION_EXPIRED") { signOut(); return; }
+      setError(err instanceof Error && err.message === "PERMISSION_DENIED" ? "Seu perfil não tem permissão para consultar esta seção." : err instanceof Error ? err.message : "Erro ao consultar a API.");
+    });
+  }, [token, tab, loading, loadTab, signOut]);
 
-  function restart() {
-    setError("");
-    setNotice("");
-    setCode("");
-    setPassword("");
-    setSession(null);
-    setStep("credentials");
-  }
+  const refresh = async () => {
+    if (!token) return;
+    setRefreshing(true);
+    try { await loadTab(token, tab); }
+    catch (err) {
+      if (err instanceof Error && err.message === "SESSION_EXPIRED") signOut();
+      else setError(err instanceof Error ? err.message : "Não foi possível atualizar.");
+    } finally { setRefreshing(false); }
+  };
 
-  function signOut() {
-    window.sessionStorage.removeItem(SESSION_KEY);
-    window.sessionStorage.removeItem(SESSION_ROLE_KEY);
-    restart();
-  }
+  const visibleOrgs = organizations.filter((item) => [item.name, item.slug, item.segment || ""].some((value) => value.toLowerCase().includes(search.toLowerCase())));
+  const visibleMembers = members.filter((item) => [item.name, item.email, item.organization, item.role].some((value) => value.toLowerCase().includes(search.toLowerCase())));
+  const visibleEvents = events.filter((item) => [item.actor_email || "", item.action, item.result, item.reason || ""].some((value) => value.toLowerCase().includes(search.toLowerCase())));
 
-  return (
-    <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center justify-center">
-        <div className="grid w-full overflow-hidden rounded-[2rem] border border-black/5 bg-white shadow-[0_28px_100px_rgba(27,31,48,0.12)] lg:min-h-[640px] lg:grid-cols-[0.95fr_1.05fr]">
-          <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#17191d] p-10 text-white lg:flex xl:p-14">
-            <div className="absolute -right-24 -top-20 h-80 w-80 rounded-full bg-[#4050cd]/40 blur-3xl" />
-            <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-[#f47769]/20 blur-3xl" />
-            <div className="relative">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#4050cd]">
-                  <Fingerprint size={24} strokeWidth={2.3} />
-                </div>
-                <div>
-                  <p className="text-lg font-semibold tracking-tight">MIRA</p>
-                  <p className="text-xs uppercase tracking-[0.22em] text-white/55">Control Center</p>
-                </div>
-              </div>
-              <div className="mt-24 max-w-md">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#aeb7ff]">Acesso interno</p>
-                <h1 className="mt-5 text-4xl font-semibold leading-[1.12] tracking-tight xl:text-5xl">
-                  Controle operacional. Segurança em cada acesso.
-                </h1>
-                <p className="mt-6 max-w-sm text-base leading-7 text-white/65">
-                  Um ambiente reservado para administrar operações, instituições e configurações da plataforma MIRA.
-                </p>
-              </div>
-            </div>
-            <div className="relative flex items-center gap-2 text-sm text-white/55">
-              <LockKeyhole size={16} />
-              <span>Autenticação em duas etapas obrigatória</span>
-            </div>
-          </aside>
+  const availableTabs: Tab[] = ["overview", ...(permissions.organizations ? ["organizations" as const] : []), ...(permissions.members ? ["members" as const] : []), ...(permissions.channels ? ["channels" as const] : []), ...(permissions.audit ? ["audit" as const] : [])];
 
-          <section className="flex items-center justify-center p-6 sm:p-10 lg:p-12 xl:p-16">
-            <div className="w-full max-w-md">
-              <div className="mb-10 flex items-center gap-3 lg:hidden">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#4050cd] text-white">
-                  <Fingerprint size={24} />
-                </div>
-                <div>
-                  <p className="font-semibold tracking-tight">MIRA</p>
-                  <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Control Center</p>
-                </div>
-              </div>
+  if (loading || !admin) return <main className="grid min-h-screen place-items-center bg-[#f7f6f2]"><div className="flex items-center gap-3 text-sm text-neutral-600"><LoaderCircle className="animate-spin" size={18} /> Validando sessão administrativa…</div></main>;
 
-              {step === "authenticated" && session ? (
-                <div aria-live="polite">
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-                    <CheckCircle2 size={28} />
-                  </div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Identidade verificada</p>
-                  <h2 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-950">Acesso autenticado</h2>
-                  <p className="mt-3 leading-6 text-neutral-600">
-                    O segundo fator foi validado. A sessão administrativa está ativa nesta aba.
-                  </p>
-                  <div className="mt-7 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
-                    <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">Conta</p>
-                    <p className="mt-1 break-all font-medium text-neutral-900">{email}</p>
-                    <p className="mt-4 text-xs font-medium uppercase tracking-wider text-neutral-500">Perfil</p>
-                    <p className="mt-1 font-medium text-neutral-900">{friendlyRole(session.role)}</p>
-                    <p className="mt-4 text-xs leading-5 text-neutral-500">
-                      Token isolado da sessão comum do MIRA e com validade de {Math.round(session.expires_in / 60)} minutos.
-                    </p>
-                  </div>
-                  <p className="mt-5 text-sm leading-6 text-neutral-600">
-                    A interface administrativa ainda está em construção; este fluxo confirma apenas o login e o MFA.
-                  </p>
-                  <button type="button" onClick={signOut} className="mt-7 w-full rounded-full border border-neutral-200 px-5 py-3 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50">
-                    Encerrar sessão
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef0ff] text-[#4050cd]">
-                    {step === "credentials" ? <KeyRound size={23} /> : <ShieldCheck size={23} />}
-                  </div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#4050cd]">
-                    {step === "credentials" ? "Área restrita" : "Verificação de segurança"}
-                  </p>
-                  <h2 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-950">
-                    {step === "credentials" ? "Entre no Control Center" : "Confirme sua identidade"}
-                  </h2>
-                  <p className="mt-3 leading-6 text-neutral-600">
-                    {step === "credentials"
-                      ? "Use sua conta administrativa. Depois da senha, enviaremos um código de uso único para seu e-mail."
-                      : <>Informe o código de seis dígitos enviado para <span className="font-medium text-neutral-900">{email}</span>.</>}
-                  </p>
+  return <main className="min-h-screen bg-[#f7f6f2] px-4 py-6 text-neutral-900 sm:px-6 lg:px-10 lg:py-9">
+    <div className="mx-auto max-w-[1500px]">
+      <header className="flex flex-col gap-5 border-b border-neutral-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#17191d] text-white"><Fingerprint size={24} /></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">MIRA · Interno</p><h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Control Center</h1><p className="mt-1 text-sm text-neutral-500">Monitoramento operacional e administração da plataforma</p></div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden text-right sm:block"><p className="text-sm font-semibold">{admin.display_name}</p><p className="text-xs text-neutral-500">{roleLabels[admin.role] || admin.role} · {admin.email}</p></div>
+          <button onClick={() => void refresh()} disabled={refreshing} className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /> Atualizar</button>
+          <button onClick={signOut} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#17191d] px-3 text-sm font-medium text-white hover:bg-neutral-700"><LogOut size={15} /> Sair</button>
+        </div>
+      </header>
 
-                  {error && (
-                    <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-800">
-                      {error}
-                    </div>
-                  )}
-                  {notice && (
-                    <div role="status" className="mt-6 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-5 text-blue-900">
-                      {notice}
-                    </div>
-                  )}
+      <nav aria-label="Seções administrativas" className="mt-6 flex gap-2 overflow-x-auto pb-1">
+        {availableTabs.map((item) => <button key={item} onClick={() => { setSearch(""); setTab(item); }} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${tab === item ? "bg-[#4050cd] text-white shadow-sm" : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100"}`}>{tabLabels[item]}</button>)}
+      </nav>
 
-                  {step === "credentials" ? (
-                    <form className="mt-7 space-y-5" onSubmit={submitCredentials}>
-                      <div>
-                        <label htmlFor="admin-email" className="mb-2 block text-sm font-medium text-neutral-800">E-mail administrativo</label>
-                        <div className="relative">
-                          <Mail size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-                          <input id="admin-email" type="email" autoComplete="username" required maxLength={255} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="voce@empresa.com.br" className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm outline-none transition placeholder:text-neutral-400 focus:border-[#4050cd] focus:ring-4 focus:ring-[#4050cd]/10" />
-                        </div>
-                      </div>
-                      <div>
-                        <label htmlFor="admin-password" className="mb-2 block text-sm font-medium text-neutral-800">Senha</label>
-                        <div className="relative">
-                          <LockKeyhole size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-                          <input id="admin-password" type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={(event) => setPassword(event.target.value)} className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#4050cd] focus:ring-4 focus:ring-[#4050cd]/10" />
-                        </div>
-                      </div>
-                      <button type="submit" disabled={loading} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#4050cd] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3442b5] disabled:cursor-not-allowed disabled:opacity-60">
-                        {loading ? <><LoaderCircle size={17} className="animate-spin" /> Validando...</> : <>Continuar com segurança <ArrowLeft size={17} className="rotate-180" /></>}
-                      </button>
-                    </form>
-                  ) : (
-                    <form className="mt-7 space-y-5" onSubmit={submitCode}>
-                      <div>
-                        <label htmlFor="mfa-code" className="mb-2 block text-sm font-medium text-neutral-800">Código de verificação</label>
-                        <input id="mfa-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} required autoFocus value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" aria-describedby="mfa-hint" className="h-14 w-full rounded-xl border border-neutral-200 bg-white px-4 text-center font-mono text-2xl tracking-[0.45em] outline-none transition placeholder:text-neutral-300 focus:border-[#4050cd] focus:ring-4 focus:ring-[#4050cd]/10" />
-                        <p id="mfa-hint" className="mt-2 text-xs leading-5 text-neutral-500">O código expira em 5 minutos e só pode ser usado uma vez.</p>
-                      </div>
-                      <button type="submit" disabled={loading || code.length !== 6} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#4050cd] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3442b5] disabled:cursor-not-allowed disabled:opacity-60">
-                        {loading ? <><LoaderCircle size={17} className="animate-spin" /> Verificando...</> : <><ShieldCheck size={17} /> Verificar código</>}
-                      </button>
-                      <button type="button" disabled={loading} onClick={restart} className="w-full rounded-full px-4 py-3 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900">
-                        Voltar e informar outra conta
-                      </button>
-                    </form>
-                  )}
+      {error && <div role="alert" className="mt-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><CircleAlert size={18} className="mt-0.5 shrink-0" />{error}</div>}
 
-                  <div className="mt-8 border-t border-neutral-100 pt-5">
-                    <p className="text-center text-xs leading-5 text-neutral-500">
-                      Acesso exclusivo para equipe autorizada. Nunca compartilhe sua senha ou código de verificação.
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
+      {tab === "overview" && <section className="mt-6 space-y-6">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Instituições" value={overview?.metrics.organizations_total ?? 0} note={`${overview?.metrics.organizations_active ?? 0} ativas`} icon={Building2} />
+          <Metric label="Membros" value={overview?.metrics.members_total ?? 0} note={`${overview?.metrics.members_active ?? 0} ativos`} icon={Users} />
+          <Metric label="Administradores internos" value={overview?.metrics.admins_total ?? 0} note="Contas do Control Center" icon={ShieldCheck} />
+          <Metric label="Canais configurados" value={overview?.channels.filter((channel) => channel.configured).length ?? 0} note="Credenciais presentes; não é teste de conectividade" icon={Activity} />
+        </div>
+        <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+          <section className="rounded-2xl border border-neutral-200 bg-white p-5"><div className="flex items-center gap-2"><ClipboardList size={18} className="text-indigo-700" /><h2 className="font-semibold">Atividade administrativa recente</h2></div>
+            {(overview?.recent_events.length ?? 0) === 0 ? <p className="mt-5 text-sm text-neutral-500">Nenhum evento registrado ainda.</p> : <div className="mt-4 divide-y divide-neutral-100">{overview?.recent_events.map((event) => <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-medium">{event.action}</p><p className="mt-1 text-xs text-neutral-500">{event.actor_email || "Sistema"} · {dateLabel(event.created_at)}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${event.result === "success" ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-600"}`}>{event.result}</span></div>)}</div>}
+          </section>
+          <section className="rounded-2xl border border-neutral-200 bg-white p-5"><div className="flex items-center gap-2"><Wifi size={18} className="text-indigo-700" /><h2 className="font-semibold">Estado de configuração dos canais</h2></div>
+            <div className="mt-4 space-y-3">{overview?.channels.map((channel) => <div key={channel.id} className="rounded-xl border border-neutral-100 p-4"><div className="flex items-center justify-between gap-3"><p className="font-medium">{channel.name}</p><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${channel.configured ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{channel.configured ? <CheckCircle2 size={13} /> : <WifiOff size={13} />}{channel.configured ? "Configurado" : "Pendente"}</span></div><p className="mt-1 text-xs text-neutral-500">{channel.providers.length ? channel.providers.join(", ") : "Nenhum provedor configurado"} · {channel.note}</p></div>)}</div>
           </section>
         </div>
-      </div>
-    </main>
-  );
+      </section>}
+
+      {tab === "organizations" && <section className="mt-6 rounded-2xl border border-neutral-200 bg-white">
+        <div className="flex flex-col gap-3 border-b border-neutral-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">Instituições</h2><p className="mt-1 text-sm text-neutral-500">Visão de leitura dos tenants cadastrados.</p></div><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar instituição…" className="h-10 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-indigo-500 sm:w-72" /></div>
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Instituição</th><th className="px-5 py-3">Segmento</th><th className="px-5 py-3">Membros</th><th className="px-5 py-3">Modelo</th><th className="px-5 py-3">Status</th></tr></thead><tbody className="divide-y divide-neutral-100">{visibleOrgs.map((org) => <tr key={org.id}><td className="px-5 py-4"><p className="font-semibold">{org.name}</p><p className="mt-1 text-xs text-neutral-500">{org.slug}</p></td><td className="px-5 py-4">{org.segment || "—"}</td><td className="px-5 py-4">{org.members_count}</td><td className="px-5 py-4">{org.model_ready ? "Pronto" : "Não configurado"}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${org.is_active ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500"}`}>{org.is_active ? "Ativa" : "Inativa"}</span></td></tr>)}</tbody></table></div>
+        {visibleOrgs.length === 0 && <p className="p-6 text-sm text-neutral-500">Nenhuma instituição encontrada.</p>}
+      </section>}
+
+      {tab === "members" && <section className="mt-6 rounded-2xl border border-neutral-200 bg-white">
+        <div className="flex flex-col gap-3 border-b border-neutral-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">Membros</h2><p className="mt-1 text-sm text-neutral-500">Contas de usuários das instituições.</p></div><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar membro…" className="h-10 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-indigo-500 sm:w-72" /></div>
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Pessoa</th><th className="px-5 py-3">Instituição</th><th className="px-5 py-3">Perfil</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Criado em</th></tr></thead><tbody className="divide-y divide-neutral-100">{visibleMembers.map((member) => <tr key={member.id}><td className="px-5 py-4"><p className="font-semibold">{member.name}</p><p className="mt-1 text-xs text-neutral-500">{member.email}</p></td><td className="px-5 py-4">{member.organization}</td><td className="px-5 py-4 capitalize">{member.role}</td><td className="px-5 py-4">{member.is_active ? "Ativo" : "Inativo"}</td><td className="px-5 py-4">{dateLabel(member.created_at)}</td></tr>)}</tbody></table></div>
+        {visibleMembers.length === 0 && <p className="p-6 text-sm text-neutral-500">Nenhum membro encontrado.</p>}
+      </section>}
+
+      {tab === "channels" && <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {(overview?.channels || []).map((channel) => <article key={channel.id} className="rounded-2xl border border-neutral-200 bg-white p-5"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><Activity size={20} /></span><div><h2 className="font-semibold">{channel.name}</h2><p className="text-xs text-neutral-500">{channel.id.toUpperCase()}</p></div></div><div className="mt-5 flex items-center gap-2 text-sm">{channel.configured ? <CheckCircle2 className="text-emerald-600" size={17} /> : <CircleAlert className="text-amber-600" size={17} />}{channel.configured ? "Credenciais configuradas" : "Configuração incompleta"}</div><p className="mt-2 text-sm text-neutral-500">{channel.providers.join(", ") || "Nenhum provedor"}.</p><p className="mt-4 rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600">{channel.note}</p></article>)}
+      </section>}
+
+      {tab === "audit" && <section className="mt-6 rounded-2xl border border-neutral-200 bg-white">
+        <div className="flex flex-col gap-3 border-b border-neutral-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">Trilha de auditoria</h2><p className="mt-1 text-sm text-neutral-500">Eventos administrativos recentes; dados sensíveis são omitidos.</p></div><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filtrar eventos…" className="h-10 rounded-xl border border-neutral-200 px-3 text-sm outline-none focus:border-indigo-500 sm:w-72" /></div>
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Data</th><th className="px-5 py-3">Ator</th><th className="px-5 py-3">Ação</th><th className="px-5 py-3">Resultado</th><th className="px-5 py-3">Motivo</th></tr></thead><tbody className="divide-y divide-neutral-100">{visibleEvents.map((event) => <tr key={event.id}><td className="whitespace-nowrap px-5 py-4">{dateLabel(event.created_at)}</td><td className="px-5 py-4">{event.actor_email || "Sistema"}</td><td className="px-5 py-4 font-medium">{event.action}</td><td className="px-5 py-4">{event.result}</td><td className="max-w-xs px-5 py-4 text-neutral-500">{event.reason || "—"}</td></tr>)}</tbody></table></div>
+        {visibleEvents.length === 0 && <p className="p-6 text-sm text-neutral-500">Nenhum evento encontrado.</p>}
+      </section>}
+
+      <footer className="mt-8 flex flex-col gap-2 border-t border-neutral-200 pt-5 text-xs leading-5 text-neutral-500 sm:flex-row sm:items-center sm:justify-between"><span>Área interna · permissões aplicadas no backend</span><span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} /> Sessão administrativa com expiração curta</span></footer>
+    </div>
+  </main>;
 }
