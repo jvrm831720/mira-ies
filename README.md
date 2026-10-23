@@ -10,7 +10,7 @@ MVP SaaS que une **Análise Preditiva de Evasão** + **Sistema Multiagente de Re
 Motor Preditivo → Agente Orquestrador → WhatsApp | E-mail | SMS
 ```
 
-Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção e `docs/AUTH.md` para os fluxos de autenticação Mira.
+Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção, `docs/RETENTION_RULE_ENGINE.md` para o contrato das campanhas, templates, auditoria e testes, e `docs/AUTH.md` para os fluxos de autenticação Mira.
 
 ---
 
