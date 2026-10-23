@@ -130,13 +130,29 @@ async def _audit(db: AsyncSession, action: str, result: str, actor_id: str | Non
 
 
 class PasswordPayload(BaseModel):
-    email: EmailStr
+    email: str = Field(min_length=5, max_length=255)
     password: str = Field(min_length=1, max_length=256)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if "@" not in normalized or normalized.count("@") != 1 or "." not in normalized.rsplit("@", 1)[-1] or any(ch.isspace() for ch in normalized):
+            raise ValueError("Informe um e-mail válido.")
+        return normalized
 
 
 class VerifyEmailCodePayload(BaseModel):
-    email: EmailStr
+    email: str = Field(min_length=5, max_length=255)
     code: str = Field(pattern=r"^\d{6}$")
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if "@" not in normalized or normalized.count("@") != 1 or "." not in normalized.rsplit("@", 1)[-1] or any(ch.isspace() for ch in normalized):
+            raise ValueError("Informe um e-mail válido.")
+        return normalized
 
 
 class AdminSession(BaseModel):
