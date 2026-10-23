@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/mira-control-center]
   pull_request:
     branches: [main, feat/retention-observability-analytics]
 
