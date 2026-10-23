@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -69,3 +69,32 @@ class AdminAuditEvent(Base):
     request_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     metadata_redacted: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+
+class AdminBillingRecord(Base):
+    """Registro manual de plano e vencimento por instituição."""
+
+    __tablename__ = "mira_control_billing_records"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_mira_control_billing_tenant"),
+        Index("ix_mira_control_billing_due", "payment_status", "due_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    created_by_admin_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("mira_control_admins.id", ondelete="SET NULL"), nullable=True
+    )
+    plan_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    plan_price_brl: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    billing_cycle: Mapped[str] = mapped_column(String(16), nullable=False, default="monthly")
+    payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    plan_status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    payment_status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)

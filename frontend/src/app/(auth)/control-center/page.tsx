@@ -8,16 +8,18 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const TOKEN_KEY = "mira_control_center_token";
 const ROLE_KEY = "mira_control_center_role";
 
-type Tab = "overview" | "organizations" | "members" | "channels" | "audit";
+type Tab = "overview" | "organizations" | "members" | "channels" | "audit" | "billing";
 type Admin = { id: string; email: string; display_name: string; role: string };
 type Channel = { id: string; name: string; configured: boolean; providers: string[]; note: string };
 type Event = { id: string; actor_email?: string | null; action: string; result: string; reason?: string | null; created_at?: string | null; target_type?: string | null; target_id?: string | null; request_id?: string | null };
 type Overview = { metrics: { organizations_total: number; organizations_active: number; members_total: number; members_active: number; admins_total: number }; channels: Channel[]; recent_events: Event[] };
 type Organization = { id: string; name: string; slug: string; segment?: string | null; is_active: boolean; members_count: number; created_at?: string | null; model_ready: boolean };
 type Member = { id: string; name: string; email: string; role: string; is_active: boolean; organization: string; created_at?: string | null };
+type BillingRecord = { id: string; tenant_id: string; organization_name: string; plan_name: string; plan_price_brl: number; billing_cycle: "monthly" | "yearly"; payment_link?: string | null; due_at: string; plan_status: "active" | "paused" | "cancelled"; payment_status: "pending" | "paid"; is_overdue: boolean; days_until_due: number; notes?: string | null };
+type BillingSummary = { total: number; overdue: number; due_soon: number; pending: number };
 
 const roleLabels: Record<string, string> = { super_admin: "Super administrador", operations: "Operações", finance: "Financeiro", support: "Suporte", auditor: "Auditoria" };
-const tabLabels: Record<Tab, string> = { overview: "Visão geral", organizations: "Instituições", members: "Membros", channels: "Canais", audit: "Auditoria" };
+const tabLabels: Record<Tab, string> = { overview: "Visão geral", organizations: "Instituições", members: "Membros", channels: "Canais", audit: "Auditoria", billing: "Financeiro" };
 
 async function apiGet<T>(path: string, token: string): Promise<T> {
   const response = await fetch(`${API_BASE}/api/v1/admin/control-center/${path}`, {
@@ -55,6 +57,10 @@ export default function ControlCenterPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
+  const [billingSummary, setBillingSummary] = useState<BillingSummary>({ total: 0, overdue: 0, due_soon: 0, pending: 0 });
+  const [billingForm, setBillingForm] = useState({ tenant_id: "", plan_name: "MIRA Growth", plan_price_brl: "497", billing_cycle: "monthly" as "monthly" | "yearly", due_date: "", payment_link: "", notes: "" });
+  const [savingBilling, setSavingBilling] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,6 +74,7 @@ export default function ControlCenterPage() {
       members: ["super_admin", "support"].includes(role),
       channels: ["super_admin", "operations", "support"].includes(role),
       audit: ["super_admin", "auditor"].includes(role),
+      billing: ["super_admin", "finance", "auditor"].includes(role),
     };
   }, [admin?.role]);
 
@@ -83,8 +90,14 @@ export default function ControlCenterPage() {
     if (currentTab === "organizations") setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200", currentToken)).organizations);
     if (currentTab === "members") setMembers((await apiGet<{ members: Member[] }>("members?limit=200", currentToken)).members);
     if (currentTab === "audit") setEvents((await apiGet<{ events: Event[] }>("audit?limit=200", currentToken)).events);
+    if (currentTab === "billing") {
+      const data = await apiGet<{ records: BillingRecord[]; summary: BillingSummary }>("billing-records?limit=500", currentToken);
+      setBillingRecords(data.records);
+      setBillingSummary(data.summary);
+      if (organizations.length === 0) setOrganizations((await apiGet<{ organizations: Organization[] }>("organizations?limit=200", currentToken)).organizations);
+    }
     if (currentTab === "channels" && !overview) setOverview(await apiGet<Overview>("overview", currentToken));
-  }, [overview]);
+  }, [overview, organizations.length]);
 
   useEffect(() => {
     const saved = window.sessionStorage.getItem(TOKEN_KEY);
@@ -116,11 +129,62 @@ export default function ControlCenterPage() {
     } finally { setRefreshing(false); }
   };
 
+
+  async function createBillingRecord(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !billingForm.tenant_id || !billingForm.due_date) {
+      setError("Selecione a instituição e informe o vencimento.");
+      return;
+    }
+    setSavingBilling(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/billing-records`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          tenant_id: billingForm.tenant_id,
+          plan_name: billingForm.plan_name,
+          plan_price_brl: Number(billingForm.plan_price_brl),
+          billing_cycle: billingForm.billing_cycle,
+          due_at: new Date(`${billingForm.due_date}T23:59:59-03:00`).toISOString(),
+          payment_link: billingForm.payment_link.trim() || null,
+          notes: billingForm.notes.trim() || null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "Não foi possível salvar o registro financeiro.");
+      setBillingForm((current) => ({ ...current, tenant_id: "", due_date: "", payment_link: "", notes: "" }));
+      await loadTab(token, "billing");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao salvar registro financeiro.");
+    } finally {
+      setSavingBilling(false);
+    }
+  }
+
+  async function setPaymentStatus(record: BillingRecord, payment_status: "paid" | "pending") {
+    if (!token) return;
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/admin/control-center/billing-records/${record.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ payment_status }),
+      });
+      const payload = await response.json().catch(() => ({})) as { detail?: string };
+      if (!response.ok) throw new Error(payload.detail || "Não foi possível atualizar o pagamento.");
+      await loadTab(token, "billing");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar pagamento.");
+    }
+  }
+
   const visibleOrgs = organizations.filter((item) => [item.name, item.slug, item.segment || ""].some((value) => value.toLowerCase().includes(search.toLowerCase())));
   const visibleMembers = members.filter((item) => [item.name, item.email, item.organization, item.role].some((value) => value.toLowerCase().includes(search.toLowerCase())));
   const visibleEvents = events.filter((item) => [item.actor_email || "", item.action, item.result, item.reason || ""].some((value) => value.toLowerCase().includes(search.toLowerCase())));
 
-  const availableTabs: Tab[] = ["overview", ...(permissions.organizations ? ["organizations" as const] : []), ...(permissions.members ? ["members" as const] : []), ...(permissions.channels ? ["channels" as const] : []), ...(permissions.audit ? ["audit" as const] : [])];
+  const availableTabs: Tab[] = ["overview", ...(permissions.organizations ? ["organizations" as const] : []), ...(permissions.members ? ["members" as const] : []), ...(permissions.channels ? ["channels" as const] : []), ...(permissions.audit ? ["audit" as const] : []), ...(permissions.billing ? ["billing" as const] : [])];
 
   if (loading || !admin) return <main className="grid min-h-screen place-items-center bg-[#f7f6f2]"><div className="flex items-center gap-3 text-sm text-neutral-600"><LoaderCircle className="animate-spin" size={18} /> Validando sessão administrativa…</div></main>;
 
@@ -175,6 +239,32 @@ export default function ControlCenterPage() {
 
       {tab === "channels" && <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {(overview?.channels || []).map((channel) => <article key={channel.id} className="rounded-2xl border border-neutral-200 bg-white p-5"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><Activity size={20} /></span><div><h2 className="font-semibold">{channel.name}</h2><p className="text-xs text-neutral-500">{channel.id.toUpperCase()}</p></div></div><div className="mt-5 flex items-center gap-2 text-sm">{channel.configured ? <CheckCircle2 className="text-emerald-600" size={17} /> : <CircleAlert className="text-amber-600" size={17} />}{channel.configured ? "Credenciais configuradas" : "Configuração incompleta"}</div><p className="mt-2 text-sm text-neutral-500">{channel.providers.join(", ") || "Nenhum provedor"}.</p><p className="mt-4 rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600">{channel.note}</p></article>)}
+      </section>}
+
+
+      {tab === "billing" && <section className="mt-6 space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Contratos cadastrados" value={billingSummary.total} note="Controle manual por instituição" icon={ClipboardList} />
+          <Metric label="Vencidos" value={billingSummary.overdue} note="Pendentes após a data de vencimento" icon={CircleAlert} />
+          <Metric label="Vencem em 30 dias" value={billingSummary.due_soon} note="Planeje a cobrança com antecedência" icon={Activity} />
+          <Metric label="Pagamentos pendentes" value={billingSummary.pending} note="Inclui vencidos e a vencer" icon={Building2} />
+        </div>
+        {permissions.billing && admin.role !== "auditor" && <form onSubmit={createBillingRecord} className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="md:col-span-2 xl:col-span-3"><h2 className="font-semibold">Cadastrar acompanhamento financeiro</h2><p className="mt-1 text-sm text-neutral-500">Controle manual de plano, link externo e vencimento; nenhum pagamento é processado pelo MIRA.</p></div>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Instituição</span><select required value={billingForm.tenant_id} onChange={(e) => setBillingForm({ ...billingForm, tenant_id: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3"><option value="">Selecione…</option>{organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Plano</span><input required minLength={2} maxLength={120} value={billingForm.plan_name} onChange={(e) => setBillingForm({ ...billingForm, plan_name: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Valor (R$)</span><input required type="number" min="0" max="100000000" step="0.01" value={billingForm.plan_price_brl} onChange={(e) => setBillingForm({ ...billingForm, plan_price_brl: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Ciclo</span><select value={billingForm.billing_cycle} onChange={(e) => setBillingForm({ ...billingForm, billing_cycle: e.target.value as "monthly" | "yearly" })} className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3"><option value="monthly">Mensal</option><option value="yearly">Anual</option></select></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Próximo vencimento</span><input required type="date" value={billingForm.due_date} onChange={(e) => setBillingForm({ ...billingForm, due_date: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <label className="space-y-1.5 text-sm"><span className="font-medium">Link externo de pagamento (HTTPS)</span><input type="url" value={billingForm.payment_link} onChange={(e) => setBillingForm({ ...billingForm, payment_link: e.target.value })} placeholder="https://..." className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <label className="space-y-1.5 text-sm md:col-span-2 xl:col-span-3"><span className="font-medium">Observações (opcional)</span><input maxLength={500} value={billingForm.notes} onChange={(e) => setBillingForm({ ...billingForm, notes: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
+          <div className="md:col-span-2 xl:col-span-3"><button disabled={savingBilling} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#4050cd] px-4 text-sm font-semibold text-white disabled:opacity-50">{savingBilling ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Registrar acompanhamento</button></div>
+        </form>}
+        <section className="rounded-2xl border border-neutral-200 bg-white">
+          <div className="border-b border-neutral-100 p-5"><h2 className="font-semibold">Planos e vencimentos</h2><p className="mt-1 text-sm text-neutral-500">Status financeiro manual; confirme pagamentos na fonte externa antes de marcar como pagos.</p></div>
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500"><tr><th className="px-5 py-3">Instituição / Plano</th><th className="px-5 py-3">Valor</th><th className="px-5 py-3">Vencimento</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Pagamento</th><th className="px-5 py-3">Ação</th></tr></thead><tbody className="divide-y divide-neutral-100">{billingRecords.map((record) => <tr key={record.id}><td className="px-5 py-4"><p className="font-semibold">{record.organization_name}</p><p className="mt-1 text-xs text-neutral-500">{record.plan_name} · {record.billing_cycle === "monthly" ? "Mensal" : "Anual"}</p>{record.payment_link && <a href={record.payment_link} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-medium text-indigo-700 underline">Abrir link de pagamento ↗</a>}</td><td className="whitespace-nowrap px-5 py-4">R$ {record.plan_price_brl.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td><td className="whitespace-nowrap px-5 py-4"><p>{dateLabel(record.due_at)}</p>{record.is_overdue ? <p className="mt-1 text-xs font-semibold text-red-700">Vencido há {Math.abs(record.days_until_due)} dia(s)</p> : record.payment_status !== "paid" && record.days_until_due <= 30 ? <p className="mt-1 text-xs font-semibold text-amber-700">{record.days_until_due === 0 ? "Vence hoje" : `Vence em ${record.days_until_due} dia(s)`}</p> : null}</td><td className="px-5 py-4 capitalize">{record.plan_status === "active" ? "Ativo" : record.plan_status === "paused" ? "Pausado" : "Cancelado"}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${record.payment_status === "paid" ? "bg-emerald-50 text-emerald-700" : record.is_overdue ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>{record.payment_status === "paid" ? "Pago" : record.is_overdue ? "Em atraso" : "Pendente"}</span></td><td className="px-5 py-4">{permissions.billing && admin.role !== "auditor" && <button onClick={() => void setPaymentStatus(record, record.payment_status === "paid" ? "pending" : "paid")} className="whitespace-nowrap rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold hover:bg-neutral-50">{record.payment_status === "paid" ? "Reabrir pendência" : "Marcar como pago"}</button>}</td></tr>)}</tbody></table></div>
+          {billingRecords.length === 0 && <p className="p-6 text-sm text-neutral-500">Nenhum registro financeiro cadastrado.</p>}
+        </section>
       </section>}
 
       {tab === "audit" && <section className="mt-6 rounded-2xl border border-neutral-200 bg-white">

@@ -145,7 +145,8 @@ export default function ControlCenterLoginPage() {
                 </div>
               </div>
 
-                              <>
+              {((
+                <>
                   <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef0ff] text-[#4050cd]">
                     {step === "credentials" ? <KeyRound size={23} /> : <ShieldCheck size={23} />}
                   </div>
@@ -214,6 +215,7 @@ export default function ControlCenterLoginPage() {
                     </p>
                   </div>
                 </>
+              )}
             </div>
           </section>
         </div>
