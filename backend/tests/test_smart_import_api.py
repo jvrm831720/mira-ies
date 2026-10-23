@@ -111,6 +111,7 @@ async def test_reimport_updates_same_tenant_student_without_erasing_empty_fields
     assert quality["rows_created"] == 0
     assert quality["rows_updated"] == 1
     assert quality["existing_matches"] == 1
+    await db_session.refresh(first_student)
 
     students = list(
         (

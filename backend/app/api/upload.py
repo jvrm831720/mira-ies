@@ -21,7 +21,6 @@ from app.services.ingestion import (
     create_batch_and_students,
     get_batch,
     get_students_by_batch,
-    normalize_header,
     prepare_import_rows,
 )
 from app.schemas.student import UploadBatchResponse

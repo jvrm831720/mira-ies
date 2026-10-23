@@ -448,6 +448,7 @@ async def create_batch_and_students(
 
     mapped_targets = set(rename_map.values())
     students: list[Student] = []
+    new_students: list[Student] = []
     rows_created = 0
     rows_updated = 0
     mutable_fields = (
@@ -500,6 +501,9 @@ async def create_batch_and_students(
                 telefone=data.get("telefone"),
                 email=data.get("email"),
                 communication_opt_out=data.get("communication_opt_out", False),
+                communication_opted_out_at=(
+                    datetime.now(timezone.utc) if data.get("communication_opt_out", False) else None
+                ),
                 dias_atraso_boleto=data.get("dias_atraso_boleto"),
                 recorrencia_atrasos=data.get("recorrencia_atrasos"),
                 dias_sem_login=data.get("dias_sem_login"),
@@ -509,10 +513,10 @@ async def create_batch_and_students(
                 raw_data=raw,
             )
             students.append(student)
+            new_students.append(student)
             rows_created += 1
 
     # Existing students are dirty-tracked; only newly created objects need add_all.
-    new_students = [student for student in students if student.id is None]
     session.add_all(new_students)
     batch.status = "processed"
     batch.processed_rows = len(students)
