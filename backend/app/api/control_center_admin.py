@@ -370,15 +370,17 @@ async def update_organization(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(status_code=422, detail="Informe ao menos um campo para atualizar.")
+    before = {key: getattr(tenant, key) for key in changes}
     for key, value in changes.items():
         if value is not None or key in {"segment", "name"}:
             setattr(tenant, key, value)
+    after = {key: getattr(tenant, key) for key in changes}
     db.add(AdminAuditEvent(
         actor_admin_id=admin.id, action="organization_updated", result="success",
         target_type="organization", target_id=tenant.id,
         reason="Dados da instituição atualizados",
         request_id=request.headers.get("x-request-id"),
-        metadata_redacted={"fields_updated": sorted(changes.keys())},
+        metadata_redacted={"fields_updated": sorted(changes.keys()), "before": before, "after": after},
     ))
     await db.commit()
     return {"id": tenant.id, "name": tenant.name, "slug": tenant.slug, "segment": tenant.segment, "is_active": tenant.is_active}
@@ -402,16 +404,18 @@ async def update_member(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(status_code=422, detail="Informe ao menos um campo para atualizar.")
+    before = {key: getattr(member, key) for key in changes}
     for key, value in changes.items():
         if value is not None:
             setattr(member, key, value)
+    after = {key: getattr(member, key) for key in changes}
     member.auth_version += 1
     db.add(AdminAuditEvent(
         actor_admin_id=admin.id, action="member_updated", result="success",
         target_type="member", target_id=member.id,
         reason="Permissões ou status do membro atualizados",
         request_id=request.headers.get("x-request-id"),
-        metadata_redacted={"fields_updated": sorted(changes.keys())},
+        metadata_redacted={"fields_updated": sorted(changes.keys()), "before": before, "after": after},
     ))
     await db.commit()
     return {"id": member.id, "name": member.display_name, "email": member.email, "role": member.role, "is_active": member.is_active}
