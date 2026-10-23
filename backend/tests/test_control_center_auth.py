@@ -88,3 +88,11 @@ def test_billing_record_rejects_invalid_tenant_id():
 def test_malformed_control_center_tokens_are_rejected_without_exception():
     for token in ("", "not-a-token", "...", "....", "%%%.%%%.%%%", "a.b.c"):
         assert auth._decode_token(token) is None
+
+
+
+def test_only_super_admin_can_write_organizations_and_members():
+    write_permissions = {"orgs:write", "members:write"}
+    for role in ("operations", "finance", "support", "auditor"):
+        assert write_permissions.isdisjoint(auth._ROLE_PERMISSIONS[role])
+    assert "*" in auth._ROLE_PERMISSIONS["super_admin"]
