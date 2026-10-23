@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 
-from sqlalchemy import Date, cast, delete, func, select
+from sqlalchemy import Date, cast, delete, func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,24 +36,36 @@ async def purge_expired_intervention_logs(
     cutoff_day: date = current.date() - timedelta(days=days)
     cutoff = datetime.combine(cutoff_day, time.min, tzinfo=timezone.utc)
 
+    # Reuse the identical expression objects in SELECT and GROUP BY. Rebuilding
+    # COALESCE separately would produce distinct bind parameters in PostgreSQL.
+    channel_bucket = func.coalesce(
+        InterventionLog.channel, literal_column("'_none'")
+    )
+    risk_level_bucket = func.coalesce(
+        InterventionLog.risk_level, literal_column("'_none'")
+    )
+    outcome_bucket = func.coalesce(
+        InterventionLog.outcome, literal_column("'_none'")
+    )
+    metric_date = cast(InterventionLog.created_at, Date)
     grouped = (
         select(
             InterventionLog.tenant_id.label("tenant_id"),
-            cast(InterventionLog.created_at, Date).label("metric_date"),
+            metric_date.label("metric_date"),
             InterventionLog.status.label("status"),
-            func.coalesce(InterventionLog.channel, "_none").label("channel_bucket"),
-            func.coalesce(InterventionLog.risk_level, "_none").label("risk_level_bucket"),
-            func.coalesce(InterventionLog.outcome, "_none").label("outcome_bucket"),
+            channel_bucket.label("channel_bucket"),
+            risk_level_bucket.label("risk_level_bucket"),
+            outcome_bucket.label("outcome_bucket"),
             func.count(InterventionLog.id).label("event_count"),
         )
         .where(InterventionLog.created_at < cutoff)
         .group_by(
             InterventionLog.tenant_id,
-            cast(InterventionLog.created_at, Date),
+            metric_date,
             InterventionLog.status,
-            func.coalesce(InterventionLog.channel, "_none"),
-            func.coalesce(InterventionLog.risk_level, "_none"),
-            func.coalesce(InterventionLog.outcome, "_none"),
+            channel_bucket,
+            risk_level_bucket,
+            outcome_bucket,
         )
     )
     aggregates = (await session.execute(grouped)).mappings().all()
