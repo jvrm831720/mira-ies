@@ -151,13 +151,13 @@ def _safe_audit_metadata(action: str, metadata: dict | None) -> dict | None:
                 result[side] = {
                     key: value[:160] if isinstance(value, str) else value
                     for key, value in values.items()
-                    if key in allowed_fields and (
+                    if isinstance(key, str) and key in allowed_fields and (
                         value is None or isinstance(value, (str, bool, int, float))
                     )
                 }
         fields = metadata.get("fields_updated")
         if isinstance(fields, list):
-            result["fields_updated"] = [key for key in fields if key in allowed_fields and isinstance(key, str)]
+            result["fields_updated"] = [key for key in fields if isinstance(key, str) and key in allowed_fields]
         return result or None
 
     if action == "member_updated":
