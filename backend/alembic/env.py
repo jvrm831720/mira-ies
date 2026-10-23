@@ -16,6 +16,7 @@ import app.models.intervention  # noqa: F401
 import app.models.consent  # noqa: F401
 import app.models.engagement  # noqa: F401
 import app.models.retention_campaign  # noqa: F401
+import app.models.control_center  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
