@@ -143,3 +143,33 @@ async def test_whatsapp_router_does_not_fail_over_on_timeout(monkeypatch):
     assert result.ok is False
     assert result.ambiguous is True
     assert called == ["waha"]
+
+async def test_whatsapp_router_preserves_uncertainty_if_secondary_fails(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "waha_api_url", "https://waha.test")
+    monkeypatch.setattr(settings, "waha_api_key", "test-waha-key")
+    monkeypatch.setattr(settings, "evolution_api_url", "https://evolution.test")
+    monkeypatch.setattr(settings, "evolution_api_key", "test-evolution-key")
+
+    async def primary_5xx(**kwargs):
+        return SendResult(
+            ok=False, channel="whatsapp", provider="waha",
+            error="provider retornou HTTP 503", outcome="unknown",
+            ambiguous=True, halt_fallback=True,
+        )
+
+    async def secondary_rejected(**kwargs):
+        return SendResult(
+            ok=False, channel="whatsapp", provider="evolution",
+            error="provider retornou HTTP 400", outcome="confirmed_failure",
+        )
+
+    monkeypatch.setattr(whatsapp_router, "send_whatsapp_waha", primary_5xx)
+    monkeypatch.setattr(whatsapp_router, "send_whatsapp_evolution", secondary_rejected)
+
+    result = await whatsapp_router.send_whatsapp(
+        to="+5521981811077", message="test", idempotency_key="same-message-key"
+    )
+    assert result.provider == "evolution"
+    assert result.ambiguous is True
+    assert result.halt_fallback is True

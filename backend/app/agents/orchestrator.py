@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -78,7 +77,7 @@ def _configured_providers(channel: Channel, settings: Any) -> list[str]:
         return providers or ["dry_run"]
     if channel == "email" and settings.resend_api_key:
         return ["resend"]
-    if channel == "sms" and settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from:
+    if channel == "sms" and settings.twilio_account_sid:
         return ["twilio"]
     return ["dry_run"]
 
@@ -325,6 +324,7 @@ async def _send_with_guard(
     # Verifica o provedor antes de reservar a chave: circuitos abertos não devem
     # consumir a idempotência se outro provedor ainda puder assumir o canal.
     claim_acquired = False
+    uncertain_provider_failure = False
     final_result: SendResult | None = None
     for index, provider in enumerate(providers):
         guard = await acquire_send_slot(
@@ -399,10 +399,13 @@ async def _send_with_guard(
             break
 
         final_result = result
+        retryable = is_retryable_provider_error(result.error)
+        if retryable and result.ambiguous:
+            uncertain_provider_failure = True
         if (
             channel == "whatsapp"
             and index + 1 < len(providers)
-            and is_retryable_provider_error(result.error)
+            and retryable
         ):
             logger.warning(
                 "WhatsApp provider failover after retryable HTTP response",
@@ -418,6 +421,12 @@ async def _send_with_guard(
             error="nenhum provider de envio disponível",
             outcome="confirmed_failure",
         )
+
+    if uncertain_provider_failure and not final_result.ok:
+        # Um secundário com falha definitiva não apaga a incerteza do 5xx primário.
+        final_result.ambiguous = True
+        final_result.outcome = "unknown"
+        final_result.halt_fallback = True
 
     if claim_acquired:
         try:

@@ -48,6 +48,7 @@ async def send_whatsapp(
         )
 
     last_result: SendResult | None = None
+    uncertain_failure = False
     for index, name in enumerate(providers):
         result = await _send_with_provider(
             name, to=to, message=message, idempotency_key=idempotency_key
@@ -55,7 +56,14 @@ async def send_whatsapp(
         if result.ok:
             return result
         last_result = result
-        if index + 1 >= len(providers) or not is_retryable_provider_error(result.error):
+        retryable = is_retryable_provider_error(result.error)
+        if retryable and result.ambiguous:
+            uncertain_failure = True
+        if index + 1 >= len(providers) or not retryable:
+            if uncertain_failure:
+                result.ambiguous = True
+                result.outcome = "unknown"
+                result.halt_fallback = True
             return result
         logger.warning(
             "WhatsApp provider failover after retryable HTTP response",
