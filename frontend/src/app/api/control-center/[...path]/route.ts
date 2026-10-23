@@ -69,7 +69,8 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
     if (typeof accessToken !== "string" || !accessToken) {
       return NextResponse.json({ detail: "A API não retornou uma sessão administrativa válida." }, { status: 502 });
     }
-    const { access_token: _discarded, ...safePayload } = payload;
+    const safePayload = { ...payload };
+    delete safePayload.access_token;
     const response = NextResponse.json(safePayload, { status: upstream.status });
     const expiresIn = typeof payload.expires_in === "number" ? payload.expires_in : SESSION_TTL_SECONDS;
     response.cookies.set(COOKIE_NAME, accessToken, {
