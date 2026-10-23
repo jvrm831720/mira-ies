@@ -40,6 +40,7 @@ class WhatsAppAgent:
         *,
         dry_run: bool,
         idempotency_key: str | None = None,
+        provider_override: str | None = None,
     ) -> SendResult:
         settings = get_settings()
         waha_configured = bool(settings.waha_api_url and settings.waha_api_key)
@@ -58,4 +59,7 @@ class WhatsAppAgent:
             )
         if dry_run or not (waha_configured or evolution_configured):
             return await dry_run_send(channel="whatsapp", to=phone, message=message)
-        return await send_whatsapp(to=phone, message=message, idempotency_key=idempotency_key)
+        return await send_whatsapp(
+            to=phone, message=message, idempotency_key=idempotency_key,
+            provider=provider_override,
+        )

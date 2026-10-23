@@ -7,6 +7,7 @@ contactar ninguém a enviar sem as proteções de volume e deduplicação espera
 
 from __future__ import annotations
 
+import hashlib
 import time
 from dataclasses import dataclass
 
@@ -33,6 +34,57 @@ def _failure_key(provider: str, window: int) -> str:
     return f"{_PREFIX}:failure:{provider}:{window}"
 
 
+def _backpressure_key(provider: str) -> str:
+    return f"{_PREFIX}:backpressure:{provider}"
+
+
+def _message_key(tenant_id: str, idempotency_key: str) -> str:
+    digest = hashlib.sha256(f"{tenant_id}:{idempotency_key}".encode("utf-8")).hexdigest()
+    return f"{_PREFIX}:idempotency:{digest}"
+
+
+def effective_provider_limit(limit: int, *, backpressure_active: bool, factor: float) -> int:
+    """Reduz o teto por provedor quando latência alta sinaliza pressão no pool."""
+    if limit <= 0 or not backpressure_active:
+        return limit
+    return max(1, int(limit * factor))
+
+
+async def claim_message_send(
+    *, tenant_id: str, idempotency_key: str, ttl_seconds: int | None = None
+) -> bool:
+    """Reserva atomicamente uma tentativa de envio usando SET NX entre workers."""
+    settings = get_settings()
+    ttl = ttl_seconds or settings.agents_idempotency_ttl_seconds
+    redis = redis_client()
+    try:
+        claimed = await redis.set(
+            _message_key(tenant_id, idempotency_key),
+            "sending",
+            ex=ttl,
+            nx=True,
+        )
+        return bool(claimed)
+    finally:
+        await redis.aclose()
+
+
+async def finish_message_send(
+    *, tenant_id: str, idempotency_key: str, state: str
+) -> None:
+    """Mantém reservas para sucesso/resultado incerto; libera apenas falhas definitivas."""
+    settings = get_settings()
+    redis = redis_client()
+    try:
+        key = _message_key(tenant_id, idempotency_key)
+        if state == "failed":
+            await redis.delete(key)
+        else:
+            await redis.set(key, state, ex=settings.agents_idempotency_ttl_seconds)
+    finally:
+        await redis.aclose()
+
+
 async def acquire_send_slot(*, tenant_id: str, channel: str, provider: str) -> GuardDecision:
     settings = get_settings()
     if not settings.agents_rate_limit_enabled:
@@ -54,6 +106,7 @@ async def acquire_send_slot(*, tenant_id: str, channel: str, provider: str) -> G
                 await redis.delete(_circuit_key(provider))
 
         window = int(now // 60)
+        backpressure_active = bool(await redis.get(_backpressure_key(provider)))
         keys = [
             f"{_PREFIX}:tenant:{tenant_id}:{window}",
             f"{_PREFIX}:channel:{channel}:{window}",
@@ -68,7 +121,11 @@ async def acquire_send_slot(*, tenant_id: str, channel: str, provider: str) -> G
         limits = [
             settings.agents_rate_limit_per_tenant_per_minute,
             settings.agents_rate_limit_per_channel_per_minute,
-            settings.agents_rate_limit_per_provider_per_minute,
+            effective_provider_limit(
+                settings.agents_rate_limit_per_provider_per_minute,
+                backpressure_active=backpressure_active,
+                factor=settings.agents_provider_backpressure_factor,
+            ),
         ]
         labels = ["tenant", "canal", "provider"]
         for count, limit, label in zip(counts, limits, labels):
@@ -90,13 +147,26 @@ async def acquire_send_slot(*, tenant_id: str, channel: str, provider: str) -> G
         await redis.aclose()
 
 
-async def record_provider_outcome(*, provider: str, success: bool, ambiguous: bool = False) -> None:
-    """Atualiza o circuito; somente falhas ambíguas/operacionais contam."""
+async def record_provider_outcome(
+    *,
+    provider: str,
+    success: bool,
+    ambiguous: bool = False,
+    latency_seconds: float | None = None,
+) -> None:
+    """Atualiza circuito e backpressure; latência elevada reduz o teto do provedor."""
     settings = get_settings()
     if not settings.agents_rate_limit_enabled:
         return
     redis = redis_client()
     try:
+        if latency_seconds is not None and latency_seconds * 1000 >= settings.agents_provider_latency_threshold_ms:
+            # TTL curto cria recuperação automática sem prender o provedor em modo lento.
+            await redis.set(
+                _backpressure_key(provider),
+                "1",
+                ex=max(60, settings.agents_circuit_breaker_open_seconds),
+            )
         if success:
             await redis.delete(_circuit_key(provider))
             await redis.delete(_failure_key(provider, int(time.time() // 60)))
