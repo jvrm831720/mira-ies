@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing
+from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing, retention_campaigns, retention_campaign_execution
 from app.db.session import init_db
 from app.ml.model import load_model
 
@@ -132,6 +132,8 @@ app.include_router(scoring.router, prefix="/api/v1", tags=["Motor Preditivo (Ris
 app.include_router(connectors.router, prefix="/api/v1", tags=["Conectores ERP/LMS"])
 app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outcomes)"])
 app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
+app.include_router(retention_campaigns.router, prefix="/api/v1")
+app.include_router(retention_campaign_execution.router, prefix="/api/v1")
 app.include_router(delivery_webhooks.router, prefix="/api/v1", tags=["Webhooks de entrega"])
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(org.router, prefix="/api/v1")

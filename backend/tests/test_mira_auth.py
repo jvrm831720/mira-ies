@@ -76,10 +76,12 @@ async def test_admin_user_provisioning_rejects_wrong_secret(client, tenant_facto
     assert response.status_code == 403
 
 
-async def test_invalid_password_validation_does_not_echo_password(client):
-    attempted_password = "too-short-secret"
+async def test_invalid_password_validation_does_not_echo_password(client, tenant_factory):
+    await _ensure_default_tenant(tenant_factory)
+    attempted_password = "tiny"
     response = await client.post(
         "/api/v1/auth/admin/users",
+        headers={"X-Admin-Secret": get_settings().secret_key},
         json={
             "tenant_slug": "default",
             "display_name": "User",
