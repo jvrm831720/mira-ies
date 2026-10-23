@@ -304,3 +304,97 @@ def test_audit_metadata_omits_unreviewed_actions_and_billing_notes():
         "billing_record_updated",
         {"fields_updated": ["notes", "payment_status", "payment_link"]},
     ) == {"fields_updated": ["payment_status"]}
+
+
+
+def test_http_permission_boundary_returns_403_for_non_super_admin(monkeypatch):
+    from fastapi import Depends, FastAPI
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setattr(auth, "get_settings", lambda: SimpleNamespace(secret_key="test-secret-key-at-least-32-chars"))
+    admin = SimpleNamespace(id="support-1", role="support", auth_version=0, is_active=True)
+
+    class FakeDB:
+        async def get(self, _model, _admin_id):
+            return admin
+
+    async def override_db():
+        return FakeDB()
+
+    app = FastAPI()
+    app.dependency_overrides[auth.get_db] = override_db
+
+    @app.patch("/protected")
+    async def protected(_admin=Depends(auth.admin_permission("orgs:write"))):
+        return {"ok": True}
+
+    token = auth._issue_token(admin)
+    response = TestClient(app).patch("/protected", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Permissão insuficiente."
+
+
+def test_login_email_provider_failure_consumes_mfa_challenge(monkeypatch):
+    import asyncio
+    from datetime import timedelta
+    import pytest
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(
+        auth, "get_settings",
+        lambda: SimpleNamespace(
+            secret_key="test-secret-key-at-least-32-chars",
+            redis_url="redis://localhost",
+            resend_api_key="resend-test-key",
+            email_from="security@example.com",
+        ),
+    )
+    monkeypatch.setattr(auth, "verify_password", lambda _password, _hashed: True)
+
+    admin = SimpleNamespace(
+        id="admin-email-fail", email="admin@example.com", display_name="Admin",
+        password_hash="hash", is_active=True, role="super_admin", auth_version=0,
+        failed_login_attempts=0, locked_until=None,
+    )
+    challenges = []
+    execute_count = 0
+
+    class Result:
+        def __init__(self, value=None):
+            self.value = value
+        def scalar_one_or_none(self):
+            return self.value
+
+    class FakeDB:
+        async def execute(self, _query):
+            nonlocal execute_count
+            execute_count += 1
+            if execute_count == 1:
+                return Result(admin)
+            if execute_count == 2:
+                return Result(None)
+            return Result(None)
+        def add(self, value):
+            if isinstance(value, auth.AdminEmailChallenge):
+                challenges.append(value)
+        async def commit(self):
+            return None
+
+    async def no_limit(*args, **kwargs):
+        return None
+    async def no_audit(*args, **kwargs):
+        return None
+    async def failed_delivery(**kwargs):
+        return SimpleNamespace(ok=False)
+
+    monkeypatch.setattr(auth, "_enforce_rate_limit", no_limit)
+    monkeypatch.setattr(auth, "_audit", no_audit)
+    monkeypatch.setattr(auth, "send_email_resend", failed_delivery)
+    request = SimpleNamespace(
+        headers={}, url=SimpleNamespace(path="/api/v1/admin/control-center/auth/login"), method="POST"
+    )
+
+    with pytest.raises(HTTPException) as failure:
+        asyncio.run(auth.start_admin_login(auth.PasswordPayload(email=admin.email, password="valid"), request, FakeDB()))
+    assert failure.value.status_code == 503
+    assert challenges and challenges[0].consumed_at is not None
