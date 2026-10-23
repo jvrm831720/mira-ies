@@ -29,7 +29,9 @@ class CommunicationPreferencePayload(BaseModel):
 
 def sanitize_filename(filename: str) -> str:
     """Remove componentes de diretorio e caracteres perigosos (previne path traversal)."""
-    name = Path(filename or "").name
+    # Treat both POSIX and Windows separators as path boundaries on every OS.
+    normalized = (filename or "").replace("\\", "/")
+    name = Path(normalized).name
     name = re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._") or "upload"
     return name[-200:]
 
