@@ -49,11 +49,23 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def _enforce_rate_limit(request: Request, scope: str, limit: int, window_seconds: int) -> None:
-    """Distributed rate limit; fail closed if Redis is unavailable."""
+async def _enforce_rate_limit(
+    request: Request,
+    scope: str,
+    limit: int,
+    window_seconds: int,
+    identity: str | None = None,
+) -> None:
+    """Distributed rate limit; fail closed if Redis is unavailable.
+
+    Apply a generous source-IP ceiling and a separate per-account ceiling. The
+    backend may only see the frontend BFF's IP, so per-account limits must not
+    depend on client IP or on untrusted forwarding headers.
+    """
     settings = get_settings()
     client_host = request.client.host if request.client else "unknown"
-    key = _digest("rate-limit", f"{scope}:{client_host}")
+    subject = f"identity:{identity.strip().lower()}" if identity else f"ip:{client_host}"
+    key = _digest("rate-limit", f"{scope}:{subject}")
     redis = Redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=2, socket_timeout=2)
     try:
         count = await redis.incr(f"mira:control-center:rl:{key}")
@@ -165,8 +177,9 @@ class AdminSession(BaseModel):
 
 @router.post("/login", status_code=202)
 async def start_admin_login(body: PasswordPayload, request: Request, db: AsyncSession = Depends(get_db)):
-    await _enforce_rate_limit(request, "login", 10, 300)
     email = _normal_email(str(body.email))
+    await _enforce_rate_limit(request, "login_ip", 300, 300)
+    await _enforce_rate_limit(request, "login_email", 10, 300, identity=email)
     result = await db.execute(select(AdminPrincipal).where(AdminPrincipal.email == email).with_for_update())
     admin = result.scalar_one_or_none()
     now = _now()
@@ -233,8 +246,9 @@ async def start_admin_login(body: PasswordPayload, request: Request, db: AsyncSe
 
 @router.post("/verify", response_model=AdminSession)
 async def verify_admin_email_code(body: VerifyEmailCodePayload, request: Request, db: AsyncSession = Depends(get_db)):
-    await _enforce_rate_limit(request, "mfa_verify", 10, 300)
     email = _normal_email(str(body.email))
+    await _enforce_rate_limit(request, "mfa_verify_ip", 300, 300)
+    await _enforce_rate_limit(request, "mfa_verify_email", 10, 300, identity=email)
     email_hash = _digest("email", email)
     result = await db.execute(select(AdminEmailChallenge).where(
         AdminEmailChallenge.email_hash == email_hash,
