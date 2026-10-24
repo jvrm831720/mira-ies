@@ -36,7 +36,7 @@ const mobileLinks = [
 
 type Panel = "none" | "notifications" | "help" | "account";
 
-export function Header({ title, subtitle }: { title: string; subtitle?: string }) {
+export function Header({ title, subtitle, compact = false }: { title: string; subtitle?: string; compact?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -117,23 +117,19 @@ export function Header({ title, subtitle }: { title: string; subtitle?: string }
 
   return (
     <header className="sticky top-0 z-20 border-b border-black/[0.06] bg-[rgba(247,245,239,0.88)] backdrop-blur-xl">
-      <div className="flex min-h-[72px] items-center justify-between gap-4 px-4 py-3 md:px-8 xl:px-10">
-        <div className="min-w-0">
+      <div className={cn("flex items-center justify-between gap-4 px-4 md:px-8 xl:px-10", compact ? "min-h-[52px] py-2" : "min-h-[72px] py-3")}>
+        {!compact && <div className="min-w-0">
           <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-neutral-400 sm:flex">
-              <span className="inline-flex items-center gap-1.5 uppercase tracking-[0.14em]">
+            <span className="inline-flex items-center gap-1.5 uppercase tracking-[0.14em]">
               <Building2 className="h-3 w-3" />
               {me.data?.tenant_name || "Mira"}
             </span>
             <ChevronRight className="h-3 w-3 text-[var(--brand-indigo)]" />
             <span className="text-neutral-600">{title}</span>
           </div>
-          <h1 className="truncate text-[22px] font-semibold tracking-[-0.055em] text-neutral-950 md:text-[25px]">
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="mt-0.5 hidden truncate text-[12px] leading-relaxed text-neutral-500 sm:block">{subtitle}</p>
-          ) : null}
-        </div>
+          <h1 className="truncate text-[22px] font-semibold tracking-[-0.055em] text-neutral-950 md:text-[25px]">{title}</h1>
+          {subtitle ? <p className="mt-0.5 hidden truncate text-[12px] leading-relaxed text-neutral-500 sm:block">{subtitle}</p> : null}
+        </div>}
 
         <div className="relative flex items-center gap-1" ref={panelRef}>
           <IconButton
