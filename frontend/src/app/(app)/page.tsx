@@ -65,7 +65,7 @@ export default function CommandCenterPage() {
 
   return (
     <>
-      <Header title="Visão geral" subtitle="O que precisa da sua atenção hoje?" />
+      <Header title="Visão geral" compact />
       <main className="mx-auto w-full max-w-[1440px] space-y-7 px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10">
         <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <form onSubmit={onSearchSubmit} className="relative w-full sm:max-w-[480px]">
