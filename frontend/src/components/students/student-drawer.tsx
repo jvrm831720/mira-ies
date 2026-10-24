@@ -16,6 +16,7 @@ import {
   Phone,
   ShieldCheck,
   Smartphone,
+  UserRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -91,6 +92,8 @@ export function StudentDrawer({
   onClose: () => void;
 }) {
   const open = Boolean(studentId);
+  const [activeTab, setActiveTab] = useState<"resumo" | "comunicacao" | "contexto">("resumo");
+  useEffect(() => { if (open) setActiveTab("resumo"); }, [studentId, open]);
   const detail = useQuery({
     queryKey: ["student-risk", studentId],
     queryFn: () => api.studentRisk(studentId!),
@@ -134,11 +137,26 @@ export function StudentDrawer({
           </button>
         </div>
 
+        <div className="border-b border-border px-4 py-3">
+          <div role="tablist" aria-label="Seções da ficha do aluno" className="grid grid-cols-3 gap-1 rounded-xl bg-muted/70 p-1">
+            {([
+              { id: "resumo", label: "Resumo", icon: UserRound },
+              { id: "comunicacao", label: "Contato", icon: ShieldCheck },
+              { id: "contexto", label: "Contexto", icon: BookOpen },
+            ] as const).map(({ id, label, icon: Icon }) => (
+              <button key={id} type="button" role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)}
+                className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-semibold transition ${activeTab === id ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-800"}`}>
+                <Icon className="h-3.5 w-3.5 shrink-0" /><span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
           {detail.isLoading && <div className="space-y-3"><Skeleton className="h-24 w-full rounded-2xl" /><Skeleton className="h-32 w-full rounded-2xl" /></div>}
-          {detail.isError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">Não foi possível carregar os detalhes deste aluno.</p>}
+          {detail.isError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-800"><p>Não foi possível carregar os detalhes deste aluno.</p><button type="button" onClick={() => void detail.refetch()} className="mt-2 font-semibold underline underline-offset-2">Tentar novamente</button></div>}
 
-          {!detail.isLoading && !detail.isError && s && (
+          {!detail.isLoading && !detail.isError && s && activeTab === "resumo" && (
             <>
               <div className="rounded-2xl border border-border bg-muted/30 p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -162,14 +180,6 @@ export function StudentDrawer({
                 </div>
               </div>
 
-              <ConsentPreferencesPanel
-                key={studentId}
-                studentId={studentId!}
-                globalOptOut={globalOptOut}
-                preferences={preferences}
-              />
-              <BehaviorPropertiesPanel key={studentId} studentId={studentId!} />
-
               {factors.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Principais fatores de risco</p>
@@ -184,6 +194,30 @@ export function StudentDrawer({
                 </div>
               )}
             </>
+          )}
+
+          {!detail.isLoading && !detail.isError && s && activeTab === "comunicacao" && (
+            <section className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-900">Contato e permissões</h3>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-500">Confira os dados cadastrados e respeite as preferências de comunicação antes de entrar em contato.</p>
+              </div>
+              <div className="space-y-2 rounded-2xl border border-border p-3">
+                <div className="flex items-center gap-2 text-sm"><Phone className="h-4 w-4 text-muted-foreground" /><span className="break-all">{phone ? String(phone) : "Telefone não informado"}</span></div>
+                <div className="flex items-center gap-2 text-sm"><Mail className="h-4 w-4 text-muted-foreground" /><span className="break-all">{email ? String(email) : "E-mail não informado"}</span></div>
+              </div>
+              <ConsentPreferencesPanel key={studentId} studentId={studentId!} globalOptOut={globalOptOut} preferences={preferences} />
+            </section>
+          )}
+
+          {!detail.isLoading && !detail.isError && s && activeTab === "contexto" && (
+            <section className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-900">Contexto do aluno</h3>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-500">Informações acadêmicas e comportamentais disponíveis para orientar o acompanhamento.</p>
+              </div>
+              <BehaviorPropertiesPanel key={studentId} studentId={studentId!} />
+            </section>
           )}
         </div>
 
