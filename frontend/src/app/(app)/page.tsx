@@ -17,6 +17,7 @@ export default function CommandCenterPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const summary = useQuery({ queryKey: ["risk-summary"], queryFn: () => api.riskSummary() });
+  const workSummary = useQuery({ queryKey: ["retention-work-summary"], queryFn: () => api.retentionWorkSummary(), retry: false });
   const critical = useQuery({ queryKey: ["risk-critical"], queryFn: () => api.riskCritical(8) });
   const activity = useQuery({
     queryKey: ["dashboard-recent-activity"],
@@ -60,9 +61,9 @@ export default function CommandCenterPage() {
   }
 
   async function refreshDashboard() {
-    await Promise.all([summary.refetch(), critical.refetch(), activity.refetch(), students.refetch()]);
+    await Promise.all([summary.refetch(), workSummary.refetch(), critical.refetch(), activity.refetch(), students.refetch()]);
   }
-  const isRefreshing = summary.isFetching || critical.isFetching || activity.isFetching || students.isFetching;
+  const isRefreshing = summary.isFetching || workSummary.isFetching || critical.isFetching || activity.isFetching || students.isFetching;
 
   return (
     <>
@@ -160,18 +161,18 @@ export default function CommandCenterPage() {
                 tone="coral"
               />
               <MetricCard
-                label="Acompanhar"
-                value={summary.isLoading ? "—" : mediumCount.toLocaleString("pt-BR")}
-                hint={summary.isLoading ? "Carregando dados" : "Alunos em risco médio"}
-                icon={<Activity className="h-5 w-5" />}
+                label="Intervenções pendentes"
+                value={workSummary.isLoading || workSummary.isError ? "—" : workSummary.data.pending.toLocaleString("pt-BR")}
+                hint={workSummary.isError ? "Indicador indisponível" : "Decisões planejadas sem conclusão"}
+                icon={<ClipboardList className="h-5 w-5" />}
                 tone="indigo"
               />
               <MetricCard
-                label="Sem classificação"
-                value={summary.isLoading ? "—" : unscoredCount.toLocaleString("pt-BR")}
-                hint={summary.isLoading ? "Carregando dados" : "Alunos sem score de risco"}
+                label="Planejadas há +48h"
+                value={workSummary.isLoading || workSummary.isError ? "—" : workSummary.data.overdue_48h.toLocaleString("pt-BR")}
+                hint={workSummary.isError ? "Indicador indisponível" : "Sinal operacional com política provisória de 48h"}
                 icon={<UserRoundX className="h-5 w-5" />}
-                tone="neutral"
+                tone="coral"
               />
             </div>
           </section>
