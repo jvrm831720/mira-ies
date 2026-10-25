@@ -168,8 +168,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#1a1a1a]">
-      <div className="pointer-events-none absolute inset-0">
+    <main className="relative min-h-screen overflow-hidden bg-neutral-100 md:bg-[#1a1a1a]">
+      <div className="pointer-events-none absolute inset-0 hidden md:block">
         <Image src="/login-art.svg" alt="" fill priority className="object-cover opacity-90" />
         <div className="absolute inset-0 bg-gradient-to-br from-black/35 via-black/20 to-black/45" />
       </div>
