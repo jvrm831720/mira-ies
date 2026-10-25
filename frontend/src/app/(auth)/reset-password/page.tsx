@@ -49,16 +49,16 @@ function ResetPasswordForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f2f3fb] p-4 md:p-8">
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] p-4 md:p-8">
       <div className="w-full max-w-[460px]">
         <div className="mb-8 flex justify-center">
-          <div className="rounded-xl bg-[var(--brand-midnight)] px-4 py-3 shadow-sm">
-            <Image src="/mira-logo.svg" alt="Mira" width={128} height={29} className="h-auto w-32" />
+          <div className="rounded-xl bg-white px-4 py-3">
+            <Image src="/mira-logo.svg" alt="Mira" width={128} height={29} className="h-auto w-32 brightness-0" />
           </div>
         </div>
-        <Card className="shadow-[0_16px_50px_rgba(16,13,80,0.08)]">
+        <Card className="rounded-[24px] border-neutral-200 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.08)]">
           <CardHeader>
-            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-950 text-white">
               {success ? (
                 <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
               ) : (
@@ -74,7 +74,7 @@ function ResetPasswordForm() {
           </CardHeader>
           <CardContent>
             {success ? (
-              <Button type="button" className="w-full" onClick={() => router.replace("/login")}>
+              <Button type="button" className="h-12 w-full rounded-full bg-neutral-950 text-white hover:bg-neutral-800" onClick={() => router.replace("/login")}>
                 Ir para o login
               </Button>
             ) : (
@@ -117,7 +117,7 @@ function ResetPasswordForm() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading || !token}>
+                <Button type="submit" className="h-12 w-full rounded-full bg-neutral-950 text-white hover:bg-neutral-800" disabled={loading || !token}>
                   {loading ? "Salvando..." : "Redefinir senha"}
                 </Button>
               </form>
@@ -127,7 +127,7 @@ function ResetPasswordForm() {
         <div className="mt-5 flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />
           <span>Se precisar, volte ao </span>
-          <Link href="/login" className="font-medium text-primary underline-offset-4 hover:underline">
+          <Link href="/login" className="font-medium text-neutral-900 underline-offset-4 hover:underline">
             login
           </Link>
         </div>
