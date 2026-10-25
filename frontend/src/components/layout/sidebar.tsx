@@ -8,24 +8,22 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Building2, ChevronsUpDown, LayoutDashboard, LogOut, MessageSquareHeart,
   PanelLeftClose, PanelLeftOpen, Plug, Receipt, Settings, Upload, UserCog, Users,
+  ClipboardList, ChartNoAxesCombined, Menu, X, Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { clearAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 
 const groups = [
-  { label: "Acompanhar", links: [
+  { label: "Inteligência educacional", links: [
     { href: "/", label: "Visão geral", icon: LayoutDashboard },
     { href: "/alunos", label: "Alunos", icon: Users },
-    { href: "/retencao", label: "Retenção", icon: MessageSquareHeart },
+    { href: "/retencao/logs", label: "Central de trabalho", icon: ClipboardList },
+    { href: "/retencao", label: "Intervenções", icon: MessageSquareHeart },
+    { href: "/retencao/logs", label: "Resultados", icon: ChartNoAxesCombined },
   ]},
-  { label: "Operar", links: [
-    { href: "/importar", label: "Importar dados", icon: Upload },
-    { href: "/conectores", label: "Conectores", icon: Plug },
-  ]},
-  { label: "Administrar", links: [
-    { href: "/membros", label: "Membros", icon: UserCog },
-    { href: "/fatura", label: "Fatura", icon: Receipt },
+  { label: "Administração institucional", links: [
+    { href: "/conectores", label: "Dados e integrações", icon: Database },
     { href: "/config", label: "Configurações", icon: Settings },
   ]},
 ];
@@ -34,6 +32,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [orgOpen, setOrgOpen] = useState(false);
   const orgRef = useRef<HTMLDivElement>(null);
   const me = useQuery({ queryKey: ["org-me"], queryFn: () => api.me(), retry: false, staleTime: 60_000 });
@@ -55,14 +54,23 @@ export function Sidebar() {
   }
 
   return (
+    <>
+    <button type="button" onClick={() => setMobileOpen(true)} aria-label="Abrir menu de navegação"
+      className="fixed left-3 top-3 z-40 grid h-10 w-10 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-800 shadow-sm md:hidden">
+      <Menu className="h-5 w-5" />
+    </button>
+    {mobileOpen && <button type="button" aria-label="Fechar menu de navegação" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-black/40 md:hidden" />}
     <aside className={cn(
-      "hidden min-h-screen shrink-0 flex-col bg-[#1a1a1a] text-white transition-[width] duration-200 ease-out md:flex",
-      collapsed ? "w-[76px]" : "w-[236px]"
+      "fixed inset-y-0 left-0 z-50 flex min-h-screen shrink-0 flex-col bg-[#1a1a1a] text-white transition-[width,transform] duration-200 ease-out md:sticky md:top-0 md:z-20",
+      collapsed ? "w-[76px]" : "w-[236px]",
+      mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+      "md:flex"
     )}>
       <div className={cn("flex h-[72px] shrink-0 items-center", collapsed ? "justify-center px-2" : "justify-between px-6")}>
         <div className={cn("overflow-hidden", collapsed ? "w-[39px]" : "w-[100px]")}>
           <Image src="/mira-logo.svg" alt="Mira" width={100} height={26} className="h-auto w-[100px] max-w-none" priority />
         </div>
+        {mobileOpen && <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fechar menu" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white md:hidden"><X className="h-4 w-4" /></button>}
         {!collapsed && (
           <button type="button" onClick={() => setCollapsed(true)} aria-label="Recolher menu lateral" title="Recolher menu"
             className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white">
@@ -102,7 +110,7 @@ export function Sidebar() {
           <div className="space-y-1">
             {group.links.map((link) => {
               const active = link.href === "/" ? pathname === "/" : pathname === link.href || (link.href === "/retencao" ? pathname.startsWith("/retencao") : pathname.startsWith(link.href + "/"));
-              return <Link key={link.href} href={link.href} title={collapsed ? link.label : undefined} aria-label={link.label}
+              return <Link key={link.label} href={link.href} title={collapsed ? link.label : undefined} aria-label={link.label} onClick={() => setMobileOpen(false)}
                 className={cn("group relative flex shrink-0 items-center rounded-[11px] transition duration-200",
                   collapsed ? "h-11 justify-center px-0" : "gap-3 px-3 py-2.5 text-[12px]",
                   active ? "bg-white font-semibold text-[#1a1a1a] shadow-[0_8px_24px_rgba(0,0,0,0.18)]" : "text-white/70 hover:bg-white/[0.08] hover:text-white")}
@@ -131,5 +139,6 @@ export function Sidebar() {
         </button>}
       </div>
     </aside>
+    </>
   );
 }
