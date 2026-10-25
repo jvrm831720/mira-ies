@@ -131,6 +131,52 @@ textarea {
   }
 }
 
+/* MIRA visual system: clear hierarchy, calmer surfaces, purposeful accent color. */
+:root {
+  --surface-page: #f7f6f2;
+  --surface-card: #ffffff;
+  --surface-subtle: #f2f1ed;
+  --text-primary: #17191d;
+  --text-secondary: #667085;
+  --border-subtle: #e6e4df;
+  --border-strong: #d0cdc5;
+  --shadow-card: 0 1px 2px rgba(23, 25, 29, 0.03), 0 8px 24px rgba(23, 25, 29, 0.045);
+}
+
+.mira-page {
+  color: var(--text-primary);
+}
+
+.mira-page h2 {
+  letter-spacing: -0.035em;
+}
+
+.mira-page input:not([type="checkbox"]),
+.mira-page select {
+  border-radius: var(--radius-control);
+  border-color: var(--border-subtle);
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast);
+}
+
+.mira-page input:not([type="checkbox"]):focus,
+.mira-page select:focus {
+  border-color: var(--brand-indigo);
+  box-shadow: 0 0 0 4px rgba(64, 80, 205, 0.10);
+}
+
+.mira-page article,
+.mira-page [data-mira-card="true"] {
+  box-shadow: var(--shadow-card);
+}
+
+.mira-page .mira-eyebrow {
+  color: var(--brand-indigo);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 /* Shared layout primitives — incremental MIRA design-system rollout */
 @layer components {
   .mira-page {
