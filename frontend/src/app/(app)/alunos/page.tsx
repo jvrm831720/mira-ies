@@ -189,7 +189,14 @@ function AlunosContent() {
                       </td>
                       <td className="px-4 py-4 text-sm text-neutral-600">{student.curso || "Não informado"}</td>
                       <td className="px-4 py-4"><div className="flex flex-col items-start gap-1.5"><RiskBadge level={student.risk_level} /><span className="text-xs tabular-nums text-neutral-500">{formatScore(student.risk_score)}</span></div></td>
-                      <td className="px-4 py-4"><span className="text-xs text-neutral-500">{student.risk_level && student.risk_score != null ? "Consulte evidências na ficha" : "Ainda não há evidências calculadas"}</span></td>
+                      <td className="px-4 py-4">
+                        {student.risk_level && student.risk_score != null ? (
+                          <div className="max-w-[260px]">
+                            {student.shap_summary ? <p className="text-xs leading-relaxed text-neutral-700">{student.shap_summary}</p> : student.shap_top_factors?.top_3?.length ? <p className="text-xs leading-relaxed text-neutral-700">{student.shap_top_factors.top_3.map((factor) => factor.label || factor.feature).filter(Boolean).join(" · ")}</p> : <p className="text-xs text-neutral-500">Explicação detalhada indisponível</p>}
+                            {student.shap_top_factors?.recommended_actions?.[0] && <p className="mt-1 text-[11px] leading-relaxed text-neutral-400">Próxima ação sugerida: {student.shap_top_factors.recommended_actions[0]}</p>}
+                          </div>
+                        ) : <span className="text-xs text-neutral-500">Ainda não há evidências calculadas</span>}
+                      </td>
                       <td className="px-4 py-4"><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${latest ? "bg-indigo-50 text-indigo-700" : "bg-neutral-100 text-neutral-500"}`}><Activity className="h-3 w-3" />{followUpLabel(latest?.status)}</span></td>
                       <td className="px-4 py-4 text-xs text-neutral-500">{formatDate(latest?.created_at)}</td>
                       <td className="px-4 py-4"><button type="button" onClick={() => setSelectedId(student.id)} aria-label={`Abrir ficha de ${student.nome || "aluno"}`} className="grid h-8 w-8 place-items-center rounded-full text-neutral-400 transition hover:bg-white hover:text-neutral-900"><ChevronRight className="h-4 w-4" /></button></td>
