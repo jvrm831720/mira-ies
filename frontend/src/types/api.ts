@@ -7,6 +7,8 @@ export type AuthResponse = {
 
 export type AuthActionResponse = { message: string };
 
+export type RetentionWorkSummary = { pending: number; overdue_48h: number; failed: number; overdue_policy_hours: number; generated_at: string; definition: string };
+
 export type RiskSummary = {
   total_scored?: number;
   total_students?: number;
