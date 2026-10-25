@@ -3,7 +3,7 @@
 import { type FormEvent, useMemo, useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, ChevronDown, KeyRound } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Eye, EyeOff, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
@@ -58,6 +58,7 @@ export default function LoginPage() {
   const [whatsappStep, setWhatsappStep] = useState<"phone" | "code">("phone");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [localPhone, setLocalPhone] = useState("");
   const [country, setCountry] = useState<(typeof COUNTRIES)[number]>(COUNTRIES[0]);
   const [countryOpen, setCountryOpen] = useState(false);
@@ -92,7 +93,10 @@ export default function LoginPage() {
       if (err.status === 0 || /failed to fetch|network/i.test(err.message)) {
         return "Não foi possível conectar à API da Mira. Verifique se o serviço está disponível e tente novamente.";
       }
-      return err.message || fallback;
+      if (err.status === 401 || err.status === 403) return "Não foi possível entrar com essas credenciais.";
+      if (err.status === 429) return "Muitas tentativas em pouco tempo. Aguarde antes de tentar novamente.";
+      if (err.status >= 500) return "O serviço está temporariamente indisponível. Tente novamente em instantes.";
+      return fallback;
     }
     if (err instanceof TypeError) {
       return "Não foi possível conectar à API da Mira. Verifique se o serviço está disponível e tente novamente.";
@@ -112,7 +116,7 @@ export default function LoginPage() {
       setError(
         humanError(
           err,
-          "Não foi possível entrar. Em desenvolvimento use admin@mira.local / MiraAdmin123!"
+          "Não foi possível entrar com essas credenciais."
         )
       );
     } finally {
@@ -164,15 +168,15 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#1a1a1a]">
-      <div className="pointer-events-none absolute inset-0">
+    <main className="relative min-h-screen overflow-hidden bg-neutral-100 md:bg-[#1a1a1a]">
+      <div className="pointer-events-none absolute inset-0 hidden md:block">
         <Image src="/login-art.svg" alt="" fill priority className="object-cover opacity-90" />
         <div className="absolute inset-0 bg-gradient-to-br from-black/35 via-black/20 to-black/45" />
       </div>
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center p-4 sm:p-6">
+      <div className="relative z-10 flex min-h-screen items-center justify-center p-3 sm:p-6">
         <div className="grid w-full max-w-[980px] overflow-hidden rounded-[28px] border border-white/20 bg-white shadow-[0_40px_120px_rgba(0,0,0,0.45)] md:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
-          <section className="flex flex-col justify-center px-7 py-10 sm:px-10 lg:px-12">
+          <section className="flex min-w-0 flex-col justify-center px-5 py-8 sm:px-10 sm:py-10 lg:px-12">
             <div className="mb-8">
               <Image
                 src="/mira-logo.svg"
@@ -192,7 +196,7 @@ export default function LoginPage() {
                     : "Entrar com WhatsApp"
                   : "Entrar"}
             </h1>
-            <p className="mt-1.5 text-sm text-neutral-500">
+            <p className="mt-1.5 text-sm leading-6 text-neutral-500">
               {mode === "forgot"
                 ? "Enviaremos um link para o e-mail da conta."
                 : mode === "whatsapp"
@@ -204,32 +208,18 @@ export default function LoginPage() {
 
             <div className="mt-7 space-y-4">
               {error && (
-                <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p role="alert" aria-live="assertive" className="rounded-xl bg-red-50 px-3 py-2 text-sm leading-5 text-red-700">
                   {error}
                 </p>
               )}
               {notice && (
-                <p role="status" className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                <p role="status" aria-live="polite" className="rounded-xl bg-emerald-50 px-3 py-2 text-sm leading-5 text-emerald-800">
                   {notice}
                 </p>
               )}
 
               {mode === "password" && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => changeMode("whatsapp")}
-                    className="flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-neutral-200 bg-white text-sm font-medium text-neutral-800 transition hover:bg-neutral-50"
-                  >
-                    <WhatsAppMark className="h-5 w-5" />
-                    Entrar com WhatsApp
-                  </button>
-
-                  <div className="relative py-1 text-center text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-400">
-                    <span className="absolute inset-x-0 top-1/2 h-px bg-neutral-200" />
-                    <span className="relative bg-white px-3">ou</span>
-                  </div>
-
                   <form onSubmit={onPasswordSubmit} className="space-y-3.5">
                     <div className="space-y-1.5">
                       <label className="text-[13px] font-medium text-neutral-700" htmlFor="email">
@@ -238,7 +228,7 @@ export default function LoginPage() {
                       <Input
                         id="email"
                         type="email"
-                        autoComplete="email"
+                        autoComplete="username"
                         placeholder="voce@instituicao.edu.br"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -259,16 +249,27 @@ export default function LoginPage() {
                           Esqueci a senha
                         </button>
                       </div>
-                      <Input
-                        id="password"
-                        type="password"
-                        autoComplete="current-password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="h-11 rounded-full border-neutral-200 px-4"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="current-password"
+                          placeholder="Sua senha"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="h-12 rounded-full border-neutral-200 px-4 pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((visible) => !visible)}
+                          aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                          aria-pressed={showPassword}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+                        </button>
+                      </div>
                     </div>
                     <Button
                       type="submit"
@@ -279,12 +280,18 @@ export default function LoginPage() {
                     </Button>
                   </form>
 
-                  <p className="rounded-xl bg-neutral-50 px-3 py-2 text-[11px] leading-relaxed text-neutral-500">
-                    <strong className="font-semibold text-neutral-700">Dev local:</strong>{" "}
-                    <code className="rounded bg-white px-1 py-0.5 text-[10px]">admin@mira.local</code>{" "}
-                    /{" "}
-                    <code className="rounded bg-white px-1 py-0.5 text-[10px]">MiraAdmin123!</code>
-                  </p>
+                  <div className="relative py-1 text-center text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-400">
+                    <span className="absolute inset-x-0 top-1/2 h-px bg-neutral-200" />
+                    <span className="relative bg-white px-3">ou</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => changeMode("whatsapp")}
+                    className="flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-neutral-200 bg-white text-sm font-medium text-neutral-800 transition hover:bg-neutral-50"
+                  >
+                    <WhatsAppMark className="h-5 w-5" />
+                    Entrar com WhatsApp
+                  </button>
                 </>
               )}
 
