@@ -130,3 +130,25 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Shared layout primitives — incremental MIRA design-system rollout */
+@layer components {
+  .mira-page {
+    color: var(--text-primary);
+  }
+
+  .mira-page section[aria-label] {
+    min-width: 0;
+  }
+
+  .mira-surface {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--surface-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .mira-muted {
+    color: var(--text-secondary);
+  }
+}
