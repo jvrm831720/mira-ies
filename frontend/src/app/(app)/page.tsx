@@ -4,7 +4,7 @@ import Link from "next/link";
 import { type FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowRight, CheckCircle2, RefreshCw, Search, Upload, Users, TriangleAlert, Activity } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, RefreshCw, Search, Upload, Users, TriangleAlert, Activity, UserRoundX, ClipboardList, MessageSquareHeart } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { CriticalList } from "@/components/risk/critical-list";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
@@ -34,6 +34,7 @@ export default function CommandCenterPage() {
   const totalStudents = summary.data?.total_students ?? scoredStudents;
   const criticalCount = risk?.critico ?? 0;
   const mediumCount = risk?.medio ?? 0;
+  const unscoredCount = risk?.sem_score ?? 0;
   const isEmpty = !summary.isLoading && !summary.isError && totalStudents === 0;
 
   const searchHits = useMemo(() => {
@@ -135,7 +136,7 @@ export default function CommandCenterPage() {
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold tracking-[-0.035em] text-neutral-950">Sua instituição, em resumo</h2>
-                <p className="mt-1 text-sm text-neutral-500">Uma visão rápida da sua base de alunos.</p>
+                <p className="mt-1 text-sm text-neutral-500">Entenda a situação da base e escolha onde agir primeiro.</p>
               </div>
               {!summary.isLoading && (
                 <span className="hidden text-xs text-neutral-400 sm:inline">
@@ -143,7 +144,7 @@ export default function CommandCenterPage() {
                 </span>
               )}
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label="Alunos na base"
                 value={summary.isLoading ? "—" : totalStudents.toLocaleString("pt-BR")}
@@ -164,6 +165,13 @@ export default function CommandCenterPage() {
                 hint={summary.isLoading ? "Carregando dados" : "Alunos em risco médio"}
                 icon={<Activity className="h-5 w-5" />}
                 tone="indigo"
+              />
+              <MetricCard
+                label="Sem classificação"
+                value={summary.isLoading ? "—" : unscoredCount.toLocaleString("pt-BR")}
+                hint={summary.isLoading ? "Carregando dados" : "Alunos sem score de risco"}
+                icon={<UserRoundX className="h-5 w-5" />}
+                tone="neutral"
               />
             </div>
           </section>
@@ -195,6 +203,21 @@ export default function CommandCenterPage() {
             <div className="min-w-0">
               <RecentActivity logs={activity.data?.logs} loading={activity.isLoading} error={activity.isError} onRetry={() => void activity.refetch()} />
             </div>
+          </section>
+        )}
+
+        {!summary.isError && (
+          <section aria-label="Ações rápidas" className="grid gap-3 sm:grid-cols-2">
+            <Link href="/retencao/logs" className="group flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition hover:border-neutral-300 hover:shadow-sm">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neutral-100 text-neutral-700"><ClipboardList className="h-5 w-5" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-neutral-900">Central de trabalho</span><span className="mt-1 block text-xs text-neutral-500">Revise os registros de intervenção e identifique o que exige acompanhamento.</span></span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-neutral-400 transition group-hover:translate-x-0.5" />
+            </Link>
+            <Link href="/retencao" className="group flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition hover:border-neutral-300 hover:shadow-sm">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef0ff] text-[var(--brand-indigo)]"><MessageSquareHeart className="h-5 w-5" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-neutral-900">Intervenções</span><span className="mt-1 block text-xs text-neutral-500">Acesse a régua de retenção e os fluxos disponíveis para sua instituição.</span></span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-neutral-400 transition group-hover:translate-x-0.5" />
+            </Link>
           </section>
         )}
 
