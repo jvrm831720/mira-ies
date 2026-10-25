@@ -76,7 +76,7 @@ export default function CommandCenterPage() {
               value={q}
               onChange={(event) => setQ(event.target.value)}
               placeholder="Buscar aluno"
-              className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-[var(--brand-indigo)] focus:ring-4 focus:ring-[rgba(64,80,205,0.09)]"
+              className="h-12 w-full rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-white pl-11 pr-4 text-sm text-[var(--text-primary)] shadow-sm outline-none transition placeholder:text-neutral-400 focus:border-[var(--brand-indigo)] focus:ring-4 focus:ring-[rgba(64,80,205,0.10)]"
             />
             {searchHits.length > 0 && (
               <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
@@ -105,14 +105,14 @@ export default function CommandCenterPage() {
               type="button"
               onClick={() => void refreshDashboard()}
               disabled={isRefreshing}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
+              className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-white px-4 text-sm font-semibold text-neutral-700 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
               Atualizar
             </button>
             <Link
               href="/importar"
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--brand-midnight)] px-4 text-sm font-semibold text-white transition hover:bg-neutral-800"
+              className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-control)] bg-[var(--brand-midnight)] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 hover:shadow-md"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar alunos
@@ -133,9 +133,9 @@ export default function CommandCenterPage() {
           </section>
         ) : (
           <section aria-label="Resumo dos alunos">
-            <div className="mb-3 flex items-end justify-between gap-3">
+            <div className="mb-4 flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold tracking-[-0.035em] text-neutral-950">Sua instituição, em resumo</h2>
+                <h2 className="text-xl font-semibold tracking-[-0.04em] text-neutral-950">Sua instituição, em resumo</h2>
                 <p className="mt-1 text-sm text-neutral-500">Entenda a situação da base e escolha onde agir primeiro.</p>
               </div>
               {!summary.isLoading && (
@@ -208,12 +208,12 @@ export default function CommandCenterPage() {
 
         {!summary.isError && (
           <section aria-label="Ações rápidas" className="grid gap-3 sm:grid-cols-2">
-            <Link href="/retencao/logs" className="group flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition hover:border-neutral-300 hover:shadow-sm">
+            <Link href="/retencao/logs" className="group flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-neutral-100 text-neutral-700"><ClipboardList className="h-5 w-5" /></span>
               <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-neutral-900">Central de trabalho</span><span className="mt-1 block text-xs text-neutral-500">Revise os registros de intervenção e identifique o que exige acompanhamento.</span></span>
               <ArrowRight className="h-4 w-4 shrink-0 text-neutral-400 transition group-hover:translate-x-0.5" />
             </Link>
-            <Link href="/retencao" className="group flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition hover:border-neutral-300 hover:shadow-sm">
+            <Link href="/retencao" className="group flex items-center gap-3 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef0ff] text-[var(--brand-indigo)]"><MessageSquareHeart className="h-5 w-5" /></span>
               <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-neutral-900">Intervenções</span><span className="mt-1 block text-xs text-neutral-500">Acesse a régua de retenção e os fluxos disponíveis para sua instituição.</span></span>
               <ArrowRight className="h-4 w-4 shrink-0 text-neutral-400 transition group-hover:translate-x-0.5" />
@@ -252,7 +252,7 @@ function MetricCard({
     indigo: "bg-[#eef0ff] text-[var(--brand-indigo)]",
   };
   return (
-    <article className="rounded-2xl border border-neutral-200/80 bg-white p-5 transition duration-200 hover:border-neutral-300 hover:shadow-[0_8px_24px_rgba(20,20,30,0.045)] sm:p-6">
+    <article data-mira-card="true" className="rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-lg sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-medium text-neutral-500">{label}</p>
         <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tones[tone]}`}>{icon}</span>
