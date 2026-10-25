@@ -4,7 +4,7 @@ import Link from "next/link";
 import { type FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowRight, CheckCircle2, RefreshCw, Search, Upload, Users, TriangleAlert, Activity, UserRoundX, ClipboardList, MessageSquareHeart } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, RefreshCw, Search, Upload, Users, TriangleAlert, UserRoundX, ClipboardList, MessageSquareHeart } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { CriticalList } from "@/components/risk/critical-list";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
@@ -34,7 +34,6 @@ export default function CommandCenterPage() {
   const scoredStudents = summary.data?.total_scored ?? (risk ? risk.baixo + risk.medio + risk.critico : 0);
   const totalStudents = summary.data?.total_students ?? scoredStudents;
   const criticalCount = risk?.critico ?? 0;
-  const mediumCount = risk?.medio ?? 0;
   const unscoredCount = risk?.sem_score ?? 0;
   const isEmpty = !summary.isLoading && !summary.isError && totalStudents === 0;
 
