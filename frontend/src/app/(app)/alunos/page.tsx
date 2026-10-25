@@ -45,9 +45,9 @@ function AlunosContent() {
     <>
       <Header title="Alunos" subtitle="Encontre quem precisa de atenção e abra a ficha." />
       <main className="mx-auto w-full max-w-[1600px] px-4 pb-10 pt-5 md:px-9 md:pt-7 mira-page">
-        <section className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <section className="mb-7 flex flex-col justify-between gap-4 border-b border-[var(--border-subtle)] pb-5 sm:flex-row sm:items-center">
           <div className="min-w-0">
-            <h2 className="text-[22px] font-semibold tracking-[-0.045em] text-neutral-950">Todos os alunos</h2>
+            <h2 className="text-2xl font-semibold tracking-[-0.045em] text-neutral-950">Todos os alunos</h2>
             <p className="mt-1 text-sm text-neutral-500">
               {isLoading
                 ? "Carregando sua base…"
@@ -59,7 +59,7 @@ function AlunosContent() {
           </Link>
         </section>
 
-        <section aria-label="Buscar e filtrar alunos" className="mb-4 flex flex-col gap-3 sm:flex-row">
+        <section aria-label="Buscar e filtrar alunos" className="mb-5 flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-white p-3 shadow-sm sm:flex-row sm:p-4">
           <label className="relative block min-w-0 flex-1">
             <span className="sr-only">Buscar aluno</span>
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -79,8 +79,8 @@ function AlunosContent() {
           {hasFilters && <button type="button" onClick={() => { setQuery(""); setRisk(""); }} className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900"><X className="h-3.5 w-3.5" /> Limpar</button>}
         </section>
 
-        <section aria-label="Lista de alunos" className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-[0_2px_10px_rgba(20,20,20,0.025)]">
-          <div className="hidden grid-cols-[minmax(220px,1.5fr)_minmax(150px,1fr)_150px_90px_24px] items-center gap-4 border-b border-neutral-100 bg-neutral-50/70 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-neutral-400 md:grid">
+        <section aria-label="Lista de alunos" data-mira-card="true" className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-white shadow-sm">
+          <div className="hidden grid-cols-[minmax(220px,1.5fr)_minmax(150px,1fr)_150px_90px_24px] items-center gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-5 py-4 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-500 md:grid">
             <span>Aluno</span><span>Curso</span><span>Nível de risco</span><span className="text-right">Score</span><span />
           </div>
 
@@ -103,7 +103,7 @@ function AlunosContent() {
 
           {!isLoading && !isError && filtered.length > 0 && <div className="divide-y divide-neutral-100">
             {filtered.map((student) => <button key={student.id} type="button" onClick={() => setSelectedId(student.id)} aria-label={"Abrir ficha de " + (student.nome || "aluno sem nome")}
-              className="group grid w-full grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-x-3 gap-y-2 px-4 py-3.5 text-left transition hover:bg-neutral-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/20 sm:px-5 md:grid-cols-[minmax(220px,1.5fr)_minmax(150px,1fr)_150px_90px_24px] md:gap-4 md:py-4">
+              className="group grid w-full grid-cols-[minmax(0,1fr)_auto_16px] items-center gap-x-3 gap-y-2 px-4 py-4 text-left transition duration-150 hover:bg-indigo-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/20 sm:px-5 md:grid-cols-[minmax(220px,1.5fr)_minmax(150px,1fr)_150px_90px_24px] md:gap-4 md:py-5">
               <span className="flex min-w-0 items-center gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f0efff] text-[11px] font-semibold text-[var(--brand-indigo)]">{initials(student.nome)}</span>
                 <span className="min-w-0">
