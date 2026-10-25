@@ -161,14 +161,14 @@ export default function CommandCenterPage() {
               />
               <MetricCard
                 label="Intervenções pendentes"
-                value={workSummary.isLoading || workSummary.isError ? "—" : workSummary.data.pending.toLocaleString("pt-BR")}
+                value={workSummary.isLoading || workSummary.isError ? "—" : workSummary.data?.pending?.toLocaleString("pt-BR") ?? "—"}
                 hint={workSummary.isError ? "Indicador indisponível" : "Decisões planejadas sem conclusão"}
                 icon={<ClipboardList className="h-5 w-5" />}
                 tone="indigo"
               />
               <MetricCard
                 label="Planejadas há +48h"
-                value={workSummary.isLoading || workSummary.isError ? "—" : workSummary.data.overdue_48h.toLocaleString("pt-BR")}
+                value={workSummary.isLoading || workSummary.isError ? "—" : workSummary.data?.overdue_48h?.toLocaleString("pt-BR") ?? "—"}
                 hint={workSummary.isError ? "Indicador indisponível" : "Sinal operacional com política provisória de 48h"}
                 icon={<UserRoundX className="h-5 w-5" />}
                 tone="coral"
