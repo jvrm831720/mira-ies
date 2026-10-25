@@ -8,14 +8,14 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "rounded-full bg-neutral-950 text-white shadow-sm hover:bg-neutral-800",
+          "rounded-[var(--radius-pill)] bg-neutral-950 text-white shadow-sm transition-colors duration-[var(--motion-standard)] hover:bg-neutral-800",
         secondary:
-          "rounded-full bg-neutral-100 text-neutral-900 hover:bg-neutral-200",
+          "rounded-[var(--radius-pill)] bg-neutral-100 text-neutral-900 transition-colors duration-[var(--motion-standard)] hover:bg-neutral-200",
         outline:
-          "rounded-full border border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50",
-        ghost: "rounded-full hover:bg-neutral-100",
+          "rounded-[var(--radius-pill)] border border-[var(--border-subtle)] bg-white text-neutral-900 transition-colors duration-[var(--motion-standard)] hover:bg-neutral-50",
+        ghost: "rounded-[var(--radius-pill)] transition-colors duration-[var(--motion-standard)] hover:bg-neutral-100",
         destructive:
-          "rounded-full bg-red-600 text-white hover:bg-red-700",
+          "rounded-[var(--radius-pill)] bg-red-600 text-white transition-colors duration-[var(--motion-standard)] hover:bg-red-700",
       },
       size: {
         default: "h-10 px-4 py-2",
