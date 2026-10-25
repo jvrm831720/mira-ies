@@ -47,7 +47,7 @@ function AlunosContent() {
 
   const studentsQuery = useQuery({
     queryKey: ["students", "explorer"],
-    queryFn: () => api.students({ limit: 500 }),
+    queryFn: () => api.students({ limit: 200 }),
   });
   const riskSummary = useQuery({
     queryKey: ["risk-summary", "students"],
