@@ -231,6 +231,7 @@ async def list_students(
         "presenca_percentual": s.presenca_percentual, "nota_media": s.nota_media,
         "risk_score": s.risk_score, "risk_level": s.risk_level,
         "shap_summary": (s.shap_top_factors or {}).get("summary"),
+        "shap_top_factors": s.shap_top_factors,
     } for s in students]}
 
 
