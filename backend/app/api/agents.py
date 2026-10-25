@@ -289,6 +289,44 @@ async def get_retention_send_time(
     )
 
 
+@router.get("/agents/retention/work-summary")
+async def retention_work_summary(
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Tenant-scoped operational counts from persisted intervention logs.
+
+    "pending" means a decision persisted with status=planned.
+    "overdue" is explicitly a provisional 48-hour SLA for planned decisions,
+    not a user-assigned task deadline.
+    """
+    now = datetime.now(timezone.utc)
+    overdue_cutoff = now - timedelta(hours=48)
+    base = select(func.count(InterventionLog.id)).where(
+        InterventionLog.tenant_id == auth.tenant_id,
+    )
+    pending = (await db.execute(
+        base.where(InterventionLog.status == "planned")
+    )).scalar_one()
+    overdue = (await db.execute(
+        base.where(
+            InterventionLog.status == "planned",
+            InterventionLog.created_at < overdue_cutoff,
+        )
+    )).scalar_one()
+    failed = (await db.execute(
+        base.where(InterventionLog.status == "failed")
+    )).scalar_one()
+    return {
+        "pending": int(pending or 0),
+        "overdue_48h": int(overdue or 0),
+        "failed": int(failed or 0),
+        "overdue_policy_hours": 48,
+        "generated_at": now.isoformat(),
+        "definition": "Pendentes = decisões planejadas ainda não concluídas; atrasadas = planejadas há mais de 48 horas. O prazo de 48h é uma política operacional provisória, não um prazo atribuído individualmente.",
+    }
+
+
 @router.get("/agents/retention/logs")
 async def list_retention_logs(
     limit: int = Query(50, ge=1, le=500),

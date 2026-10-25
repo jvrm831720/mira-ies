@@ -25,6 +25,7 @@ import type {
   RetentionRunRequest,
   RetentionRunResult,
   RetentionAnalytics,
+  RetentionWorkSummary,
   RiskSummary,
   StudentsResponse,
   StudentRisk,
@@ -149,6 +150,8 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, "Não foi possível validar a chave");
     return res.json() as Promise<AgentsStatus>;
   },
+
+  retentionWorkSummary: () => request<RetentionWorkSummary>("/api/v1/agents/retention/work-summary"),
 
   riskSummary: (batchId?: string) =>
     request<RiskSummary>(
