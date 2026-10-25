@@ -18,7 +18,7 @@ const groups = [
   { label: "Inteligência educacional", links: [
     { href: "/", label: "Visão geral", icon: LayoutDashboard },
     { href: "/alunos", label: "Alunos", icon: Users },
-    { href: "/retencao/logs", label: "Central de trabalho", icon: ClipboardList },
+    { href: "/trabalho", label: "Central de trabalho", icon: ClipboardList },
     { href: "/retencao", label: "Intervenções", icon: MessageSquareHeart },
     { href: "/retencao/logs", label: "Resultados", icon: ChartNoAxesCombined },
   ]},
