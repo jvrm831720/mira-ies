@@ -33,7 +33,13 @@ export type StudentsResponse = {
     matricula?: string;
     curso?: string;
     risk_level?: string;
-    risk_score?: number;
+    risk_score?: number | null;
+    shap_summary?: string | null;
+    shap_top_factors?: {
+      summary?: string;
+      top_3?: Array<{ feature?: string; label?: string }>;
+      recommended_actions?: string[];
+    } | null;
   }>;
 };
 
