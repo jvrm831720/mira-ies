@@ -21,14 +21,14 @@ export default function WorkCenterPage() {
   return (
     <>
       <Header title="Central de trabalho" subtitle="Acompanhe intervenções planejadas e priorize os alunos sinalizados." />
-      <main className="mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10">
+      <main className="mx-auto w-full max-w-[1440px] space-y-[var(--space-6)] px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10 mira-page">
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Metric label="Alunos em risco crítico" value={summary.isLoading ? "—" : (summary.data?.summary.critico ?? 0).toLocaleString("pt-BR")} description="Casos sinalizados para revisão" icon={<AlertCircle className="h-5 w-5" />} />
           <Metric label="Base monitorada" value={summary.isLoading ? "—" : (summary.data?.total_students ?? 0).toLocaleString("pt-BR")} description="Total informado pelo resumo de risco" icon={<Users className="h-5 w-5" />} />
           <Metric label="Intervenções pendentes" value={work.isLoading || work.isError ? "—" : (work.data?.pending ?? 0).toLocaleString("pt-BR")} description="Decisões planejadas sem conclusão" icon={<ClipboardList className="h-5 w-5" />} />
           <Metric label="Planejadas há +48h" value={work.isLoading || work.isError ? "—" : (work.data?.overdue_48h ?? 0).toLocaleString("pt-BR")} description="Registros que excedem a política provisória" icon={<Clock3 className="h-5 w-5" />} />
         </section>
-        <section className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
+        <section className="rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div><h2 className="text-base font-semibold text-neutral-950">Intervenções aguardando execução</h2><p className="mt-1 text-sm text-neutral-500">Registros planejados persistidos pela MIRA. Ainda não são tarefas atribuídas a responsáveis.</p></div>
             <button type="button" onClick={() => { void planned.refetch(); void work.refetch(); }} disabled={planned.isFetching || work.isFetching} className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"><RefreshCw className={`h-3.5 w-3.5 ${planned.isFetching || work.isFetching ? "animate-spin" : ""}`} /> Atualizar</button>

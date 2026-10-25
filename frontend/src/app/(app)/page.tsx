@@ -67,7 +67,7 @@ export default function CommandCenterPage() {
   return (
     <>
       <Header title="Visão geral" compact />
-      <main className="mx-auto w-full max-w-[1440px] space-y-7 px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10">
+      <main className="mx-auto w-full max-w-[1440px] space-y-[var(--space-8)] px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10 mira-page">
         <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <form onSubmit={onSearchSubmit} className="relative w-full sm:max-w-[480px]">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -89,7 +89,7 @@ export default function CommandCenterPage() {
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium text-neutral-900">{student.nome}</span>
-                        <span className="mt-0.5 block truncate text-xs text-neutral-500">
+                        <span className="mt-0.5 block truncate text-xs text-[var(--text-secondary)]">
                           {student.matricula || "Sem matrícula"}{student.curso ? ` · ${student.curso}` : ""}
                         </span>
                       </span>
@@ -178,7 +178,7 @@ export default function CommandCenterPage() {
         )}
 
         {isEmpty ? (
-          <section className="rounded-2xl border border-neutral-200 bg-white px-5 py-10 text-center sm:py-14">
+          <section className="rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--surface-card)] px-5 py-10 text-center sm:py-14">
             <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--brand-paper)] text-[var(--brand-indigo)]">
               <Upload className="h-5 w-5" />
             </span>

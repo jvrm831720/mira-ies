@@ -44,7 +44,7 @@ function AlunosContent() {
   return (
     <>
       <Header title="Alunos" subtitle="Encontre quem precisa de atenção e abra a ficha." />
-      <main className="mx-auto w-full max-w-[1600px] px-4 pb-10 pt-5 md:px-9 md:pt-7">
+      <main className="mx-auto w-full max-w-[1600px] px-4 pb-10 pt-5 md:px-9 md:pt-7 mira-page">
         <section className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div className="min-w-0">
             <h2 className="text-[22px] font-semibold tracking-[-0.045em] text-neutral-950">Todos os alunos</h2>
@@ -54,7 +54,7 @@ function AlunosContent() {
                 : filtered.length.toLocaleString("pt-BR") + (filtered.length === 1 ? " aluno encontrado" : " alunos encontrados")}
             </p>
           </div>
-          <Link href="/importar" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2">
+          <Link href="/importar" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[var(--radius-pill)] bg-neutral-900 px-4 text-sm font-semibold text-white transition hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2">
             <Upload className="h-4 w-4" /> Importar alunos
           </Link>
         </section>
@@ -63,7 +63,7 @@ function AlunosContent() {
           <label className="relative block min-w-0 flex-1">
             <span className="sr-only">Buscar aluno</span>
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <Input placeholder="Buscar por nome, matrícula ou curso" value={query} onChange={(e) => setQuery(e.target.value)} className="h-11 rounded-xl border-neutral-200 bg-white pl-10 pr-10 shadow-none placeholder:text-neutral-400 focus-visible:ring-neutral-900/15" />
+            <Input placeholder="Buscar por nome, matrícula ou curso" value={query} onChange={(e) => setQuery(e.target.value)} className="h-11 rounded-[var(--radius-control)] border-[var(--border-subtle)] bg-[var(--surface-card)] pl-10 pr-10 shadow-none placeholder:text-neutral-400 focus-visible:ring-neutral-900/15" />
             {query && <button type="button" onClick={() => setQuery("")} aria-label="Limpar busca" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"><X className="h-3.5 w-3.5" /></button>}
           </label>
           <label className="relative block sm:w-[200px] sm:shrink-0">
