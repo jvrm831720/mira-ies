@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2, ChevronsUpDown, LayoutDashboard, LogOut, MessageSquareHeart,
-  PanelLeftClose, PanelLeftOpen, Plug, Receipt, Settings, Upload, UserCog, Users,
+  PanelLeftClose, PanelLeftOpen, Settings, Users,
   ClipboardList, ChartNoAxesCombined, Menu, X, Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
