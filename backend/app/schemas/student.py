@@ -29,6 +29,8 @@ class StudentBase(BaseModel):
     matricula: str
     nome: str
     curso: Optional[str] = None
+    campus: Optional[str] = None
+    status_aluno: Optional[str] = None
     turma: Optional[str] = None
     semestre: Optional[int] = None
     forma_ingresso: Optional[str] = None
