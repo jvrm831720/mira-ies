@@ -65,7 +65,7 @@ def validate_extension(filename: str) -> str:
     return ext
 
 
-def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None = None) -> pd.DataFrame:
+def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None = None, expected_fields: set[str] | None = None) -> pd.DataFrame:
     """Le planilhas sempre como string (dtype=str): colunas de matricula/turma
     puramente numericas seriam inferidas como int pelo pandas, descartando
     zeros a esquerda (ex: "00123" -> 123) antes da validacao. Campos
@@ -97,7 +97,13 @@ def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None
                         _, candidate_mapping = normalize_columns(candidate_df)
                     except ValueError:
                         continue
-                    if {"matricula", "nome"}.issubset(set(candidate_mapping.values())):
+                    mapped_fields = set(candidate_mapping.values())
+                    if expected_fields is None:
+                        matches = {"matricula", "nome"}.issubset(mapped_fields)
+                    else:
+                        role_fields_found = expected_fields.intersection(mapped_fields) - {"matricula"}
+                        matches = "matricula" in mapped_fields and bool(role_fields_found)
+                    if matches:
                         required_candidates.append(candidate)
                 if len(required_candidates) == 1:
                     selected_sheet = required_candidates[0]
@@ -233,7 +239,7 @@ async def preview_multiple_students_files(
             raise HTTPException(status_code=413, detail=f"Arquivo {filename} excede o limite individual.")
         if not content:
             raise HTTPException(status_code=422, detail=f"Arquivo {filename} está vazio.")
-        df = read_file_to_dataframe(content, ext)
+        df = read_file_to_dataframe(content, ext, expected_fields=role_fields.get(role))
         if df.empty:
             raise HTTPException(status_code=422, detail=f"Arquivo {filename} não contém dados.")
         if role not in role_fields:
@@ -776,7 +782,7 @@ async def confirm_multiple_students_files(
             errors.append(f"{filename}: tipo de base desconhecido ({role}).")
             continue
         try:
-            df = read_file_to_dataframe(raw_content, ext)
+            df = read_file_to_dataframe(raw_content, ext, expected_fields=role_fields.get(role))
             normalized, mapped = normalize_columns(df)
         except (HTTPException, ValueError) as exc:
             errors.append(f"{filename}: {str(exc)}")
