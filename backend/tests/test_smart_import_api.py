@@ -270,3 +270,46 @@ async def test_preview_multiple_flags_conflicting_values_and_unknown_role(client
     )
     assert invalid.status_code == 200, invalid.text
     assert invalid.json()["items"][0]["valid"] is False
+
+
+@pytest.mark.asyncio
+async def test_confirm_multiple_persists_complementary_bases_in_one_batch(client, tenant):
+    _tenant, key = tenant
+    files = [
+        ("files", ("cadastro.csv", b"matricula,nome,curso\n00123,Ana Souza,Direito\n", "text/csv")),
+        ("files", ("financeiro.csv", b"matricula,dias_atraso_boleto,recorrencia_atrasos\n00123,12,3\n", "text/csv")),
+    ]
+    response = await client.post(
+        "/api/v1/upload/confirm-multiple",
+        headers={"X-API-Key": key},
+        files=files,
+        data={"file_roles": ["cadastro", "financeiro"]},
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["persisted"] is True
+    assert body["students_imported"] == 1
+    assert body["quality"]["rows_created"] == 1
+    students = await client.get("/api/v1/students", headers={"X-API-Key": key})
+    row = next(s for s in students.json()["students"] if s["matricula"] == "00123")
+    assert row["nome"] == "Ana Souza"
+    assert row["curso"] == "Direito"
+    assert row["dias_atraso_boleto"] == 12
+
+
+@pytest.mark.asyncio
+async def test_confirm_multiple_blocks_conflicts_without_persisting(client, tenant):
+    _tenant, key = tenant
+    files = [
+        ("files", ("cadastro-a.csv", b"matricula,nome,curso\n00123,Ana Souza,Direito\n", "text/csv")),
+        ("files", ("cadastro-b.csv", b"matricula,nome,curso\n00123,Ana Souza,Medicina\n", "text/csv")),
+    ]
+    response = await client.post(
+        "/api/v1/upload/confirm-multiple",
+        headers={"X-API-Key": key},
+        files=files,
+        data={"file_roles": ["cadastro", "cadastro"]},
+    )
+    assert response.status_code == 422, response.text
+    students = await client.get("/api/v1/students", headers={"X-API-Key": key})
+    assert students.json()["count"] == 0
