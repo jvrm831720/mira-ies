@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Files,
   ArrowRight,
   CheckCircle2,
   ChevronDown,
@@ -85,6 +86,54 @@ export default function ImportarPage() {
   const [dragging, setDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmedImportPolicy, setConfirmedImportPolicy] = useState(false);
+  const multiInputRef = useRef<HTMLInputElement>(null);
+  const [multiFiles, setMultiFiles] = useState<File[]>([]);
+  const [multiPreview, setMultiPreview] = useState<import("@/types/api").MultiUploadPreviewResponse | null>(null);
+  const [multiPreviewLoading, setMultiPreviewLoading] = useState(false);
+  const [multiError, setMultiError] = useState<string | null>(null);
+
+  function selectMultipleFiles(files: FileList | File[]) {
+    const selected = Array.from(files);
+    if (selected.length === 0) return;
+    if (selected.length > 10) {
+      toast.error("Selecione no máximo 10 arquivos por vez.");
+      return;
+    }
+    const unsupported = selected.find((item) => !["csv", "xlsx", "xls"].includes(item.name.split(".").pop()?.toLowerCase() || ""));
+    if (unsupported) {
+      toast.error(`O arquivo "${unsupported.name}" não é CSV ou Excel.`);
+      return;
+    }
+    const oversized = selected.find((item) => item.size > 50 * 1024 * 1024);
+    if (oversized) {
+      toast.error(`O arquivo "${oversized.name}" excede o limite de 50 MB.`);
+      return;
+    }
+    if (selected.reduce((total, item) => total + item.size, 0) > 50 * 1024 * 1024) {
+      toast.error("O tamanho combinado dos arquivos excede 50 MB.");
+      return;
+    }
+    setMultiFiles(selected);
+    setMultiPreview(null);
+    setMultiError(null);
+  }
+
+  async function analyzeMultipleFiles() {
+    if (multiFiles.length === 0) return;
+    setMultiPreviewLoading(true);
+    setMultiError(null);
+    try {
+      const response = await api.previewMultipleUploads(multiFiles);
+      setMultiPreview(response);
+      toast.success("Pré-validação concluída. Nenhum dado foi salvo.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível pré-validar os arquivos.";
+      setMultiError(message);
+      toast.error(message);
+    } finally {
+      setMultiPreviewLoading(false);
+    }
+  }
 
   function selectFile(nextFile?: File) {
     if (!nextFile) return;
@@ -218,6 +267,95 @@ export default function ImportarPage() {
           <StepCard number="02" title="Revisar e mapear" detail="Prévia, avisos e correspondências" active={Boolean(preview) && !result} complete={Boolean(result)} />
           <StepCard number="03" title="Importar base" detail="Criar e atualizar registros" active={Boolean(result)} complete={Boolean(result)} />
         </section>
+
+        <Card className="border-dashed">
+          <CardHeader className="pb-3">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-secondary text-primary"><Files className="h-5 w-5" /></span>
+              <div>
+                <CardTitle className="text-base">Pré-validar vários arquivos</CardTitle>
+                <CardDescription className="mt-1">
+                  Confira até 10 arquivos de dados de alunos antes de decidir o próximo passo. Esta etapa é somente de análise: não importa nem altera registros.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <input
+              ref={multiInputRef}
+              type="file"
+              multiple
+              accept=".csv,.xlsx,.xls"
+              className="sr-only"
+              aria-label="Selecionar vários arquivos CSV ou Excel"
+              onChange={(event) => selectMultipleFiles(event.target.files || [])}
+            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-muted-foreground">
+                {multiFiles.length ? (
+                  <span>{multiFiles.length} arquivo(s) selecionado(s) · {formatFileSize(multiFiles.reduce((total, item) => total + item.size, 0))} no total</span>
+                ) : "CSV, XLSX ou XLS · até 10 arquivos · 50 MB combinados"}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => multiInputRef.current?.click()} disabled={multiPreviewLoading}>
+                  <Files className="h-3.5 w-3.5" /> Escolher arquivos
+                </Button>
+                {multiFiles.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => { setMultiFiles([]); setMultiPreview(null); setMultiError(null); if (multiInputRef.current) multiInputRef.current.value = ""; }} disabled={multiPreviewLoading}>
+                    <Trash2 className="h-3.5 w-3.5" /> Limpar
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => void analyzeMultipleFiles()} disabled={!multiFiles.length || multiPreviewLoading}>
+                  {multiPreviewLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {multiPreviewLoading ? "Validando..." : "Pré-validar arquivos"}
+                </Button>
+              </div>
+            </div>
+            {multiFiles.length > 0 && (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {multiFiles.map((item, index) => (
+                  <li key={item.name + item.size + index} className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
+                    <FileSpreadsheet className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-800">{item.name}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">{formatFileSize(item.size)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {multiError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">{multiError}</p>}
+            {multiPreview && (
+              <div className="space-y-3 border-t border-border pt-4">
+                <p className="text-xs leading-relaxed text-muted-foreground">{multiPreview.message}</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <ReviewStat label="Arquivos recebidos" value={multiPreview.summary.files_received} tone="neutral" />
+                  <ReviewStat label="Arquivos válidos" value={multiPreview.summary.files_valid} tone="success" />
+                  <ReviewStat label="Com problemas" value={multiPreview.summary.files_with_errors} tone={multiPreview.summary.files_with_errors ? "warning" : "neutral"} />
+                  <ReviewStat label="Matrículas distintas" value={multiPreview.summary.distinct_matriculas_across_files} tone="indigo" />
+                </div>
+                <div className="space-y-2">
+                  {multiPreview.items.map((item) => (
+                    <div key={item.index + item.filename} className="flex flex-col gap-2 rounded-xl border border-border px-3 py-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="break-words text-xs font-semibold text-neutral-900">{item.filename}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {item.total_rows == null ? "Não foi possível analisar as linhas" : `${number(item.total_rows)} linhas · ${number(item.rows_to_import)} prontas · ${number(item.existing_matches)} matrículas existentes`}
+                        </p>
+                        {(item.error || item.errors?.length) && <p className="mt-1 text-[11px] text-red-700">{item.error || item.errors?.join("; ")}</p>}
+                        {item.warnings?.length ? <p className="mt-1 text-[11px] text-amber-700">{item.warnings.slice(0, 2).join(" · ")}</p> : null}
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${item.valid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
+                        {item.valid ? "Prévia válida" : "Revisar arquivo"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-900">
+                  <strong>Importação conjunta indisponível nesta etapa.</strong> A MIRA ainda não valida relacionamentos entre bases. Use a importação individual para importar uma planilha de alunos; não trate esta prévia como autorização para gravar vários arquivos juntos.
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="overflow-hidden">
