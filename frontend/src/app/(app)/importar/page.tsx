@@ -15,7 +15,7 @@ import { api } from "@/lib/api";
 import type { ImportField, UploadPreviewResponse, UploadResponse, MultiUploadPreviewResponse, UploadStructureResponse } from "@/types/api";
 
 const IMPORT_FIELDS: ImportField[] = [
-  "matricula", "nome", "curso", "turma", "semestre", "forma_ingresso",
+  "matricula", "nome", "curso", "campus", "status_aluno", "turma", "semestre", "forma_ingresso",
   "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro", "dias_sem_login",
   "presenca_percentual", "nota_media", "reprovacoes", "telefone", "email",
   "communication_opt_out",
@@ -28,7 +28,7 @@ const TEMPLATE_CSV = [
 ].join("\n");
 
 const FIELD_LABELS: Record<ImportField, string> = {
-  matricula: "Matrícula", nome: "Nome completo", curso: "Curso", turma: "Turma",
+  matricula: "Matrícula", nome: "Nome completo", curso: "Curso", campus: "Unidade / Campus", status_aluno: "Status do aluno", turma: "Turma",
   semestre: "Semestre", forma_ingresso: "Forma de ingresso",
   dias_atraso_boleto: "Dias de atraso financeiro", recorrencia_atrasos: "Parcelas vencidas / recorrência",
   saldo_devedor: "Saldo devedor (R$)", status_financeiro: "Status financeiro",
