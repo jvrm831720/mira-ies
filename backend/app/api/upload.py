@@ -415,7 +415,7 @@ async def upload_students_file(
         raise HTTPException(status_code=500, detail=f"Erro ao persistir dados: {str(e)}")
     preview = [{"matricula": s.matricula, "nome": s.nome, "curso": s.curso, "semestre": s.semestre,
                 "communication_opt_out": s.communication_opt_out,
-                "dias_atraso_boleto": s.dias_atraso_boleto, "dias_sem_login": s.dias_sem_login,
+                "dias_atraso_boleto": s.dias_atraso_boleto, "saldo_devedor": s.saldo_devedor, "status_financeiro": s.status_financeiro, "dias_sem_login": s.dias_sem_login,
                 "presenca_percentual": s.presenca_percentual, "nota_media": s.nota_media} for s in students[:5]]
     scoring_result = None
     if auto_score and students:
