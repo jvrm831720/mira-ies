@@ -33,6 +33,8 @@ COLUMN_ALIASES: dict[str, list[str]] = {
         "student full name", "display name", "nome completo do aluno", "nome do aluno",
     ],
     "curso": ["curso", "course", "programa", "course_name", "course name", "nome curso", "academic program"],
+    "campus": ["campus", "unidade", "unidade de ensino", "unidade academica", "polo", "campus/unidade", "unidade campus", "school campus"],
+    "status_aluno": ["status_aluno", "status aluno", "status do aluno", "situacao aluno", "situação aluno", "situacao academica", "situação acadêmica", "student status", "enrollment status"],
     "turma": ["turma", "classe", "class", "class_name", "class name", "codigo turma", "cohort"],
     "semestre": ["semestre", "semestre atual", "periodo", "período", "periodo atual", "periodo letivo", "semester", "current semester", "semestre cursado", "numero do semestre"],
     "forma_ingresso": ["forma_ingresso", "ingresso", "admission", "forma de ingresso", "tipo ingresso", "admission type"],
@@ -89,6 +91,8 @@ COLUMN_LABELS = {
     "matricula": "Matrícula / RA",
     "nome": "Nome completo",
     "curso": "Curso",
+    "campus": "Unidade / Campus",
+    "status_aluno": "Status do aluno",
     "turma": "Turma",
     "semestre": "Semestre atual",
     "forma_ingresso": "Forma de ingresso",
@@ -313,6 +317,8 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "matricula": matricula[:50],
         "nome": nome[:255],
         "curso": safe_str(row.get("curso")),
+        "campus": (safe_str(row.get("campus")) or "")[:150] or None,
+        "status_aluno": (safe_str(row.get("status_aluno")) or "")[:80] or None,
         "turma": safe_str(row.get("turma")),
         "semestre": _clamp_int(safe_semester(row.get("semestre")), 1, 30),
         "forma_ingresso": safe_str(row.get("forma_ingresso")),
@@ -532,7 +538,7 @@ async def create_batch_and_students(
     rows_created = 0
     rows_updated = 0
     mutable_fields = (
-        "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone",
+        "nome", "curso", "campus", "status_aluno", "turma", "semestre", "forma_ingresso", "telefone",
         "email", "communication_opt_out", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro",
         "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes",
     )
@@ -578,6 +584,8 @@ async def create_batch_and_students(
                 matricula=data["matricula"],
                 nome=data["nome"],
                 curso=data.get("curso"),
+                campus=data.get("campus"),
+                status_aluno=data.get("status_aluno"),
                 turma=data.get("turma"),
                 semestre=data.get("semestre"),
                 forma_ingresso=data.get("forma_ingresso"),
