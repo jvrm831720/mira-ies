@@ -424,10 +424,6 @@ def prepare_import_rows(
         unique[key] = group[-1]
         duplicates_removed += max(0, len(group) - 1)
 
-    if duplicates_removed > 0:
-        warnings.append(
-            f"{duplicates_removed} linha(s) duplicada(s) idêntica(s) por matrícula foram consolidadas."
-        )
     errors.extend(duplicate_identity_conflicts)
     if duplicates_removed:
         warnings.append(
