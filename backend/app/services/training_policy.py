@@ -80,6 +80,8 @@ async def resolve_institutional_training_authorization(
         current.approved_by_admin_id
         and current.evidence_reference
         and current.evidence_reference.strip()
+        and current.dataset_eligibility_reference
+        and current.dataset_eligibility_reference.strip()
         and current.contract_reference
         and current.contract_reference.strip()
         and current.contract_version
