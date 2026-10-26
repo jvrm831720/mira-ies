@@ -235,7 +235,8 @@ async def test_tenant_train_uses_only_mature_target_labels(
     assert resp_models.status_code == 200
     candidate = next(m for m in resp_models.json()["models"] if m["lifecycle_status"] == "candidate")
     assert candidate["is_active"] is False
-    assert any(m["is_active"] for m in resp_models.json()["models"])  # baseline remains active
+    assert resp_models.json()["active_model"] == "base"  # baseline is a fallback, not a tenant artifact
+    assert resp_models.json()["active_model_id"] is None
 
     resp_deactivate = await client.post(f"/api/v1/tenants/{t.slug}/models/deactivate", headers=auth_headers)
     assert resp_deactivate.status_code == 200
