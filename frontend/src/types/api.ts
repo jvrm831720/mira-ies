@@ -193,7 +193,7 @@ export type MultiUploadPreviewResponse = {
     rows_to_reject?: number;
     existing_matches?: number;
     rows_that_will_be_created?: number;
-    columns?: string[];
+    columns?: Array<{ key: string; label: string; suggested_field?: string | null; sample?: string }>;
     mapped_columns?: Record<string, string>;
     warnings?: string[];
     errors?: string[];
@@ -205,8 +205,11 @@ export type MultiUploadPreviewResponse = {
     files_with_errors: number;
     distinct_matriculas_across_files: number;
     total_bytes: number;
+    consolidated_students?: number;
+    cross_file_conflicts?: number;
+    duplicate_matriculas?: number;
   };
-  persisted: false;
+  persisted: boolean;
   cross_file_relationships_validated: boolean;
   consolidated_preview?: Array<{ matricula: string; fields: Record<string, string>; requires_review: boolean }>;
   conflicts?: Array<{ matricula: string; field: string; existing_value: string; incoming_value: string; filename: string; message: string }>;
