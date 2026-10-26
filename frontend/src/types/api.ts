@@ -182,6 +182,35 @@ export type ImportField =
   | "email"
   | "communication_opt_out";
 
+export type MultiUploadPreviewResponse = {
+  items: Array<{
+    index: number;
+    filename: string;
+    role?: string;
+    valid: boolean;
+    total_rows?: number;
+    rows_to_import?: number;
+    rows_to_reject?: number;
+    existing_matches?: number;
+    rows_that_will_be_created?: number;
+    columns?: string[];
+    mapped_columns?: Record<string, string>;
+    warnings?: string[];
+    errors?: string[];
+    error?: string;
+  }>;
+  summary: {
+    files_received: number;
+    files_valid: number;
+    files_with_errors: number;
+    distinct_matriculas_across_files: number;
+    total_bytes: number;
+  };
+  persisted: false;
+  cross_file_relationships_validated: false;
+  message: string;
+};
+
 export type UploadPreviewResponse = {
   columns: Array<{
     key: string;
