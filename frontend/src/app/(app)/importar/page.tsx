@@ -202,6 +202,15 @@ export default function ImportarPage() {
         title="Importar dados"
         subtitle="Uma importação guiada para revisar, corrigir e atualizar sua base com segurança."
       />
+      <div className="mx-auto flex w-full max-w-[1500px] justify-end px-4 pt-4 md:px-8 xl:px-10">
+        <button
+          type="button"
+          onClick={() => router.push("/importacoes")}
+          className="text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Consultar histórico de importações
+        </button>
+      </div>
       <main className="mx-auto w-full max-w-[1500px] space-y-5 px-4 pb-12 pt-5 md:px-8 md:pt-7 xl:px-10">
         <section className="grid gap-3 md:grid-cols-3" aria-label="Etapas da importação">
           <StepCard number="01" title="Selecionar arquivo" detail="CSV ou planilha Excel" active={!preview && !result} complete={Boolean(file)} />
