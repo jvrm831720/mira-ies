@@ -1,11 +1,8 @@
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
-
 import pytest
 
 from app.models.control_center import AdminPrincipal
 from app.models.data_governance import TenantDataUsePolicy
-from app.models.tenant import Tenant
 from app.services.training_policy import resolve_training_policy
 
 
