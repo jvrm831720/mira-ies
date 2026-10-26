@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from fastapi import HTTPException
 
 from app.core.auth import AuthContext, get_current_tenant
 from app.main import app
