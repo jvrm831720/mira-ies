@@ -171,6 +171,8 @@ async def get_student_risk(
     return {
         "id": student.id, "matricula": student.matricula, "nome": student.nome,
         "telefone": student.telefone, "email": student.email,
+        "curso": student.curso, "semestre": student.semestre,
+        "dias_atraso_boleto": student.dias_atraso_boleto,
         "communication_opt_out": student.communication_opt_out,
         "communication_preferences": effective_preferences(student),
         "behavior_properties": student.behavior_properties or {},
