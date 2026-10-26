@@ -179,7 +179,7 @@ def safe_int(value: Any) -> int | None:
 
 
 def safe_semester(value: Any) -> int | None:
-    """Aceita formatos comuns de semestre sem converter textos ambíguos."""
+    """Aceita formatos comuns de semestre e mantém o limite aplicado pelo importador."""
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
     if isinstance(value, bool):
@@ -189,7 +189,7 @@ def safe_semester(value: Any) -> int | None:
         return None
     # Exemplos válidos: 3, 3.0, 3º, 3o, 3º semestre, semestre 3.
     match = re.fullmatch(
-        r"(?:semestre\\s*)?(\\d{1,2})(?:\\s*(?:º|°|o))?(?:\\s*semestre)?",
+        r"(?:semestre\s*)?(\d+)(?:\.0+)?(?:\s*(?:º|°|o))?(?:\s*semestre)?",
         text,
     )
     if not match:
@@ -198,7 +198,6 @@ def safe_semester(value: Any) -> int | None:
         return int(match.group(1))
     except (ValueError, TypeError, OverflowError):
         return None
-
 
 def safe_float(value: Any) -> float | None:
     if value is None or (isinstance(value, float) and pd.isna(value)):
