@@ -124,6 +124,7 @@ async def test_model_activation_rollback_and_cross_tenant_artifact_access(
         is_active=False, lifecycle_status="candidate", trained_at=datetime.now(timezone.utc),
     )
     db_session.add_all([old, candidate_a, candidate_b])
+    await db_session.flush()
     tenant_a.active_model_id = old.id
     await db_session.commit()
     await db_session.refresh(old)
@@ -172,3 +173,27 @@ async def test_model_activation_rollback_and_cross_tenant_artifact_access(
     assert candidate_a.is_active is False
     assert candidate_a.lifecycle_status == "retired"
     assert old.rollback_of_artifact_id == candidate_a.id
+
+
+@pytest.mark.asyncio
+async def test_single_prediction_returns_exact_model_version(client, auth_headers, monkeypatch):
+    from app.api import scoring as scoring_api
+
+    monkeypatch.setattr(scoring_api, "get_model_info", lambda: {"status": "ready", "version": "base-test-v7"})
+    monkeypatch.setattr(scoring_api, "score_student_dict", lambda _payload: {
+        "risk_score": 42.0, "model_score": 40.0, "risk_level": "medio", "probability": 0.42,
+        "shap_top_factors": [], "shap_summary": "test", "features_used": {},
+    })
+    response = await client.post("/api/v1/predict", headers=auth_headers, json={})
+    assert response.status_code == 200
+    assert response.json()["model_scope"] == "base"
+    assert response.json()["model_version"] == "base-test-v7"
+
+
+@pytest.mark.asyncio
+async def test_single_prediction_fails_closed_when_model_version_is_missing(client, auth_headers, monkeypatch):
+    from app.api import scoring as scoring_api
+
+    monkeypatch.setattr(scoring_api, "get_model_info", lambda: {"status": "error"})
+    response = await client.post("/api/v1/predict", headers=auth_headers, json={})
+    assert response.status_code == 503
