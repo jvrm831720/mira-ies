@@ -107,83 +107,146 @@ async def preview_multiple_students_files(
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
-    """Pré-valida vários arquivos sem persistir; não executa joins entre bases."""
+    """Pré-valida bases complementares por matrícula; nunca persiste dados."""
     if not files:
         raise HTTPException(status_code=422, detail="Selecione ao menos um arquivo.")
     if len(files) > 10:
         raise HTTPException(status_code=422, detail="O limite é de 10 arquivos por operação.")
+    if file_roles and len(file_roles) != len(files):
+        raise HTTPException(status_code=422, detail="Informe exatamente um tipo de base para cada arquivo.")
 
+    role_fields = {
+        "cadastro": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+        "alunos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+        "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos"},
+        "engajamento": {"matricula", "dias_sem_login", "presenca_percentual"},
+        "desempenho": {"matricula", "nota_media", "reprovacoes"},
+    }
     total_bytes = 0
     items: list[dict[str, Any]] = []
     all_matriculas: set[str] = set()
+    consolidated: dict[str, dict[str, Any]] = {}
+    seen_by_file: dict[str, set[str]] = {}
+    conflicts: list[dict[str, Any]] = []
+    duplicate_keys: list[dict[str, Any]] = []
+
     for index, upload in enumerate(files):
         ext = validate_extension(upload.filename)
         content = await upload.read()
         total_bytes += len(content)
+        filename = sanitize_filename(upload.filename or "")
+        role = file_roles[index].strip().lower() if index < len(file_roles) else "cadastro"
         if len(content) > settings.max_upload_size_mb * 1024 * 1024:
-            raise HTTPException(status_code=413, detail=f"Arquivo {sanitize_filename(upload.filename or '')} excede o limite individual.")
+            raise HTTPException(status_code=413, detail=f"Arquivo {filename} excede o limite individual.")
         if not content:
-            raise HTTPException(status_code=422, detail=f"Arquivo {sanitize_filename(upload.filename or '')} está vazio.")
+            raise HTTPException(status_code=422, detail=f"Arquivo {filename} está vazio.")
         df = read_file_to_dataframe(content, ext)
         if df.empty:
-            raise HTTPException(status_code=422, detail=f"Arquivo {sanitize_filename(upload.filename or '')} não contém dados.")
+            raise HTTPException(status_code=422, detail=f"Arquivo {filename} não contém dados.")
+        if role not in role_fields:
+            items.append({"index": index, "filename": filename, "role": role, "valid": False,
+                          "error": "Tipo de base desconhecido. Use cadastro, financeiro, engajamento ou desempenho.",
+                          "total_rows": int(len(df)), "rows_to_import": 0, "rows_to_reject": int(len(df)),
+                          "warnings": [], "errors": ["Tipo de base desconhecido."]})
+            continue
         try:
-            prepared = prepare_import_rows(df, None)
+            normalized, mapped = __import__("app.services.ingestion", fromlist=["normalize_columns"]).normalize_columns(df)
         except ValueError as exc:
-            items.append({
-                "index": index,
-                "filename": sanitize_filename(upload.filename or ""),
-                "role": file_roles[index] if index < len(file_roles) else "não definido",
-                "valid": False,
-                "error": str(exc),
-                "total_rows": int(len(df)),
-            })
+            items.append({"index": index, "filename": filename, "role": role, "valid": False,
+                          "error": str(exc), "total_rows": int(len(df)), "rows_to_import": 0,
+                          "rows_to_reject": int(len(df)), "warnings": [], "errors": [str(exc)]})
             continue
 
-        public_result = {key: value for key, value in prepared.items() if not key.startswith("_")}
-        matriculas = [row["data"]["matricula"] for row in prepared["_cleaned_rows"]]
-        all_matriculas.update(matriculas)
+        allowed = role_fields[role]
+        recognized = {field for field in mapped.values() if field in allowed}
+        missing = {"matricula"} - recognized
+        if role in {"cadastro", "alunos"}:
+            missing |= {"nome"} - recognized
+        if missing:
+            required_labels = {"matricula": "matrícula", "nome": "nome"}
+            missing_labels = ", ".join(required_labels.get(field, field) for field in sorted(missing))
+            items.append({"index": index, "filename": filename, "role": role, "valid": False,
+                          "error": f"Colunas obrigatórias ausentes para {role}: {missing_labels}.",
+                          "total_rows": int(len(df)), "rows_to_import": 0, "rows_to_reject": int(len(df)),
+                          "columns": [{"key": str(k), "label": str(k)} for k in df.columns],
+                          "mapped_columns": mapped, "warnings": [], "errors": [f"Colunas obrigatórias ausentes: {missing_labels}."]})
+            continue
+
+        # Mantém somente os campos permitidos para o papel escolhido.
+        rows_by_key: dict[str, dict[str, Any]] = {}
+        file_warnings: list[str] = []
+        file_errors: list[str] = []
+        for row_number, (_, row) in enumerate(normalized.iterrows(), start=2):
+            key_value = str(row.get("matricula") or "").strip()
+            if not key_value or key_value.lower() == "nan":
+                file_errors.append(f"Linha {row_number}: matrícula ausente.")
+                continue
+            key_value = key_value[:50]
+            record: dict[str, Any] = {}
+            for field in allowed - {"matricula"}:
+                if field not in normalized.columns:
+                    continue
+                value = row.get(field)
+                if pd.isna(value) or str(value).strip() == "":
+                    continue
+                record[field] = str(value).strip()
+            if key_value in rows_by_key:
+                duplicate_keys.append({"filename": filename, "role": role, "matricula": key_value})
+                file_warnings.append(f"Matrícula duplicada {key_value}: a linha mais recente substitui a anterior nesta prévia.")
+            rows_by_key[key_value] = record
+            if key_value not in consolidated:
+                consolidated[key_value] = {}
+            for field, value in record.items():
+                prior = consolidated[key_value].get(field)
+                if prior is not None and str(prior) != str(value):
+                    conflicts.append({"matricula": key_value, "field": field, "existing_value": prior,
+                                      "incoming_value": value, "filename": filename,
+                                      "message": "Valores diferentes para o mesmo campo; revisão manual necessária."})
+                elif prior is None:
+                    consolidated[key_value][field] = value
+        all_matriculas.update(rows_by_key)
+        seen_by_file[filename] = set(rows_by_key)
         existing: set[str] = set()
-        if matriculas:
+        if rows_by_key:
             query = select(Student.matricula).where(
                 Student.tenant_id == auth.tenant_id,
-                Student.matricula.in_(matriculas),
+                Student.matricula.in_(list(rows_by_key)),
             )
             existing = set((await db.execute(query)).scalars().all())
         items.append({
-            "index": index,
-            "filename": sanitize_filename(upload.filename or ""),
-            "role": file_roles[index] if index < len(file_roles) else "não definido",
-            "valid": bool(public_result.get("can_import")),
-            "total_rows": int(len(df)),
-            "rows_to_import": public_result.get("rows_to_import", 0),
-            "rows_to_reject": public_result.get("rows_to_reject", 0),
+            "index": index, "filename": filename, "role": role,
+            "valid": not file_errors and bool(rows_by_key),
+            "total_rows": int(len(df)), "rows_to_import": len(rows_by_key),
+            "rows_to_reject": int(len(df)) - len(rows_by_key),
             "existing_matches": len(existing),
-            "rows_that_will_be_created": max(0, public_result.get("rows_to_import", 0) - len(existing)),
-            "columns": public_result.get("columns", []),
-            "mapped_columns": public_result.get("mapped_columns", {}),
-            "warnings": public_result.get("warnings", []),
-            "errors": public_result.get("errors", []),
+            "rows_that_will_be_created": max(0, len(rows_by_key) - len(existing)),
+            "columns": [{"key": str(k), "label": str(k)} for k in df.columns],
+            "mapped_columns": {k: v for k, v in mapped.items() if v in allowed},
+            "warnings": file_warnings, "errors": file_errors,
         })
 
     if total_bytes > settings.max_upload_size_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail="O tamanho combinado dos arquivos excede o limite permitido.")
-
     valid_count = sum(1 for item in items if item["valid"])
     return {
         "items": items,
         "summary": {
-            "files_received": len(files),
-            "files_valid": valid_count,
+            "files_received": len(files), "files_valid": valid_count,
             "files_with_errors": len(files) - valid_count,
             "distinct_matriculas_across_files": len(all_matriculas),
-            "total_bytes": total_bytes,
+            "total_bytes": total_bytes, "consolidated_students": len(consolidated),
+            "cross_file_conflicts": len(conflicts), "duplicate_matriculas": len(duplicate_keys),
         },
+        "consolidated_preview": [
+            {"matricula": key, "fields": value, "requires_review": any(c["matricula"] == key for c in conflicts)}
+            for key, value in sorted(consolidated.items())
+        ],
+        "conflicts": conflicts,
+        "duplicate_matriculas": duplicate_keys,
         "persisted": False,
-        "cross_file_relationships_validated": False,
-        "message": "Prévia individual concluída. Nenhum dado foi salvo; relações entre arquivos ainda precisam ser definidas e validadas antes de uma importação conjunta.",
+        "cross_file_relationships_validated": True,
+        "message": "Prévia consolidada por matrícula concluída. Nenhum dado foi salvo. Revise duplicidades e conflitos antes de habilitar a importação conjunta.",
     }
-
 
 @router.post("/upload/preview")
 async def preview_students_file(
