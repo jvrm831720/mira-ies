@@ -148,3 +148,42 @@ async def test_policy_requires_approval_and_evidence(db_session, tenant_factory)
     )
     assert not decision.allowed
     assert "approval" in decision.reason.lower()
+
+
+@pytest.mark.asyncio
+async def test_newer_revocation_never_falls_back_to_older_authorization(db_session, tenant_factory):
+    tenant, _ = await tenant_factory(slug="policy-revocation-wins")
+    admin = AdminPrincipal(
+        email="policy-revocation-admin@example.test",
+        display_name="Policy Admin",
+        password_hash="not-a-real-password-hash",
+        role="super_admin",
+    )
+    db_session.add(admin)
+    await db_session.flush()
+    now = datetime.now(timezone.utc)
+    previously_authorized = TenantDataUsePolicy(
+        tenant_id=tenant.id, mode="shared_training",
+        contract_reference="contract-previous", contract_version="v1",
+        effective_at=now - timedelta(days=5),
+        approved_by_admin_id=admin.id,
+        evidence_reference="test-evidence://previous",
+    )
+    later_revocation = TenantDataUsePolicy(
+        tenant_id=tenant.id, mode="shared_training",
+        contract_reference="contract-revoked", contract_version="v2",
+        effective_at=now - timedelta(days=1),
+        revoked_at=now - timedelta(hours=1),
+        approved_by_admin_id=admin.id,
+        evidence_reference="test-evidence://revocation",
+    )
+    db_session.add_all([previously_authorized, later_revocation])
+    await db_session.commit()
+
+    decision = await resolve_training_policy(
+        db_session, tenant_id=tenant.id, purpose="shared_base_training",
+        dataset_eligible=True, now=now,
+    )
+    assert not decision.allowed
+    assert decision.policy_id == later_revocation.id
+    assert "revoked" in decision.reason.lower()
