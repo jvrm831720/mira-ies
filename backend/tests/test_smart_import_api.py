@@ -189,6 +189,33 @@ async def test_preview_flags_bad_rows_duplicate_matriculas_and_invalid_email(cli
 
 
 @pytest.mark.asyncio
+async def test_upload_imports_valid_rows_and_excludes_all_conflicting_matriculas(client, tenant):
+    _tenant, key = tenant
+    csv = (
+        b"matricula,nome,curso\\n"
+        b"CONFLICT-1,Ana Souza,Direito\\n"
+        b"CONFLICT-1,Ana Lima,Medicina\\n"
+        b"VALID-1,Bruno Lima,Administracao\\n"
+        b",Sem Matricula,Direito\\n"
+    )
+    response = await client.post(
+        "/api/v1/upload",
+        headers={"X-API-Key": key},
+        files=_upload(csv),
+        params={"auto_score": "false"},
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["quality"]["rows_created"] == 1
+    assert body["quality"]["rows_discarded"] == 3
+    students = await client.get("/api/v1/students", headers={"X-API-Key": key})
+    assert students.status_code == 200
+    imported = students.json()["students"]
+    assert len(imported) == 1
+    assert imported[0]["matricula"] == "VALID-1"
+
+
+@pytest.mark.asyncio
 async def test_preview_rejects_mapping_two_columns_to_same_field(client, tenant):
     _tenant, key = tenant
     csv = b"RA,matricula,nome\n1,1,Ana\n"
