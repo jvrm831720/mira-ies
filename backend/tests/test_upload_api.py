@@ -120,8 +120,8 @@ async def test_upload_status_endpoint_isolated_by_tenant(client, tenant_factory)
 
 
 async def test_multi_file_preview_validates_without_persisting(client, auth_headers):
-    first = b"matricula,nome,curso\\nM001,Ana,Enfermagem\\n"
-    second = b"matricula,nome,curso\\nM002,Bruno,Administracao\\n"
+    first = b"matricula,nome,curso\nM001,Ana,Enfermagem\n"
+    second = b"matricula,nome,curso\nM002,Bruno,Administracao\n"
     response = await client.post(
         "/api/v1/upload/preview-multiple",
         headers=auth_headers,
@@ -129,7 +129,7 @@ async def test_multi_file_preview_validates_without_persisting(client, auth_head
             ("files", ("alunos.csv", first, "text/csv")),
             ("files", ("cursos.csv", second, "text/csv")),
         ],
-        data=[("file_roles", "alunos"), ("file_roles", "cursos")],
+        data={"file_roles": ["alunos", "cursos"]},
     )
     assert response.status_code == 200
     body = response.json()
@@ -142,7 +142,7 @@ async def test_multi_file_preview_validates_without_persisting(client, auth_head
 
 async def test_multi_file_preview_rejects_more_than_ten_files(client, auth_headers):
     files = [
-        ("files", (f"base-{index}.csv", b"matricula,nome\\n001,Ana\\n", "text/csv"))
+        ("files", (f"base-{index}.csv", b"matricula,nome\n001,Ana\n", "text/csv"))
         for index in range(11)
     ]
     response = await client.post(
