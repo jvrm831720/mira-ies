@@ -216,6 +216,24 @@ def safe_semester(value: Any) -> int | None:
     except (ValueError, TypeError, OverflowError):
         return None
 
+def safe_currency(value: Any) -> float | None:
+    """Converte valores monetários brasileiros ou numéricos sem confundir separadores."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    text = str(value).strip().replace("R$", "").replace(" ", "")
+    if not text:
+        return None
+    if "," in text and "." in text:
+        # Convenção brasileira: ponto para milhar, vírgula decimal.
+        text = text.replace(".", "").replace(",", ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+    try:
+        return float(text)
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
 def safe_float(value: Any) -> float | None:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
@@ -303,7 +321,7 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "communication_opt_out": safe_bool(row.get("communication_opt_out")) if safe_bool(row.get("communication_opt_out")) is not None else False,
         "dias_atraso_boleto": _clamp_int(safe_int(row.get("dias_atraso_boleto")), 0, 3650),
         "recorrencia_atrasos": _clamp_int(safe_int(row.get("recorrencia_atrasos")), 0, 100),
-        "saldo_devedor": _clamp(safe_float(str(row.get("saldo_devedor")).replace("R$", "").replace(".", "").replace(",", ".") if safe_str(row.get("saldo_devedor")) else None), 0.0, 1000000000.0),
+        "saldo_devedor": _clamp(safe_currency(row.get("saldo_devedor")), 0.0, 1000000000.0),
         "status_financeiro": safe_str(row.get("status_financeiro"))[:80] if safe_str(row.get("status_financeiro")) else None,
         "dias_sem_login": _clamp_int(safe_int(row.get("dias_sem_login")), 0, 3650),
         "presenca_percentual": _clamp(safe_float(row.get("presenca_percentual")), 0.0, 100.0),
@@ -330,7 +348,7 @@ def prepare_import_rows(
         data, row_warnings = validate_and_clean_row(row, idx)
         warnings.extend(row_warnings)
         if data is None:
-            errors.append({"line": idx + 2, "message": row_warnings[0] if row_warnings else "Linha inválida."})
+            errors.append({"line": idx + 2, "message": re.sub(r"^Linha \\d+:\\s*", "", row_warnings[0]) if row_warnings else "Linha inválida.", "severity": "block", "column": "matricula" if not safe_str(row.get("matricula")) else "nome", "action": "Preencha o campo obrigatório ou remova a linha."})
             continue
         raw = {key: (None if pd.isna(value) else value) for key, value in row.to_dict().items()}
         cleaned.append({"data": data, "raw": raw, "line": idx + 2})
@@ -378,6 +396,19 @@ def prepare_import_rows(
     for item in cleaned_unique[:6]:
         sample_rows.append({"line": item["line"], **{field: item["data"].get(field) for field in sample_fields}})
 
+    issues = [
+        {"line": item["line"], "severity": "block", "column": "matricula" if "matrícula ausente" in item["message"] else "nome", "message": item["message"], "action": "Preencha o campo obrigatório ou remova a linha."}
+        for item in errors
+    ]
+    for warning in warnings:
+        match = re.match(r"^Linha (\\d+):\\s*(.*)$", warning)
+        if match:
+            message = match.group(2)
+            column = next((field for field, label in COLUMN_LABELS.items() if label in message), None)
+            issues.append({"line": int(match.group(1)), "severity": "attention", "column": column, "message": message, "action": "Revise o valor; campos inválidos serão ignorados ou normalizados."})
+        else:
+            issues.append({"line": None, "severity": "info", "column": None, "message": warning, "action": "Confira antes de confirmar."})
+
     return {
         "columns": columns,
         "mapped_columns": rename_map,
@@ -389,6 +420,7 @@ def prepare_import_rows(
         "rows_to_import": rows_to_import,
         "invalid_rows_count": len(errors),
         "invalid_rows": errors[:20],
+        "issues": issues[:100],
         "duplicates_in_file": duplicates_removed,
         "sample_rows": sample_rows,
         "warnings": warnings[:30],
