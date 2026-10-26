@@ -202,3 +202,24 @@ async def test_single_prediction_fails_closed_when_model_version_is_missing(clie
     monkeypatch.setattr(scoring_api, "get_model_info", lambda: {"status": "error"})
     response = await client.post("/api/v1/predict", headers=auth_headers, json={})
     assert response.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_what_if_predictions_include_model_version(client, auth_headers, monkeypatch):
+    from app.api import scoring as scoring_api
+
+    monkeypatch.setattr(scoring_api, "get_model_info", lambda: {"status": "ready", "version": "base-test-v7"})
+    monkeypatch.setattr(scoring_api, "score_student_dict", lambda _payload: {
+        "risk_score": 42.0, "model_score": 40.0, "risk_level": "medio", "probability": 0.42,
+        "shap_top_factors": [], "shap_summary": "test", "features_used": {},
+        "recommended_actions": ["acompanhar"],
+    })
+    response = await client.post(
+        "/api/v1/predict/what-if", headers=auth_headers, json={"dias_atraso_boleto": 1}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["current"]["model_version"] == "base-test-v7"
+    assert body["current"]["model_scope"] == "base"
+    assert body["scenarios"][0]["model_version"] == "base-test-v7"
+    assert body["scenarios"][0]["model_scope"] == "base"
