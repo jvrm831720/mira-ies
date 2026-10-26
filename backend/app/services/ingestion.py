@@ -178,6 +178,28 @@ def safe_int(value: Any) -> int | None:
         return None
 
 
+def safe_semester(value: Any) -> int | None:
+    """Aceita formatos comuns de semestre sem converter textos ambíguos."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, bool):
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    # Exemplos válidos: 3, 3.0, 3º, 3o, 3º semestre, semestre 3.
+    match = re.fullmatch(
+        r"(?:semestre\\s*)?(\\d{1,2})(?:\\s*(?:º|°|o))?(?:\\s*semestre)?",
+        text,
+    )
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
 def safe_float(value: Any) -> float | None:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
@@ -258,7 +280,7 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "nome": nome[:255],
         "curso": safe_str(row.get("curso")),
         "turma": safe_str(row.get("turma")),
-        "semestre": _clamp_int(safe_int(row.get("semestre")), 1, 30),
+        "semestre": _clamp_int(safe_semester(row.get("semestre")), 1, 30),
         "forma_ingresso": safe_str(row.get("forma_ingresso")),
         "telefone": (safe_str(row.get("telefone")) or "")[:30] or None,
         "email": (email or "")[:255] or None,
