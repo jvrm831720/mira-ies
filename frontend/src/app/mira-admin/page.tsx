@@ -7,11 +7,11 @@ type Row = Record<string, unknown>;
 type Section = "modalities" | "authorizations" | "datasets" | "runs" | "audit";
 
 const sections: { id: Section; label: string; icon: typeof Layers3; endpoint: string; key: string }[] = [
-  { id: "modalities", label: "Modalidades", icon: Layers3, endpoint: "/api/v1/admin/mira-governance/modalities", key: "modalities" },
-  { id: "authorizations", label: "Autorizações", icon: FileCheck2, endpoint: "/api/v1/admin/mira-governance/authorizations", key: "" },
-  { id: "datasets", label: "Conjuntos de dados", icon: Database, endpoint: "/api/v1/admin/mira-governance/datasets", key: "datasets" },
-  { id: "runs", label: "Treinamentos e modelos", icon: Activity, endpoint: "/api/v1/admin/mira-governance/runs", key: "runs" },
-  { id: "audit", label: "Trilha de auditoria", icon: History, endpoint: "/api/v1/admin/mira-governance/audit", key: "events" },
+  { id: "modalities", label: "Modalidades", icon: Layers3, endpoint: "/api/mira-admin/modalities", key: "modalities" },
+  { id: "authorizations", label: "Autorizações", icon: FileCheck2, endpoint: "/api/mira-admin/authorizations", key: "" },
+  { id: "datasets", label: "Conjuntos de dados", icon: Database, endpoint: "/api/mira-admin/datasets", key: "datasets" },
+  { id: "runs", label: "Treinamentos e modelos", icon: Activity, endpoint: "/api/mira-admin/runs", key: "runs" },
+  { id: "audit", label: "Trilha de auditoria", icon: History, endpoint: "/api/mira-admin/audit", key: "events" },
 ];
 
 function label(value: unknown): string {
