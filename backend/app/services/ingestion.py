@@ -347,7 +347,7 @@ def prepare_import_rows(
         idx = int(index) if isinstance(index, (int, float)) else len(cleaned)
         data, row_warnings = validate_and_clean_row(row, idx)
         if data is None:
-            errors.append({"line": idx + 2, "message": re.sub(r"^Linha \\d+:\\s*", "", row_warnings[0]) if row_warnings else "Linha inválida.", "severity": "block", "column": "matricula" if not safe_str(row.get("matricula")) else "nome", "action": "Preencha o campo obrigatório ou remova a linha."})
+            errors.append({"line": idx + 2, "message": re.sub(r"^Linha \d+:\s*", "", row_warnings[0]) if row_warnings else "Linha inválida.", "severity": "block", "column": "matricula" if not safe_str(row.get("matricula")) else "nome", "action": "Preencha o campo obrigatório ou remova a linha."})
             continue
         warnings.extend(row_warnings)
         raw = {key: (None if pd.isna(value) else value) for key, value in row.to_dict().items()}
@@ -401,7 +401,7 @@ def prepare_import_rows(
         for item in errors
     ]
     for warning in warnings:
-        match = re.match(r"^Linha (\\d+):\\s*(.*)$", warning)
+        match = re.match(r"^Linha (\d+):\s*(.*)$", warning)
         if match:
             message = match.group(2)
             column = next((field for field, label in COLUMN_LABELS.items() if label in message), None)
