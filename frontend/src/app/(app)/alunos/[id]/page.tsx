@@ -227,6 +227,35 @@ export default function StudentDetailPage() {
               </Card>
             </section>
 
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Dados acadêmicos e financeiros</CardTitle>
+                <CardDescription>
+                  Informações importadas da base institucional, separadas dos indicadores comportamentais.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-border/80 p-3">
+                    <dt className="text-xs text-muted-foreground">Curso</dt>
+                    <dd className="mt-1 text-sm font-semibold">{data.curso || "Não informado"}</dd>
+                  </div>
+                  <div className="rounded-xl border border-border/80 p-3">
+                    <dt className="text-xs text-muted-foreground">Semestre</dt>
+                    <dd className="mt-1 text-sm font-semibold">
+                      {data.semestre != null ? `Semestre ${data.semestre}` : "Não informado"}
+                    </dd>
+                  </div>
+                  <div className="rounded-xl border border-border/80 p-3">
+                    <dt className="text-xs text-muted-foreground">Atraso financeiro</dt>
+                    <dd className="mt-1 text-sm font-semibold">
+                      {data.dias_atraso_boleto != null ? `${data.dias_atraso_boleto} dias` : "Não informado"}
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
               <div className="space-y-4">
                 <Card>
