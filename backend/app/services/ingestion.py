@@ -396,6 +396,7 @@ def prepare_import_rows(
     # são bloqueadas para evitar que uma linha troque a identidade de outra pessoa.
     unique: dict[str, dict[str, Any]] = {}
     duplicate_identity_conflicts: list[dict[str, Any]] = []
+    conflicted_matriculas: set[str] = set()
     for item in cleaned:
         key = item["data"]["matricula"]
         previous = unique.get(key)
@@ -403,18 +404,31 @@ def prepare_import_rows(
             previous_name = normalize_header(previous["data"]["nome"])
             current_name = normalize_header(item["data"]["nome"])
             if previous_name != current_name:
+                conflicted_matriculas.add(key)
+                duplicate_identity_conflicts.append({
+                    "line": previous["line"],
+                    "message": (
+                        f"Linha {previous['line']}: matrícula {key} aparece com nomes diferentes "
+                        "no mesmo arquivo; todas as linhas dessa matrícula serão bloqueadas."
+                    ),
+                    "severity": "block",
+                    "column": "nome",
+                    "action": "Confirme a matrícula e os nomes corretos; as outras linhas válidas poderão ser importadas.",
+                })
                 duplicate_identity_conflicts.append({
                     "line": item["line"],
                     "message": (
                         f"Linha {item['line']}: matrícula {key} aparece com nomes diferentes "
-                        "no mesmo arquivo; corrija a duplicidade antes de importar."
+                        "no mesmo arquivo; todas as linhas dessa matrícula serão bloqueadas."
                     ),
                     "severity": "block",
                     "column": "nome",
-                    "action": "Confirme a matrícula e o nome corretos antes de importar.",
+                    "action": "Confirme a matrícula e os nomes corretos; as outras linhas válidas poderão ser importadas.",
                 })
                 continue
         unique[key] = item
+    for key in conflicted_matriculas:
+        unique.pop(key, None)
     duplicates_removed = len(cleaned) - len(unique) - len(duplicate_identity_conflicts)
     if duplicates_removed > 0:
         warnings.append(
@@ -493,7 +507,7 @@ def prepare_import_rows(
         "columns_original": [str(column) for column in df_original.columns],
         "columns_recognized": sorted(mapped_targets),
         "null_rates_pct": null_rates,
-        "can_import": not missing and rows_to_import > 0 and not duplicate_identity_conflicts,
+        "can_import": not missing and rows_to_import > 0,
         # Internal prepared values consumed by persistence. API removes these keys.
         "_df_normalized": df_normalized,
         "_df_original": df_original,
@@ -554,9 +568,6 @@ async def create_batch_and_students(
             f"Colunas obrigatórias ausentes: {', '.join(missing)}. "
             f"Colunas disponíveis: {prepared['columns_original']}"
         )
-    if prepared.get("duplicate_identity_conflicts"):
-        details = "; ".join(item["message"] for item in prepared["duplicate_identity_conflicts"][:10])
-        raise ValueError(details)
     cleaned_rows = prepared["_cleaned_rows"]
     if not cleaned_rows:
         raise ValueError("Nenhuma linha válida encontrada após a validação.")
