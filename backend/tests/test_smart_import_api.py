@@ -214,3 +214,59 @@ async def test_preview_is_tenant_scoped_for_existing_matches(client, tenant_fact
     preview_b = await client.post("/api/v1/upload/preview", headers={"X-API-Key": key_b}, files=_upload(csv))
     assert preview_a.status_code == 200 and preview_a.json()["existing_matches"] == 1
     assert preview_b.status_code == 200 and preview_b.json()["existing_matches"] == 0
+
+
+
+@pytest.mark.asyncio
+async def test_preview_multiple_accepts_complementary_finance_file_without_name(client, tenant):
+    _tenant, key = tenant
+    files = [
+        ("files", ("cadastro.csv", b"matricula,nome,curso\n00123,Ana Souza,Direito\n", "text/csv")),
+        ("files", ("financeiro.csv", b"matricula,dias_atraso_boleto,recorrencia_atrasos\n00123,12,3\n", "text/csv")),
+    ]
+    response = await client.post(
+        "/api/v1/upload/preview-multiple",
+        headers={"X-API-Key": key},
+        files=files,
+        data=[("file_roles", "cadastro"), ("file_roles", "financeiro")],
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["persisted"] is False
+    assert body["cross_file_relationships_validated"] is True
+    assert body["summary"]["consolidated_students"] == 1
+    assert body["consolidated_preview"][0]["matricula"] == "00123"
+    assert body["consolidated_preview"][0]["fields"]["nome"] == "Ana Souza"
+    assert body["consolidated_preview"][0]["fields"]["dias_atraso_boleto"] == "12"
+    assert body["summary"]["cross_file_conflicts"] == 0
+    students = await client.get("/api/v1/students", headers={"X-API-Key": key})
+    assert students.json()["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_preview_multiple_flags_conflicting_values_and_unknown_role(client, tenant):
+    _tenant, key = tenant
+    files = [
+        ("files", ("cadastro.csv", b"matricula,nome,curso\n00123,Ana Souza,Direito\n", "text/csv")),
+        ("files", ("outro.csv", b"matricula,curso\n00123,Medicina\n", "text/csv")),
+    ]
+    response = await client.post(
+        "/api/v1/upload/preview-multiple",
+        headers={"X-API-Key": key},
+        files=files,
+        data=[("file_roles", "cadastro"), ("file_roles", "cadastro")],
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["summary"]["cross_file_conflicts"] == 1
+    assert body["conflicts"][0]["field"] == "curso"
+    assert body["consolidated_preview"][0]["requires_review"] is True
+
+    invalid = await client.post(
+        "/api/v1/upload/preview-multiple",
+        headers={"X-API-Key": key},
+        files=[("files", ("financeiro.csv", b"matricula,dias_atraso_boleto\n00123,12\n", "text/csv"))],
+        data=[("file_roles", "unknown")],
+    )
+    assert invalid.status_code == 200, invalid.text
+    assert invalid.json()["items"][0]["valid"] is False
