@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 
-function getApiBase(): string | null {\n  const configured = process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL;\n  if (configured?.trim()) return configured.trim().replace(/\\/+$/, "");\n  return process.env.NODE_ENV === "development" ? "http://localhost:8000" : null;\n}
+function getApiBase(): string | null {
+  const configured = process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL;
+  if (configured?.trim()) return configured.trim().replace(/\\/+$/, "");
+  return process.env.NODE_ENV === "development" ? "http://localhost:8000" : null;
+}
 const COOKIE_NAME = "mira_control_center_session";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const apiBase = getApiBase();\n  if (!apiBase) {\n    return NextResponse.json({ detail: "API não configurada. Defina MIRA_API_URL no ambiente do servidor." }, { status: 503, headers: { "Cache-Control": "no-store" } });\n  }\n  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const apiBase = getApiBase();
+  if (!apiBase) {
+    return NextResponse.json({ detail: "API não configurada. Defina MIRA_API_URL no ambiente do servidor." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
+  const token = request.cookies.get(COOKIE_NAME)?.value;
   if (!token) {
     return NextResponse.json({ detail: "Sessão administrativa ausente ou expirada." }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
