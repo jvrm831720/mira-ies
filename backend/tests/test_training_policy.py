@@ -129,7 +129,7 @@ async def test_expired_or_revoked_policy_denies_shared_training(db_session, tena
         db_session, tenant_id=tenant.id, purpose="shared_base_training",
         dataset_eligible=True, now=now,
     )
-    assert not decision.alloweded
+    assert not decision.allowed
 
 
 @pytest.mark.asyncio
