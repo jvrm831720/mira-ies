@@ -2,13 +2,14 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import Depends
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.core.auth import AuthContext, get_current_tenant
 from app.main import app
 from app.ml.targets import TARGET_DEFINITION_VERSION
-from app.models.control_center import AdminPrincipal
+from app.models.control_center import AdminAuditEvent, AdminPrincipal
 from app.models.data_governance import TenantDataUsePolicy
 from app.models.tenant import ModelArtifact, Tenant
 from app.services.training_policy import resolve_training_policy
@@ -178,6 +179,20 @@ async def test_model_activation_rollback_and_cross_tenant_artifact_access(
     assert candidate_a.is_active is False
     assert candidate_a.lifecycle_status == "retired"
     assert old.rollback_of_artifact_id == candidate_a.id
+
+    audit_events = (await db_session.execute(
+        select(AdminAuditEvent).where(
+            AdminAuditEvent.target_id.in_([candidate_b.id, candidate_a.id, old.id])
+        )
+    )).scalars().all()
+    assert any(
+        event.action == "model.approve" and event.result == "denied"
+        and event.target_id == candidate_b.id
+        and (event.metadata_redacted or {}).get("tenant_id") == tenant_a.id
+        for event in audit_events
+    )
+    assert any(event.action == "model.activate" and event.result == "success" for event in audit_events)
+    assert any(event.action == "model.rollback" and event.result == "success" for event in audit_events)
 
 
 @pytest.mark.asyncio
