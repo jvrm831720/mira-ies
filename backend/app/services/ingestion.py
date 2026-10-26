@@ -493,7 +493,7 @@ def prepare_import_rows(
         "columns_original": [str(column) for column in df_original.columns],
         "columns_recognized": sorted(mapped_targets),
         "null_rates_pct": null_rates,
-        "can_import": not missing and rows_to_import > 0 and not errors,
+        "can_import": not missing and rows_to_import > 0 and not duplicate_identity_conflicts,
         # Internal prepared values consumed by persistence. API removes these keys.
         "_df_normalized": df_normalized,
         "_df_original": df_original,
