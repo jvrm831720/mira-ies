@@ -27,7 +27,7 @@ def test_ingestion_truncates_overlong_strings():
 
 
 async def test_tenant_model_artifact_integrity_checksum_rejects_tampered_file(
-    client, auth_headers, tenant, db_session,
+    client, auth_headers, tenant, db_session, institutional_training_authorization,
 ):
     from datetime import datetime, timedelta, timezone
     from app.ml.tenant_train import load_tenant_model_from_path, invalidate_tenant_cache

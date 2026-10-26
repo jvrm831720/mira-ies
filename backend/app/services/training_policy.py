@@ -1,8 +1,4 @@
-"""Fail-closed policy decisions for the MIRA training modalities.
-
-This is a decision helper for the next pipeline-enforcement delivery. It does
-not itself start training, approve a dataset, or authorize legal processing.
-"""
+"""Fail-closed policy decisions for the MIRA training modalities."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.data_governance import TenantDataUsePolicy
+from app.models.institutional_training_authorization import InstitutionalTrainingAuthorization
 
 TrainingPurpose = Literal[
     "shared_base_training",
@@ -31,8 +28,71 @@ class TrainingPolicyDecision:
     reason: str
 
 
+@dataclass(frozen=True)
+class InstitutionalAuthorizationDecision:
+    allowed: bool
+    authorization_id: str | None
+    reason: str
+
+
 def _as_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+async def resolve_institutional_training_authorization(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    now: datetime | None = None,
+) -> InstitutionalAuthorizationDecision:
+    """Check the latest effective, separately approved local-training record.
+
+    A revoked/expired/newer incomplete record supersedes older authorization.
+    The function never treats a sharing policy as local-training authorization.
+    """
+    instant = _as_utc(now or datetime.now(timezone.utc))
+    result = await session.execute(
+        select(InstitutionalTrainingAuthorization)
+        .where(InstitutionalTrainingAuthorization.tenant_id == tenant_id)
+        .order_by(
+            InstitutionalTrainingAuthorization.effective_at.desc(),
+            InstitutionalTrainingAuthorization.created_at.desc(),
+        )
+    )
+    records = list(result.scalars().all())
+    current = next(
+        (record for record in records if _as_utc(record.effective_at) <= instant),
+        None,
+    )
+    if current is None:
+        return InstitutionalAuthorizationDecision(
+            False, None, "No separate institutional-training authorization is recorded."
+        )
+    if current.revoked_at is not None:
+        return InstitutionalAuthorizationDecision(
+            False, current.id, "The latest institutional-training authorization was revoked."
+        )
+    if current.expires_at is not None and _as_utc(current.expires_at) <= instant:
+        return InstitutionalAuthorizationDecision(
+            False, current.id, "The latest institutional-training authorization has expired."
+        )
+    if not (
+        current.approved_by_admin_id
+        and current.evidence_reference
+        and current.evidence_reference.strip()
+        and current.dataset_eligibility_reference
+        and current.dataset_eligibility_reference.strip()
+        and current.contract_reference
+        and current.contract_reference.strip()
+        and current.contract_version
+        and current.contract_version.strip()
+    ):
+        return InstitutionalAuthorizationDecision(
+            False, current.id, "Institutional authorization lacks admin approval or contractual evidence."
+        )
+    return InstitutionalAuthorizationDecision(
+        True, current.id, "Current independent institutional-training authorization is valid."
+    )
 
 
 async def resolve_training_policy(
@@ -44,12 +104,7 @@ async def resolve_training_policy(
     institutional_use_authorized: bool = False,
     now: datetime | None = None,
 ) -> TrainingPolicyDecision:
-    """Resolve the latest effective policy; never revive superseded consent.
-
-    Shared-base training requires current, approved sharing evidence. Local
-    training also requires an independently verified authorization flag; the
-    sharing policy alone is not treated as proof of a legal basis for local use.
-    """
+    """Resolve the latest effective data-use policy; default to deny."""
     if purpose not in {
         "shared_base_training",
         "institutional_training",
@@ -67,18 +122,13 @@ async def resolve_training_policy(
         )
     )
     policies = list(result.scalars().all())
-    # Select the latest policy that has taken effect, even if it was revoked or
-    # expired. Falling back to an older authorization could silently resurrect
-    # consent after a later revocation.
     current = next(
         (policy for policy in policies if _as_utc(policy.effective_at) <= instant),
         None,
     )
 
     def deny(reason: str, mode: str = "unknown", policy_id: str | None = None):
-        return TrainingPolicyDecision(
-            False, tenant_id, purpose, mode, policy_id, reason
-        )
+        return TrainingPolicyDecision(False, tenant_id, purpose, mode, policy_id, reason)
 
     def local_decision(mode: str, policy_id: str | None, reason_prefix: str = ""):
         allowed = dataset_eligible and institutional_use_authorized
@@ -90,9 +140,7 @@ async def resolve_training_policy(
             reason = "Independent authorization for institutional use is missing."
         if reason_prefix:
             reason = f"{reason_prefix} {reason}"
-        return TrainingPolicyDecision(
-            allowed, tenant_id, purpose, mode, policy_id, reason
-        )
+        return TrainingPolicyDecision(allowed, tenant_id, purpose, mode, policy_id, reason)
 
     if current is None:
         if purpose == "shared_base_training":
@@ -131,8 +179,6 @@ async def resolve_training_policy(
                 else "Dataset is not eligible for shared training."
             )
         )
-        return TrainingPolicyDecision(
-            allowed, tenant_id, purpose, current.mode, current.id, reason
-        )
+        return TrainingPolicyDecision(allowed, tenant_id, purpose, current.mode, current.id, reason)
 
     return local_decision(current.mode, current.id)

@@ -26,6 +26,10 @@ from app.ml.storage import get_model_storage
 from app.ml.targets import TARGET_DEFINITION_VERSION, TARGET_HORIZON
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.services.tenant import MIN_LABELED_EVENTS, MIN_POSITIVE_LABELS, refresh_tenant_readiness
+from app.services.training_policy import (
+    resolve_institutional_training_authorization,
+    resolve_training_policy,
+)
 
 MIN_TRAIN_SAMPLES = 50
 MIN_TRAIN_POSITIVES = 5
@@ -264,6 +268,17 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     if not tenant:
         raise ValueError(f"Tenant '{tenant_slug}' nao encontrado.")
 
+    # Authorization is checked before readiness refresh or any model training.
+    # Existing scoring/inference paths do not call this function and are unaffected.
+    authorization = await resolve_institutional_training_authorization(
+        session, tenant_id=tenant.id
+    )
+    if not authorization.allowed:
+        raise ValueError(
+            "Treino institucional bloqueado por governanca: "
+            f"{authorization.reason}"
+        )
+
     await refresh_tenant_readiness(session, tenant.id)
 
     if not force and not tenant.tenant_model_ready:
@@ -281,6 +296,24 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
         TrainingEvent.target_definition == TARGET_DEFINITION_VERSION,
     ))
     events = list(q.scalars().all())
+    decision = await resolve_training_policy(
+        session,
+        tenant_id=tenant.id,
+        purpose="institutional_training",
+        dataset_eligible=bool(events) and all(
+            e.tenant_id == tenant.id
+            and e.label is not None
+            and e.target_definition == TARGET_DEFINITION_VERSION
+            for e in events
+        ),
+        institutional_use_authorized=authorization.allowed,
+    )
+    if not decision.allowed:
+        raise ValueError(
+            "Treino institucional bloqueado por governanca: "
+            f"{decision.reason}"
+        )
+
     n_pos = sum(1 for e in events if e.label == 1)
     n_neg = sum(1 for e in events if e.label == 0)
 

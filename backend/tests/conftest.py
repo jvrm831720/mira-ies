@@ -123,6 +123,36 @@ async def tenant(tenant_factory):
 
 
 @pytest_asyncio.fixture
+async def institutional_training_authorization(tenant, db_session):
+    """Provide explicit local-training authorization for tests that train models."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.control_center import AdminPrincipal
+    from app.models.institutional_training_authorization import InstitutionalTrainingAuthorization
+
+    t, _raw_key = tenant
+    admin = AdminPrincipal(
+        email=f"training-admin-{t.slug}@example.test",
+        display_name="Training Test Admin",
+        password_hash="not-a-real-password-hash",
+        role="super_admin",
+    )
+    db_session.add(admin)
+    await db_session.flush()
+    db_session.add(InstitutionalTrainingAuthorization(
+        tenant_id=t.id,
+        contract_reference=f"test-contract-{t.slug}",
+        contract_version="v1",
+        effective_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+        approved_by_admin_id=admin.id,
+        evidence_reference=f"test-evidence://{t.slug}",
+        dataset_eligibility_reference=f"test-dataset://{t.slug}",
+    ))
+    await db_session.commit()
+    return t
+
+
+@pytest_asyncio.fixture
 def auth_headers(tenant):
     _t, raw_key = tenant
     return {"X-API-Key": raw_key}
