@@ -1,13 +1,13 @@
 """Add independent authorization evidence for institution-only training.
 
-Revision ID: 017_institutional_training_authorization
+Revision ID: 017_inst_training_auth
 Revises: 016_tenant_data_use_policy
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "017_institutional_training_authorization"
+revision = "017_inst_training_auth"
 down_revision = "016_tenant_data_use_policy"
 branch_labels = None
 depends_on = None
