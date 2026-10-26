@@ -43,6 +43,8 @@ class PredictResponse(BaseModel):
     recommended_actions: list[str] = []
     confidence: str = "media"
     missing_features: list[str] = []
+    model_scope: str
+    model_version: str
 
 
 @router.get("/model/info")
@@ -65,11 +67,30 @@ async def retrain_model(auth: AuthContext = Depends(get_current_tenant)):
 
 @router.post("/predict", response_model=PredictResponse)
 async def predict_single(payload: StudentFeaturesInput, auth: AuthContext = Depends(get_current_tenant)):
-    return PredictResponse(**score_student_dict(payload.model_dump()))
+    # This endpoint currently scores with the packaged baseline model. Never return a
+    # prediction without its exact model version: callers must be able to trace it.
+    model_info = get_model_info()
+    model_version = model_info.get("version")
+    if not model_version:
+        raise HTTPException(
+            status_code=503,
+            detail="Versão do modelo base indisponível; previsão bloqueada para preservar rastreabilidade.",
+        )
+    result = score_student_dict(payload.model_dump())
+    result["model_scope"] = "base"
+    result["model_version"] = str(model_version)
+    return PredictResponse(**result)
 
 
 @router.post("/predict/what-if")
 async def predict_what_if(payload: StudentFeaturesInput, auth: AuthContext = Depends(get_current_tenant)):
+    model_info = get_model_info()
+    model_version = model_info.get("version")
+    if not model_version:
+        raise HTTPException(
+            status_code=503,
+            detail="Versão do modelo base indisponível; previsão what-if bloqueada para preservar rastreabilidade.",
+        )
     base = score_student_dict(payload.model_dump())
     scenarios = []
     if payload.dias_atraso_boleto and payload.dias_atraso_boleto > 0:
@@ -77,8 +98,19 @@ async def predict_what_if(payload: StudentFeaturesInput, auth: AuthContext = Dep
         s["dias_atraso_boleto"] = 0
         s["recorrencia_atrasos"] = max(0, (payload.recorrencia_atrasos or 0) - 1)
         r = score_student_dict(s)
-        scenarios.append({"name": "Quitar boleto", "risk_score": r["risk_score"], "risk_level": r["risk_level"], "delta": round(r["risk_score"] - base["risk_score"], 1)})
-    return {"current": {"risk_score": base["risk_score"], "risk_level": base["risk_level"], "recommended_actions": base.get("recommended_actions", [])}, "scenarios": scenarios}
+        scenarios.append({
+            "name": "Quitar boleto", "risk_score": r["risk_score"], "risk_level": r["risk_level"],
+            "delta": round(r["risk_score"] - base["risk_score"], 1),
+            "model_scope": "base", "model_version": str(model_version),
+        })
+    return {
+        "current": {
+            "risk_score": base["risk_score"], "risk_level": base["risk_level"],
+            "recommended_actions": base.get("recommended_actions", []),
+            "model_scope": "base", "model_version": str(model_version),
+        },
+        "scenarios": scenarios,
+    }
 
 
 @router.post("/score/batch/{batch_id}")

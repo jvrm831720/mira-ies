@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.db.session import get_db
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
+from app.models.control_center import AdminAuditEvent
 from app.models.intervention import InterventionLog
 from app.ml.targets import (
     EXCLUDED_OUTCOMES, SUPPORTED_OUTCOMES, TARGET_DEFINITION_VERSION,
@@ -262,6 +263,22 @@ def _require_model_approver(auth: AuthContext) -> None:
         raise HTTPException(status_code=403, detail="Aprovação de modelo exige sessão de usuário admin identificada.")
 
 
+def _audit_model_lifecycle(
+    db: AsyncSession, auth: AuthContext, *, action: str, result: str,
+    artifact_id: str, reason: str, version: str | None = None,
+) -> None:
+    """Persist model lifecycle decisions with tenant and human-actor provenance."""
+    db.add(AdminAuditEvent(
+        actor_admin_id=None, action=f"model.{action}", result=result,
+        target_type="model_artifact", target_id=artifact_id,
+        reason=reason.strip()[:500] or f"Model lifecycle action: {action}",
+        metadata_redacted={
+            "tenant_id": auth.tenant_id, "actor_user_id": auth.user_id,
+            "model_scope": "tenant", "model_version": version,
+        },
+    ))
+
+
 @router.post("/tenants/{slug}/models/{artifact_id}/approve")
 async def approve_tenant_model(
     slug: str, artifact_id: str, body: ModelLifecycleAction,
@@ -275,6 +292,9 @@ async def approve_tenant_model(
     ).with_for_update())
     artifact = result.scalar_one_or_none()
     if not artifact:
+        _audit_model_lifecycle(db, auth, action="approve", result="denied", artifact_id=artifact_id,
+                               reason="Artefato ausente ou fora do tenant autenticado.")
+        await db.commit()
         raise HTTPException(status_code=404, detail="Candidato não encontrado para esta instituição.")
     if artifact.lifecycle_status != "candidate" or artifact.is_active:
         raise HTTPException(status_code=409, detail="Somente candidatos não ativos podem ser aprovados.")
@@ -285,6 +305,8 @@ async def approve_tenant_model(
     artifact.approved_at = datetime.now(timezone.utc)
     artifact.activation_reason = body.reason.strip()
     artifact.evaluation_report = artifact.evaluation_report or artifact.metrics
+    _audit_model_lifecycle(db, auth, action="approve", result="success", artifact_id=artifact.id,
+                           reason=body.reason, version=artifact.version)
     await db.commit()
     return {"status": "approved", "artifact_id": artifact.id, "approved_at": artifact.approved_at}
 
@@ -302,6 +324,9 @@ async def activate_tenant_model(
     ).with_for_update())
     artifact = result.scalar_one_or_none()
     if not artifact:
+        _audit_model_lifecycle(db, auth, action="activate", result="denied", artifact_id=artifact_id,
+                               reason="Artefato ausente ou fora do tenant autenticado.")
+        await db.commit()
         raise HTTPException(status_code=404, detail="Artefato não encontrado.")
     if artifact.lifecycle_status != "approved" or not artifact.approved_by_user_id:
         raise HTTPException(status_code=409, detail="Modelo precisa de aprovação explícita antes da ativação.")
@@ -323,6 +348,8 @@ async def activate_tenant_model(
     artifact.activated_at = now
     artifact.activation_reason = body.reason.strip()
     auth.tenant.active_model_id = artifact.id
+    _audit_model_lifecycle(db, auth, action="activate", result="success", artifact_id=artifact.id,
+                           reason=body.reason, version=artifact.version)
     await db.commit()
     invalidate_tenant_cache(slug)
     return {"status": "active", "artifact_id": artifact.id, "version": artifact.version, "activated_at": now}
@@ -341,6 +368,9 @@ async def rollback_tenant_model(
     ).with_for_update())
     target = result.scalar_one_or_none()
     if not target:
+        _audit_model_lifecycle(db, auth, action="rollback", result="denied", artifact_id=artifact_id,
+                               reason="Artefato ausente ou fora do tenant autenticado.")
+        await db.commit()
         raise HTTPException(status_code=404, detail="Versão anterior não encontrada.")
     if target.lifecycle_status != "retired" or not target.storage_path or not target.metrics:
         raise HTTPException(status_code=409, detail="Rollback exige artefato anterior aposentado, íntegro e com relatório.")
@@ -362,6 +392,8 @@ async def rollback_tenant_model(
     target.rollback_of_artifact_id = previous_id
     target.activation_reason = f"ROLLBACK: {body.reason.strip()}"
     auth.tenant.active_model_id = target.id
+    _audit_model_lifecycle(db, auth, action="rollback", result="success", artifact_id=target.id,
+                           reason=body.reason, version=target.version)
     await db.commit()
     invalidate_tenant_cache(slug)
     return {"status": "rolled_back", "artifact_id": target.id, "version": target.version,
