@@ -394,27 +394,21 @@ def prepare_import_rows(
 
     # Duplicatas idênticas podem ser consolidadas; matrículas com nomes divergentes
     # são bloqueadas para evitar que uma linha troque a identidade de outra pessoa.
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in cleaned:
+        grouped.setdefault(item["data"]["matricula"], []).append(item)
+
     unique: dict[str, dict[str, Any]] = {}
     duplicate_identity_conflicts: list[dict[str, Any]] = []
     conflicted_matriculas: set[str] = set()
-    for item in cleaned:
-        key = item["data"]["matricula"]
-        previous = unique.get(key)
-        if previous is not None:
-            previous_name = normalize_header(previous["data"]["nome"])
-            current_name = normalize_header(item["data"]["nome"])
-            if previous_name != current_name:
-                conflicted_matriculas.add(key)
-                duplicate_identity_conflicts.append({
-                    "line": previous["line"],
-                    "message": (
-                        f"Linha {previous['line']}: matrícula {key} aparece com nomes diferentes "
-                        "no mesmo arquivo; todas as linhas dessa matrícula serão bloqueadas."
-                    ),
-                    "severity": "block",
-                    "column": "nome",
-                    "action": "Confirme a matrícula e os nomes corretos; as outras linhas válidas poderão ser importadas.",
-                })
+    conflicted_rows_count = 0
+    duplicates_removed = 0
+    for key, group in grouped.items():
+        names = {normalize_header(item["data"]["nome"]) for item in group}
+        if len(names) > 1:
+            conflicted_matriculas.add(key)
+            conflicted_rows_count += len(group)
+            for item in group:
                 duplicate_identity_conflicts.append({
                     "line": item["line"],
                     "message": (
@@ -425,11 +419,11 @@ def prepare_import_rows(
                     "column": "nome",
                     "action": "Confirme a matrícula e os nomes corretos; as outras linhas válidas poderão ser importadas.",
                 })
-                continue
-        unique[key] = item
-    for key in conflicted_matriculas:
-        unique.pop(key, None)
-    duplicates_removed = len(cleaned) - len(unique) - len(duplicate_identity_conflicts)
+            continue
+        # Quando matrícula e identidade coincidem, mantém a última ocorrência.
+        unique[key] = group[-1]
+        duplicates_removed += max(0, len(group) - 1)
+
     if duplicates_removed > 0:
         warnings.append(
             f"{duplicates_removed} linha(s) duplicada(s) idêntica(s) por matrícula foram consolidadas."
@@ -456,7 +450,7 @@ def prepare_import_rows(
 
     mapped_targets = set(rename_map.values())
     rows_to_import = len(cleaned_unique)
-    discarded = len(df_original) - len(cleaned)
+    discarded = len(df_original) - len(cleaned) + conflicted_rows_count
     missing_recommended = sorted(RECOMMENDED_COLUMNS - mapped_targets)
     null_rates = {
         col: round(float(df_normalized[col].isna().mean() * 100), 1)
