@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE = (process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
+function getApiBase(): string | null {\n  const configured = process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL;\n  if (configured?.trim()) return configured.trim().replace(/\\/+$/, "");\n  return process.env.NODE_ENV === "development" ? "http://localhost:8000" : null;\n}
 const COOKIE_NAME = "mira_control_center_session";
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const apiBase = getApiBase();\n  if (!apiBase) {\n    return NextResponse.json({ detail: "API não configurada. Defina MIRA_API_URL no ambiente do servidor." }, { status: 503, headers: { "Cache-Control": "no-store" } });\n  }\n  const token = request.cookies.get(COOKIE_NAME)?.value;
   if (!token) {
     return NextResponse.json({ detail: "Sessão administrativa ausente ou expirada." }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
 
   const { path: segments } = await context.params;
   const encodedPath = segments.map((part) => encodeURIComponent(part)).join("/");
-  const target = new URL(`${API_BASE}/api/v1/admin/mira-governance/${encodedPath}`);
+  const target = new URL(`${apiBase}/api/v1/admin/mira-governance/${encodedPath}`);
   target.search = request.nextUrl.search;
 
   let upstream: Response;
