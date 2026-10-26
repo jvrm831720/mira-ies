@@ -47,8 +47,10 @@ async def ensure_base_model_registered(session: AsyncSession) -> ModelArtifact |
         scope="base",
         storage_path=str(MODEL_PATH) if MODEL_PATH else None,
         metrics={"auc": meta.get("auc"), "average_precision": meta.get("average_precision"), "brier_score": meta.get("brier_score")},
+        evaluation_report=meta,
         feature_columns=meta.get("feature_columns"),
         is_active=True,
+        lifecycle_status="active",
     )
     session.add(artifact)
     await session.flush()
