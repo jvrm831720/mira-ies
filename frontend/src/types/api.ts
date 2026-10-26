@@ -190,6 +190,8 @@ export type ImportField =
   | "matricula"
   | "nome"
   | "curso"
+  | "campus"
+  | "status_aluno"
   | "turma"
   | "semestre"
   | "forma_ingresso"
