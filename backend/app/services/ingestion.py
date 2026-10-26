@@ -50,7 +50,7 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "saldo_devedor": [
         "saldo_devedor", "saldo devedor", "debito total", "débito total", "valor em aberto",
         "valor total em atraso", "valor devedor", "debt balance", "outstanding balance",
-        "total debt", "debt amount", "total nominal",
+        "total debt", "debt amount", "total nominal", "debito total r", "debito total rs",
     ],
     "status_financeiro": [
         "status_financeiro", "status financeiro", "status de pagamento", "situacao financeira",
@@ -289,7 +289,7 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         raw_value = safe_str(row.get(field))
         if not raw_value:
             continue
-        parsed = safe_int(raw_value) if kind == "int" else safe_float(raw_value)
+        parsed = safe_int(raw_value) if kind == "int" else (safe_currency(raw_value) if field == "saldo_devedor" else safe_float(raw_value))
         if parsed is None:
             warnings.append(f"Linha {line_number}: valor inválido em '{COLUMN_LABELS[field]}'; o campo será ignorado.")
             continue
