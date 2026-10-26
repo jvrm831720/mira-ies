@@ -31,24 +31,8 @@ class TrainingPolicyDecision:
     reason: str
 
 
-def _policy_is_current(policy: TenantDataUsePolicy, now: datetime) -> bool:
-    effective = policy.effective_at
-    if effective.tzinfo is None:
-        effective = effective.replace(tzinfo=timezone.utc)
-    if effective > now:
-        return False
-
-    if policy.expires_at is not None:
-        expires = policy.expires_at
-        if expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
-        if expires <= now:
-            return False
-
-    if policy.revoked_at is not None:
-        return False
-
-    return True
+def _as_utc(value: datetime) -> datetime:
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
 
 
 async def resolve_training_policy(
@@ -59,7 +43,7 @@ async def resolve_training_policy(
     dataset_eligible: bool = False,
     now: datetime | None = None,
 ) -> TrainingPolicyDecision:
-    """Resolve the most recent current policy for a tenant and purpose.
+    """Resolve the latest effective policy; never revive superseded consent.
 
     Missing, expired, revoked, or incompletely approved policies never permit
     contribution to shared-base training. Local training remains possible only
@@ -72,7 +56,7 @@ async def resolve_training_policy(
     }:
         raise ValueError(f"Unsupported training purpose: {purpose}")
 
-    instant = now or datetime.now(timezone.utc)
+    instant = _as_utc(now or datetime.now(timezone.utc))
     result = await session.execute(
         select(TenantDataUsePolicy)
         .where(TenantDataUsePolicy.tenant_id == tenant_id)
@@ -82,17 +66,22 @@ async def resolve_training_policy(
         )
     )
     policies = list(result.scalars().all())
+    # Select the latest policy that has taken effect, even if it was revoked or
+    # expired. Falling back to an older authorization could silently resurrect
+    # consent after a later revocation.
     current = next(
-        (policy for policy in policies if _policy_is_current(policy, instant)),
+        (policy for policy in policies if _as_utc(policy.effective_at) <= instant),
         None,
     )
 
+    def deny(reason: str, mode: str = "unknown", policy_id: str | None = None):
+        return TrainingPolicyDecision(
+            False, tenant_id, purpose, mode, policy_id, reason
+        )
+
     if current is None:
         if purpose == "shared_base_training":
-            return TrainingPolicyDecision(
-                False, tenant_id, purpose, "unknown", None,
-                "No current, valid data-use policy; shared training denied by default.",
-            )
+            return deny("No effective data-use policy; shared training denied by default.")
         return TrainingPolicyDecision(
             bool(dataset_eligible),
             tenant_id,
@@ -100,12 +89,17 @@ async def resolve_training_policy(
             "unknown",
             None,
             (
-                "No current policy; locally eligible data may be used only for "
+                "No effective policy; locally eligible data may be used only for "
                 "institution-scoped work."
                 if dataset_eligible
                 else "Dataset is not independently eligible."
             ),
         )
+
+    if current.revoked_at is not None:
+        return deny("Latest effective data-use policy has been revoked.", current.mode, current.id)
+    if current.expires_at is not None and _as_utc(current.expires_at) <= instant:
+        return deny("Latest effective data-use policy has expired.", current.mode, current.id)
 
     approved = bool(
         current.approved_by_admin_id
@@ -115,10 +109,7 @@ async def resolve_training_policy(
         and current.contract_version.strip()
     )
     if not approved:
-        return TrainingPolicyDecision(
-            False, tenant_id, purpose, current.mode, current.id,
-            "Policy lacks approval or contract evidence.",
-        )
+        return deny("Policy lacks approval or contract evidence.", current.mode, current.id)
 
     if purpose == "shared_base_training":
         allowed = current.mode == "shared_training" and dataset_eligible
