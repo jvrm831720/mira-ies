@@ -185,7 +185,7 @@ async def preview_multiple_students_files(
         "alunos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
         # Legacy clients previously sent arbitrary role labels; keep this one used by the existing API contract.
         "cursos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
-        "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos"},
+        "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro"},
         "engajamento": {"matricula", "dias_sem_login", "presenca_percentual"},
         "desempenho": {"matricula", "nota_media", "reprovacoes"},
     }
@@ -723,7 +723,7 @@ async def confirm_multiple_students_files(
     role_fields = {
         "cadastro": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
         "alunos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
-        "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos"},
+        "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro"},
         "engajamento": {"matricula", "dias_sem_login", "presenca_percentual"},
         "desempenho": {"matricula", "nota_media", "reprovacoes"},
     }
