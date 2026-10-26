@@ -395,7 +395,7 @@ def prepare_import_rows(
     quality_score = max(0.0, min(100.0, coverage * 100 - len(missing_recommended) * 8))
 
     sample_fields = [
-        "matricula", "nome", "email", "telefone", "curso", "turma", "semestre",
+        "matricula", "nome", "email", "telefone", "curso", "campus", "status_aluno", "turma", "semestre",
         "saldo_devedor", "status_financeiro", "dias_atraso_boleto", "dias_sem_login", "presenca_percentual", "nota_media",
     ]
     sample_rows = []
