@@ -21,27 +21,41 @@ from app.services.consent import (
 
 COLUMN_ALIASES: dict[str, list[str]] = {
     "matricula": [
-        "matricula", "ra", "registro", "registro academico", "codigo aluno",
-        "codigo_aluno", "id aluno", "id_aluno", "student_id", "student id",
-        "student number", "enrollment id", "enrollment number",
-        "registration number", "cod aluno", "rm",
+        "matricula", "matricula do aluno", "numero de matricula", "número de matrícula",
+        "ra", "registro", "registro academico", "codigo aluno", "codigo_aluno",
+        "id aluno", "id_aluno", "id matricula", "id matrícula", "student_id", "student id",
+        "student number", "enrollment id", "enrollment number", "enrollment_code",
+        "registration number", "cod aluno", "rm", "codigo de aluno", "registro do aluno",
     ],
     "nome": [
         "nome", "nome aluno", "nome_aluno", "aluno", "name", "student_name",
         "student name", "nome completo", "nome_completo", "full name",
-        "student full name", "display name",
+        "student full name", "display name", "nome completo do aluno", "nome do aluno",
     ],
     "curso": ["curso", "course", "programa", "course_name", "course name", "nome curso", "academic program"],
     "turma": ["turma", "classe", "class", "class_name", "class name", "codigo turma", "cohort"],
-    "semestre": ["semestre", "periodo", "semester", "period", "periodo atual", "current semester"],
+    "semestre": ["semestre", "semestre atual", "periodo", "período", "periodo atual", "periodo letivo", "semester", "current semester", "semestre cursado", "numero do semestre"],
     "forma_ingresso": ["forma_ingresso", "ingresso", "admission", "forma de ingresso", "tipo ingresso", "admission type"],
     "dias_atraso_boleto": [
         "dias_atraso_boleto", "atraso boleto", "dias atraso", "dias em atraso",
-        "days overdue", "days_overdue", "overdue days", "atraso",
+        "days overdue", "days_overdue", "overdue days", "atraso", "dias de atraso",
+        "dias de atraso financeiro", "dias atraso financeiro", "atraso em dias",
     ],
     "recorrencia_atrasos": [
         "recorrencia_atrasos", "qtd atrasos", "atrasos anteriores", "previous delays",
-        "previous_delays", "atrasos", "late payment count",
+        "previous_delays", "atrasos", "late payment count", "parcelas em atraso",
+        "parcelas vencidas", "quantidade de parcelas vencidas", "qtd parcelas vencidas",
+        "numero de parcelas vencidas", "número de parcelas vencidas",
+    ],
+    "saldo_devedor": [
+        "saldo_devedor", "saldo devedor", "debito total", "débito total", "valor em aberto",
+        "valor total em atraso", "valor devedor", "debt balance", "outstanding balance",
+        "total debt", "debt amount", "total nominal",
+    ],
+    "status_financeiro": [
+        "status_financeiro", "status financeiro", "status de pagamento", "situacao financeira",
+        "situação financeira", "status da cobranca", "status cobrança", "payment status",
+        "financial status", "situacao do pagamento", "situação do pagamento",
     ],
     "dias_sem_login": [
         "dias_sem_login", "dias sem acesso", "last_login_days", "last login days",
@@ -79,7 +93,9 @@ COLUMN_LABELS = {
     "semestre": "Semestre atual",
     "forma_ingresso": "Forma de ingresso",
     "dias_atraso_boleto": "Dias de atraso financeiro",
-    "recorrencia_atrasos": "Recorrência de atrasos",
+    "recorrencia_atrasos": "Parcelas vencidas / recorrência de atrasos",
+    "saldo_devedor": "Saldo devedor (R$)",
+    "status_financeiro": "Status financeiro",
     "dias_sem_login": "Dias sem acesso ao AVA/LMS",
     "presenca_percentual": "Presença (%)",
     "nota_media": "Nota média",
@@ -96,6 +112,7 @@ NUMERIC_RULES = {
     "presenca_percentual": ("float", 0, 100),
     "nota_media": ("float", 0, 10),
     "reprovacoes": ("int", 0, 100),
+    "saldo_devedor": ("float", 0, 1000000000),
 }
 _NORMALIZED_ALIASES: dict[str, set[str]] = {}
 
@@ -286,6 +303,8 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "communication_opt_out": safe_bool(row.get("communication_opt_out")) if safe_bool(row.get("communication_opt_out")) is not None else False,
         "dias_atraso_boleto": _clamp_int(safe_int(row.get("dias_atraso_boleto")), 0, 3650),
         "recorrencia_atrasos": _clamp_int(safe_int(row.get("recorrencia_atrasos")), 0, 100),
+        "saldo_devedor": _clamp(safe_float(str(row.get("saldo_devedor")).replace("R$", "").replace(".", "").replace(",", ".") if safe_str(row.get("saldo_devedor")) else None), 0.0, 1000000000.0),
+        "status_financeiro": safe_str(row.get("status_financeiro"))[:80] if safe_str(row.get("status_financeiro")) else None,
         "dias_sem_login": _clamp_int(safe_int(row.get("dias_sem_login")), 0, 3650),
         "presenca_percentual": _clamp(safe_float(row.get("presenca_percentual")), 0.0, 100.0),
         "nota_media": _clamp(safe_float(row.get("nota_media")), 0.0, 10.0),
@@ -353,7 +372,7 @@ def prepare_import_rows(
 
     sample_fields = [
         "matricula", "nome", "email", "telefone", "curso", "turma", "semestre",
-        "dias_atraso_boleto", "dias_sem_login", "presenca_percentual", "nota_media",
+        "saldo_devedor", "status_financeiro", "dias_atraso_boleto", "dias_sem_login", "presenca_percentual", "nota_media",
     ]
     sample_rows = []
     for item in cleaned_unique[:6]:
@@ -482,7 +501,7 @@ async def create_batch_and_students(
     rows_updated = 0
     mutable_fields = (
         "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone",
-        "email", "communication_opt_out", "dias_atraso_boleto", "recorrencia_atrasos",
+        "email", "communication_opt_out", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro",
         "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes",
     )
 
@@ -540,6 +559,8 @@ async def create_batch_and_students(
                 },
                 dias_atraso_boleto=data.get("dias_atraso_boleto"),
                 recorrencia_atrasos=data.get("recorrencia_atrasos"),
+                saldo_devedor=data.get("saldo_devedor"),
+                status_financeiro=data.get("status_financeiro"),
                 dias_sem_login=data.get("dias_sem_login"),
                 presenca_percentual=data.get("presenca_percentual"),
                 nota_media=data.get("nota_media"),
