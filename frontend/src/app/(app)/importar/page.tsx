@@ -83,7 +83,8 @@ export default function ImportarPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);\n  const [confirmedImportPolicy, setConfirmedImportPolicy] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmedImportPolicy, setConfirmedImportPolicy] = useState(false);
 
   function selectFile(nextFile?: File) {
     if (!nextFile) return;
