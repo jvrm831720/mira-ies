@@ -345,7 +345,7 @@ export default function ImportarPage() {
                   <Files className="h-3.5 w-3.5" /> Escolher arquivos
                 </Button>
                 {multiFiles.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => { setMultiFiles([]); setMultiRoles([]); setMultiPreview(null); setMultiError(null); if (multiInputRef.current) multiInputRef.current.value = ""; }} disabled={multiPreviewLoading}>
+                  <Button variant="ghost" size="sm" onClick={() => { setMultiFiles([]); setMultiRoles([]); setMultiPreview(null); setMultiIdempotencyKey(null); setMultiConfirmedPolicy(false); setMultiError(null); if (multiInputRef.current) multiInputRef.current.value = ""; }} disabled={multiPreviewLoading}>
                     <Trash2 className="h-3.5 w-3.5" /> Limpar
                   </Button>
                 )}
@@ -371,6 +371,8 @@ export default function ImportarPage() {
                         onChange={(event) => {
                           setMultiRoles((current) => current.map((role, roleIndex) => roleIndex === index ? event.target.value : role));
                           setMultiPreview(null);
+                          setMultiIdempotencyKey(crypto.randomUUID());
+                          setMultiConfirmedPolicy(false);
                         }}
                         disabled={multiPreviewLoading}
                         className="min-w-0 flex-1 rounded-lg border border-border bg-white px-2 py-1.5 text-xs text-neutral-800"
@@ -429,8 +431,20 @@ export default function ImportarPage() {
                     </div>
                   ))}
                 </div>
-                <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-900">
-                  <strong>Importação conjunta ainda indisponível.</strong> A prévia já relaciona os campos por matrícula, mas não grava alterações. Revise conflitos e duplicidades; a persistência conjunta será liberada somente após uma etapa adicional de segurança e testes.
+                <div className="space-y-3 rounded-xl border border-border bg-muted/20 px-3.5 py-3">
+                  <label className="flex items-start gap-2 text-xs leading-relaxed text-neutral-800">
+                    <input type="checkbox" className="mt-0.5" checked={multiConfirmedPolicy} onChange={(event) => setMultiConfirmedPolicy(event.target.checked)} disabled={multiConfirmationLoading} />
+                    <span>Revisei a prévia, os tipos de base e os dados que serão criados ou atualizados. Entendo que campos vazios não devem apagar informações existentes.</span>
+                  </label>
+                  <Button
+                    className="w-full"
+                    onClick={() => void confirmMultipleFiles()}
+                    disabled={multiConfirmationLoading || multiPreviewLoading || !multiConfirmedPolicy || multiPreview.items.some((item) => !item.valid) || (multiPreview.conflicts?.length || 0) > 0 || (multiPreview.duplicate_matriculas?.length || 0) > 0}
+                  >
+                    {multiConfirmationLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    {multiConfirmationLoading ? "Importando bases..." : "Confirmar importação conjunta"}
+                  </Button>
+                  <p className="text-[10px] leading-relaxed text-muted-foreground">A confirmação reutiliza uma chave de idempotência em novas tentativas. Conflitos e duplicidades bloqueiam a operação.</p>
                 </div>
               </div>
             )}
