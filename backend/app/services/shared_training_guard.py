@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from datetime import datetime
-from typing import NoReturn
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
