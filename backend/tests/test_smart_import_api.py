@@ -168,6 +168,7 @@ async def test_preview_flags_bad_rows_duplicate_matriculas_and_invalid_email(cli
         b"matricula,nome,email,presenca_percentual\n"
         b"DUP-1,Ana,not-an-email,140\n"
         b"DUP-1,Ana Atual,ana@example.edu.br,90\n"
+        b"OK-1,Bruno,bruno@example.edu.br,85\n"
         b",Sem Matricula,missing@example.edu.br,80\n"
     )
     response = await client.post(
@@ -184,7 +185,7 @@ async def test_preview_flags_bad_rows_duplicate_matriculas_and_invalid_email(cli
     assert any("nomes diferentes" in item["message"] for item in body["invalid_rows"])
     assert any("e-mail inválido" in warning for warning in body["warnings"])
     assert any("limitado" in warning for warning in body["warnings"])
-    assert body["sample_rows"][0]["nome"] == "Ana"
+    assert body["sample_rows"][0]["nome"] == "Bruno"
 
 
 @pytest.mark.asyncio
