@@ -11,7 +11,7 @@ if (isProductionBuild && !configuredApiBase) {
   );
 }
 
-const apiBase = (configuredApiBase || "http://localhost:8000").replace(/\\/+$/, "");
+const apiBase = (configuredApiBase || "http://localhost:8000").replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${apiBase}/api/v1/:path*`,
+        destination: \`${apiBase}\/api/v1/:path*\`,
       },
     ];
   },
