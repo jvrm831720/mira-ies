@@ -136,7 +136,7 @@ async def test_multi_file_preview_validates_without_persisting(client, auth_head
     assert body["summary"]["files_received"] == 2
     assert body["summary"]["files_valid"] == 2
     assert body["persisted"] is False
-    assert body["cross_file_relationships_validated"] is False
+    assert body["cross_file_relationships_validated"] is True
     assert [item["role"] for item in body["items"]] == ["alunos", "cursos"]
 
 

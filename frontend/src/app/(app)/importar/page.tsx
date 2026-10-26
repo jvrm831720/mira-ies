@@ -88,6 +88,7 @@ export default function ImportarPage() {
   const [confirmedImportPolicy, setConfirmedImportPolicy] = useState(false);
   const multiInputRef = useRef<HTMLInputElement>(null);
   const [multiFiles, setMultiFiles] = useState<File[]>([]);
+  const [multiRoles, setMultiRoles] = useState<string[]>([]);
   const [multiPreview, setMultiPreview] = useState<import("@/types/api").MultiUploadPreviewResponse | null>(null);
   const [multiPreviewLoading, setMultiPreviewLoading] = useState(false);
   const [multiError, setMultiError] = useState<string | null>(null);
@@ -114,6 +115,7 @@ export default function ImportarPage() {
       return;
     }
     setMultiFiles(selected);
+    setMultiRoles(selected.map((_, index) => index === 0 ? "cadastro" : "financeiro"));
     setMultiPreview(null);
     setMultiError(null);
   }
@@ -123,7 +125,7 @@ export default function ImportarPage() {
     setMultiPreviewLoading(true);
     setMultiError(null);
     try {
-      const response = await api.previewMultipleUploads(multiFiles);
+      const response = await api.previewMultipleUploads(multiFiles, multiRoles);
       setMultiPreview(response);
       toast.success("Pré-validação concluída. Nenhum dado foi salvo.");
     } catch (error) {
@@ -275,7 +277,7 @@ export default function ImportarPage() {
               <div>
                 <CardTitle className="text-base">Pré-validar vários arquivos</CardTitle>
                 <CardDescription className="mt-1">
-                  Confira até 10 arquivos de dados de alunos antes de decidir o próximo passo. Esta etapa é somente de análise: não importa nem altera registros.
+                  Selecione até 10 arquivos e informe o tipo de cada base. A MIRA relaciona os registros pela matrícula e sinaliza conflitos; esta etapa não salva nem altera registros.
                 </CardDescription>
               </div>
             </div>
@@ -301,7 +303,7 @@ export default function ImportarPage() {
                   <Files className="h-3.5 w-3.5" /> Escolher arquivos
                 </Button>
                 {multiFiles.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => { setMultiFiles([]); setMultiPreview(null); setMultiError(null); if (multiInputRef.current) multiInputRef.current.value = ""; }} disabled={multiPreviewLoading}>
+                  <Button variant="ghost" size="sm" onClick={() => { setMultiFiles([]); setMultiRoles([]); setMultiPreview(null); setMultiError(null); if (multiInputRef.current) multiInputRef.current.value = ""; }} disabled={multiPreviewLoading}>
                     <Trash2 className="h-3.5 w-3.5" /> Limpar
                   </Button>
                 )}
@@ -314,10 +316,29 @@ export default function ImportarPage() {
             {multiFiles.length > 0 && (
               <ul className="grid gap-2 sm:grid-cols-2">
                 {multiFiles.map((item, index) => (
-                  <li key={item.name + item.size + index} className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
-                    <FileSpreadsheet className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-800">{item.name}</span>
-                    <span className="shrink-0 text-[10px] text-muted-foreground">{formatFileSize(item.size)}</span>
+                  <li key={item.name + item.size + index} className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-800">{item.name}</span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">{formatFileSize(item.size)}</span>
+                    </div>
+                    <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      Tipo de base
+                      <select
+                        value={multiRoles[index] || "cadastro"}
+                        onChange={(event) => {
+                          setMultiRoles((current) => current.map((role, roleIndex) => roleIndex === index ? event.target.value : role));
+                          setMultiPreview(null);
+                        }}
+                        disabled={multiPreviewLoading}
+                        className="min-w-0 flex-1 rounded-lg border border-border bg-white px-2 py-1.5 text-xs text-neutral-800"
+                      >
+                        <option value="cadastro">Cadastro de alunos</option>
+                        <option value="financeiro">Financeiro</option>
+                        <option value="engajamento">Engajamento / acesso</option>
+                        <option value="desempenho">Desempenho acadêmico</option>
+                      </select>
+                    </label>
                   </li>
                 ))}
               </ul>
@@ -331,7 +352,24 @@ export default function ImportarPage() {
                   <ReviewStat label="Arquivos válidos" value={multiPreview.summary.files_valid} tone="success" />
                   <ReviewStat label="Com problemas" value={multiPreview.summary.files_with_errors} tone={multiPreview.summary.files_with_errors ? "warning" : "neutral"} />
                   <ReviewStat label="Matrículas distintas" value={multiPreview.summary.distinct_matriculas_across_files} tone="indigo" />
+                  {"consolidated_students" in multiPreview.summary && <ReviewStat label="Alunos consolidados" value={multiPreview.summary.consolidated_students as number} tone="indigo" />}
+                  {"cross_file_conflicts" in multiPreview.summary && <ReviewStat label="Conflitos" value={multiPreview.summary.cross_file_conflicts as number} tone={Number(multiPreview.summary.cross_file_conflicts) ? "warning" : "success"} />}
                 </div>
+                {multiPreview.consolidated_preview && multiPreview.consolidated_preview.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold text-neutral-900">Prévia consolidada por matrícula</h3>
+                    <div className="overflow-x-auto rounded-xl border border-border">
+                      <table className="w-full min-w-[560px] border-collapse text-left">
+                        <thead className="bg-muted/40"><tr><th className="px-3 py-2 text-[10px] uppercase text-muted-foreground">Matrícula</th><th className="px-3 py-2 text-[10px] uppercase text-muted-foreground">Campos combinados</th><th className="px-3 py-2 text-[10px] uppercase text-muted-foreground">Situação</th></tr></thead>
+                        <tbody className="divide-y divide-border/70">{multiPreview.consolidated_preview.slice(0, 20).map((student) => (
+                          <tr key={student.matricula}><td className="px-3 py-2 text-xs font-medium">{student.matricula}</td><td className="px-3 py-2 text-xs">{Object.entries(student.fields).map(([field, value]) => `${field}: ${value}`).join(" · ") || "—"}</td><td className="px-3 py-2 text-xs">{student.requires_review ? <span className="text-amber-700">Revisar conflito</span> : <span className="text-emerald-700">Sem conflito detectado</span>}</td></tr>
+                        ))}</tbody>
+                      </table>
+                    </div>
+                    {multiPreview.consolidated_preview.length > 20 && <p className="text-[10px] text-muted-foreground">Exibindo 20 de {multiPreview.consolidated_preview.length} matrículas consolidadas.</p>}
+                  </div>
+                )}
+                {multiPreview.conflicts && multiPreview.conflicts.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900"><strong>Conflitos para revisão:</strong><ul className="mt-1 list-disc pl-4">{multiPreview.conflicts.slice(0, 10).map((conflict, index) => <li key={`${conflict.matricula}-${conflict.field}-${index}`}>Matrícula {conflict.matricula} · {conflict.field}: “{conflict.existing_value}” × “{conflict.incoming_value}” ({conflict.filename})</li>)}</ul></div>}
                 <div className="space-y-2">
                   {multiPreview.items.map((item) => (
                     <div key={item.index + item.filename} className="flex flex-col gap-2 rounded-xl border border-border px-3 py-3 sm:flex-row sm:items-start sm:justify-between">
@@ -350,7 +388,7 @@ export default function ImportarPage() {
                   ))}
                 </div>
                 <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-900">
-                  <strong>Importação conjunta indisponível nesta etapa.</strong> A MIRA ainda não valida relacionamentos entre bases. Use a importação individual para importar uma planilha de alunos; não trate esta prévia como autorização para gravar vários arquivos juntos.
+                  <strong>Importação conjunta ainda indisponível.</strong> A prévia já relaciona os campos por matrícula, mas não grava alterações. Revise conflitos e duplicidades; a persistência conjunta será liberada somente após uma etapa adicional de segurança e testes.
                 </div>
               </div>
             )}

@@ -218,10 +218,10 @@ export const api = {
   consentAudit: (id: string, limit = 10) =>
     request<ConsentAuditResponse>(`/api/v1/students/${id}/consent-audit?limit=${limit}`),
 
-  previewMultipleUploads: async (files: File[]) => {
+  previewMultipleUploads: async (files: File[], roles: string[]) => {
     const form = new FormData();
     files.forEach((file) => form.append("files", file));
-    files.forEach(() => form.append("file_roles", "alunos"));
+    roles.forEach((role) => form.append("file_roles", role));
     return request<MultiUploadPreviewResponse>("/api/v1/upload/preview-multiple", {
       method: "POST",
       body: form,
