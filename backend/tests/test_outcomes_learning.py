@@ -211,8 +211,9 @@ async def test_tenant_train_uses_only_mature_target_labels(
     )
     assert resp_train.status_code == 200
     body = resp_train.json()
-    assert body["status"] == "trained"
-    assert body["activated"] is True
+    # Training creates a candidate only; activation requires separate human approval.
+    assert body["status"] == "candidate"
+    assert body["activated"] is False
     assert body["metrics"]["n_tenant_events"] == 30
     metrics = body["metrics"]
     assert metrics["n_synthetic_training_rows"] > 0
@@ -232,11 +233,19 @@ async def test_tenant_train_uses_only_mature_target_labels(
 
     resp_models = await client.get(f"/api/v1/tenants/{t.slug}/models", headers=auth_headers)
     assert resp_models.status_code == 200
-    assert any(m["is_active"] for m in resp_models.json()["models"])
+    candidate = next(m for m in resp_models.json()["models"] if m["lifecycle_status"] == "candidate")
+    assert candidate["is_active"] is False
+    assert resp_models.json()["active_model"] == "base"  # baseline is a fallback, not a tenant artifact
+    assert resp_models.json()["active_model_id"] is None
 
-    resp_deactivate = await client.post(f"/api/v1/tenants/{t.slug}/models/deactivate", headers=auth_headers)
-    assert resp_deactivate.status_code == 200
-    assert resp_deactivate.json()["active_model"] == "base"
+    # Tenant API keys identify an institution, not a human admin. Lifecycle
+    # actions must reject this request even when a reason is supplied.
+    resp_deactivate = await client.post(
+        f"/api/v1/tenants/{t.slug}/models/deactivate", headers=auth_headers,
+        json={"reason": "Validar retorno seguro ao baseline"},
+    )
+    assert resp_deactivate.status_code == 403
+    assert "sessão de usuário admin identificada" in resp_deactivate.json()["detail"]
 
 
 async def test_legacy_labels_are_not_counted_as_ready(client, auth_headers, tenant, db_session):

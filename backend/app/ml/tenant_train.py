@@ -256,12 +256,10 @@ def _should_activate(tenant_metrics, base_auc, *, force_activate=False):
     return False, f"AUC tenant={auc:.3f} < base={base_auc:.3f} — mantem base ativo"
 
 
-async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "default", force: bool = False, force_activate: bool = False, seed: int = 42) -> dict[str, Any]:
+async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "default", force: bool = False, seed: int = 42) -> dict[str, Any]:
     settings = get_settings()
     if force and not settings.allow_force_train:
         raise ValueError("force=true bloqueado (ALLOW_FORCE_TRAIN=false). Aguarde limiar de labels.")
-    if force_activate and not settings.allow_force_activate:
-        raise ValueError("force_activate=true bloqueado (ALLOW_FORCE_ACTIVATE=false). Ativacao so com AUC >= base.")
 
     result = await session.execute(select(Tenant).where(Tenant.slug == tenant_slug))
     tenant = result.scalar_one_or_none()
@@ -383,28 +381,21 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
 
     base_auc = metrics.get("baseline_auc_same_test")
 
-    activate, reason = _should_activate(metrics, base_auc, force_activate=force_activate)
-
-    if activate:
-        prev = await session.execute(select(ModelArtifact).where(ModelArtifact.tenant_id == tenant.id, ModelArtifact.scope == "tenant", ModelArtifact.is_active == True))  # noqa: E712
-        for art in prev.scalars().all():
-            art.is_active = False
-
+    run_id = str(uuid4())
     artifact = ModelArtifact(
-        id=str(uuid4()), tenant_id=tenant.id, name=f"beacon-tenant-{tenant.slug}",
-        version=version, scope="tenant", storage_path=str(model_path),
-        metrics=metrics, feature_columns=FEATURE_COLUMNS, is_active=activate,
+        id=str(uuid4()), run_id=run_id, tenant_id=tenant.id,
+        name=f"beacon-tenant-{tenant.slug}", version=version, scope="tenant",
+        storage_path=str(model_path), metrics=metrics, evaluation_report=metrics,
+        feature_columns=FEATURE_COLUMNS, is_active=False, lifecycle_status="candidate",
         trained_at=datetime.now(timezone.utc),
     )
     session.add(artifact)
-    await session.flush()
-    if activate:
-        tenant.active_model_id = artifact.id
     await session.commit()
-    invalidate_tenant_cache(tenant.slug)
 
     return {
-        "status": "trained", "activated": activate, "activation_reason": reason,
+        "status": "candidate", "activated": False,
+        "activation_reason": "Treino concluído; aprovação explícita necessária antes da ativação.",
+        "run_id": run_id,
         "tenant_id": tenant.id, "slug": tenant.slug, "artifact_id": artifact.id,
         "version": version, "storage_path": str(model_path),
         "model_scope": "tenant", "training_data": metrics.get("training_data"),
@@ -424,7 +415,8 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
             "blended", "top_features", "disclaimer",
         ]},
         "base_auc": base_auc,
-        "message": f"Modelo tenant treinado e {'ATIVADO' if activate else 'salvo (nao ativado)'}. {reason}",
+        "lifecycle_status": "candidate",
+        "message": "Modelo candidato salvo; não foi ativado automaticamente.",
     }
 
 
