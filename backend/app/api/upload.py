@@ -22,6 +22,7 @@ from app.services.ingestion import (
     get_batch,
     get_students_by_batch,
     prepare_import_rows,
+    normalize_columns,
 )
 from app.schemas.student import UploadBatchResponse
 from app.models.student import Student, UploadBatch
@@ -150,7 +151,7 @@ async def preview_multiple_students_files(
                           "warnings": [], "errors": ["Tipo de base desconhecido."]})
             continue
         try:
-            normalized, mapped = __import__("app.services.ingestion", fromlist=["normalize_columns"]).normalize_columns(df)
+            normalized, mapped = normalize_columns(df)
         except ValueError as exc:
             items.append({"index": index, "filename": filename, "role": role, "valid": False,
                           "error": str(exc), "total_rows": int(len(df)), "rows_to_import": 0,
