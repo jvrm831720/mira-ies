@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing, retention_campaigns, retention_campaign_execution, control_center_auth, control_center_admin
+from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing, retention_campaigns, retention_campaign_execution, control_center_auth, control_center_admin, mira_admin
 from app.db.session import init_db
 from app.ml.model import load_model
 
@@ -140,6 +140,7 @@ app.include_router(org.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
 app.include_router(control_center_auth.router, prefix="/api/v1")
 app.include_router(control_center_admin.router, prefix="/api/v1")
+app.include_router(mira_admin.router, prefix="/api/v1")
 
 
 @app.get("/")
