@@ -16,7 +16,7 @@ import type { ImportField, UploadPreviewResponse, UploadResponse, MultiUploadPre
 
 const IMPORT_FIELDS: ImportField[] = [
   "matricula", "nome", "curso", "turma", "semestre", "forma_ingresso",
-  "dias_atraso_boleto", "recorrencia_atrasos", "dias_sem_login",
+  "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro", "dias_sem_login",
   "presenca_percentual", "nota_media", "reprovacoes", "telefone", "email",
   "communication_opt_out",
 ];
@@ -30,7 +30,8 @@ const TEMPLATE_CSV = [
 const FIELD_LABELS: Record<ImportField, string> = {
   matricula: "Matrícula", nome: "Nome completo", curso: "Curso", turma: "Turma",
   semestre: "Semestre", forma_ingresso: "Forma de ingresso",
-  dias_atraso_boleto: "Dias de atraso financeiro", recorrencia_atrasos: "Recorrência de atrasos",
+  dias_atraso_boleto: "Dias de atraso financeiro", recorrencia_atrasos: "Parcelas vencidas / recorrência",
+  saldo_devedor: "Saldo devedor (R$)", status_financeiro: "Status financeiro",
   dias_sem_login: "Dias sem login", presenca_percentual: "Presença (%)",
   nota_media: "Nota média", reprovacoes: "Reprovações", telefone: "Telefone",
   email: "E-mail", communication_opt_out: "Não contatar",
