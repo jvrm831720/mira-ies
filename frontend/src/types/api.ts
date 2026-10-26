@@ -213,6 +213,25 @@ export type UploadPreviewResponse = {
   message?: string;
 };
 
+
+export type UploadHistoryItem = {
+  id: string;
+  filename: string;
+  status: string;
+  total_rows: number;
+  processed_rows: number;
+  uploaded_at: string;
+  processed_at?: string | null;
+  error_message?: string | null;
+};
+
+export type UploadHistoryResponse = {
+  items: UploadHistoryItem[];
+  limit: number;
+  offset: number;
+  has_more: boolean;
+};
+
 export type UploadResponse = {
   message?: string;
   students_imported?: number;
