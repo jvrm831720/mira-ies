@@ -238,12 +238,14 @@ async def test_tenant_train_uses_only_mature_target_labels(
     assert resp_models.json()["active_model"] == "base"  # baseline is a fallback, not a tenant artifact
     assert resp_models.json()["active_model_id"] is None
 
+    # Tenant API keys identify an institution, not a human admin. Lifecycle
+    # actions must reject this request even when a reason is supplied.
     resp_deactivate = await client.post(
         f"/api/v1/tenants/{t.slug}/models/deactivate", headers=auth_headers,
         json={"reason": "Validar retorno seguro ao baseline"},
     )
-    assert resp_deactivate.status_code == 200
-    assert resp_deactivate.json()["active_model"] == "base"
+    assert resp_deactivate.status_code == 403
+    assert "sessão de usuário admin identificada" in resp_deactivate.json()["detail"]
 
 
 async def test_legacy_labels_are_not_counted_as_ready(client, auth_headers, tenant, db_session):
