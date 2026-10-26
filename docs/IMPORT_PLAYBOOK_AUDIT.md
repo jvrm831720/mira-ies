@@ -1,37 +1,64 @@
-# Auditoria da importação MIRA — primeira fase
+# Contrato de dados para importação da MIRA
 
-## O que já existe na `main`
+## Objetivo
 
-- Upload de um arquivo CSV, XLSX ou XLS por operação.
-- Limite de tamanho aplicado no backend e validação de extensão.
-- Prévia sem persistência definitiva em `POST /api/v1/upload/preview`.
-- Mapeamento determinístico por aliases conhecidos e possibilidade de ajuste manual.
-- Validação de campos obrigatórios (matrícula e nome), avisos de qualidade e amostra de linhas.
-- Detecção de matrículas repetidas no arquivo e correspondências com registros da mesma instituição.
-- Persistência/upsert e consulta individual do estado do lote por `GET /api/v1/upload/status/{batch_id}`.
-- O modelo `UploadBatch` já registra nome do arquivo, instituição, estado, totais, timestamps e erro.
+Definir o que a importação atual consegue validar e quais regras precisam existir antes de combinar arquivos de origens diferentes. Este documento descreve o código atual; não habilita persistência de múltiplas bases.
 
-## O que esta PR acrescenta
+## O que o modelo atual suporta
 
-- Endpoint paginado `GET /api/v1/upload/history`, filtrado pelo `tenant_id` autenticado.
-- Página `/importacoes` com estados de carregamento, erro, vazio, status e totais reais do servidor.
-- Acesso ao histórico a partir da tela de importação.
+A ingestão normaliza cabeçalhos por aliases determinísticos, aceita mapeamento manual e transforma as linhas em um registro de aluno. Os campos canônicos estão definidos em `backend/app/services/ingestion.py`.
 
-## Lacunas identificadas para fases seguintes
+| Grupo lógico | Campos canônicos existentes | Situação atual |
+| --- | --- | --- |
+| Identidade | `matricula`, `nome` | Obrigatórios para cada arquivo pré-validado |
+| Cadastro | `curso`, `turma`, `semestre`, `forma_ingresso` | Opcionais no registro de aluno |
+| Financeiro | `dias_atraso_boleto`, `recorrencia_atrasos` | Opcionais no registro de aluno |
+| Engajamento | `dias_sem_login`, `presenca_percentual` | Opcionais no registro de aluno |
+| Desempenho acadêmico | `nota_media`, `reprovacoes` | Opcionais no registro de aluno |
+| Contato e preferência | `telefone`, `email`, `communication_opt_out` | Opcionais; opt-out exige cuidado para não sobrescrever consentimento |
 
-1. Upload e análise de vários arquivos numa mesma operação.
-2. Classificação explícita dos tipos de base e relacionamentos confiáveis entre arquivos.
-3. Prévia final com contagem de criar, atualizar, ignorar, rejeitar e pendências calculada por operação.
-4. Correções por linha e exportação de relatório de erros.
-5. Persistência de uma execução de importação com chave de idempotência, progresso real, recuperação após falha parcial e reprocessamento seguro.
-6. Histórico detalhado de uma operação, incluindo responsável, relatório de validação e navegação aos registros afetados.
-7. Mapeamentos reutilizáveis por instituição.
-8. Validação de conteúdo real do arquivo, política de retenção dos arquivos originais e revisão do ciclo de vida de armazenamento.
+Esses grupos são uma classificação lógica dos campos que já existem, não tipos de arquivo implementados. Hoje, cada arquivo enviado para `POST /api/v1/upload/preview-multiple` é validado como se fosse uma planilha de alunos e precisa conter matrícula e nome. O parâmetro `file_roles` é devolvido na resposta, mas ainda não controla o mapeamento nem valida relacionamentos.
 
-## Regra de integridade importante
+## Chave de relacionamento
 
-A implementação atual de ingestão consolida duplicidades internas pela matrícula e usa a última ocorrência. Antes de transformar esse comportamento em uma política configurável, a interface deve explicá-lo e o backend deve expor os registros afetados de forma auditável.
+- A única chave que o fluxo atual usa para encontrar um aluno existente é `matricula`, sempre escopada ao `tenant_id` autenticado.
+- A matrícula é lida como texto para preservar zeros à esquerda.
+- Nome, e-mail, telefone, curso ou turma não devem ser usados como chaves de junção implícitas.
+- Antes de combinar arquivos, a MIRA deve normalizar a matrícula com uma regra documentada, identificar matrículas ausentes e duplicadas em cada arquivo e mostrar correspondências e não correspondências.
+- Se uma instituição não tiver uma matrícula estável e compartilhada entre suas bases, a combinação deve ser bloqueada ou encaminhada para configuração explícita; não se deve adivinhar a identidade do aluno.
 
-## Escopo e honestidade da interface
+## Regras de integridade a definir na implementação
 
-Esta fase não habilita importação de múltiplas bases nem declara que uma base está pronta para análise de risco apenas por ter sido enviada. A página de histórico mostra somente estados e contagens existentes no servidor; não simula progresso nem resultados que o backend não fornece.
+1. **Tipo de arquivo:** permitir que o usuário declare a finalidade de cada arquivo, mas validar o conteúdo contra os campos esperados desse tipo.
+2. **Identidade:** um arquivo de cadastro pode exigir matrícula e nome; arquivos complementares devem poder trazer matrícula e somente os campos do seu domínio, sem exigir um nome repetido.
+3. **Conflitos:** quando dois arquivos trazem valores diferentes para o mesmo aluno e campo, não escolher silenciosamente um deles. Mostrar o conflito e exigir uma regra explícita de precedência ou revisão.
+4. **Duplicidades:** sinalizar matrícula repetida dentro de um arquivo e entre arquivos. Não aplicar automaticamente a regra atual de “última ocorrência vence” entre fontes diferentes.
+5. **Campos vazios:** manter a regra atual de que valores ausentes não devem apagar dados existentes; tratar separadamente valores explícitos de consentimento e opt-out.
+6. **Isolamento:** toda consulta e escrita deve continuar limitada à instituição autenticada.
+7. **Prévia consolidada:** apresentar contagens de criar, atualizar, manter, rejeitar e revisar, com os motivos por arquivo e por matrícula.
+8. **Persistência:** só habilitar importação conjunta depois que a operação consolidada puder ser gravada de forma idempotente, auditável e segura diante de falha parcial.
+
+## Estado da funcionalidade
+
+### Implementado
+
+- Prévia de um arquivo com mapeamento determinístico e manual.
+- Validação de matrícula e nome, normalização de campos conhecidos, avisos e detecção de duplicidades dentro do arquivo.
+- Consulta de correspondências existentes por matrícula e instituição.
+- Endpoint de pré-validação de até 10 arquivos, sem persistência.
+- Interface para selecionar arquivos e visualizar os resultados individuais da pré-validação.
+
+### Ainda não implementado
+
+- Tipos de base com contratos de campos distintos.
+- Arquivos complementares sem coluna de nome.
+- Junção e validação cruzada entre arquivos.
+- Resolução de conflitos entre fontes.
+- Prévia consolidada de uma operação conjunta.
+- Persistência atômica/idempotente de múltiplas bases e recuperação de falhas parciais.
+
+## Critério de aceite da próxima fase técnica
+
+Antes de implementar a junção, adicionar testes para: arquivo complementar sem nome; matrícula com zeros à esquerda; matrícula ausente; duplicidade dentro e entre arquivos; conflito de valores para o mesmo campo; aluno que só aparece em uma base; isolamento entre instituições; e ausência total de gravações durante a prévia.
+
+**Não declarar uma operação conjunta válida nem permitir sua confirmação até que esses critérios estejam cobertos por código e testes.**
