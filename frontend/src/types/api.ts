@@ -207,7 +207,10 @@ export type MultiUploadPreviewResponse = {
     total_bytes: number;
   };
   persisted: false;
-  cross_file_relationships_validated: false;
+  cross_file_relationships_validated: boolean;
+  consolidated_preview?: Array<{ matricula: string; fields: Record<string, string>; requires_review: boolean }>;
+  conflicts?: Array<{ matricula: string; field: string; existing_value: string; incoming_value: string; filename: string; message: string }>;
+  duplicate_matriculas?: Array<{ filename: string; role: string; matricula: string }>;
   message: string;
 };
 
