@@ -51,6 +51,8 @@ class Student(Base):
     matricula: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
     curso: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    campus: Mapped[Optional[str]] = mapped_column(String(150), nullable=True, index=True)
+    status_aluno: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     turma: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     semestre: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     forma_ingresso: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
