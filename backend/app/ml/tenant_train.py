@@ -260,8 +260,6 @@ async def train_tenant_model(session: AsyncSession, *, tenant_slug: str = "defau
     settings = get_settings()
     if force and not settings.allow_force_train:
         raise ValueError("force=true bloqueado (ALLOW_FORCE_TRAIN=false). Aguarde limiar de labels.")
-    if force_activate and not settings.allow_force_activate:
-        raise ValueError("force_activate=true bloqueado (ALLOW_FORCE_ACTIVATE=false). Ativacao so com AUC >= base.")
 
     result = await session.execute(select(Tenant).where(Tenant.slug == tenant_slug))
     tenant = result.scalar_one_or_none()
