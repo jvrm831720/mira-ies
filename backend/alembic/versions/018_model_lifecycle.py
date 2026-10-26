@@ -52,9 +52,17 @@ def upgrade() -> None:
         "model_artifacts",
         ["tenant_id", "scope", "lifecycle_status", "created_at"],
     )
+    op.create_index(
+        "uq_model_artifacts_one_active_tenant",
+        "model_artifacts",
+        ["tenant_id"],
+        unique=True,
+        postgresql_where=sa.text("tenant_id IS NOT NULL AND scope = 'tenant' AND is_active = true"),
+    )
 
 
 def downgrade() -> None:
+    op.drop_index("uq_model_artifacts_one_active_tenant", table_name="model_artifacts")
     op.drop_index("ix_model_artifacts_lifecycle", table_name="model_artifacts")
     op.drop_constraint("ck_model_artifacts_lifecycle_status", "model_artifacts", type_="check")
     op.drop_constraint("fk_model_artifacts_rollback_of", "model_artifacts", type_="foreignkey")

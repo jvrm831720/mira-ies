@@ -317,6 +317,7 @@ async def activate_tenant_model(
         old.is_active = False
         old.lifecycle_status = "retired"
         old.retired_at = now
+    await db.flush()
     artifact.is_active = True
     artifact.lifecycle_status = "active"
     artifact.activated_at = now
@@ -341,8 +342,8 @@ async def rollback_tenant_model(
     target = result.scalar_one_or_none()
     if not target:
         raise HTTPException(status_code=404, detail="Versão anterior não encontrada.")
-    if target.lifecycle_status != "retired" or not target.approved_by_user_id:
-        raise HTTPException(status_code=409, detail="Rollback exige versão anterior aprovada e aposentada.")
+    if target.lifecycle_status != "retired" or not target.storage_path or not target.metrics:
+        raise HTTPException(status_code=409, detail="Rollback exige artefato anterior aposentado, íntegro e com relatório.")
     previous_result = await db.execute(select(ModelArtifact).where(
         ModelArtifact.tenant_id == auth.tenant_id, ModelArtifact.scope == "tenant",
         ModelArtifact.is_active.is_(True),
@@ -354,6 +355,7 @@ async def rollback_tenant_model(
         old.is_active = False
         old.lifecycle_status = "retired"
         old.retired_at = now
+    await db.flush()
     target.is_active = True
     target.lifecycle_status = "active"
     target.activated_at = now
@@ -367,12 +369,23 @@ async def rollback_tenant_model(
 
 
 @router.post("/tenants/{slug}/models/deactivate")
-async def deactivate_tenant_model(slug: str, auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db)):
+async def deactivate_tenant_model(
+    slug: str, body: ModelLifecycleAction,
+    auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db),
+):
     await require_tenant_match(auth, slug)
-    prev = await db.execute(select(ModelArtifact).where(ModelArtifact.tenant_id == auth.tenant_id, ModelArtifact.scope == "tenant"))
-    for a in prev.scalars().all():
-        a.is_active = False
+    _require_model_approver(auth)
+    previous = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.tenant_id == auth.tenant_id, ModelArtifact.scope == "tenant",
+        ModelArtifact.is_active.is_(True),
+    ).with_for_update())
+    now = datetime.now(timezone.utc)
+    for artifact in previous.scalars().all():
+        artifact.is_active = False
+        artifact.lifecycle_status = "retired"
+        artifact.retired_at = now
+        artifact.activation_reason = f"Desativado para retorno ao baseline: {body.reason.strip()}"
     auth.tenant.active_model_id = None
     await db.commit()
     invalidate_tenant_cache(slug)
-    return {"message": f"Tenant {slug} voltou ao modelo base", "active_model": "base"}
+    return {"status": "deactivated", "active_model": "base", "reason": body.reason.strip()}
