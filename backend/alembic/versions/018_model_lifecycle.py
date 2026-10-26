@@ -25,10 +25,6 @@ def upgrade() -> None:
         "model_artifacts",
         sa.Column("approved_by_user_id", postgresql.UUID(as_uuid=False), nullable=True),
     )
-    op.create_foreign_key(
-        "fk_model_artifacts_approved_by_user", "model_artifacts", "users",
-        ["approved_by_user_id"], ["id"], ondelete="SET NULL",
-    )
     op.add_column("model_artifacts", sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("model_artifacts", sa.Column("activation_reason", sa.String(length=500), nullable=True))
     op.add_column("model_artifacts", sa.Column("activated_at", sa.DateTime(timezone=True), nullable=True))
@@ -71,7 +67,6 @@ def downgrade() -> None:
     op.drop_column("model_artifacts", "activated_at")
     op.drop_column("model_artifacts", "activation_reason")
     op.drop_column("model_artifacts", "approved_at")
-    op.drop_constraint("fk_model_artifacts_approved_by_user", "model_artifacts", type_="foreignkey")
     op.drop_column("model_artifacts", "approved_by_user_id")
     op.drop_column("model_artifacts", "evaluation_report")
     op.drop_column("model_artifacts", "lifecycle_status")
