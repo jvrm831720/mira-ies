@@ -46,7 +46,7 @@ jobs:
           heads="$(PYTHONPATH=. alembic heads)"
           echo "$heads"
           test "$(printf '%s\n' "$heads" | grep -c '(head)')" -eq 1
-          printf '%s\n' "$heads" | grep -q '013_control_center_billing'
+          printf '%s\n' "$heads" | grep -q '014_student_financial_import_fields'
       - name: Lint (ruff)
         working-directory: backend
         run: ruff check app
