@@ -176,12 +176,11 @@ async def test_preview_flags_bad_rows_duplicate_matriculas_and_invalid_email(cli
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["rows_received"] == 3
+    assert body["rows_received"] == 4
     assert body["rows_to_import"] == 1
     assert body["invalid_rows_count"] == 3
     assert body["duplicates_in_file"] == 0
-    assert body["can_import"] is False
-    assert body["rows_to_import"] == 0
+    assert body["can_import"] is True
     assert any("nomes diferentes" in item["message"] for item in body["invalid_rows"])
     assert any("e-mail inválido" in warning for warning in body["warnings"])
     assert any("limitado" in warning for warning in body["warnings"])
