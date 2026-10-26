@@ -50,6 +50,7 @@ class InstitutionalTrainingAuthorization(Base):
         nullable=True,
     )
     evidence_reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    dataset_eligibility_reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
