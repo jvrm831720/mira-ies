@@ -392,11 +392,35 @@ def prepare_import_rows(
         raw = {key: (None if pd.isna(value) else value) for key, value in row.to_dict().items()}
         cleaned.append({"data": data, "raw": raw, "line": idx + 2})
 
-    # Dentro do arquivo, conserva a última ocorrência da matrícula, como o fluxo antigo.
+    # Duplicatas idênticas podem ser consolidadas; matrículas com nomes divergentes
+    # são bloqueadas para evitar que uma linha troque a identidade de outra pessoa.
     unique: dict[str, dict[str, Any]] = {}
+    duplicate_identity_conflicts: list[dict[str, Any]] = []
     for item in cleaned:
-        unique[item["data"]["matricula"]] = item
-    duplicates_removed = len(cleaned) - len(unique)
+        key = item["data"]["matricula"]
+        previous = unique.get(key)
+        if previous is not None:
+            previous_name = normalize_header(previous["data"]["nome"])
+            current_name = normalize_header(item["data"]["nome"])
+            if previous_name != current_name:
+                duplicate_identity_conflicts.append({
+                    "line": item["line"],
+                    "message": (
+                        f"Linha {item['line']}: matrícula {key} aparece com nomes diferentes "
+                        "no mesmo arquivo; corrija a duplicidade antes de importar."
+                    ),
+                    "severity": "block",
+                    "column": "nome",
+                    "action": "Confirme a matrícula e o nome corretos antes de importar.",
+                })
+                continue
+        unique[key] = item
+    duplicates_removed = len(cleaned) - len(unique) - len(duplicate_identity_conflicts)
+    if duplicates_removed > 0:
+        warnings.append(
+            f"{duplicates_removed} linha(s) duplicada(s) idêntica(s) por matrícula foram consolidadas."
+        )
+    errors.extend(duplicate_identity_conflicts)
     if duplicates_removed:
         warnings.append(
             f"{duplicates_removed} linha(s) duplicada(s) por matrícula foram consolidadas; "
@@ -468,7 +492,7 @@ def prepare_import_rows(
         "columns_original": [str(column) for column in df_original.columns],
         "columns_recognized": sorted(mapped_targets),
         "null_rates_pct": null_rates,
-        "can_import": not missing and rows_to_import > 0,
+        "can_import": not missing and rows_to_import > 0 and not errors,
         # Internal prepared values consumed by persistence. API removes these keys.
         "_df_normalized": df_normalized,
         "_df_original": df_original,
