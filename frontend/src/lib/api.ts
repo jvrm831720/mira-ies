@@ -31,6 +31,7 @@ import type {
   StudentRisk,
   UploadResponse,
   UploadPreviewResponse,
+  UploadHistoryResponse,
 } from "@/types/api";
 
 const BASE =
@@ -235,6 +236,9 @@ export const api = {
       body: form,
     });
   },
+
+  uploadHistory: (limit = 20, offset = 0) =>
+    request<UploadHistoryResponse>(`/api/v1/upload/history?limit=${limit}&offset=${offset}`),
 
   modelInfo: () => request<ModelInfo>("/api/v1/model/info"),
 
