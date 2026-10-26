@@ -483,6 +483,7 @@ def prepare_import_rows(
         "rows_to_import": rows_to_import,
         "invalid_rows_count": len(errors),
         "invalid_rows": errors[:20],
+        "duplicate_identity_conflicts": duplicate_identity_conflicts,
         "issues": issues[:100],
         "duplicates_in_file": duplicates_removed,
         "sample_rows": sample_rows,
@@ -553,6 +554,9 @@ async def create_batch_and_students(
             f"Colunas obrigatórias ausentes: {', '.join(missing)}. "
             f"Colunas disponíveis: {prepared['columns_original']}"
         )
+    if prepared.get("duplicate_identity_conflicts"):
+        details = "; ".join(item["message"] for item in prepared["duplicate_identity_conflicts"][:10])
+        raise ValueError(details)
     cleaned_rows = prepared["_cleaned_rows"]
     if not cleaned_rows:
         raise ValueError("Nenhuma linha válida encontrada após a validação.")
