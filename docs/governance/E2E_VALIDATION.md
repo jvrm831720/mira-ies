@@ -9,6 +9,7 @@ O cenário de integração usa somente o banco de teste configurado por `backend
 3. **Mudança A → B:** a política efetiva mais recente bloqueia futuras contribuições compartilhadas. A troca de política não desfaz influência de dados já usada em modelos existentes.
 4. **Isolamento:** uma sessão de tenant A não pode aprovar ou ativar artefato pertencente ao tenant B, mesmo conhecendo seu ID.
 5. **Ciclo de modelo:** candidato precisa de aprovação identificada antes de ativação; rollback reativa a versão anterior e registra o artefato de origem do rollback.
+6. **Rastreabilidade e auditoria:** respostas `/predict` e `/predict/what-if` incluem escopo/versão; a falta de versão bloqueia a previsão. Aprovação, ativação, rollback e tentativas de acesso a artefatos fora do tenant geram eventos em `AdminAuditEvent`.
 
 Execute no backend com PostgreSQL de teste e dependências instaladas:
 
