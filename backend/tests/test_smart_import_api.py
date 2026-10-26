@@ -228,7 +228,7 @@ async def test_preview_multiple_accepts_complementary_finance_file_without_name(
         "/api/v1/upload/preview-multiple",
         headers={"X-API-Key": key},
         files=files,
-        data=[("file_roles", "cadastro"), ("file_roles", "financeiro")],
+        data={"file_roles": ["cadastro", "financeiro"]},
     )
     assert response.status_code == 200, response.text
     body = response.json()
@@ -254,7 +254,7 @@ async def test_preview_multiple_flags_conflicting_values_and_unknown_role(client
         "/api/v1/upload/preview-multiple",
         headers={"X-API-Key": key},
         files=files,
-        data=[("file_roles", "cadastro"), ("file_roles", "cadastro")],
+        data={"file_roles": ["cadastro", "cadastro"]},
     )
     assert response.status_code == 200, response.text
     body = response.json()
@@ -266,7 +266,7 @@ async def test_preview_multiple_flags_conflicting_values_and_unknown_role(client
         "/api/v1/upload/preview-multiple",
         headers={"X-API-Key": key},
         files=[("files", ("financeiro.csv", b"matricula,dias_atraso_boleto\n00123,12\n", "text/csv"))],
-        data=[("file_roles", "unknown")],
+        data={"file_roles": ["unknown"]},
     )
     assert invalid.status_code == 200, invalid.text
     assert invalid.json()["items"][0]["valid"] is False
