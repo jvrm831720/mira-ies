@@ -83,7 +83,7 @@ export default function ImportarPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);\n  const [confirmedImportPolicy, setConfirmedImportPolicy] = useState(false);
 
   function selectFile(nextFile?: File) {
     if (!nextFile) return;
@@ -194,7 +194,7 @@ export default function ImportarPage() {
   );
   const mappingDirty = Boolean(preview) && !mapIsSameAsPreview;
   const criticalCount = result?.scoring?.summary?.critico ?? 0;
-  const canImport = Boolean(preview?.can_import) && !mappingDirty && !uploadLoading && !previewLoading;
+  const canImport = Boolean(preview?.can_import) && !mappingDirty && confirmedImportPolicy && !uploadLoading && !previewLoading;
 
   return (
     <>
@@ -458,7 +458,7 @@ export default function ImportarPage() {
                     )}
                   </section>
 
-                  <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                  <div className="space-y-4 rounded-2xl border border-border bg-muted/20 p-4">
                     <label className="flex cursor-pointer items-start gap-3">
                       <input type="checkbox" checked={autoScore} onChange={(event) => setAutoScore(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#4050cd]" />
                       <span>
@@ -466,6 +466,23 @@ export default function ImportarPage() {
                         <span className="mt-1 block text-xs leading-relaxed text-neutral-500">Ao concluir, a Mira pontua os registros do lote e atualiza os indicadores.</span>
                       </span>
                     </label>
+                    <div className="border-t border-border pt-3">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={confirmedImportPolicy}
+                          onChange={(event) => setConfirmedImportPolicy(event.target.checked)}
+                          disabled={uploadLoading || previewLoading || mappingDirty || !preview.can_import}
+                          className="mt-0.5 h-4 w-4 accent-[#4050cd]"
+                        />
+                        <span>
+                          <span className="block text-sm font-semibold text-neutral-900">Confirmo as regras desta importação</span>
+                          <span className="mt-1 block text-xs leading-relaxed text-neutral-600">
+                            Matrículas existentes nesta instituição serão atualizadas; campos vazios preservarão valores atuais. Linhas inválidas serão excluídas e duplicatas pela matrícula serão consolidadas usando a última ocorrência do arquivo.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -487,7 +504,7 @@ export default function ImportarPage() {
                   <div className="flex items-start gap-3">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9f7f0] text-[#287653]"><CheckCircle2 className="h-5 w-5" /></span>
                     <div className="min-w-0">
-                      <h2 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">Importação concluída</h2>
+                      <h2 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">{(result.quality?.rows_discarded ?? 0) > 0 ? "Importação concluída com ressalvas" : "Importação concluída"}</h2>
                       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{result.message || "A planilha foi processada."}</p>
                     </div>
                   </div>
