@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 function getApiBase(): string | null {
   const configured = process.env.MIRA_API_URL || process.env.NEXT_PUBLIC_API_URL;
-  if (configured?.trim()) return configured.trim().replace(/\\/+$/, "");
+  if (configured?.trim()) return configured.trim().replace(/\/+$/, "");
   return process.env.NODE_ENV === "development" ? "http://localhost:8000" : null;
 }
 const COOKIE_NAME = "mira_control_center_session";
