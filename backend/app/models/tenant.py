@@ -60,7 +60,7 @@ class ModelArtifact(Base):
     lifecycle_status: Mapped[str] = mapped_column(String(20), default="candidate", nullable=False)
     evaluation_report: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     approved_by_user_id: Mapped[Optional[str]] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=False), nullable=True
     )
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     activation_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
