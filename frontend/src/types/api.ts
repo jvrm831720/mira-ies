@@ -65,6 +65,8 @@ export type StudentRisk = {
   nome?: string | null;
   matricula?: string | null;
   curso?: string | null;
+  campus?: string | null;
+  status_aluno?: string | null;
   semestre?: number | null;
   dias_atraso_boleto?: number | null;
   saldo_devedor?: number | null;
@@ -190,6 +192,8 @@ export type ImportField =
   | "matricula"
   | "nome"
   | "curso"
+  | "campus"
+  | "status_aluno"
   | "turma"
   | "semestre"
   | "forma_ingresso"

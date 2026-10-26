@@ -47,7 +47,7 @@ jobs:
           echo "$heads"
           test "$(printf '%s\n' "$heads" | grep -c '(head)')" -eq 1
           head_revision="$(printf '%s\n' "$heads" | awk 'NR == 1 { print $1 }')"
-          test "$head_revision" = "014_student_financial"
+          test "$head_revision" = "015_student_campus_status"
           test "${#head_revision}" -le 32
       - name: Lint (ruff)
         working-directory: backend
