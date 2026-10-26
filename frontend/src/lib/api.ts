@@ -31,6 +31,7 @@ import type {
   StudentRisk,
   UploadResponse,
   UploadPreviewResponse,
+  MultiUploadPreviewResponse,
   UploadHistoryResponse,
 } from "@/types/api";
 
@@ -216,6 +217,16 @@ export const api = {
 
   consentAudit: (id: string, limit = 10) =>
     request<ConsentAuditResponse>(`/api/v1/students/${id}/consent-audit?limit=${limit}`),
+
+  previewMultipleUploads: async (files: File[]) => {
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file));
+    files.forEach(() => form.append("file_roles", "alunos"));
+    return request<MultiUploadPreviewResponse>("/api/v1/upload/preview-multiple", {
+      method: "POST",
+      body: form,
+    });
+  },
 
   previewUpload: async (file: File, columnMapping?: Record<string, string>) => {
     const form = new FormData();
