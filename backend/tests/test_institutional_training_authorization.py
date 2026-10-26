@@ -35,6 +35,7 @@ async def test_current_separately_approved_authorization_allows(db_session, tena
         effective_at=datetime.now(timezone.utc) - timedelta(minutes=1),
         approved_by_admin_id=admin.id,
         evidence_reference="test-evidence://local-training-contract-001",
+        dataset_eligibility_reference="test-dataset://approved-dataset-001",
     )
     db_session.add(record)
     await db_session.commit()
@@ -76,6 +77,7 @@ async def test_latest_invalid_authorization_never_revives_older_record(
         "effective_at": now - timedelta(days=1),
         "approved_by_admin_id": admin.id,
         "evidence_reference": "test-evidence://new",
+        "dataset_eligibility_reference": "test-dataset://new",
     }
     if state == "expired":
         latest_values["expires_at"] = now - timedelta(hours=1)
@@ -84,6 +86,7 @@ async def test_latest_invalid_authorization_never_revives_older_record(
     else:
         latest_values["approved_by_admin_id"] = None
         latest_values["evidence_reference"] = None
+        latest_values["dataset_eligibility_reference"] = None
     latest = InstitutionalTrainingAuthorization(**latest_values)
     db_session.add_all([older, latest])
     await db_session.commit()
