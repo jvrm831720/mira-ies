@@ -93,3 +93,21 @@ async def test_latest_invalid_authorization_never_revives_older_record(
     )
     assert not decision.allowed
     assert decision.authorization_id == latest.id
+
+
+@pytest.mark.asyncio
+async def test_training_pipeline_blocks_before_readiness_refresh_without_authorization(
+    db_session, tenant_factory, monkeypatch
+):
+    from app.ml import tenant_train
+
+    tenant, _ = await tenant_factory(slug="pipeline-auth-blocked")
+
+    async def unexpected_readiness_refresh(*args, **kwargs):
+        raise AssertionError("readiness refresh must not run before authorization")
+
+    monkeypatch.setattr(
+        tenant_train, "refresh_tenant_readiness", unexpected_readiness_refresh
+    )
+    with pytest.raises(ValueError, match="Treino institucional bloqueado por governanca"):
+        await tenant_train.train_tenant_model(db_session, tenant_slug=tenant.slug)
