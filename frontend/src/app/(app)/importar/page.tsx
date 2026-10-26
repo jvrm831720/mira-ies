@@ -394,8 +394,28 @@ export default function ImportarPage() {
                   <Stat label="Registros existentes" value={preview.existing_matches} />
                 </div>
                 {preview.missing_required_columns.length > 0 && <Notice tone="error" title="Campos obrigatórios ausentes" text={preview.missing_required_columns.map((field) => preview.field_labels[field as ImportField] || field).join(", ")} />}
-                {preview.invalid_rows_count > 0 && <Notice tone="warning" title={`${number(preview.invalid_rows_count)} linhas precisam de atenção`} text={preview.invalid_rows.slice(0, 4).map((row) => `Linha ${row.line}: ${row.message}`).join(" · ")} />}
-                {preview.warnings.length > 0 && <Notice tone="info" title="Pontos para revisar" text={preview.warnings.slice(0, 4).join(" · ")} />}
+                {preview.issues && preview.issues.length > 0 ? (
+                  <div className="space-y-3">
+                    {(["block", "attention", "info"] as const).map((severity) => {
+                      const items = preview.issues!.filter((issue) => issue.severity === severity);
+                      if (!items.length) return null;
+                      const heading = severity === "block" ? "Bloqueios" : severity === "attention" ? "Atenção" : "Informativo";
+                      const tone = severity === "block" ? "error" : severity === "attention" ? "warning" : "info";
+                      return <div key={severity} className="space-y-2">
+                        <Notice tone={tone} title={heading} text={String(items.length) + (items.length === 1 ? " ocorrência" : " ocorrências")} />
+                        <ul className="space-y-2 pl-1">{items.slice(0, 8).map((issue, index) => <li key={severity + String(index)} className="rounded-lg border border-border px-3 py-2 text-xs">
+                          <p className="font-medium">{issue.line ? "Linha " + issue.line + " · " : ""}{issue.column ? (preview.field_labels[issue.column as ImportField] || issue.column) + " · " : ""}{issue.message}</p>
+                          <p className="mt-1 text-muted-foreground">Ação recomendada: {issue.action}</p>
+                        </li>)}</ul>
+                      </div>;
+                    })}
+                  </div>
+                ) : (
+                  <>
+                    {preview.invalid_rows_count > 0 && <Notice tone="warning" title={number(preview.invalid_rows_count) + " linhas precisam de atenção"} text={preview.invalid_rows.slice(0, 4).map((row) => "Linha " + row.line + ": " + row.message).join(" · ")} />}
+                    {preview.warnings.length > 0 && <Notice tone="info" title="Pontos para revisar" text={preview.warnings.slice(0, 4).join(" · ")} />}
+                  </>
+                )}
                 <div className="space-y-3">
                   <div><h3 className="text-sm font-semibold">Conferir colunas</h3><p className="mt-1 text-xs text-muted-foreground">Revise apenas as correspondências que precisam de ajuste.</p></div>
                   <div className="divide-y divide-border rounded-xl border border-border">
