@@ -48,6 +48,8 @@ export type StudentRisk = {
   nome?: string | null;
   matricula?: string | null;
   curso?: string | null;
+  semestre?: number | null;
+  dias_atraso_boleto?: number | null;
   telefone?: string | null;
   email?: string | null;
   communication_opt_out?: boolean;
