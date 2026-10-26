@@ -161,7 +161,9 @@ async def test_outcomes_caps_batch_size(client, auth_headers, tenant):
     assert resp.status_code == 422
 
 
-async def test_tenant_train_blocked_when_not_ready(client, auth_headers, tenant):
+async def test_tenant_train_blocked_when_not_ready(
+    client, auth_headers, tenant, institutional_training_authorization,
+):
     t, _raw_key = tenant
     resp = await client.post(f"/api/v1/tenants/{t.slug}/train", headers=auth_headers)
     assert resp.status_code == 200
@@ -177,7 +179,9 @@ async def test_tenant_train_force_blocked_when_allow_force_train_false(client, a
     assert "ALLOW_FORCE_TRAIN" in resp.json()["detail"]
 
 
-async def test_tenant_train_uses_only_mature_target_labels(client, auth_headers, tenant, db_session):
+async def test_tenant_train_uses_only_mature_target_labels(
+    client, auth_headers, tenant, db_session, institutional_training_authorization,
+):
     t, _raw_key = tenant
     now = datetime.now(timezone.utc)
     outcomes = []
