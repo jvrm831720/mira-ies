@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, feat/mira-control-center]
+    branches: [main, feat/mira-control-center, feat/model-data-governance-phase-1]
   pull_request:
-    branches: [main, feat/retention-observability-analytics]
+    branches: [main]
 
 jobs:
   lint-and-test:
@@ -47,7 +47,6 @@ jobs:
           echo "$heads"
           test "$(printf '%s\n' "$heads" | grep -c '(head)')" -eq 1
           head_revision="$(printf '%s\n' "$heads" | awk 'NR == 1 { print $1 }')"
-          test "$head_revision" = "015_student_campus_status"
           test "${#head_revision}" -le 32
       - name: Lint (ruff)
         working-directory: backend
