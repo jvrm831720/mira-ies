@@ -41,7 +41,7 @@ _ROLE_PERMISSIONS = {
     "operations": {"ops:read", "channels:read", "channels:write", "orgs:read"},
     "finance": {"billing:read", "billing:write", "plans:read", "plans:write", "orgs:read"},
     "support": {"orgs:read", "members:read", "channels:read"},
-    "auditor": {"audit:read", "ops:read", "billing:read", "plans:read", "orgs:read"},
+    "auditor": {"audit:read", "governance:read", "ops:read", "billing:read", "plans:read", "orgs:read"},
 }
 
 
