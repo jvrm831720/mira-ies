@@ -64,6 +64,8 @@ class Student(Base):
 
     dias_atraso_boleto: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     recorrencia_atrasos: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    saldo_devedor: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    status_financeiro: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     dias_sem_login: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     presenca_percentual: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     nota_media: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

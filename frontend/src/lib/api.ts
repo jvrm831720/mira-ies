@@ -31,6 +31,7 @@ import type {
   StudentRisk,
   UploadResponse,
   UploadPreviewResponse,
+  UploadStructureResponse,
   MultiUploadPreviewResponse,
   UploadHistoryResponse,
 } from "@/types/api";
@@ -246,20 +247,28 @@ export const api = {
     });
   },
 
-  previewUpload: async (file: File, columnMapping?: Record<string, string>) => {
+  inspectUploadStructure: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<UploadStructureResponse>("/api/v1/upload/structure", { method: "POST", body: form });
+  },
+
+  previewUpload: async (file: File, columnMapping?: Record<string, string>, sheetName?: string) => {
     const form = new FormData();
     form.append("file", file);
     if (columnMapping) form.append("column_mapping", JSON.stringify(columnMapping));
+    if (sheetName) form.append("sheet_name", sheetName);
     return request<UploadPreviewResponse>("/api/v1/upload/preview", {
       method: "POST",
       body: form,
     });
   },
 
-  upload: async (file: File, autoScore = true, columnMapping?: Record<string, string>) => {
+  upload: async (file: File, autoScore = true, columnMapping?: Record<string, string>, sheetName?: string) => {
     const form = new FormData();
     form.append("file", file);
     if (columnMapping) form.append("column_mapping", JSON.stringify(columnMapping));
+    if (sheetName) form.append("sheet_name", sheetName);
     return request<UploadResponse>(`/api/v1/upload?auto_score=${autoScore}`, {
       method: "POST",
       body: form,

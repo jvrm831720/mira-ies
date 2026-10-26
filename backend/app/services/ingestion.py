@@ -21,27 +21,41 @@ from app.services.consent import (
 
 COLUMN_ALIASES: dict[str, list[str]] = {
     "matricula": [
-        "matricula", "ra", "registro", "registro academico", "codigo aluno",
-        "codigo_aluno", "id aluno", "id_aluno", "student_id", "student id",
-        "student number", "enrollment id", "enrollment number",
-        "registration number", "cod aluno", "rm",
+        "matricula", "matricula do aluno", "numero de matricula", "número de matrícula",
+        "ra", "registro", "registro academico", "codigo aluno", "codigo_aluno",
+        "id aluno", "id_aluno", "id matricula", "id matrícula", "student_id", "student id",
+        "student number", "enrollment id", "enrollment number", "enrollment_code",
+        "registration number", "cod aluno", "rm", "codigo de aluno", "registro do aluno",
     ],
     "nome": [
         "nome", "nome aluno", "nome_aluno", "aluno", "name", "student_name",
         "student name", "nome completo", "nome_completo", "full name",
-        "student full name", "display name",
+        "student full name", "display name", "nome completo do aluno", "nome do aluno",
     ],
     "curso": ["curso", "course", "programa", "course_name", "course name", "nome curso", "academic program"],
     "turma": ["turma", "classe", "class", "class_name", "class name", "codigo turma", "cohort"],
-    "semestre": ["semestre", "periodo", "semester", "period", "periodo atual", "current semester"],
+    "semestre": ["semestre", "semestre atual", "periodo", "período", "periodo atual", "periodo letivo", "semester", "current semester", "semestre cursado", "numero do semestre"],
     "forma_ingresso": ["forma_ingresso", "ingresso", "admission", "forma de ingresso", "tipo ingresso", "admission type"],
     "dias_atraso_boleto": [
         "dias_atraso_boleto", "atraso boleto", "dias atraso", "dias em atraso",
-        "days overdue", "days_overdue", "overdue days", "atraso",
+        "days overdue", "days_overdue", "overdue days", "atraso", "dias de atraso",
+        "dias de atraso financeiro", "dias atraso financeiro", "atraso em dias",
     ],
     "recorrencia_atrasos": [
         "recorrencia_atrasos", "qtd atrasos", "atrasos anteriores", "previous delays",
-        "previous_delays", "atrasos", "late payment count",
+        "previous_delays", "atrasos", "late payment count", "parcelas em atraso",
+        "parcelas vencidas", "quantidade de parcelas vencidas", "qtd parcelas vencidas",
+        "numero de parcelas vencidas", "número de parcelas vencidas",
+    ],
+    "saldo_devedor": [
+        "saldo_devedor", "saldo devedor", "debito total", "débito total", "valor em aberto",
+        "valor total em atraso", "valor devedor", "debt balance", "outstanding balance",
+        "total debt", "debt amount", "total nominal", "debito total r", "debito total rs",
+    ],
+    "status_financeiro": [
+        "status_financeiro", "status financeiro", "status de pagamento", "situacao financeira",
+        "situação financeira", "status da cobranca", "status cobrança", "payment status",
+        "financial status", "situacao do pagamento", "situação do pagamento",
     ],
     "dias_sem_login": [
         "dias_sem_login", "dias sem acesso", "last_login_days", "last login days",
@@ -79,7 +93,9 @@ COLUMN_LABELS = {
     "semestre": "Semestre atual",
     "forma_ingresso": "Forma de ingresso",
     "dias_atraso_boleto": "Dias de atraso financeiro",
-    "recorrencia_atrasos": "Recorrência de atrasos",
+    "recorrencia_atrasos": "Parcelas vencidas / recorrência de atrasos",
+    "saldo_devedor": "Saldo devedor (R$)",
+    "status_financeiro": "Status financeiro",
     "dias_sem_login": "Dias sem acesso ao AVA/LMS",
     "presenca_percentual": "Presença (%)",
     "nota_media": "Nota média",
@@ -96,6 +112,7 @@ NUMERIC_RULES = {
     "presenca_percentual": ("float", 0, 100),
     "nota_media": ("float", 0, 10),
     "reprovacoes": ("int", 0, 100),
+    "saldo_devedor": ("float", 0, 1000000000),
 }
 _NORMALIZED_ALIASES: dict[str, set[str]] = {}
 
@@ -199,6 +216,24 @@ def safe_semester(value: Any) -> int | None:
     except (ValueError, TypeError, OverflowError):
         return None
 
+def safe_currency(value: Any) -> float | None:
+    """Converte valores monetários brasileiros ou numéricos sem confundir separadores."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    text = str(value).strip().replace("R$", "").replace(" ", "")
+    if not text:
+        return None
+    if "," in text and "." in text:
+        # Convenção brasileira: ponto para milhar, vírgula decimal.
+        text = text.replace(".", "").replace(",", ".")
+    elif "," in text:
+        text = text.replace(",", ".")
+    try:
+        return float(text)
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
 def safe_float(value: Any) -> float | None:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
@@ -254,7 +289,7 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         raw_value = safe_str(row.get(field))
         if not raw_value:
             continue
-        parsed = safe_int(raw_value) if kind == "int" else safe_float(raw_value)
+        parsed = safe_int(raw_value) if kind == "int" else (safe_currency(raw_value) if field == "saldo_devedor" else safe_float(raw_value))
         if parsed is None:
             warnings.append(f"Linha {line_number}: valor inválido em '{COLUMN_LABELS[field]}'; o campo será ignorado.")
             continue
@@ -286,6 +321,8 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "communication_opt_out": safe_bool(row.get("communication_opt_out")) if safe_bool(row.get("communication_opt_out")) is not None else False,
         "dias_atraso_boleto": _clamp_int(safe_int(row.get("dias_atraso_boleto")), 0, 3650),
         "recorrencia_atrasos": _clamp_int(safe_int(row.get("recorrencia_atrasos")), 0, 100),
+        "saldo_devedor": _clamp(safe_currency(row.get("saldo_devedor")), 0.0, 1000000000.0),
+        "status_financeiro": safe_str(row.get("status_financeiro"))[:80] if safe_str(row.get("status_financeiro")) else None,
         "dias_sem_login": _clamp_int(safe_int(row.get("dias_sem_login")), 0, 3650),
         "presenca_percentual": _clamp(safe_float(row.get("presenca_percentual")), 0.0, 100.0),
         "nota_media": _clamp(safe_float(row.get("nota_media")), 0.0, 10.0),
@@ -309,10 +346,10 @@ def prepare_import_rows(
     for index, row in df_normalized.iterrows():
         idx = int(index) if isinstance(index, (int, float)) else len(cleaned)
         data, row_warnings = validate_and_clean_row(row, idx)
-        warnings.extend(row_warnings)
         if data is None:
-            errors.append({"line": idx + 2, "message": row_warnings[0] if row_warnings else "Linha inválida."})
+            errors.append({"line": idx + 2, "message": re.sub(r"^Linha \d+:\s*", "", row_warnings[0]) if row_warnings else "Linha inválida.", "severity": "block", "column": "matricula" if not safe_str(row.get("matricula")) else "nome", "action": "Preencha o campo obrigatório ou remova a linha."})
             continue
+        warnings.extend(row_warnings)
         raw = {key: (None if pd.isna(value) else value) for key, value in row.to_dict().items()}
         cleaned.append({"data": data, "raw": raw, "line": idx + 2})
 
@@ -353,11 +390,24 @@ def prepare_import_rows(
 
     sample_fields = [
         "matricula", "nome", "email", "telefone", "curso", "turma", "semestre",
-        "dias_atraso_boleto", "dias_sem_login", "presenca_percentual", "nota_media",
+        "saldo_devedor", "status_financeiro", "dias_atraso_boleto", "dias_sem_login", "presenca_percentual", "nota_media",
     ]
     sample_rows = []
     for item in cleaned_unique[:6]:
         sample_rows.append({"line": item["line"], **{field: item["data"].get(field) for field in sample_fields}})
+
+    issues = [
+        {"line": item["line"], "severity": "block", "column": "matricula" if "matrícula ausente" in item["message"] else "nome", "message": item["message"], "action": "Preencha o campo obrigatório ou remova a linha."}
+        for item in errors
+    ]
+    for warning in warnings:
+        match = re.match(r"^Linha (\d+):\s*(.*)$", warning)
+        if match:
+            message = match.group(2)
+            column = next((field for field, label in COLUMN_LABELS.items() if label in message), None)
+            issues.append({"line": int(match.group(1)), "severity": "attention", "column": column, "message": message, "action": "Revise o valor; campos inválidos serão ignorados ou normalizados."})
+        else:
+            issues.append({"line": None, "severity": "info", "column": None, "message": warning, "action": "Confira antes de confirmar."})
 
     return {
         "columns": columns,
@@ -370,6 +420,7 @@ def prepare_import_rows(
         "rows_to_import": rows_to_import,
         "invalid_rows_count": len(errors),
         "invalid_rows": errors[:20],
+        "issues": issues[:100],
         "duplicates_in_file": duplicates_removed,
         "sample_rows": sample_rows,
         "warnings": warnings[:30],
@@ -482,7 +533,7 @@ async def create_batch_and_students(
     rows_updated = 0
     mutable_fields = (
         "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone",
-        "email", "communication_opt_out", "dias_atraso_boleto", "recorrencia_atrasos",
+        "email", "communication_opt_out", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro",
         "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes",
     )
 
@@ -540,6 +591,8 @@ async def create_batch_and_students(
                 },
                 dias_atraso_boleto=data.get("dias_atraso_boleto"),
                 recorrencia_atrasos=data.get("recorrencia_atrasos"),
+                saldo_devedor=data.get("saldo_devedor"),
+                status_financeiro=data.get("status_financeiro"),
                 dias_sem_login=data.get("dias_sem_login"),
                 presenca_percentual=data.get("presenca_percentual"),
                 nota_media=data.get("nota_media"),
