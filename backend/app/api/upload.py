@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Form, Header
 from pydantic import BaseModel, Field
 import pandas as pd
 import io
@@ -109,6 +109,28 @@ async def preview_multiple_students_files(
     db: AsyncSession = Depends(get_db),
 ):
     """Pré-valida bases complementares por matrícula; nunca persiste dados."""
+    if not idempotency_key.strip() or len(idempotency_key) > 200:
+        raise HTTPException(status_code=400, detail="Idempotency-Key é obrigatória e deve ter até 200 caracteres.")
+    deterministic_batch_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"mira-import:{auth.tenant_id}:{idempotency_key.strip()}"))
+    prior_batch = await db.execute(
+        select(UploadBatch).where(
+            UploadBatch.id == deterministic_batch_id,
+            UploadBatch.tenant_id == auth.tenant_id,
+        )
+    )
+    existing_batch = prior_batch.scalar_one_or_none()
+    if existing_batch is not None:
+        existing_students = await db.execute(select(Student.id).where(
+            Student.tenant_id == auth.tenant_id, Student.batch_id == existing_batch.id
+        ))
+        count = len(existing_students.scalars().all())
+        return {
+            "message": "Esta confirmação já foi processada; resultado anterior reutilizado.",
+            "batch": UploadBatchResponse.model_validate(existing_batch),
+            "students_imported": count,
+            "persisted": True,
+            "idempotent_replay": True,
+        }
     if not files:
         raise HTTPException(status_code=422, detail="Selecione ao menos um arquivo.")
     if len(files) > 10:
@@ -605,6 +627,7 @@ async def confirm_multiple_students_files(
     file_roles: list[str] = Form(default=[]),
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
 ):
     """Valida e persiste bases complementares em um único lote transacional."""
     if not files:
@@ -733,6 +756,7 @@ async def confirm_multiple_students_files(
     try:
         batch, students, quality = await create_batch_and_students(
             db,
+            batch_id=deterministic_batch_id,
             filename=safe_filename,
             original_filename="Importação de bases complementares: " + ", ".join(sources)[:220],
             df=df_consolidated,
@@ -752,4 +776,5 @@ async def confirm_multiple_students_files(
         "quality": quality,
         "sources": sources,
         "persisted": True,
+        "idempotent_replay": False,
     }
