@@ -35,6 +35,7 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.Column("evidence_reference", sa.String(length=500), nullable=True),
+        sa.Column("dataset_eligibility_reference", sa.String(length=500), nullable=True),
         sa.Column("reason", sa.Text(), nullable=True),
         sa.Column(
             "created_at",
