@@ -151,3 +151,24 @@ async def test_multi_file_preview_rejects_more_than_ten_files(client, auth_heade
         files=files,
     )
     assert response.status_code == 422
+
+
+def test_import_maps_campus_and_student_status():
+    import pandas as pd
+    from app.services.ingestion import prepare_import_rows
+
+    frame = pd.DataFrame([{
+        "matricula": "0001842",
+        "nome": "Ana Beatriz Souza",
+        "unidade": "Centro",
+        "status_aluno": "Ativo",
+    }])
+    prepared = prepare_import_rows(frame)
+    row = prepared["_cleaned_rows"][0]["data"]
+
+    assert prepared["can_import"] is True
+    assert prepared["mapped_columns"]["unidade"] == "campus"
+    assert prepared["mapped_columns"]["status_aluno"] == "status_aluno"
+    assert row["matricula"] == "0001842"
+    assert row["campus"] == "Centro"
+    assert row["status_aluno"] == "Ativo"
