@@ -1,3 +1,20 @@
+export type UploadStructureResponse = {
+  filename: string;
+  file_type: string;
+  suggested_sheet?: string | null;
+  requires_sheet_selection: boolean;
+  persisted: false;
+  sheets: Array<{
+    name: string;
+    rows: number;
+    columns: string[];
+    sample_rows: Array<Record<string, string>>;
+    recognized_fields: Record<string, string>;
+    required_fields_found: boolean;
+    tabular: boolean;
+  }>;
+};
+
 export type AuthResponse = {
   access_token: string;
   token_type?: string;
@@ -235,7 +252,9 @@ export type UploadPreviewResponse = {
   rows_to_import: number;
   rows_that_will_be_created?: number;
   invalid_rows_count: number;
-  invalid_rows: Array<{ line: number; message: string }>;
+  invalid_rows: Array<{ line: number; message: string; severity?: string; column?: string; action?: string }>;
+  issues?: Array<{ line: number | null; severity: "block" | "attention" | "info"; column?: string | null; message: string; action: string }>;
+  selected_sheet?: string | null;
   duplicates_in_file: number;
   existing_matches: number;
   sample_rows: Array<Record<string, string | number | null>>;
