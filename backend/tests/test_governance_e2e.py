@@ -1,13 +1,16 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.session import get_db
 from app.core.auth import AuthContext, get_current_tenant
 from app.main import app
 from app.ml.targets import TARGET_DEFINITION_VERSION
 from app.models.control_center import AdminPrincipal
 from app.models.data_governance import TenantDataUsePolicy
-from app.models.tenant import ModelArtifact
+from app.models.tenant import ModelArtifact, Tenant
 from app.services.training_policy import resolve_training_policy
 
 
@@ -130,11 +133,14 @@ async def test_model_activation_rollback_and_cross_tenant_artifact_access(
     await db_session.refresh(candidate_a)
     await db_session.refresh(candidate_b)
 
-    auth = AuthContext(
-        tenant=tenant_a, tenant_id=tenant_a.id, tenant_slug=tenant_a.slug,
-        user_id="00000000-0000-4000-8000-000000000001", role="admin",
-    )
-    app.dependency_overrides[get_current_tenant] = lambda: auth
+    async def _tenant_a_auth(db: AsyncSession = Depends(get_db)):
+        api_tenant = await db.get(Tenant, tenant_a.id)
+        return AuthContext(
+            tenant=api_tenant, tenant_id=tenant_a.id, tenant_slug=tenant_a.slug,
+            user_id="00000000-0000-4000-8000-000000000001", role="admin",
+        )
+
+    app.dependency_overrides[get_current_tenant] = _tenant_a_auth
     try:
         # A tenant-A session cannot address tenant B's model, even with its exact artifact ID.
         foreign = await client.post(
