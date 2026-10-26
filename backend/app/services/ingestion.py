@@ -305,8 +305,41 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
     raw_email = safe_str(row.get("email"))
     email = raw_email
     if raw_email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", raw_email):
-        warnings.append(f"Linha {line_number}: e-mail inválido; o campo ficará vazio nesta importação.")
+        warnings.append(
+            f"Linha {line_number}: e-mail inválido; o valor será ignorado. "
+            "Em atualizações, o e-mail válido existente será preservado; em novos cadastros, ficará vazio."
+        )
         email = None
+
+    raw_status = safe_str(row.get("status_aluno"))
+    status_aluno = raw_status
+    if raw_status:
+        normalized_status = normalize_header(raw_status).replace("_", " ")
+        status_aliases = {
+            "ativo": "Ativo",
+            "active": "Ativo",
+            "matriculado": "Ativo",
+            "trancado": "Trancado",
+            "trancada": "Trancado",
+            "em trancamento": "Trancado",
+            "evadido": "Evadido",
+            "evasao": "Evadido",
+            "abandono": "Evadido",
+            "cancelado": "Cancelado",
+            "cancelada": "Cancelado",
+            "formado": "Formado",
+            "formada": "Formado",
+            "concluido": "Formado",
+            "concluida": "Formado",
+            "transferido": "Transferido",
+            "transferida": "Transferido",
+        }
+        status_aluno = status_aliases.get(normalized_status)
+        if status_aluno is None:
+            warnings.append(
+                f"Linha {line_number}: status acadêmico '{raw_status}' não reconhecido; "
+                "o campo será ignorado e o valor existente será preservado."
+            )
 
     if safe_str(row.get("communication_opt_out")) and safe_bool(row.get("communication_opt_out")) is None:
         warnings.append(
@@ -318,7 +351,7 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "nome": nome[:255],
         "curso": safe_str(row.get("curso")),
         "campus": (safe_str(row.get("campus")) or "")[:150] or None,
-        "status_aluno": (safe_str(row.get("status_aluno")) or "")[:80] or None,
+        "status_aluno": (status_aluno or "")[:80] or None,
         "turma": safe_str(row.get("turma")),
         "semestre": _clamp_int(safe_semester(row.get("semestre")), 1, 30),
         "forma_ingresso": safe_str(row.get("forma_ingresso")),
@@ -548,7 +581,17 @@ async def create_batch_and_students(
         raw = item["raw"]
         existing = existing_by_matricula.get(data["matricula"])
         if existing is not None:
-            # Células vazias/ausentes nunca apagam dados existentes; opt-out explícito é respeitado.
+            # Matrícula identifica uma pessoa. Não permitir que uma importação troque
+            # silenciosamente a identidade do cadastro; correções de nome devem ser explícitas.
+            incoming_name = safe_str(data.get("nome"))
+            existing_name = safe_str(existing.nome)
+            if incoming_name and existing_name and normalize_header(incoming_name) != normalize_header(existing_name):
+                raise ValueError(
+                    f"Matrícula {data['matricula']}: o nome recebido ('{incoming_name}') "
+                    f"difere do cadastro existente ('{existing_name}'). Importação bloqueada para revisão manual."
+                )
+            # Células vazias/ausentes e valores inválidos nunca apagam dados existentes;
+            # opt-out explícito é respeitado.
             for field in mutable_fields:
                 if field not in mapped_targets:
                     continue
