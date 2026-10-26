@@ -193,6 +193,8 @@ export type ImportField =
   | "forma_ingresso"
   | "dias_atraso_boleto"
   | "recorrencia_atrasos"
+  | "saldo_devedor"
+  | "status_financeiro"
   | "dias_sem_login"
   | "presenca_percentual"
   | "nota_media"
