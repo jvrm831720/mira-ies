@@ -142,7 +142,42 @@ export default function ImportarPage() {
     }
   }
 
-  async function confirmMultipleFiles() { /* confirmation handler added below */ }
+  async function confirmMultipleFiles() {
+    if (!multiPreview || !multiIdempotencyKey || !multiFiles.length) return;
+    if (multiPreview.items.some((item) => !item.valid) || (multiPreview.conflicts?.length || 0) || (multiPreview.duplicate_matriculas?.length || 0)) {
+      toast.error("Corrija erros, conflitos e duplicidades antes de confirmar.");
+      return;
+    }
+    if (!multiConfirmedPolicy) {
+      toast.error("Confirme que revisou os dados antes de importar.");
+      return;
+    }
+    setMultiConfirmationLoading(true);
+    setMultiError(null);
+    try {
+      const response = await api.confirmMultipleUploads(multiFiles, multiRoles, multiIdempotencyKey);
+      toast.success(response.message || "Bases importadas com sucesso.");
+      setMultiPreview(null);
+      setMultiFiles([]);
+      setMultiRoles([]);
+      setMultiIdempotencyKey(null);
+      setMultiConfirmedPolicy(false);
+      if (multiInputRef.current) multiInputRef.current.value = "";
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["risk-summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["risk-critical"] }),
+        queryClient.invalidateQueries({ queryKey: ["students"] }),
+        queryClient.invalidateQueries({ queryKey: ["students-home"] }),
+        queryClient.invalidateQueries({ queryKey: ["upload-history"] }),
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível confirmar a importação.";
+      setMultiError(message);
+      toast.error(message);
+    } finally {
+      setMultiConfirmationLoading(false);
+    }
+  }
 
   function selectFile(nextFile?: File) {
     if (!nextFile) return;
