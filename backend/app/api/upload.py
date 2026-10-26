@@ -100,6 +100,91 @@ def parse_column_mapping(value: str | None) -> dict[str, str] | None:
     return parsed
 
 
+@router.post("/upload/preview-multiple")
+async def preview_multiple_students_files(
+    files: list[UploadFile] = File(...),
+    file_roles: list[str] = Form(default=[]),
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pré-valida vários arquivos sem persistir; não executa joins entre bases."""
+    if not files:
+        raise HTTPException(status_code=422, detail="Selecione ao menos um arquivo.")
+    if len(files) > 10:
+        raise HTTPException(status_code=422, detail="O limite é de 10 arquivos por operação.")
+
+    total_bytes = 0
+    items: list[dict[str, Any]] = []
+    all_matriculas: set[str] = set()
+    for index, upload in enumerate(files):
+        ext = validate_extension(upload.filename)
+        content = await upload.read()
+        total_bytes += len(content)
+        if len(content) > settings.max_upload_size_mb * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"Arquivo {sanitize_filename(upload.filename or '')} excede o limite individual.")
+        if not content:
+            raise HTTPException(status_code=422, detail=f"Arquivo {sanitize_filename(upload.filename or '')} está vazio.")
+        df = read_file_to_dataframe(content, ext)
+        if df.empty:
+            raise HTTPException(status_code=422, detail=f"Arquivo {sanitize_filename(upload.filename or '')} não contém dados.")
+        try:
+            prepared = prepare_import_rows(df, None)
+        except ValueError as exc:
+            items.append({
+                "index": index,
+                "filename": sanitize_filename(upload.filename or ""),
+                "role": file_roles[index] if index < len(file_roles) else "não definido",
+                "valid": False,
+                "error": str(exc),
+                "total_rows": int(len(df)),
+            })
+            continue
+
+        public_result = {key: value for key, value in prepared.items() if not key.startswith("_")}
+        matriculas = [row["data"]["matricula"] for row in prepared["_cleaned_rows"]]
+        all_matriculas.update(matriculas)
+        existing: set[str] = set()
+        if matriculas:
+            query = select(Student.matricula).where(
+                Student.tenant_id == auth.tenant_id,
+                Student.matricula.in_(matriculas),
+            )
+            existing = set((await db.execute(query)).scalars().all())
+        items.append({
+            "index": index,
+            "filename": sanitize_filename(upload.filename or ""),
+            "role": file_roles[index] if index < len(file_roles) else "não definido",
+            "valid": bool(public_result.get("can_import")),
+            "total_rows": int(len(df)),
+            "rows_to_import": public_result.get("rows_to_import", 0),
+            "rows_to_reject": public_result.get("rows_to_reject", 0),
+            "existing_matches": len(existing),
+            "rows_that_will_be_created": max(0, public_result.get("rows_to_import", 0) - len(existing)),
+            "columns": public_result.get("columns", []),
+            "mapped_columns": public_result.get("mapped_columns", {}),
+            "warnings": public_result.get("warnings", []),
+            "errors": public_result.get("errors", []),
+        })
+
+    if total_bytes > settings.max_upload_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="O tamanho combinado dos arquivos excede o limite permitido.")
+
+    valid_count = sum(1 for item in items if item["valid"])
+    return {
+        "items": items,
+        "summary": {
+            "files_received": len(files),
+            "files_valid": valid_count,
+            "files_with_errors": len(files) - valid_count,
+            "distinct_matriculas_across_files": len(all_matriculas),
+            "total_bytes": total_bytes,
+        },
+        "persisted": False,
+        "cross_file_relationships_validated": False,
+        "message": "Prévia individual concluída. Nenhum dado foi salvo; relações entre arquivos ainda precisam ser definidas e validadas antes de uma importação conjunta.",
+    }
+
+
 @router.post("/upload/preview")
 async def preview_students_file(
     file: UploadFile = File(...),
