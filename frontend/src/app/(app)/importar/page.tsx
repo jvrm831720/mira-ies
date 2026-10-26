@@ -12,7 +12,7 @@ import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import type { ImportField, UploadPreviewResponse, UploadResponse, MultiUploadPreviewResponse } from "@/types/api";
+import type { ImportField, UploadPreviewResponse, UploadResponse, MultiUploadPreviewResponse, UploadStructureResponse } from "@/types/api";
 
 const IMPORT_FIELDS: ImportField[] = [
   "matricula", "nome", "curso", "turma", "semestre", "forma_ingresso",
@@ -69,6 +69,8 @@ export default function ImportarPage() {
   const [file, setFile] = useState<File | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<UploadPreviewResponse | null>(null);
+  const [structure, setStructure] = useState<UploadStructureResponse | null>(null);
+  const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [result, setResult] = useState<UploadResponse | null>(null);
   const [autoScore, setAutoScore] = useState(true);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -97,6 +99,8 @@ export default function ImportarPage() {
     }
     setFile(nextFile);
     setMapping({});
+    setStructure(null);
+    setSelectedSheet("");
     setPreview(null);
     setResult(null);
     setErrorMessage(null);
@@ -128,26 +132,45 @@ export default function ImportarPage() {
     setMultiError(null);
   }
 
-  async function analyzeFile(nextMapping?: Record<string, string>) {
+  async function analyzeFile() {
     if (!file) return;
     setPreviewLoading(true);
     setErrorMessage(null);
+    setPreview(null);
     try {
-      const response = await api.previewUpload(file, nextMapping);
+      const response = await api.inspectUploadStructure(file);
+      setStructure(response);
+      const chosen = response.suggested_sheet || response.sheets[0]?.name || "";
+      setSelectedSheet(chosen);
+      setMapping({});
+      setConfirmedImportPolicy(false);
+      if (response.requires_sheet_selection) toast.message("Escolha a aba que contém a base antes de validar os registros.");
+      else toast.success("Estrutura identificada. Confira a aba e valide os dados.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível inspecionar o arquivo.";
+      setErrorMessage(message);
+      toast.error(message);
+    } finally { setPreviewLoading(false); }
+  }
+
+  async function validateSelectedSheet(nextMapping?: Record<string, string>) {
+    if (!file || !selectedSheet) return;
+    setPreviewLoading(true);
+    setErrorMessage(null);
+    try {
+      const response = await api.previewUpload(file, nextMapping, selectedSheet);
       setPreview(response);
       setMapping(Object.fromEntries(response.columns.map((column) => [column.key, response.mapped_columns[column.key] || ""])));
       setConfirmedImportPolicy(false);
       if (!response.can_import) toast.error("A prévia encontrou campos obrigatórios pendentes.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Não foi possível analisar o arquivo.";
+      const message = error instanceof Error ? error.message : "Não foi possível validar esta aba.";
       setErrorMessage(message);
       toast.error(message);
-    } finally {
-      setPreviewLoading(false);
-    }
+    } finally { setPreviewLoading(false); }
   }
 
-  async function analyzeMultipleFiles() {
+    async function analyzeMultipleFiles() {
     if (!multiFiles.length) return;
     setMultiPreviewLoading(true);
     setMultiError(null);
@@ -169,7 +192,7 @@ export default function ImportarPage() {
     setUploadLoading(true);
     setErrorMessage(null);
     try {
-      const response = await api.upload(file, autoScore, mapping);
+      const response = await api.upload(file, autoScore, mapping, selectedSheet);
       setResult(response);
       toast.success(response.message || "Importação processada.");
       await Promise.all([
@@ -229,7 +252,7 @@ export default function ImportarPage() {
     !(multiPreview?.conflicts?.length) && !(multiPreview?.duplicate_matriculas?.length);
 
   function clearSingle() {
-    setFile(null); setMapping({}); setPreview(null); setResult(null); setErrorMessage(null); setConfirmedImportPolicy(false);
+    setFile(null); setMapping({}); setStructure(null); setSelectedSheet(""); setPreview(null); setResult(null); setErrorMessage(null); setConfirmedImportPolicy(false);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -308,7 +331,7 @@ export default function ImportarPage() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                 <Button variant="ghost" size="sm" onClick={downloadTemplate}>Baixar modelo CSV</Button>
                 <Button onClick={() => void analyzeFile()} disabled={!file || previewLoading || uploadLoading}>
-                  {previewLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {previewLoading ? "Analisando..." : "Analisar planilha"}
+                  {previewLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {previewLoading ? "Inspecionando..." : "Inspecionar estrutura"}
                 </Button>
               </div>
             ) : (
@@ -321,6 +344,41 @@ export default function ImportarPage() {
             )}
 
             {(errorMessage || multiError) && <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{errorMessage || multiError}</div>}
+
+            {mode === "single" && structure && !result && (
+              <section className="space-y-4 border-t border-border pt-5">
+                <div>
+                  <h2 className="text-base font-semibold">Confira a estrutura do arquivo</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">A MIRA identifica as abas e mostra exemplos antes de validar os alunos. Nenhum dado foi salvo.</p>
+                </div>
+                {structure.sheets.length > 1 ? (
+                  <div className="space-y-2">
+                    <label htmlFor="sheet-name" className="text-sm font-medium">Aba que contém os dados</label>
+                    <select id="sheet-name" value={selectedSheet} onChange={(event) => { setSelectedSheet(event.target.value); setPreview(null); setConfirmedImportPolicy(false); }} className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm">
+                      {structure.sheets.map((sheet) => <option key={sheet.name} value={sheet.name}>{sheet.name} · {sheet.rows} linhas · {sheet.columns.length} colunas{sheet.required_fields_found ? " · cadastro reconhecido" : ""}</option>)}
+                    </select>
+                  </div>
+                ) : <p className="text-sm text-muted-foreground">Aba identificada: <strong>{selectedSheet}</strong></p>}
+                {(() => {
+                  const sheet = structure.sheets.find((item) => item.name === selectedSheet);
+                  if (!sheet) return <p className="text-sm text-amber-800">Selecione uma aba válida para continuar.</p>;
+                  const statusClass = sheet.required_fields_found ? "bg-emerald-50 text-emerald-800" : sheet.tabular ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-800";
+                  const statusLabel = sheet.required_fields_found ? "Matrícula e nome reconhecidos" : sheet.tabular ? "Confira os cabeçalhos" : "Aba possivelmente explicativa";
+                  return (
+                    <div className="space-y-3 rounded-xl border border-border p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={"rounded-full px-2.5 py-1 text-xs font-medium " + statusClass}>{statusLabel}</span>
+                        <span className="text-xs text-muted-foreground">{sheet.rows} linhas de dados</span>
+                      </div>
+                      <div><p className="text-xs font-medium text-muted-foreground">Cabeçalhos detectados</p><div className="mt-2 flex flex-wrap gap-1.5">{sheet.columns.map((column) => <span key={column} className="rounded-md bg-muted px-2 py-1 text-xs">{column}</span>)}</div></div>
+                      {sheet.sample_rows.length > 0 && <div className="overflow-x-auto rounded-lg border border-border"><table className="w-full min-w-[500px] text-left text-xs"><thead className="bg-muted/50"><tr>{sheet.columns.map((column) => <th key={column} className="px-3 py-2 font-medium text-muted-foreground">{column}</th>)}</tr></thead><tbody className="divide-y divide-border">{sheet.sample_rows.map((row, index) => <tr key={index}>{sheet.columns.map((column) => <td key={column} className="max-w-48 truncate px-3 py-2">{row[column] || "—"}</td>)}</tr>)}</tbody></table></div>}
+                      {!sheet.required_fields_found && <p className="text-xs text-amber-900">Não encontramos automaticamente matrícula e nome nesta aba. Escolha outra aba ou continue para mapear manualmente; a importação ficará bloqueada até os campos obrigatórios serem identificados.</p>}
+                    </div>
+                  );
+                })()}
+                <div className="flex justify-end"><Button onClick={() => void validateSelectedSheet()} disabled={!selectedSheet || previewLoading || !structure.sheets.some((sheet) => sheet.name === selectedSheet)}><ArrowRight className="h-4 w-4" /> {previewLoading ? "Validando..." : "Validar dados desta aba"}</Button></div>
+              </section>
+            )}
 
             {mode === "single" && preview && !result && (
               <section className="space-y-5 border-t border-border pt-5">
@@ -348,7 +406,7 @@ export default function ImportarPage() {
                       </select>
                     </div>)}
                   </div>
-                  {mappingDirty && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900"><span>Você alterou o mapeamento. Reanalise antes de continuar.</span><Button size="sm" variant="outline" onClick={() => void analyzeFile(mapping)} disabled={previewLoading}><RefreshCw className="h-3.5 w-3.5" /> Reanalisar</Button></div>}
+                  {mappingDirty && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900"><span>Você alterou o mapeamento. Reanalise antes de continuar.</span><Button size="sm" variant="outline" onClick={() => void validateSelectedSheet(mapping)} disabled={previewLoading}><RefreshCw className="h-3.5 w-3.5" /> Reanalisar</Button></div>}
                 </div>
                 {preview.sample_rows.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">Amostra dos registros</h3><div className="overflow-x-auto rounded-xl border border-border"><table className="w-full min-w-[620px] text-left text-xs"><thead className="bg-muted/50"><tr>{["Matrícula","Nome","Curso","Semestre","Presença"].map((label) => <th key={label} className="px-3 py-2.5 font-medium text-muted-foreground">{label}</th>)}</tr></thead><tbody className="divide-y divide-border">{preview.sample_rows.slice(0, 5).map((row, i) => <tr key={String(row.matricula || i)}><td className="px-3 py-2">{String(row.matricula ?? "—")}</td><td className="px-3 py-2">{String(row.nome ?? "—")}</td><td className="px-3 py-2">{String(row.curso ?? "—")}</td><td className="px-3 py-2">{String(row.semestre ?? "—")}</td><td className="px-3 py-2">{row.presenca_percentual == null ? "—" : `${row.presenca_percentual}%`}</td></tr>)}</tbody></table></div></div>}
                 <div className="space-y-3 rounded-xl bg-muted/40 p-4">
