@@ -74,12 +74,10 @@ async def test_feature_importance_with_auth(client, auth_headers):
     assert len(resp.json()["features"]) > 0
 
 
-async def test_model_train_blocked_without_admin_secret_outside_dev(client, auth_headers, monkeypatch):
-    import app.api.scoring as scoring_module
-    settings = scoring_module.get_settings()
-    monkeypatch.setattr(settings, "app_env", "production")
+async def test_model_train_blocked_until_global_lifecycle_exists(client, auth_headers):
     resp = await client.post("/api/v1/model/train", headers=auth_headers, params={"n_samples": 500})
-    assert resp.status_code == 403
+    assert resp.status_code == 409
+    assert "aprovação explícita" in resp.json()["detail"]
 
 
 async def test_risk_summary_and_critical_list_scoped_to_tenant(client, auth_headers):
