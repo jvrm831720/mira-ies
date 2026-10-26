@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, feat/mira-control-center, feat/model-data-governance-phase-1, feat/institutional-training-authorization]
+    branches: [main, feat/mira-control-center, feat/model-data-governance-phase-1, feat/institutional-training-authorization, feat/backend-training-policy-guards]
   pull_request:
     branches: [main]
 
