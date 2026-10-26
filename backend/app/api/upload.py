@@ -81,7 +81,33 @@ def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None
                     continue
             raise ValueError("Nao foi possivel decodificar o CSV")
         elif ext in ["xlsx", "xls"]:
-            return pd.read_excel(io.BytesIO(file_content), sheet_name=sheet_name if sheet_name else 0, dtype=str).dropna(axis=1, how="all")
+            excel = pd.ExcelFile(io.BytesIO(file_content))
+            selected_sheet = sheet_name
+            if selected_sheet is None:
+                # Multi-file and legacy clients do not send sheet_name. Prefer a unique
+                # sheet whose headers identify both required student fields.
+                required_candidates: list[str] = []
+                tabular_candidates: list[str] = []
+                for candidate in excel.sheet_names:
+                    candidate_df = pd.read_excel(excel, sheet_name=candidate, dtype=str).dropna(axis=1, how="all")
+                    if candidate_df.empty or len(candidate_df.columns) < 2:
+                        continue
+                    tabular_candidates.append(candidate)
+                    try:
+                        _, candidate_mapping = normalize_columns(candidate_df)
+                    except ValueError:
+                        continue
+                    if {"matricula", "nome"}.issubset(set(candidate_mapping.values())):
+                        required_candidates.append(candidate)
+                if len(required_candidates) == 1:
+                    selected_sheet = required_candidates[0]
+                elif len(required_candidates) > 1:
+                    raise ValueError("Mais de uma aba parece conter cadastro de alunos. Selecione a aba explicitamente.")
+                elif len(tabular_candidates) == 1:
+                    selected_sheet = tabular_candidates[0]
+                else:
+                    selected_sheet = excel.sheet_names[0] if excel.sheet_names else 0
+            return pd.read_excel(excel, sheet_name=selected_sheet if selected_sheet is not None else 0, dtype=str).dropna(axis=1, how="all")
         raise ValueError(f"Formato nao suportado: {ext}")
     except HTTPException:
         raise
