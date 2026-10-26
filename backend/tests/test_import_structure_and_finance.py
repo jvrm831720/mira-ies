@@ -87,3 +87,19 @@ async def test_structure_and_preview_endpoints_allow_selected_sheet(client, tena
     assert body["can_import"] is True
     assert body["rows_received"] == 1
     assert body["sample_rows"][0]["matricula"] == "0001842"
+
+
+async def test_multi_preview_selects_financial_sheet_by_role(client, tenant):
+    _tenant, key = tenant
+    content = _workbook_bytes()
+    response = await client.post(
+        "/api/v1/upload/preview-multiple",
+        headers={"X-API-Key": key},
+        files=[("files", ("financeiro.xlsx", content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))],
+        data={"file_roles": ["financeiro"]},
+    )
+    assert response.status_code == 200, response.text
+    item = response.json()["items"][0]
+    assert item["valid"] is True
+    assert item["rows_to_import"] == 1
+    assert item["mapped_columns"]["debito_total_r"] == "saldo_devedor"
