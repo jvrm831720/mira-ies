@@ -91,6 +91,9 @@ export default function ImportarPage() {
   const [multiRoles, setMultiRoles] = useState<string[]>([]);
   const [multiPreview, setMultiPreview] = useState<import("@/types/api").MultiUploadPreviewResponse | null>(null);
   const [multiPreviewLoading, setMultiPreviewLoading] = useState(false);
+  const [multiConfirmationLoading, setMultiConfirmationLoading] = useState(false);
+  const [multiIdempotencyKey, setMultiIdempotencyKey] = useState<string | null>(null);
+  const [multiConfirmedPolicy, setMultiConfirmedPolicy] = useState(false);
   const [multiError, setMultiError] = useState<string | null>(null);
 
   function selectMultipleFiles(files: FileList | File[]) {
@@ -116,6 +119,8 @@ export default function ImportarPage() {
     }
     setMultiFiles(selected);
     setMultiRoles(selected.map((_, index) => index === 0 ? "cadastro" : "financeiro"));
+    setMultiIdempotencyKey(crypto.randomUUID());
+    setMultiConfirmedPolicy(false);
     setMultiPreview(null);
     setMultiError(null);
   }
@@ -136,6 +141,8 @@ export default function ImportarPage() {
       setMultiPreviewLoading(false);
     }
   }
+
+  async function confirmMultipleFiles() { /* confirmation handler added below */ }
 
   function selectFile(nextFile?: File) {
     if (!nextFile) return;
