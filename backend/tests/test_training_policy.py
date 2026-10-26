@@ -13,13 +13,18 @@ async def test_missing_policy_denies_shared_training_but_allows_eligible_local_d
         db_session, tenant_id=tenant.id, purpose="shared_base_training",
         dataset_eligible=True,
     )
-    local = await resolve_training_policy(
+    local_without_authorization = await resolve_training_policy(
         db_session, tenant_id=tenant.id, purpose="institutional_training",
         dataset_eligible=True,
     )
+    local_authorized = await resolve_training_policy(
+        db_session, tenant_id=tenant.id, purpose="institutional_training",
+        dataset_eligible=True, institutional_use_authorized=True,
+    )
     assert not shared.allowed
     assert shared.policy_id is None
-    assert local.allowed
+    assert not local_without_authorization.allowed
+    assert local_authorized.allowed
 
 
 @pytest.mark.asyncio
@@ -83,7 +88,7 @@ async def test_institution_only_blocks_shared_but_permits_eligible_local_trainin
     )
     local = await resolve_training_policy(
         db_session, tenant_id=tenant.id, purpose="institutional_training",
-        dataset_eligible=True,
+        dataset_eligible=True, institutional_use_authorized=True,
     )
     assert not shared.allowed
     assert local.allowed
@@ -184,3 +189,54 @@ async def test_newer_revocation_never_falls_back_to_older_authorization(db_sessi
     assert not decision.allowed
     assert decision.policy_id == later_revocation.id
     assert "revoked" in decision.reason.lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("policy_state", ["expired", "revoked", "unapproved"])
+async def test_sharing_policy_state_does_not_replace_local_authorization(
+    db_session, tenant_factory, policy_state
+):
+    tenant, _ = await tenant_factory(slug=f"local-auth-{policy_state}")
+    admin = AdminPrincipal(
+        email=f"local-auth-{policy_state}@example.test",
+        display_name="Policy Admin",
+        password_hash="not-a-real-password-hash",
+        role="super_admin",
+    )
+    db_session.add(admin)
+    await db_session.flush()
+    now = datetime.now(timezone.utc)
+    kwargs = {
+        "tenant_id": tenant.id,
+        "mode": "shared_training",
+        "contract_reference": "contract-local-auth",
+        "contract_version": "v1",
+        "effective_at": now - timedelta(days=5),
+        "evidence_reference": "test-evidence://local-auth",
+        "approved_by_admin_id": admin.id,
+    }
+    if policy_state == "expired":
+        kwargs["expires_at"] = now - timedelta(days=1)
+    elif policy_state == "revoked":
+        kwargs["revoked_at"] = now - timedelta(hours=1)
+    elif policy_state == "unapproved":
+        kwargs["approved_by_admin_id"] = None
+        kwargs["evidence_reference"] = None
+    db_session.add(TenantDataUsePolicy(**kwargs))
+    await db_session.commit()
+
+    shared = await resolve_training_policy(
+        db_session, tenant_id=tenant.id, purpose="shared_base_training",
+        dataset_eligible=True, now=now,
+    )
+    local_without_authorization = await resolve_training_policy(
+        db_session, tenant_id=tenant.id, purpose="institutional_training",
+        dataset_eligible=True, now=now,
+    )
+    local_with_authorization = await resolve_training_policy(
+        db_session, tenant_id=tenant.id, purpose="institutional_training",
+        dataset_eligible=True, institutional_use_authorized=True, now=now,
+    )
+    assert not shared.allowed
+    assert not local_without_authorization.allowed
+    assert local_with_authorization.allowed
