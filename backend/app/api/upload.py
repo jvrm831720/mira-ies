@@ -389,7 +389,7 @@ async def preview_students_file(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     result = {key: value for key, value in prepared.items() if not key.startswith("_")}
-    matriculas = [item["data"]["matricula"] for item in prepared["_cleaned_rows"] if item["data"]["matricula"] not in {conflict["message"].split("matrícula ", 1)[1].split(" ", 1)[0] for conflict in prepared.get("duplicate_identity_conflicts", []) if "matrícula " in conflict["message"]}]
+    matriculas = [item["data"]["matricula"] for item in prepared["_cleaned_rows"] if item["data"]["matricula"] not in set(prepared.get("_conflicted_matriculas", []))]
     existing_matriculas: set[str] = set()
     if matriculas:
         query = select(Student.matricula).where(
