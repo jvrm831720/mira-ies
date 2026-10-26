@@ -597,3 +597,159 @@ async def expected_columns():
         "all_supported_aliases": {key: values for key, values in COLUMN_ALIASES.items()},
         "tip": "A planilha precisa ter pelo menos matrícula e nome. O mapeamento é determinístico por aliases e pode ser ajustado manualmente.",
     }
+
+
+@router.post("/upload/confirm-multiple", status_code=201)
+async def confirm_multiple_students_files(
+    files: list[UploadFile] = File(...),
+    file_roles: list[str] = Form(default=[]),
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Valida e persiste bases complementares em um único lote transacional."""
+    if not files:
+        raise HTTPException(status_code=422, detail="Selecione ao menos um arquivo.")
+    if len(files) > 10:
+        raise HTTPException(status_code=422, detail="O limite é de 10 arquivos por operação.")
+    if len(file_roles) != len(files):
+        raise HTTPException(status_code=422, detail="Informe exatamente um tipo de base para cada arquivo.")
+
+    role_fields = {
+        "cadastro": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+        "alunos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+        "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos"},
+        "engajamento": {"matricula", "dias_sem_login", "presenca_percentual"},
+        "desempenho": {"matricula", "nota_media", "reprovacoes"},
+    }
+    total_bytes = 0
+    consolidated: dict[str, dict[str, Any]] = {}
+    sources: list[str] = []
+    duplicates: list[dict[str, str]] = []
+    conflicts: list[dict[str, str]] = []
+    errors: list[str] = []
+    allowed_all = set().union(*role_fields.values()) - {"matricula"}
+
+    for index, upload in enumerate(files):
+        ext = validate_extension(upload.filename)
+        raw_content = await upload.read()
+        total_bytes += len(raw_content)
+        filename = sanitize_filename(upload.filename or "")
+        if not raw_content:
+            errors.append(f"{filename}: arquivo vazio.")
+            continue
+        if len(raw_content) > settings.max_upload_size_mb * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"Arquivo {filename} excede o limite individual.")
+        role = file_roles[index].strip().lower()
+        if role not in role_fields:
+            errors.append(f"{filename}: tipo de base desconhecido ({role}).")
+            continue
+        try:
+            df = read_file_to_dataframe(raw_content, ext)
+            normalized, mapped = normalize_columns(df)
+        except (HTTPException, ValueError) as exc:
+            errors.append(f"{filename}: {str(exc)}")
+            continue
+        if df.empty:
+            errors.append(f"{filename}: arquivo sem dados.")
+            continue
+        allowed = role_fields[role]
+        recognized = {field for field in mapped.values() if field in allowed}
+        missing = {"matricula"} - recognized
+        if role in {"cadastro", "alunos"}:
+            missing |= {"nome"} - recognized
+        if missing:
+            errors.append(f"{filename}: colunas obrigatórias ausentes: {', '.join(sorted(missing))}.")
+            continue
+
+        file_seen: set[str] = set()
+        sources.append(filename)
+        for row_number, (_, row) in enumerate(normalized.iterrows(), start=2):
+            key = str(row.get("matricula") or "").strip()
+            if not key or key.lower() == "nan":
+                errors.append(f"{filename}, linha {row_number}: matrícula ausente.")
+                continue
+            key = key[:50]
+            if key in file_seen:
+                duplicates.append({"filename": filename, "matricula": key})
+                continue
+            file_seen.add(key)
+            target = consolidated.setdefault(key, {})
+            for field in allowed_all.intersection(allowed):
+                if field not in normalized.columns:
+                    continue
+                value = row.get(field)
+                if pd.isna(value) or str(value).strip() == "":
+                    continue
+                value = str(value).strip()
+                prior = target.get(field)
+                if prior is not None and prior != value:
+                    conflicts.append({"filename": filename, "matricula": key, "field": field})
+                else:
+                    target[field] = value
+
+    if total_bytes > settings.max_upload_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="O tamanho combinado dos arquivos excede o limite permitido.")
+    if errors or duplicates or conflicts:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Importação bloqueada. Corrija os erros, duplicidades e conflitos antes de confirmar.",
+                "errors": errors[:50],
+                "duplicates": duplicates[:50],
+                "conflicts": conflicts[:50],
+            },
+        )
+    if not consolidated:
+        raise HTTPException(status_code=422, detail="Nenhum registro válido foi encontrado.")
+
+    existing_result = await db.execute(
+        select(Student).where(
+            Student.tenant_id == auth.tenant_id,
+            Student.matricula.in_(list(consolidated.keys())),
+        )
+    )
+    existing_by_key = {student.matricula: student for student in existing_result.scalars().all()}
+    rows: list[dict[str, Any]] = []
+    for matricula, fields in consolidated.items():
+        name = fields.get("nome")
+        existing = existing_by_key.get(matricula)
+        if not name and existing is not None:
+            name = existing.nome
+        if not name:
+            errors.append(f"Matrícula {matricula}: não há nome para criar um novo aluno.")
+            continue
+        row = {"matricula": matricula, "nome": name}
+        for field, value in fields.items():
+            if field == "matricula":
+                continue
+            row[field] = value
+        rows.append(row)
+    if errors:
+        raise HTTPException(status_code=422, detail={"message": "Não foi possível confirmar a importação.", "errors": errors[:50]})
+
+    df_consolidated = pd.DataFrame(rows)
+    batch_id = str(uuid.uuid4())
+    safe_filename = f"{batch_id}_importacao_multipla.csv"
+    try:
+        batch, students, quality = await create_batch_and_students(
+            db,
+            filename=safe_filename,
+            original_filename="Importação de bases complementares: " + ", ".join(sources)[:220],
+            df=df_consolidated,
+            tenant_id=auth.tenant_id,
+        )
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Falha ao persistir a importação; nenhuma alteração foi confirmada.") from exc
+
+    return {
+        "message": "Bases complementares importadas com sucesso.",
+        "batch": UploadBatchResponse.model_validate(batch),
+        "students_imported": len(students),
+        "quality": quality,
+        "sources": sources,
+        "persisted": True,
+    }
