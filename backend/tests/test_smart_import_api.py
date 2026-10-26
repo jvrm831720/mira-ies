@@ -191,11 +191,11 @@ async def test_preview_flags_bad_rows_duplicate_matriculas_and_invalid_email(cli
 async def test_upload_imports_valid_rows_and_excludes_all_conflicting_matriculas(client, tenant):
     _tenant, key = tenant
     csv = (
-        b"matricula,nome,curso\\n"
-        b"CONFLICT-1,Ana Souza,Direito\\n"
-        b"CONFLICT-1,Ana Lima,Medicina\\n"
-        b"VALID-1,Bruno Lima,Administracao\\n"
-        b",Sem Matricula,Direito\\n"
+        b"matricula,nome,curso\n"
+        b"CONFLICT-1,Ana Souza,Direito\n"
+        b"CONFLICT-1,Ana Lima,Medicina\n"
+        b"VALID-1,Bruno Lima,Administracao\n"
+        b",Sem Matricula,Direito\n"
     )
     response = await client.post(
         "/api/v1/upload",
