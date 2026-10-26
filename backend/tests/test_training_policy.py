@@ -7,7 +7,7 @@ from app.services.training_policy import resolve_training_policy
 
 
 @pytest.mark.asyncio
-async def test_missing_policy_denies_shared_training_but_allows_eligible_local_data(db_session, tenant_factory):
+async def test_missing_policy_requires_sharing_consent_and_local_authorization(db_session, tenant_factory):
     tenant, _ = await tenant_factory(slug="policy-missing")
     shared = await resolve_training_policy(
         db_session, tenant_id=tenant.id, purpose="shared_base_training",
