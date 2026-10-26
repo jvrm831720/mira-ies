@@ -281,7 +281,7 @@ async def test_confirm_multiple_persists_complementary_bases_in_one_batch(client
     ]
     response = await client.post(
         "/api/v1/upload/confirm-multiple",
-        headers={"X-API-Key": key},
+        headers={"X-API-Key": key, "Idempotency-Key": "test-import-001"},
         files=files,
         data={"file_roles": ["cadastro", "financeiro"]},
     )
@@ -296,6 +296,20 @@ async def test_confirm_multiple_persists_complementary_bases_in_one_batch(client
     assert row["curso"] == "Direito"
     assert row["dias_atraso_boleto"] == 12
 
+    replay_files = [
+        ("files", ("cadastro.csv", b"matricula,nome,curso\n00123,Ana Souza,Direito\n", "text/csv")),
+        ("files", ("financeiro.csv", b"matricula,dias_atraso_boleto,recorrencia_atrasos\n00123,12,3\n", "text/csv")),
+    ]
+    replay = await client.post(
+        "/api/v1/upload/confirm-multiple",
+        headers={"X-API-Key": key, "Idempotency-Key": "test-import-001"},
+        files=replay_files,
+        data={"file_roles": ["cadastro", "financeiro"]},
+    )
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["idempotent_replay"] is True
+    assert replay.json()["batch"]["id"] == body["batch"]["id"]
+
 
 @pytest.mark.asyncio
 async def test_confirm_multiple_blocks_conflicts_without_persisting(client, tenant):
@@ -306,7 +320,7 @@ async def test_confirm_multiple_blocks_conflicts_without_persisting(client, tena
     ]
     response = await client.post(
         "/api/v1/upload/confirm-multiple",
-        headers={"X-API-Key": key},
+        headers={"X-API-Key": key, "Idempotency-Key": "test-import-conflict"},
         files=files,
         data={"file_roles": ["cadastro", "cadastro"]},
     )

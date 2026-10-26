@@ -409,6 +409,7 @@ async def create_batch_and_students(
     df: pd.DataFrame,
     tenant_id: str | None = None,
     column_mapping: dict[str, str] | None = None,
+    batch_id: str | None = None,
 ) -> tuple[UploadBatch, list[Student], dict[str, Any]]:
     prepared = prepare_import_rows(df, column_mapping)
     missing = prepared["missing_required_columns"]
@@ -428,6 +429,7 @@ async def create_batch_and_students(
     duplicates_removed = prepared["duplicates_in_file"]
 
     batch = UploadBatch(
+        id=batch_id,
         filename=filename,
         original_filename=original_filename,
         status="processing",

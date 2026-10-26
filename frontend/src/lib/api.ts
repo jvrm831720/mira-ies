@@ -218,6 +218,24 @@ export const api = {
   consentAudit: (id: string, limit = 10) =>
     request<ConsentAuditResponse>(`/api/v1/students/${id}/consent-audit?limit=${limit}`),
 
+  confirmMultipleUploads: async (files: File[], roles: string[], idempotencyKey: string) => {
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file));
+    roles.forEach((role) => form.append("file_roles", role));
+    return request<{
+      message: string;
+      students_imported: number;
+      persisted: boolean;
+      idempotent_replay?: boolean;
+      batch?: { id?: string };
+      quality?: { rows_created?: number; rows_updated?: number; existing_matches?: number };
+    }>("/api/v1/upload/confirm-multiple", {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: form,
+    });
+  },
+
   previewMultipleUploads: async (files: File[], roles: string[]) => {
     const form = new FormData();
     files.forEach((file) => form.append("files", file));
