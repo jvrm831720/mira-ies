@@ -444,7 +444,7 @@ async def upload_students_file(
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
+    except Exception:
         await db.rollback()
         raise HTTPException(status_code=500, detail="Erro ao persistir dados; nenhuma alteração foi confirmada.")
     preview = [{"matricula": s.matricula, "nome": s.nome, "curso": s.curso, "semestre": s.semestre,
