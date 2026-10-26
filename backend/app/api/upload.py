@@ -24,7 +24,7 @@ from app.services.ingestion import (
     prepare_import_rows,
 )
 from app.schemas.student import UploadBatchResponse
-from app.models.student import Student
+from app.models.student import Student, UploadBatch
 from app.models.consent import ConsentAuditEvent
 from app.services.consent import apply_preference_changes, effective_preferences
 from app.services.engagement import normalize_behavior_properties
@@ -196,6 +196,43 @@ async def upload_students_file(
         message += f" | {scoring_result['scored']} alunos pontuados"
     return {"message": message, "batch": UploadBatchResponse.model_validate(batch),
             "students_imported": len(students), "quality": quality, "preview": preview, "scoring": scoring_result}
+
+
+
+@router.get("/upload/history")
+async def list_upload_history(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lista somente os lotes da instituição autenticada, mais recentes primeiro."""
+    result = await db.execute(
+        select(UploadBatch)
+        .where(UploadBatch.tenant_id == auth.tenant_id)
+        .order_by(UploadBatch.uploaded_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    batches = result.scalars().all()
+    return {
+        "items": [
+            {
+                "id": batch.id,
+                "filename": batch.original_filename,
+                "status": batch.status,
+                "total_rows": batch.total_rows,
+                "processed_rows": batch.processed_rows,
+                "uploaded_at": batch.uploaded_at,
+                "processed_at": batch.processed_at,
+                "error_message": batch.error_message,
+            }
+            for batch in batches
+        ],
+        "limit": limit,
+        "offset": offset,
+        "has_more": len(batches) == limit,
+    }
 
 
 @router.get("/upload/status/{batch_id}")
