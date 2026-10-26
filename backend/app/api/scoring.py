@@ -12,7 +12,6 @@ from app.models.student import Student
 from app.services.consent import effective_preferences
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT
 from app.ml.scoring import score_batch, score_student_dict, score_all_pending, get_model_info
-from app.ml.model import train_model
 
 router = APIRouter()
 
