@@ -117,3 +117,37 @@ async def test_upload_status_endpoint_isolated_by_tenant(client, tenant_factory)
 
     resp_owner = await client.get(f"/api/v1/upload/status/{batch_id}", headers={"X-API-Key": key_a})
     assert resp_owner.status_code == 200
+
+
+async def test_multi_file_preview_validates_without_persisting(client, auth_headers):
+    first = b"matricula,nome,curso\nM001,Ana,Enfermagem\n"
+    second = b"matricula,nome,curso\nM002,Bruno,Administracao\n"
+    response = await client.post(
+        "/api/v1/upload/preview-multiple",
+        headers=auth_headers,
+        files=[
+            ("files", ("alunos.csv", first, "text/csv")),
+            ("files", ("cursos.csv", second, "text/csv")),
+        ],
+        data={"file_roles": ["alunos", "cursos"]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"]["files_received"] == 2
+    assert body["summary"]["files_valid"] == 2
+    assert body["persisted"] is False
+    assert body["cross_file_relationships_validated"] is False
+    assert [item["role"] for item in body["items"]] == ["alunos", "cursos"]
+
+
+async def test_multi_file_preview_rejects_more_than_ten_files(client, auth_headers):
+    files = [
+        ("files", (f"base-{index}.csv", b"matricula,nome\n001,Ana\n", "text/csv"))
+        for index in range(11)
+    ]
+    response = await client.post(
+        "/api/v1/upload/preview-multiple",
+        headers=auth_headers,
+        files=files,
+    )
+    assert response.status_code == 422
