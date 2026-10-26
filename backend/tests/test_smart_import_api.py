@@ -248,7 +248,7 @@ async def test_preview_multiple_flags_conflicting_values_and_unknown_role(client
     _tenant, key = tenant
     files = [
         ("files", ("cadastro.csv", b"matricula,nome,curso\n00123,Ana Souza,Direito\n", "text/csv")),
-        ("files", ("outro.csv", b"matricula,curso\n00123,Medicina\n", "text/csv")),
+        ("files", ("outro.csv", b"matricula,nome,curso\n00123,Ana Souza,Medicina\n", "text/csv")),
     ]
     response = await client.post(
         "/api/v1/upload/preview-multiple",
