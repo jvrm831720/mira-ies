@@ -41,13 +41,14 @@ async def resolve_training_policy(
     tenant_id: str,
     purpose: TrainingPurpose,
     dataset_eligible: bool = False,
+    institutional_use_authorized: bool = False,
     now: datetime | None = None,
 ) -> TrainingPolicyDecision:
     """Resolve the latest effective policy; never revive superseded consent.
 
-    Missing, expired, revoked, or incompletely approved policies never permit
-    contribution to shared-base training. Local training remains possible only
-    when its dataset has independently passed eligibility checks.
+    Shared-base training requires current, approved sharing evidence. Local
+    training also requires an independently verified authorization flag; the
+    sharing policy alone is not treated as proof of a legal basis for local use.
     """
     if purpose not in {
         "shared_base_training",
@@ -79,27 +80,33 @@ async def resolve_training_policy(
             False, tenant_id, purpose, mode, policy_id, reason
         )
 
+    def local_decision(mode: str, policy_id: str | None, reason_prefix: str = ""):
+        allowed = dataset_eligible and institutional_use_authorized
+        if allowed:
+            reason = "Dataset is eligible and institutional use is independently authorized."
+        elif not dataset_eligible:
+            reason = "Dataset is not independently eligible for institutional use."
+        else:
+            reason = "Independent authorization for institutional use is missing."
+        if reason_prefix:
+            reason = f"{reason_prefix} {reason}"
+        return TrainingPolicyDecision(
+            allowed, tenant_id, purpose, mode, policy_id, reason
+        )
+
     if current is None:
         if purpose == "shared_base_training":
             return deny("No effective data-use policy; shared training denied by default.")
-        return TrainingPolicyDecision(
-            bool(dataset_eligible),
-            tenant_id,
-            purpose,
-            "unknown",
-            None,
-            (
-                "No effective policy; locally eligible data may be used only for "
-                "institution-scoped work."
-                if dataset_eligible
-                else "Dataset is not independently eligible."
-            ),
-        )
+        return local_decision("unknown", None, "No effective sharing policy.")
 
     if current.revoked_at is not None:
-        return deny("Latest effective data-use policy has been revoked.", current.mode, current.id)
+        if purpose == "shared_base_training":
+            return deny("Latest effective sharing policy has been revoked.", current.mode, current.id)
+        return local_decision(current.mode, current.id, "Sharing policy revoked.")
     if current.expires_at is not None and _as_utc(current.expires_at) <= instant:
-        return deny("Latest effective data-use policy has expired.", current.mode, current.id)
+        if purpose == "shared_base_training":
+            return deny("Latest effective sharing policy has expired.", current.mode, current.id)
+        return local_decision(current.mode, current.id, "Sharing policy expired.")
 
     approved = bool(
         current.approved_by_admin_id
@@ -109,7 +116,9 @@ async def resolve_training_policy(
         and current.contract_version.strip()
     )
     if not approved:
-        return deny("Policy lacks approval or contract evidence.", current.mode, current.id)
+        if purpose == "shared_base_training":
+            return deny("Policy lacks approval or contract evidence.", current.mode, current.id)
+        return local_decision(current.mode, current.id, "Sharing policy lacks approval or evidence.")
 
     if purpose == "shared_base_training":
         allowed = current.mode == "shared_training" and dataset_eligible
@@ -126,16 +135,4 @@ async def resolve_training_policy(
             allowed, tenant_id, purpose, current.mode, current.id, reason
         )
 
-    allowed = dataset_eligible
-    return TrainingPolicyDecision(
-        allowed,
-        tenant_id,
-        purpose,
-        current.mode,
-        current.id,
-        (
-            "Dataset is eligible for institution-scoped use."
-            if allowed
-            else "Dataset is not independently eligible."
-        ),
-    )
+    return local_decision(current.mode, current.id)
