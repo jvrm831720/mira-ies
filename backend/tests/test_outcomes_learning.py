@@ -238,7 +238,10 @@ async def test_tenant_train_uses_only_mature_target_labels(
     assert resp_models.json()["active_model"] == "base"  # baseline is a fallback, not a tenant artifact
     assert resp_models.json()["active_model_id"] is None
 
-    resp_deactivate = await client.post(f"/api/v1/tenants/{t.slug}/models/deactivate", headers=auth_headers)
+    resp_deactivate = await client.post(
+        f"/api/v1/tenants/{t.slug}/models/deactivate", headers=auth_headers,
+        json={"reason": "Validar retorno seguro ao baseline"},
+    )
     assert resp_deactivate.status_code == 200
     assert resp_deactivate.json()["active_model"] == "base"
 
