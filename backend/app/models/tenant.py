@@ -56,6 +56,19 @@ class ModelArtifact(Base):
     metrics: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     feature_columns: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    run_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), nullable=True, unique=True)
+    lifecycle_status: Mapped[str] = mapped_column(String(20), default="candidate", nullable=False)
+    evaluation_report: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    approved_by_user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    activation_reason: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    activated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    retired_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    rollback_of_artifact_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("model_artifacts.id", ondelete="SET NULL"), nullable=True
+    )
     trained_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 

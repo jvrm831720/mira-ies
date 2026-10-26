@@ -1,13 +1,11 @@
 """Endpoints do Motor Preditivo — isolados por tenant via AuthContext."""
 
-import hmac
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel, Field
 from typing import Optional, Any
 
-from app.core.config import get_settings
 from app.db.session import get_db
 from app.core.auth import AuthContext, get_current_tenant
 from app.models.student import Student
@@ -54,23 +52,16 @@ async def model_info():
 
 
 @router.post("/model/train")
-async def retrain_model(
-    n_samples: int = Query(5000, ge=500, le=20000),
-    auth: AuthContext = Depends(get_current_tenant),
-    x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
-):
-    """Retreina o modelo BASE global (compartilhado por todos os tenants) — restrito a administradores."""
-    settings = get_settings()
-    if settings.app_env != "development":
-        if not x_admin_secret or not hmac.compare_digest(x_admin_secret, settings.secret_key):
-            raise HTTPException(
-                status_code=403,
-                detail="X-Admin-Secret invalido — retrain do modelo base e restrito a administradores",
-            )
-    from app.ml.model import invalidate_cache
-    invalidate_cache()
-    metrics = train_model(n_samples=n_samples)
-    return {"message": "Modelo retreinado", "metrics": metrics}
+async def retrain_model(auth: AuthContext = Depends(get_current_tenant)):
+    """Fail-closed: o fluxo legado sobrescrevia o modelo global ativo sem aprovação."""
+    raise HTTPException(
+        status_code=409,
+        detail=(
+            "Treinamento global bloqueado até existir fluxo versionado com relatório, "
+            "aprovação explícita, ativação controlada e rollback. O baseline sintético "
+            "atual permanece disponível e não recebe dados reais de instituições."
+        ),
+    )
 
 
 @router.post("/predict", response_model=PredictResponse)

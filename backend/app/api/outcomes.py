@@ -203,12 +203,12 @@ async def list_training_events(
 
 @router.post("/tenants/{slug}/train")
 async def train_tenant_endpoint(
-    slug: str, force: bool = Query(False), force_activate: bool = Query(False),
+    slug: str, force: bool = Query(False),
     auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db),
 ):
     await require_tenant_match(auth, slug)
     try:
-        return await train_tenant_model(db, tenant_slug=auth.tenant_slug, force=force, force_activate=force_activate)
+        return await train_tenant_model(db, tenant_slug=auth.tenant_slug, force=force)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -240,7 +240,11 @@ async def list_tenant_models(slug: str, auth: AuthContext = Depends(get_current_
         "active_model_id": active_tenant_artifact.id if active_tenant_artifact else None,
         "models": [{
         "id": a.id, "name": a.name, "version": a.version, "scope": a.scope,
-        "is_active": a.is_active, "metrics": a.metrics, "trained_at": a.trained_at,
+        "is_active": a.is_active, "lifecycle_status": a.lifecycle_status,
+        "run_id": a.run_id, "evaluation_report": a.evaluation_report,
+        "approved_at": a.approved_at, "activated_at": a.activated_at,
+        "rollback_of_artifact_id": a.rollback_of_artifact_id,
+        "metrics": a.metrics, "trained_at": a.trained_at,
         "is_used_for_scoring": (
             a.id == active_tenant_artifact.id if active_tenant_artifact
             else a.scope == "base" and a.is_active
@@ -248,23 +252,118 @@ async def list_tenant_models(slug: str, auth: AuthContext = Depends(get_current_
     } for a in arts]}
 
 
-@router.post("/tenants/{slug}/models/{artifact_id}/activate")
-async def activate_tenant_model(slug: str, artifact_id: str, auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db)):
+class ModelLifecycleAction(BaseModel):
+    reason: str = Field(..., min_length=8, max_length=500)
+
+
+def _require_model_approver(auth: AuthContext) -> None:
+    # API keys identify a tenant, not a human approver; approvals require a real admin session.
+    if auth.role != "admin" or not auth.user_id:
+        raise HTTPException(status_code=403, detail="Aprovação de modelo exige sessão de usuário admin identificada.")
+
+
+@router.post("/tenants/{slug}/models/{artifact_id}/approve")
+async def approve_tenant_model(
+    slug: str, artifact_id: str, body: ModelLifecycleAction,
+    auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db),
+):
     await require_tenant_match(auth, slug)
-    r = await db.execute(select(ModelArtifact).where(ModelArtifact.id == artifact_id, ModelArtifact.tenant_id == auth.tenant_id))
-    art = r.scalar_one_or_none()
-    if not art:
-        raise HTTPException(status_code=404, detail="Artefato nao encontrado")
-    if art.scope == "tenant" and (art.metrics or {}).get("target_definition") != TARGET_DEFINITION_VERSION:
-        raise HTTPException(status_code=409, detail="Artefato treinado com definição de alvo antiga; treine novamente com rótulos elegíveis de 90 dias.")
-    prev = await db.execute(select(ModelArtifact).where(ModelArtifact.tenant_id == auth.tenant_id, ModelArtifact.scope == "tenant"))
-    for a in prev.scalars().all():
-        a.is_active = a.id == artifact_id
-    art.is_active = True
-    auth.tenant.active_model_id = art.id
+    _require_model_approver(auth)
+    result = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.id == artifact_id, ModelArtifact.tenant_id == auth.tenant_id,
+        ModelArtifact.scope == "tenant",
+    ).with_for_update())
+    artifact = result.scalar_one_or_none()
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Candidato não encontrado para esta instituição.")
+    if artifact.lifecycle_status != "candidate" or artifact.is_active:
+        raise HTTPException(status_code=409, detail="Somente candidatos não ativos podem ser aprovados.")
+    if (artifact.metrics or {}).get("target_definition") != TARGET_DEFINITION_VERSION:
+        raise HTTPException(status_code=409, detail="Relatório usa definição de alvo incompatível.")
+    artifact.lifecycle_status = "approved"
+    artifact.approved_by_user_id = auth.user_id
+    artifact.approved_at = datetime.now(timezone.utc)
+    artifact.activation_reason = body.reason.strip()
+    artifact.evaluation_report = artifact.evaluation_report or artifact.metrics
+    await db.commit()
+    return {"status": "approved", "artifact_id": artifact.id, "approved_at": artifact.approved_at}
+
+
+@router.post("/tenants/{slug}/models/{artifact_id}/activate")
+async def activate_tenant_model(
+    slug: str, artifact_id: str, body: ModelLifecycleAction,
+    auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db),
+):
+    await require_tenant_match(auth, slug)
+    _require_model_approver(auth)
+    result = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.id == artifact_id, ModelArtifact.tenant_id == auth.tenant_id,
+        ModelArtifact.scope == "tenant",
+    ).with_for_update())
+    artifact = result.scalar_one_or_none()
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artefato não encontrado.")
+    if artifact.lifecycle_status != "approved" or not artifact.approved_by_user_id:
+        raise HTTPException(status_code=409, detail="Modelo precisa de aprovação explícita antes da ativação.")
+    if (artifact.metrics or {}).get("target_definition") != TARGET_DEFINITION_VERSION:
+        raise HTTPException(status_code=409, detail="Artefato usa definição de alvo antiga; treine novamente.")
+    previous_result = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.tenant_id == auth.tenant_id, ModelArtifact.scope == "tenant",
+        ModelArtifact.is_active.is_(True),
+    ).with_for_update())
+    previous = previous_result.scalars().all()
+    now = datetime.now(timezone.utc)
+    for old in previous:
+        old.is_active = False
+        old.lifecycle_status = "retired"
+        old.retired_at = now
+    artifact.is_active = True
+    artifact.lifecycle_status = "active"
+    artifact.activated_at = now
+    artifact.activation_reason = body.reason.strip()
+    auth.tenant.active_model_id = artifact.id
     await db.commit()
     invalidate_tenant_cache(slug)
-    return {"message": f"Modelo {art.version} ativado", "artifact_id": art.id}
+    return {"status": "active", "artifact_id": artifact.id, "version": artifact.version, "activated_at": now}
+
+
+@router.post("/tenants/{slug}/models/{artifact_id}/rollback")
+async def rollback_tenant_model(
+    slug: str, artifact_id: str, body: ModelLifecycleAction,
+    auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db),
+):
+    await require_tenant_match(auth, slug)
+    _require_model_approver(auth)
+    result = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.id == artifact_id, ModelArtifact.tenant_id == auth.tenant_id,
+        ModelArtifact.scope == "tenant",
+    ).with_for_update())
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Versão anterior não encontrada.")
+    if target.lifecycle_status != "retired" or not target.approved_by_user_id:
+        raise HTTPException(status_code=409, detail="Rollback exige versão anterior aprovada e aposentada.")
+    previous_result = await db.execute(select(ModelArtifact).where(
+        ModelArtifact.tenant_id == auth.tenant_id, ModelArtifact.scope == "tenant",
+        ModelArtifact.is_active.is_(True),
+    ).with_for_update())
+    previous = previous_result.scalars().all()
+    now = datetime.now(timezone.utc)
+    previous_id = previous[0].id if previous else None
+    for old in previous:
+        old.is_active = False
+        old.lifecycle_status = "retired"
+        old.retired_at = now
+    target.is_active = True
+    target.lifecycle_status = "active"
+    target.activated_at = now
+    target.rollback_of_artifact_id = previous_id
+    target.activation_reason = f"ROLLBACK: {body.reason.strip()}"
+    auth.tenant.active_model_id = target.id
+    await db.commit()
+    invalidate_tenant_cache(slug)
+    return {"status": "rolled_back", "artifact_id": target.id, "version": target.version,
+            "rolled_back_from_artifact_id": previous_id, "reason": body.reason.strip()}
 
 
 @router.post("/tenants/{slug}/models/deactivate")
