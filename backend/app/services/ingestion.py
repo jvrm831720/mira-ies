@@ -498,6 +498,7 @@ def prepare_import_rows(
         "invalid_rows_count": len(errors),
         "invalid_rows": errors[:20],
         "duplicate_identity_conflicts": duplicate_identity_conflicts,
+        "_conflicted_matriculas": sorted(conflicted_matriculas),
         "issues": issues[:100],
         "duplicates_in_file": duplicates_removed,
         "sample_rows": sample_rows,
