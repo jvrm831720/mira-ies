@@ -46,7 +46,9 @@ jobs:
           heads="$(PYTHONPATH=. alembic heads)"
           echo "$heads"
           test "$(printf '%s\n' "$heads" | grep -c '(head)')" -eq 1
-          printf '%s\n' "$heads" | grep -q '014_student_financial_import_fields'
+          head_revision="$(printf '%s\n' "$heads" | awk 'NR == 1 { print $1 }')"
+          test "$head_revision" = "014_student_financial"
+          test "${#head_revision}" -le 32
       - name: Lint (ruff)
         working-directory: backend
         run: ruff check app

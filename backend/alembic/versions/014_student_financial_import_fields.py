@@ -1,12 +1,12 @@
 """Structured financial fields for imported students.
 
-Revision ID: 014_student_financial_import_fields
+Revision ID: 014_student_financial
 Revises: 013_control_center_billing
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "014_student_financial_import_fields"
+revision = "014_student_financial"
 down_revision = "013_control_center_billing"
 branch_labels = None
 depends_on = None
