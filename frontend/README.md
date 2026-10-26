@@ -12,7 +12,9 @@ npm ci
 npm run dev
 ```
 
-O frontend fica em http://localhost:3000. Por padrão, a API esperada é http://localhost:8000; para alterar, defina `NEXT_PUBLIC_API_URL` no ambiente.
+O frontend fica em http://localhost:3000. Em desenvolvimento, o proxy usa `http://localhost:8000` por padrão. Para alterar, defina `NEXT_PUBLIC_API_URL`.
+
+Em produção, configure `MIRA_API_URL` no ambiente do servidor Next.js com a URL base do backend (por exemplo, `https://api.sua-instituicao.com`). As chamadas `/api/v1/*` passam pelo proxy do Next.js em tempo de execução; não use `localhost` como URL do backend em produção. Se `MIRA_API_URL` e `NEXT_PUBLIC_API_URL` estiverem ausentes fora de desenvolvimento, o proxy retorna um erro explícito de configuração em vez de tentar conectar silenciosamente ao próprio servidor.
 
 ## Verificações
 

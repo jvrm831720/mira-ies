@@ -40,9 +40,12 @@ function followUpLabel(status?: string) {
 function AlunosContent() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") || "");
-  const [risk, setRisk] = useState("");
+  const [risk, setRisk] = useState(() => {
+    const requestedRisk = searchParams.get("risk") || "";
+    return ["critico", "medio", "baixo"].includes(requestedRisk) ? requestedRisk : "";
+  });
   const [course, setCourse] = useState("");
-  const [tab, setTab] = useState<StudentTab>(searchParams.get("risk") ? "risco" : "todos");
+  const [tab, setTab] = useState<StudentTab>("todos");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const studentsQuery = useQuery({
@@ -60,7 +63,7 @@ function AlunosContent() {
     retry: false,
   });
 
-  const students = studentsQuery.data?.students || [];
+  const students = useMemo(() => studentsQuery.data?.students ?? [], [studentsQuery.data?.students]);
   const courses = useMemo(
     () => [...new Set(students.map((student) => student.curso?.trim()).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, "pt-BR")),
     [students]
