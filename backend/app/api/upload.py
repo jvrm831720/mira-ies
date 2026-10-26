@@ -65,7 +65,7 @@ def validate_extension(filename: str) -> str:
     return ext
 
 
-def read_file_to_dataframe(file_content: bytes, ext: str) -> pd.DataFrame:
+def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None = None) -> pd.DataFrame:
     """Le planilhas sempre como string (dtype=str): colunas de matricula/turma
     puramente numericas seriam inferidas como int pelo pandas, descartando
     zeros a esquerda (ex: "00123" -> 123) antes da validacao. Campos
@@ -81,12 +81,76 @@ def read_file_to_dataframe(file_content: bytes, ext: str) -> pd.DataFrame:
                     continue
             raise ValueError("Nao foi possivel decodificar o CSV")
         elif ext in ["xlsx", "xls"]:
-            return pd.read_excel(io.BytesIO(file_content), dtype=str).dropna(axis=1, how="all")
+            return pd.read_excel(io.BytesIO(file_content), sheet_name=sheet_name if sheet_name else 0, dtype=str).dropna(axis=1, how="all")
         raise ValueError(f"Formato nao suportado: {ext}")
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Erro ao processar arquivo: {str(e)}")
+
+
+
+def inspect_file_structure(file_content: bytes, ext: str) -> dict[str, Any]:
+    """Inspeciona abas, cabeçalhos e amostras sem validar nem persistir registros."""
+    if ext == "csv":
+        df = read_file_to_dataframe(file_content, ext)
+        headers = [str(column) for column in df.columns]
+        try:
+            _, mapped = normalize_columns(df)
+        except ValueError:
+            mapped = {}
+        required = {"matricula", "nome"}
+        score = len(required.intersection(mapped.values()))
+        return {
+            "sheets": [{"name": "CSV", "rows": int(len(df)), "columns": headers,
+                        "sample_rows": df.head(3).fillna("").astype(str).to_dict(orient="records"),
+                        "recognized_fields": mapped, "required_fields_found": score == 2,
+                        "tabular": not df.empty and len(headers) > 1}],
+            "suggested_sheet": "CSV", "requires_sheet_selection": False,
+        }
+
+    try:
+        excel = pd.ExcelFile(io.BytesIO(file_content))
+        sheets = []
+        for name in excel.sheet_names:
+            try:
+                df = pd.read_excel(excel, sheet_name=name, dtype=str).dropna(axis=1, how="all")
+            except Exception:
+                continue
+            if df.empty and len(df.columns) == 0:
+                continue
+            headers = [str(column) for column in df.columns]
+            try:
+                _, mapped = normalize_columns(df)
+            except ValueError:
+                mapped = {}
+            recognized = set(mapped.values())
+            required_found = {"matricula", "nome"}.issubset(recognized)
+            tabular = bool(headers) and len(headers) >= 2 and len(df) > 0
+            sheets.append({
+                "name": str(name),
+                "rows": int(len(df)),
+                "columns": headers,
+                "sample_rows": df.head(3).fillna("").astype(str).to_dict(orient="records"),
+                "recognized_fields": mapped,
+                "required_fields_found": required_found,
+                "tabular": tabular,
+            })
+        if not sheets:
+            raise ValueError("Nenhuma aba contém uma tabela legível.")
+        candidates = [sheet for sheet in sheets if sheet["required_fields_found"]]
+        suggested = candidates[0]["name"] if len(candidates) == 1 else None
+        if suggested is None:
+            tabular_candidates = [sheet for sheet in sheets if sheet["tabular"]]
+            if len(tabular_candidates) == 1:
+                suggested = tabular_candidates[0]["name"]
+        return {
+            "sheets": sheets,
+            "suggested_sheet": suggested,
+            "requires_sheet_selection": suggested is None and len(sheets) > 1,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Não foi possível inspecionar as abas do arquivo: {exc}") from exc
 
 
 def parse_column_mapping(value: str | None) -> dict[str, str] | None:
@@ -251,10 +315,28 @@ async def preview_multiple_students_files(
         "message": "Prévia consolidada por matrícula concluída. Nenhum dado foi salvo. Revise duplicidades e conflitos antes de habilitar a importação conjunta.",
     }
 
+
+@router.post("/upload/structure")
+async def inspect_students_file_structure(
+    file: UploadFile = File(...),
+    auth: AuthContext = Depends(get_current_tenant),
+):
+    """Detecta abas e mostra cabeçalhos/amostra antes de validar os registros."""
+    ext = validate_extension(file.filename)
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=422, detail="Arquivo vazio.")
+    if len(content) > settings.max_upload_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"Arquivo muito grande. Máximo: {settings.max_upload_size_mb} MB.")
+    structure = inspect_file_structure(content, ext)
+    return {"filename": sanitize_filename(file.filename or ""), "file_type": ext, **structure, "persisted": False}
+
+
 @router.post("/upload/preview")
 async def preview_students_file(
     file: UploadFile = File(...),
     column_mapping: str | None = Form(default=None),
+    sheet_name: str | None = Form(default=None),
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -266,9 +348,9 @@ async def preview_students_file(
         raise HTTPException(status_code=413, detail=f"Arquivo muito grande. Maximo: {settings.max_upload_size_mb}MB")
     if not content:
         raise HTTPException(status_code=422, detail="Arquivo vazio")
-    df = read_file_to_dataframe(content, ext)
+    df = read_file_to_dataframe(content, ext, sheet_name=sheet_name)
     if df.empty:
-        raise HTTPException(status_code=422, detail="Arquivo nao contem dados")
+        raise HTTPException(status_code=422, detail="A aba selecionada não contém dados tabulares.")
     try:
         prepared = prepare_import_rows(df, parse_column_mapping(column_mapping))
     except ValueError as exc:
@@ -287,6 +369,7 @@ async def preview_students_file(
     result["existing_matches"] = len(existing_matriculas)
     result["rows_that_will_be_created"] = max(0, result["rows_to_import"] - len(existing_matriculas))
     result["field_labels"] = COLUMN_LABELS
+    result["selected_sheet"] = sheet_name or ("CSV" if ext == "csv" else None)
     result["message"] = (
         "A prévia não salva dados. Matrículas já existentes nesta instituição serão atualizadas; "
         "células vazias não apagarão valores existentes."
@@ -299,6 +382,7 @@ async def upload_students_file(
     file: UploadFile = File(...),
     auto_score: bool = Query(True),
     column_mapping: str | None = Form(default=None),
+    sheet_name: str | None = Form(default=None),
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
@@ -309,7 +393,7 @@ async def upload_students_file(
         raise HTTPException(status_code=413, detail=f"Arquivo muito grande. Maximo: {settings.max_upload_size_mb}MB")
     if size_mb == 0:
         raise HTTPException(status_code=422, detail="Arquivo vazio")
-    df = read_file_to_dataframe(content, ext)
+    df = read_file_to_dataframe(content, ext, sheet_name=sheet_name)
     if df.empty:
         raise HTTPException(status_code=422, detail="Arquivo nao contem dados")
     batch_uuid = str(uuid.uuid4())
