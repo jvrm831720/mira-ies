@@ -305,8 +305,41 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
     raw_email = safe_str(row.get("email"))
     email = raw_email
     if raw_email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", raw_email):
-        warnings.append(f"Linha {line_number}: e-mail inválido; o campo ficará vazio nesta importação.")
+        warnings.append(
+            f"Linha {line_number}: e-mail inválido; o valor será ignorado. "
+            "Em atualizações, o e-mail válido existente será preservado; em novos cadastros, ficará vazio."
+        )
         email = None
+
+    raw_status = safe_str(row.get("status_aluno"))
+    status_aluno = raw_status
+    if raw_status:
+        normalized_status = normalize_header(raw_status).replace("_", " ")
+        status_aliases = {
+            "ativo": "Ativo",
+            "active": "Ativo",
+            "matriculado": "Ativo",
+            "trancado": "Trancado",
+            "trancada": "Trancado",
+            "em trancamento": "Trancado",
+            "evadido": "Evadido",
+            "evasao": "Evadido",
+            "abandono": "Evadido",
+            "cancelado": "Cancelado",
+            "cancelada": "Cancelado",
+            "formado": "Formado",
+            "formada": "Formado",
+            "concluido": "Formado",
+            "concluida": "Formado",
+            "transferido": "Transferido",
+            "transferida": "Transferido",
+        }
+        status_aluno = status_aliases.get(normalized_status)
+        if status_aluno is None:
+            warnings.append(
+                f"Linha {line_number}: status acadêmico '{raw_status}' não reconhecido; "
+                "o campo será ignorado e o valor existente será preservado."
+            )
 
     if safe_str(row.get("communication_opt_out")) and safe_bool(row.get("communication_opt_out")) is None:
         warnings.append(
@@ -318,7 +351,7 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "nome": nome[:255],
         "curso": safe_str(row.get("curso")),
         "campus": (safe_str(row.get("campus")) or "")[:150] or None,
-        "status_aluno": (safe_str(row.get("status_aluno")) or "")[:80] or None,
+        "status_aluno": (status_aluno or "")[:80] or None,
         "turma": safe_str(row.get("turma")),
         "semestre": _clamp_int(safe_semester(row.get("semestre")), 1, 30),
         "forma_ingresso": safe_str(row.get("forma_ingresso")),
@@ -359,11 +392,35 @@ def prepare_import_rows(
         raw = {key: (None if pd.isna(value) else value) for key, value in row.to_dict().items()}
         cleaned.append({"data": data, "raw": raw, "line": idx + 2})
 
-    # Dentro do arquivo, conserva a última ocorrência da matrícula, como o fluxo antigo.
+    # Duplicatas idênticas podem ser consolidadas; matrículas com nomes divergentes
+    # são bloqueadas para evitar que uma linha troque a identidade de outra pessoa.
     unique: dict[str, dict[str, Any]] = {}
+    duplicate_identity_conflicts: list[dict[str, Any]] = []
     for item in cleaned:
-        unique[item["data"]["matricula"]] = item
-    duplicates_removed = len(cleaned) - len(unique)
+        key = item["data"]["matricula"]
+        previous = unique.get(key)
+        if previous is not None:
+            previous_name = normalize_header(previous["data"]["nome"])
+            current_name = normalize_header(item["data"]["nome"])
+            if previous_name != current_name:
+                duplicate_identity_conflicts.append({
+                    "line": item["line"],
+                    "message": (
+                        f"Linha {item['line']}: matrícula {key} aparece com nomes diferentes "
+                        "no mesmo arquivo; corrija a duplicidade antes de importar."
+                    ),
+                    "severity": "block",
+                    "column": "nome",
+                    "action": "Confirme a matrícula e o nome corretos antes de importar.",
+                })
+                continue
+        unique[key] = item
+    duplicates_removed = len(cleaned) - len(unique) - len(duplicate_identity_conflicts)
+    if duplicates_removed > 0:
+        warnings.append(
+            f"{duplicates_removed} linha(s) duplicada(s) idêntica(s) por matrícula foram consolidadas."
+        )
+    errors.extend(duplicate_identity_conflicts)
     if duplicates_removed:
         warnings.append(
             f"{duplicates_removed} linha(s) duplicada(s) por matrícula foram consolidadas; "
@@ -426,6 +483,7 @@ def prepare_import_rows(
         "rows_to_import": rows_to_import,
         "invalid_rows_count": len(errors),
         "invalid_rows": errors[:20],
+        "duplicate_identity_conflicts": duplicate_identity_conflicts,
         "issues": issues[:100],
         "duplicates_in_file": duplicates_removed,
         "sample_rows": sample_rows,
@@ -435,7 +493,7 @@ def prepare_import_rows(
         "columns_original": [str(column) for column in df_original.columns],
         "columns_recognized": sorted(mapped_targets),
         "null_rates_pct": null_rates,
-        "can_import": not missing and rows_to_import > 0,
+        "can_import": not missing and rows_to_import > 0 and not duplicate_identity_conflicts,
         # Internal prepared values consumed by persistence. API removes these keys.
         "_df_normalized": df_normalized,
         "_df_original": df_original,
@@ -496,6 +554,9 @@ async def create_batch_and_students(
             f"Colunas obrigatórias ausentes: {', '.join(missing)}. "
             f"Colunas disponíveis: {prepared['columns_original']}"
         )
+    if prepared.get("duplicate_identity_conflicts"):
+        details = "; ".join(item["message"] for item in prepared["duplicate_identity_conflicts"][:10])
+        raise ValueError(details)
     cleaned_rows = prepared["_cleaned_rows"]
     if not cleaned_rows:
         raise ValueError("Nenhuma linha válida encontrada após a validação.")
@@ -548,7 +609,17 @@ async def create_batch_and_students(
         raw = item["raw"]
         existing = existing_by_matricula.get(data["matricula"])
         if existing is not None:
-            # Células vazias/ausentes nunca apagam dados existentes; opt-out explícito é respeitado.
+            # Matrícula identifica uma pessoa. Não permitir que uma importação troque
+            # silenciosamente a identidade do cadastro; correções de nome devem ser explícitas.
+            incoming_name = safe_str(data.get("nome"))
+            existing_name = safe_str(existing.nome)
+            if incoming_name and existing_name and normalize_header(incoming_name) != normalize_header(existing_name):
+                raise ValueError(
+                    f"Matrícula {data['matricula']}: o nome recebido ('{incoming_name}') "
+                    f"difere do cadastro existente ('{existing_name}'). Importação bloqueada para revisão manual."
+                )
+            # Células vazias/ausentes e valores inválidos nunca apagam dados existentes;
+            # opt-out explícito é respeitado.
             for field in mutable_fields:
                 if field not in mapped_targets:
                     continue

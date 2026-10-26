@@ -172,3 +172,96 @@ def test_import_maps_campus_and_student_status():
     assert row["matricula"] == "0001842"
     assert row["campus"] == "Centro"
     assert row["status_aluno"] == "Ativo"
+
+
+
+def test_invalid_status_and_email_are_flagged_without_clean_values():
+    import pandas as pd
+    from app.services.ingestion import prepare_import_rows
+
+    frame = pd.DataFrame([{
+        "matricula": "VAL001",
+        "nome": "Pessoa Teste",
+        "email": "email-invalido",
+        "semestre": "semestre dois",
+        "status_aluno": "Talvez",
+    }])
+    prepared = prepare_import_rows(frame)
+    row = prepared["_cleaned_rows"][0]["data"]
+
+    assert row["email"] is None
+    assert row["semestre"] is None
+    assert row["status_aluno"] is None
+    assert any("e-mail inválido" in warning and "valor será ignorado" in warning for warning in prepared["warnings"])
+    assert any("status acadêmico" in warning and "preservado" in warning for warning in prepared["warnings"])
+
+
+def test_duplicate_matricula_with_different_names_blocks_import():
+    import pandas as pd
+    from app.services.ingestion import prepare_import_rows
+
+    frame = pd.DataFrame([
+        {"matricula": "DUP001", "nome": "Ana Souza"},
+        {"matricula": "DUP001", "nome": "Felipe Ribeiro"},
+    ])
+    prepared = prepare_import_rows(frame)
+
+    assert prepared["can_import"] is False
+    assert prepared["duplicate_identity_conflicts"]
+    assert "nomes diferentes" in prepared["duplicate_identity_conflicts"][0]["message"]
+
+
+async def test_upload_blocks_existing_matricula_with_different_name(client, auth_headers):
+    original = b"matricula,nome,curso\nSAFE001,Ana Souza,Administracao\n"
+    first = await client.post(
+        "/api/v1/upload",
+        headers=auth_headers,
+        files={"file": ("original.csv", original, "text/csv")},
+        params={"auto_score": "false"},
+    )
+    assert first.status_code == 201
+
+    conflicting = b"matricula,nome,curso\nSAFE001,Felipe Ribeiro,Direito\n"
+    second = await client.post(
+        "/api/v1/upload",
+        headers=auth_headers,
+        files={"file": ("conflicting.csv", conflicting, "text/csv")},
+        params={"auto_score": "false"},
+    )
+    assert second.status_code == 422
+    assert "difere do cadastro existente" in second.json()["detail"]
+
+    students = await client.get("/api/v1/students", headers=auth_headers)
+    saved = next(s for s in students.json()["students"] if s["matricula"] == "SAFE001")
+    assert saved["nome"] == "Ana Souza"
+
+
+async def test_upload_preserves_existing_fields_when_incoming_values_are_invalid(client, auth_headers):
+    original = (
+        b"matricula,nome,email,semestre,status_aluno\n"
+        b"SAFE002,Camila Alves,camila@example.com,3,Ativo\n"
+    )
+    first = await client.post(
+        "/api/v1/upload",
+        headers=auth_headers,
+        files={"file": ("original.csv", original, "text/csv")},
+        params={"auto_score": "false"},
+    )
+    assert first.status_code == 201
+
+    invalid_update = (
+        b"matricula,nome,email,semestre,status_aluno\n"
+        b"SAFE002,Camila Alves,camila@,semestre dois,Talvez\n"
+    )
+    second = await client.post(
+        "/api/v1/upload",
+        headers=auth_headers,
+        files={"file": ("invalid-update.csv", invalid_update, "text/csv")},
+        params={"auto_score": "false"},
+    )
+    assert second.status_code == 201
+
+    students = await client.get("/api/v1/students", headers=auth_headers)
+    saved = next(s for s in students.json()["students"] if s["matricula"] == "SAFE002")
+    assert saved["nome"] == "Camila Alves"
+    assert saved["semestre"] == 3

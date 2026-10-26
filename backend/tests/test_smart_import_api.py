@@ -99,7 +99,7 @@ async def test_reimport_updates_same_tenant_student_without_erasing_empty_fields
     original_id = first_student.id
 
     # E-mail, telefone e a preferência de opt-out não aparecem no segundo arquivo.
-    second_csv = b"matricula,nome,curso\nKEEP-001,Nome Atual,Direito\n"
+    second_csv = b"matricula,nome,curso\nKEEP-001,Nome Antigo,Direito\n"
     second = await client.post(
         "/api/v1/upload",
         headers={"X-API-Key": key},
@@ -122,7 +122,7 @@ async def test_reimport_updates_same_tenant_student_without_erasing_empty_fields
     )
     assert len(students) == 1
     assert students[0].id == original_id
-    assert students[0].nome == "Nome Atual"
+    assert students[0].nome == "Nome Antigo"
     assert students[0].curso == "Direito"
     assert students[0].email == "aluno@example.edu.br"
     assert students[0].telefone == "11988887777"
@@ -177,11 +177,13 @@ async def test_preview_flags_bad_rows_duplicate_matriculas_and_invalid_email(cli
     body = response.json()
     assert body["rows_received"] == 3
     assert body["rows_to_import"] == 1
-    assert body["invalid_rows_count"] == 1
-    assert body["duplicates_in_file"] == 1
+    assert body["invalid_rows_count"] == 2
+    assert body["duplicates_in_file"] == 0
+    assert body["can_import"] is False
+    assert any("nomes diferentes" in item["message"] for item in body["invalid_rows"])
     assert any("e-mail inválido" in warning for warning in body["warnings"])
     assert any("limitado" in warning for warning in body["warnings"])
-    assert body["sample_rows"][0]["nome"] == "Ana Atual"
+    assert body["sample_rows"][0]["nome"] == "Ana"
 
 
 @pytest.mark.asyncio
