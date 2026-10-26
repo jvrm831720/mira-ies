@@ -109,28 +109,6 @@ async def preview_multiple_students_files(
     db: AsyncSession = Depends(get_db),
 ):
     """Pré-valida bases complementares por matrícula; nunca persiste dados."""
-    if not idempotency_key.strip() or len(idempotency_key) > 200:
-        raise HTTPException(status_code=400, detail="Idempotency-Key é obrigatória e deve ter até 200 caracteres.")
-    deterministic_batch_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"mira-import:{auth.tenant_id}:{idempotency_key.strip()}"))
-    prior_batch = await db.execute(
-        select(UploadBatch).where(
-            UploadBatch.id == deterministic_batch_id,
-            UploadBatch.tenant_id == auth.tenant_id,
-        )
-    )
-    existing_batch = prior_batch.scalar_one_or_none()
-    if existing_batch is not None:
-        existing_students = await db.execute(select(Student.id).where(
-            Student.tenant_id == auth.tenant_id, Student.batch_id == existing_batch.id
-        ))
-        count = len(existing_students.scalars().all())
-        return {
-            "message": "Esta confirmação já foi processada; resultado anterior reutilizado.",
-            "batch": UploadBatchResponse.model_validate(existing_batch),
-            "students_imported": count,
-            "persisted": True,
-            "idempotent_replay": True,
-        }
     if not files:
         raise HTTPException(status_code=422, detail="Selecione ao menos um arquivo.")
     if len(files) > 10:
