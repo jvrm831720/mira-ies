@@ -1,13 +1,13 @@
 """Add academic campus and student status fields.
 
 Revision ID: 015_student_campus_status
-Revises: 014_student_financial_import_fields
+Revises: 014_student_financial
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "015_student_campus_status"
-down_revision = "014_student_financial_import_fields"
+down_revision = "014_student_financial"
 branch_labels = None
 depends_on = None
 
