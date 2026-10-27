@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import type { InterventionLog } from "@/types/api";
 
-const statusLabels: Record<string, string> = { dry_run: "Simulado", sent: "Enviado", sending: "Enviando", submitted: "Submetido", queued: "Na fila", delivered: "Entregue", read: "Lido", unknown: "Verificar", skipped: "Ignorado", failed: "Falhou", bounced: "Devolvido", rejected: "Rejeitado" };
+const statusLabels: Record<string, string> = { dry_run: "Simulado", sent: "Envio registrado", sending: "Enviando", submitted: "Submetido", queued: "Na fila", delivered: "Entregue", read: "Lido", unknown: "Status incerto", skipped: "Ignorado", failed: "Falhou", bounced: "Devolvido", rejected: "Rejeitado" };
 function statusTone(status: string) {
-  if (["sent", "delivered", "read"].includes(status)) return "bg-emerald-50 text-emerald-700";
+  if (["delivered", "read"].includes(status)) return "bg-emerald-50 text-emerald-700";
+  if (status === "sent") return "bg-[#eef0ff] text-[var(--brand-indigo)]";
   if (["failed", "bounced", "rejected", "unknown"].includes(status)) return "bg-[#fff0ed] text-[#b84336]";
   if (status === "dry_run") return "bg-[#eef0ff] text-[var(--brand-indigo)]";
   if (["sending", "submitted", "queued"].includes(status)) return "bg-amber-50 text-amber-700";
@@ -28,7 +29,7 @@ export function RecentActivity({ logs, loading, error, onRetry }: { logs?: Inter
   return (
     <Card className="h-full overflow-hidden">
       <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b border-black/[0.06] pb-4">
-        <div className="min-w-0"><CardTitle className="text-[17px] tracking-[-0.03em]">Atividade recente</CardTitle><CardDescription className="mt-1">Últimos registros da régua de retenção</CardDescription></div>
+        <div className="min-w-0"><CardTitle className="text-[17px] tracking-[-0.03em]">Atividade recente</CardTitle><CardDescription className="mt-1">Últimos registros da régua de retenção. Status de mensagem não confirma retenção.</CardDescription></div>
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[rgba(64,80,205,0.09)] text-[var(--brand-indigo)]"><Activity className="h-4 w-4" /></span>
       </CardHeader>
       <CardContent className="space-y-1 pt-2">
