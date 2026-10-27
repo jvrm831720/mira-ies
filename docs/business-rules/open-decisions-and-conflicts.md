@@ -76,3 +76,15 @@ Revisão especializada para base legal/finalidade, evidência de autorização d
 ### Status de validação
 - O CI #332 foi reportado como aprovado para o commit `2dfb700094831fb50be7aef7e4de771bc26fe98f`; esta rodada de documentação não modifica código de aplicação nem substitui a execução do CI para o novo HEAD.
 - Nenhum staging, produção, banco real ou provedor externo foi acessado.
+
+## Adendo de revisão por fronteiras — 2026-10-27
+
+### Governança de modelos
+- **Lacuna concreta de rastreabilidade:** o treino institucional cria ModelArtifact com run_id, versão, métricas e relatório, mas a criação examinada não associa explicitamente o ID da autorização institucional, ID da política efetiva, fingerprint do dataset e conjunto exato de contribuintes. O schema de ModelArtifact não apresenta colunas dedicadas para esses campos. Verificar se alguma estrutura externa/persistida complementa esse registro antes de decidir uma alteração de schema.
+- O serviço build_shared_training_events chama o guard antes de consultar eventos, mas falta prova de que todos os consumidores de treino compartilhado usam esse ponto de entrada.
+- **Decisão de acesso P1:** POST /api/v1/tenants/{slug}/train verifica tenant e autorização institucional no serviço, mas a rota não aplica require_min_role/approver. Definir se credencial API institucional pode iniciar treino e usar force=true; não classificar como falha até aprovar a matriz esperada.
+
+### Isolamento multi-tenant — evidência adicional
+- Foram observados filtros de tenant em conectores, outcomes, campanhas, uploads e jobs selecionados, além de validação HMAC vinculada ao tenant no webhook de entrega.
+- Para a fila, get_job aceita tenant_id; o endpoint de status passa o tenant autenticado e a rota dead-letter filtra cada job antes de retorná-lo. O worker/retry/efeito externo não foi rastreado ponta a ponta.
+- Não foi confirmado defeito de divulgação cross-tenant nesta amostra. A cobertura continua parcial e exige testes negativos por endpoint e fluxo assíncrono.
