@@ -48,6 +48,7 @@ async def score_batch(
     tenant_id: str,
     tenant_slug: str | None = None,
     explain: bool | None = None,
+    scoring_run_id: str | None = None,
 ) -> dict[str, Any]:
     """Pontua batch isolado por tenant. SHAP default off (SHAP_ON_BATCH=false)."""
     from app.core.config import get_settings
@@ -70,6 +71,25 @@ async def score_batch(
     if not batch:
         raise ValueError(f"Batch {batch_id} nao encontrado")
 
+    run_id = scoring_run_id or str(uuid4())
+    replay_rows = (await session.execute(
+        select(RiskAssessment).where(
+            RiskAssessment.tenant_id == tenant_id,
+            RiskAssessment.batch_id == batch_id,
+            RiskAssessment.scoring_run_id == run_id,
+        )
+    )).scalars().all()
+    if replay_rows:
+        replay_summary = {"baixo": 0, "medio": 0, "critico": 0}
+        for assessment in replay_rows:
+            replay_summary[assessment.risk_level] = replay_summary.get(assessment.risk_level, 0) + 1
+        return {
+            "batch_id": batch_id, "scored": len(replay_rows), "summary": replay_summary,
+            "scoring_run_id": run_id, "idempotent_replay": True,
+            "model_scope": replay_rows[0].model_scope, "model_version": replay_rows[0].model_version,
+            "tenant_id": tenant_id, "message": "Execução já registrada; nenhuma avaliação duplicada foi criada.",
+        }
+
     query = select(Student).where(Student.batch_id == batch_id, Student.tenant_id == tenant_id)
     if not force:
         query = query.where(Student.risk_score.is_(None))
@@ -85,7 +105,6 @@ async def score_batch(
 
     summary = {"baixo": 0, "medio": 0, "critico": 0}
     scored_details = []
-    scoring_run_id = str(uuid4())
     evaluated_at = datetime.now(timezone.utc)
     for i, student in enumerate(students):
         proba = float(probas[i])
@@ -117,7 +136,7 @@ async def score_batch(
             tenant_id=tenant_id,
             student_id=student.id,
             batch_id=batch_id,
-            scoring_run_id=scoring_run_id,
+            scoring_run_id=run_id,
             evaluated_at=evaluated_at,
             score=final_score,
             risk_level=final_level,

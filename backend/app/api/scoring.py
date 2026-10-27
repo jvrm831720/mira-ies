@@ -1,12 +1,13 @@
 """Endpoints do Motor Preditivo — isolados por tenant via AuthContext."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel, Field
 from typing import Optional, Any
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+from uuid import uuid5, NAMESPACE_URL
 
 from app.db.session import get_db
 from app.core.auth import AuthContext, get_current_tenant
@@ -121,11 +122,20 @@ async def predict_what_if(payload: StudentFeaturesInput, auth: AuthContext = Dep
 async def score_batch_endpoint(
     batch_id: str,
     force: bool = Query(False),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
+    if force and not idempotency_key:
+        raise HTTPException(status_code=422, detail="force=true exige o cabeçalho Idempotency-Key para evitar avaliações duplicadas em retries.")
+    if idempotency_key and (len(idempotency_key) > 200 or not idempotency_key.strip()):
+        raise HTTPException(status_code=422, detail="Idempotency-Key deve conter de 1 a 200 caracteres.")
+    run_id = str(uuid5(NAMESPACE_URL, "mira-risk:" + auth.tenant_id + ":" + batch_id + ":" + idempotency_key)) if idempotency_key else None
     try:
-        return await score_batch(db, batch_id, force=force, tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug)
+        return await score_batch(
+            db, batch_id, force=force, tenant_id=auth.tenant_id,
+            tenant_slug=auth.tenant_slug, scoring_run_id=run_id,
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

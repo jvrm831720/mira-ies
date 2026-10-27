@@ -121,3 +121,40 @@ async def test_risk_history_compares_latest_assessment_to_previous_within_period
     assert movement["current_score"] == 67.0
     assert movement["delta"] == 25.0
     assert movement["change_type"] == "risco_aumentou"
+
+
+
+async def test_forced_batch_score_requires_and_reuses_idempotency_key(client, tenant, db_session):
+    t, api_key = tenant
+    batch = UploadBatch(
+        tenant_id=t.id, filename="retry.csv", original_filename="retry.csv",
+        status="received", total_rows=1, processed_rows=1,
+    )
+    db_session.add(batch)
+    await db_session.flush()
+    db_session.add(Student(
+        tenant_id=t.id, batch_id=batch.id, matricula="R-001", nome="Retry Seguro",
+        curso="Direito", dias_atraso_boleto=25, dias_sem_login=20,
+        presenca_percentual=60, nota_media=5,
+    ))
+    await db_session.commit()
+    headers = {"X-API-Key": api_key}
+
+    missing_key = await client.post(
+        "/api/v1/score/batch/" + batch.id, headers=headers, params={"force": "true"}
+    )
+    assert missing_key.status_code == 422
+
+    headers["Idempotency-Key"] = "retry-stable-key"
+    first = await client.post(
+        "/api/v1/score/batch/" + batch.id, headers=headers, params={"force": "true"}
+    )
+    second = await client.post(
+        "/api/v1/score/batch/" + batch.id, headers=headers, params={"force": "true"}
+    )
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert second.json()["idempotent_replay"] is True
+    history = await client.get("/api/v1/risk/history", headers={"X-API-Key": api_key})
+    assert history.status_code == 200
+    assert history.json()["total_assessments"] == 1

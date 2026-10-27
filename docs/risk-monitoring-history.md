@@ -18,7 +18,7 @@ A migration **019_risk_assessment_history** cria **risk_assessments**, com:
 - score base e ajuste dinâmico;
 - snapshot de features, explicação preservada quando disponível e contexto de origem.
 
-A avaliação é gravada na mesma transação que atualiza o score do aluno. O índice composto tenant/aluno/data suporta consultas históricas. Uma constraint única por scoring_run_id e aluno evita duplicação dentro da mesma execução. O fluxo normal ignora alunos já pontuados; force=true representa uma nova avaliação explícita e, portanto, gera novo evento.
+A avaliação é gravada na mesma transação que atualiza o score do aluno. O índice composto tenant/aluno/data suporta consultas históricas. Uma constraint única por scoring_run_id e aluno evita duplicação dentro da mesma execução. O fluxo normal ignora alunos já pontuados. Reavaliações com force=true exigem o cabeçalho Idempotency-Key; retries com a mesma chave reutilizam a execução já gravada e não duplicam o histórico.
 
 ## Histórico anterior
 
