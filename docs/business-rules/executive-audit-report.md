@@ -63,3 +63,16 @@ A inspeção dirigida acrescentou evidência sobre três fronteiras de treinamen
 **Não significa conclusão:** ainda não está demonstrado que todos os callers de treino usam os gates, que as decisões são persistidas por run/dataset ou que todas as rotas/exports/workers/webhooks preservam isolamento. A regra de release permanece: não declarar governança compartilhada ou isolamento multi-tenant completos sem inventário e testes abrangentes.
 
 Esta atualização é documental. Nenhum arquivo de aplicação, migration, banco, configuração de produção, `main` ou deploy foi alterado. O CI #332 aprovado pertence ao HEAD anterior; o novo commit documental precisa de sua própria verificação automatizada.
+
+## Fase 4 — revisão de fronteiras (2026-10-27)
+
+A revisão adicional encontrou controles concretos em caminhos selecionados de conectores, outcomes, campanhas, uploads, fila e webhooks. Nenhuma divulgação cross-tenant foi confirmada nesta amostra, mas os fluxos não foram testados integralmente.
+
+Principais achados:
+- O construtor de dataset compartilhado chama o guard antes de consultar eventos rotulados; ainda falta provar que todos os consumidores o utilizam.
+- O treino institucional salva artefato candidato com run_id, versão e métricas. A associação persistida explícita a policy ID, authorization ID, fingerprint do dataset e lista exata de contribuintes não foi demonstrada no schema/trecho examinado.
+- O endpoint de treino institucional valida tenant, mas não declara um papel aprovador. A permissão para credenciais API institucionais iniciarem treino/forçarem treino requer decisão explícita de produto/segurança.
+- A fila armazena tenant e os caminhos examinados consultam jobs com filtro de tenant; o worker, retries e revalidação imediatamente antes do efeito externo permanecem sem rastreamento ponta a ponta.
+- Webhook de entrega usa HMAC do tenant e encaminha o tenant ID; replay/idempotência e cobertura de todos os lookups ainda precisam de testes.
+
+**Estado:** auditoria parcial; nenhuma mudança de aplicação, migration, banco, configuração de produção, main ou deploy foi feita. O HEAD b0f51c23424b112a9405b57513d15ec46739f03b tem CI #343 aprovado. A verificação Vercel também aparece como success no status combinado consultado para esse HEAD, substituindo a observação anterior de falha; isso é status de check, não confirmação de deploy.
