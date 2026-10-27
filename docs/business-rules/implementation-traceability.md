@@ -36,3 +36,15 @@ Para marcar uma regra como validada, registrar commit, teste nominal, cenário c
 | RB-GOV-006 | `resolve_institutional_training_authorization`, `tenant_train.py`, testes de autorização | `test_institutional_training_authorization.py` (existente) | Parcialmente coberta; ainda falta comprovar todos os caminhos de treino e auditoria persistente por execução. |
 
 **Novo arquivo de teste:** `backend/tests/test_governance_audit_edges.py`. Nenhum arquivo de aplicação ou migration foi alterado nesta etapa.
+
+
+## Adendo — evidências da fase 3 (2026-10-27)
+
+| Regra | Evidência examinada | Teste/validação | Estado e lacuna |
+|---|---|---|---|
+| RB-GOV-007 | `backend/app/api/scoring.py::retrain_model` retorna HTTP 409 para treino global legado | Revisão de código; teste específico de endpoint ainda não confirmado nesta auditoria | Bloqueio evidenciado nesse endpoint; inventário de todos os caminhos de treino global pendente |
+| RB-GOV-008 | `backend/app/ml/tenant_train.py::train_tenant_model` verifica autorização local antes do treino e filtra eventos por tenant | Testes de autorização existentes; cobertura de todos os chamadores pendente | Parcial; persistência da decisão por run/dataset não comprovada |
+| RB-GOV-009 | `backend/app/services/shared_training_guard.py::require_shared_training_authorization` bloqueia lista vazia e qualquer tenant negado | `test_shared_training_guard.py` listado na suíte existente; resultado específico não reexecutado nesta fase | Parcial; chamada obrigatória por todos os pipelines não demonstrada |
+| RB-SEC-005 | `backend/app/main.py` registra os routers da superfície principal da API | Inspeção do registro de routers, sem teste abrangente | Inventário de superfície iniciado; validação rota a rota pendente |
+
+Não inferir aprovação de teste a partir de sua existência. A validação específica deve ser vinculada ao run/commit que efetivamente a executou.
