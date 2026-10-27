@@ -43,11 +43,11 @@ Não houve alteração funcional, migration, escrita em banco, mudança de confi
 
 A auditoria foi aprofundada nos dois riscos prioritários sem tocar na aplicação: isolamento institucional e governança de treinamento.
 
-- Criado `backend/tests/test_governance_audit_edges.py` com cenários para negar leitura/scoring cross-tenant de aluno/lote e respeitar a data de vigência de uma política.
+- Criado `backend/tests/test_governance_audit_edges.py` com cenários para negar leitura/scoring cross-tenant de aluno/lote, respeitar a data de vigência de uma política e confirmar o bloqueio HTTP 409 do endpoint legado de treino global. O teste adicional de HTTP 409 foi adicionado ao HEAD `15e39bceaf5492dbf98125d68e4c938c3d9341f4`; execução desse teste no CI ainda não foi confirmada.
 - Revisados `backend/app/api/scoring.py`, `backend/app/services/training_policy.py`, `backend/app/services/shared_training_guard.py`, modelos de política/autorização e testes existentes de governança.
 - Evidência observada: endpoints de risco consultados filtram por tenant autenticado; o resolver ignora políticas futuras e o guard compartilhado bloqueia o lote inteiro se qualquer contribuinte for negado.
 - Limitação crítica: o guard é uma função de serviço e não há, nesta inspeção, prova de que todos os caminhos futuros/indiretos a chamem; o retorno de decisão não equivale a uma trilha de auditoria persistida por run/dataset.
-- GitHub Actions run #331 terminou com sucesso: lint/test do backend e lint/build do frontend passaram para o commit 34388663091e8701f05ee776326ab20fe51bbf8b. Staging/produção não foram acessados; CI verde não comprova comportamento em ambiente hospedado.
+- GitHub Actions run #331 terminou com sucesso para o commit `34388663091e8701f05ee776326ab20fe51bbf8b`, e o run #332 foi reportado como aprovado para `2dfb700094831fb50be7aef7e4de771bc26fe98f`. O HEAD atual `15e39bceaf5492dbf98125d68e4c938c3d9341f4` contém um teste adicional; sua execução automatizada ainda não foi confirmada. Staging/produção não foram acessados; CI verde não comprova comportamento em ambiente hospedado.
 - Escopo respeitado: apenas teste e documentação nesta branch; nenhuma alteração funcional, migration, banco, `main` ou deploy.
 
 
