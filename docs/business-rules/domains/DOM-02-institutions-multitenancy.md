@@ -29,3 +29,13 @@
 - **Evidência:** backend/app/api/scoring.py; filtros por `Student.tenant_id == auth.tenant_id` em resumo, críticos e risco individual; serviço `score_batch` recebe `tenant_id` do contexto autenticado.
 - **Teste novo:** `backend/tests/test_governance_audit_edges.py::test_risk_endpoints_do_not_disclose_another_tenants_student_or_batch`. O run #331 terminou com sucesso.
 - **Limite:** cobre endpoints de risco e scoring de lote identificados, não todos os endpoints/exports/jobs/conectores. Risco P0 até concluir inventário integral.
+
+
+## Fase 3 — limites da evidência de isolamento (2026-10-27)
+
+A inspeção de `backend/app/main.py` confirma que a API registra routers de upload, scoring, conectores, outcomes, agentes, campanhas e execução de campanhas, webhooks de entrega, autenticação, organização, faturamento e administração interna. Esse registro é um índice inicial de superfície, não uma validação de isolamento por rota.
+
+- **Evidência positiva limitada:** os endpoints selecionados em `backend/app/api/scoring.py` filtram alunos por `auth.tenant_id`, e o scoring de lote recebe tenant autenticado.
+- **Lacuna P0:** ainda é necessário inspecionar cada rota e serviço dos routers registrados, inclusive IDs fornecidos pelo cliente, filtros opcionais, exports, consultas agregadas, reprocessamento e acesso a recursos por URL.
+- **Lacuna de assíncronos:** filas, workers, callbacks e webhooks devem preservar tenant_id desde o enqueue até a leitura, efeito externo, retry e consulta de status; a lista de routers não demonstra esse ciclo completo.
+- **Estado:** inventário iniciado, não concluído. Não declarar isolamento multi-tenant integralmente validado.
