@@ -31,10 +31,23 @@ export default function CommandCenterPage() {
   });
 
   const risk = summary.data?.summary;
-  const scoredStudents = summary.data?.total_scored ?? (risk ? risk.baixo + risk.medio + risk.critico : 0);
-  const calculatedTotal = risk ? risk.baixo + risk.medio + risk.critico + risk.sem_score : 0;
-  const totalStudents = summary.data?.total_students ?? calculatedTotal;
-  const riskSegments = risk ? [
+  const riskBreakdownAvailable = Boolean(
+    risk && [risk.baixo, risk.medio, risk.critico, risk.sem_score].every(
+      (count) => typeof count === "number" && Number.isFinite(count) && count >= 0
+    )
+  );
+  const calculatedTotal = riskBreakdownAvailable && risk
+    ? risk.baixo + risk.medio + risk.critico + risk.sem_score
+    : null;
+  const totalStudents = typeof summary.data?.total_students === "number" && Number.isFinite(summary.data.total_students) && summary.data.total_students >= 0
+    ? summary.data.total_students
+    : calculatedTotal;
+  const scoredStudents = typeof summary.data?.total_scored === "number" && Number.isFinite(summary.data.total_scored) && summary.data.total_scored >= 0
+    ? summary.data.total_scored
+    : riskBreakdownAvailable && risk
+      ? risk.baixo + risk.medio + risk.critico
+      : null;
+  const riskSegments = riskBreakdownAvailable && risk ? [
     { label: "Crítico", count: risk.critico, color: "bg-rose-500", text: "text-rose-700" },
     { label: "Médio", count: risk.medio, color: "bg-amber-400", text: "text-amber-700" },
     { label: "Baixo", count: risk.baixo, color: "bg-emerald-500", text: "text-emerald-700" },
@@ -45,8 +58,8 @@ export default function CommandCenterPage() {
   const operationalGeneratedAtLabel = operationalGeneratedAt && !Number.isNaN(operationalGeneratedAt.getTime())
     ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(operationalGeneratedAt)
     : null;
-  const criticalCount = risk?.critico ?? 0;
-  const unscoredCount = risk?.sem_score ?? 0;
+  const criticalCount = riskBreakdownAvailable && risk ? risk.critico : null;
+  const unscoredCount = riskBreakdownAvailable && risk ? risk.sem_score : null;
   const isEmpty = !summary.isLoading && !summary.isError && totalStudents === 0;
 
   const searchHits = useMemo(() => {
@@ -163,22 +176,22 @@ export default function CommandCenterPage() {
               </div>
               {!summary.isLoading && !summary.isError && (
                 <span className="hidden text-xs text-neutral-400 sm:inline">
-                  {scoredStudents.toLocaleString("pt-BR")} com score
+                  {scoredStudents?.toLocaleString("pt-BR") ?? "—"} com score
                 </span>
               )}
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label="Alunos na base"
-                value={summary.isLoading ? "—" : totalStudents.toLocaleString("pt-BR")}
-                hint={summary.isLoading ? "Carregando dados" : "Total de alunos cadastrados"}
+                value={summary.isLoading ? "—" : totalStudents?.toLocaleString("pt-BR") ?? "—"}
+                hint={summary.isLoading ? "Carregando dados" : totalStudents == null ? "Total indisponível" : "Total de alunos cadastrados"}
                 icon={<Users className="h-5 w-5" />}
                 tone="neutral"
               />
               <MetricCard
                 label="Precisam de atenção"
-                value={summary.isLoading ? "—" : criticalCount.toLocaleString("pt-BR")}
-                hint={summary.isLoading ? "Carregando dados" : "Alunos em risco crítico"}
+                value={summary.isLoading ? "—" : criticalCount?.toLocaleString("pt-BR") ?? "—"}
+                hint={summary.isLoading ? "Carregando dados" : criticalCount == null ? "Classificação indisponível" : "Alunos em risco crítico"}
                 icon={<TriangleAlert className="h-5 w-5" />}
                 tone="coral"
               />
@@ -190,14 +203,14 @@ export default function CommandCenterPage() {
                 tone="indigo"
               />
               <MetricCard
-                label="Intervenções atrasadas"
+                label="Atrasadas (>48h)"
                 value={workSummary.isLoading || workSummary.isError ? "—" : workSummary.data?.overdue_48h?.toLocaleString("pt-BR") ?? "—"}
-                hint={workSummary.isError ? "Indicador indisponível" : workSummary.data?.overdue_policy_hours ? "Regra operacional informada: " + workSummary.data.overdue_policy_hours + "h" : "Prazo operacional não informado"}
+                hint={workSummary.isError ? "Indicador indisponível" : typeof workSummary.data?.overdue_policy_hours === "number" && workSummary.data.overdue_policy_hours !== 48 ? "A contagem usa >48h; política configurada: " + workSummary.data.overdue_policy_hours + "h" : workSummary.data?.overdue_policy_hours === 48 ? "Contagem conforme política de 48h" : "Política operacional não informada"}
                 icon={<UserRoundX className="h-5 w-5" />}
                 tone="coral"
               />
             </div>
-            {!summary.isLoading && !summary.isError && risk && (
+            {!summary.isLoading && !summary.isError && riskBreakdownAvailable && risk && (
               <section className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]" aria-label="Distribuição de risco e qualidade da base">
                 <article className="rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-white p-5 sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -205,7 +218,7 @@ export default function CommandCenterPage() {
                       <h3 className="text-sm font-semibold text-neutral-900">Distribuição de risco</h3>
                       <p className="mt-1 text-xs text-neutral-500">A classificação considera apenas alunos com score. “Sem score” permanece como uma categoria separada.</p>
                     </div>
-                    <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-600">{scoredStudents.toLocaleString("pt-BR")} com score</span>
+                    <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-600">{scoredStudents?.toLocaleString("pt-BR") ?? "—"} com score</span>
                   </div>
                   <div className="mt-5 flex h-3 overflow-hidden rounded-full bg-neutral-100" role="img" aria-label={riskTotal > 0 ? riskSegments.map((segment) => segment.label + ": " + segment.count).join(", ") : "Sem distribuição disponível"}>
                     {riskSegments.filter((segment) => segment.count > 0 && riskTotal > 0).map((segment) => (
@@ -217,7 +230,7 @@ export default function CommandCenterPage() {
                       <div key={segment.label} className="min-w-0">
                         <div className="flex items-center gap-2 text-xs text-neutral-500"><span className={"h-2 w-2 shrink-0 rounded-full " + segment.color} />{segment.label}</div>
                         <p className={"mt-1 text-xl font-semibold tabular-nums " + segment.text}>{segment.count.toLocaleString("pt-BR")}</p>
-                        <p className="text-[11px] text-neutral-400">{riskTotal > 0 ? ((segment.count / riskTotal) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "% da base total" : "Sem dados para calcular"}</p>
+                        <p className="text-[11px] text-neutral-400">{riskTotal > 0 ? ((segment.count / riskTotal) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "% da distribuição" : "Sem dados para calcular"}</p>
                       </div>
                     ))}
                   </div>
@@ -231,13 +244,18 @@ export default function CommandCenterPage() {
                     </div>
                   </div>
                   <div className="mt-5 flex items-end justify-between gap-3">
-                    <div><p className="text-3xl font-semibold tracking-[-0.05em] tabular-nums text-neutral-950">{unscoredCount.toLocaleString("pt-BR")}</p><p className="mt-1 text-xs text-neutral-500">Sem score</p></div>
-                    <div className="text-right"><p className="text-lg font-semibold tabular-nums text-neutral-800">{totalStudents > 0 ? ((unscoredCount / totalStudents) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%" : "—"}</p><p className="mt-1 text-xs text-neutral-500">da base total</p></div>
+                    <div><p className="text-3xl font-semibold tracking-[-0.05em] tabular-nums text-neutral-950">{unscoredCount?.toLocaleString("pt-BR") ?? "—"}</p><p className="mt-1 text-xs text-neutral-500">Sem score</p></div>
+                    <div className="text-right"><p className="text-lg font-semibold tabular-nums text-neutral-800">{totalStudents != null && totalStudents > 0 && unscoredCount != null ? ((unscoredCount / totalStudents) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%" : "—"}</p><p className="mt-1 text-xs text-neutral-500">da base total</p></div>
                   </div>
                   <Link href="/alunos" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--brand-indigo)] hover:text-[var(--brand-blue)]">Revisar alunos sem score <ArrowRight className="h-3.5 w-3.5" /></Link>
                   {operationalGeneratedAtLabel && <p className="mt-4 border-t border-neutral-100 pt-3 text-[11px] text-neutral-400">Resumo operacional gerado em {operationalGeneratedAtLabel}</p>}
                 </article>
               </section>
+            )}
+            {!summary.isLoading && !summary.isError && !riskBreakdownAvailable && (
+              <p role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                A distribuição de risco e a cobertura não estão disponíveis porque a resposta da API está incompleta. Os valores não foram tratados como zero.
+              </p>
             )}
           </section>
         )}
