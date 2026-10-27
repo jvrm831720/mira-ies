@@ -34,6 +34,8 @@ import type {
   UploadStructureResponse,
   MultiUploadPreviewResponse,
   UploadHistoryResponse,
+  RiskHistoryResponse,
+  StudentRiskHistoryResponse,
 } from "@/types/api";
 
 const BASE =
@@ -176,7 +178,24 @@ export const api = {
     return request<StudentsResponse>(`/api/v1/students${qs ? `?${qs}` : ""}`);
   },
 
-  studentRisk: (id: string) => request<StudentRisk>(`/api/v1/students/${id}/risk`),
+  studentRisk: (id: string) => request<StudentRisk>("/api/v1/students/" + id + "/risk"),
+
+  riskHistory: (params: { from: string; to: string; course?: string; risk_level?: string; page?: number; page_size?: number }) => {
+    const q = new URLSearchParams({ from: params.from, to: params.to, page: String(params.page ?? 1), page_size: String(params.page_size ?? 50) });
+    if (params.course) q.set("course", params.course);
+    if (params.risk_level) q.set("risk_level", params.risk_level);
+    return request<RiskHistoryResponse>("/api/v1/risk/history?" + q.toString());
+  },
+
+  studentRiskHistory: (id: string, params?: { from?: string; to?: string; page?: number; page_size?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.page_size) q.set("page_size", String(params.page_size));
+    const suffix = q.toString() ? "?" + q.toString() : "";
+    return request<StudentRiskHistoryResponse>("/api/v1/students/" + id + "/risk/history" + suffix);
+  },
 
   updateCommunicationPreference: (id: string, optOut: boolean) =>
     request<CommunicationPreferenceResponse>(`/api/v1/students/${id}/communication-preferences`, {

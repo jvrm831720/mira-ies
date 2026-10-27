@@ -524,3 +524,35 @@ export type RetentionAnalytics = {
   attribution_note: string;
   cost_note: string;
 };
+
+
+export type RiskHistoryAssessment = {
+  id: string; student_id: string; tenant_id: string; student_name?: string | null;
+  matricula?: string | null; course?: string | null; evaluated_at: string; score: number;
+  risk_level: "baixo" | "medio" | "critico"; model_version?: string | null; model_scope: string;
+  model_score?: number | null; dynamic_adjustment: number;
+  explanation?: { available?: boolean; top_factors?: Array<{ feature?: string; label?: string; impact?: number; value?: number }>; summary?: string | null; rule_flags?: string[]; rule_boost?: number; recommended_actions?: string[]; confidence?: string; probability?: number } | null;
+  explanation_available: boolean; scoring_run_id: string; batch_id?: string | null;
+};
+export type RiskMovement = {
+  student_id: string; student_name?: string | null; matricula?: string | null; course?: string | null;
+  previous_score?: number | null; previous_risk_level?: string | null; previous_evaluated_at?: string | null;
+  current_score: number; current_risk_level: string; current_evaluated_at: string; delta?: number | null;
+  change_type: "risco_aumentou" | "risco_diminuiu" | "sem_mudanca_relevante" | "sem_historico_comparavel" | "mudanca_modelo";
+  model_version?: string | null; previous_model_version?: string | null;
+};
+export type RiskHistoryResponse = {
+  tenant_id: string; period: { from: string; to: string }; filters: { course?: string | null; risk_level?: string | null };
+  total_assessments: number; students_with_assessments: number; temporal_data_truncated: boolean; temporal_rows_limit: number;
+  comparison_counts: { increased: number; decreased: number; unchanged: number; model_changed: number; no_comparable_history: number };
+  timeline: Array<{ bucket: string; model_scope: string; model_version: string; average_score: number; students_count: number; risk_distribution: { baixo: number; medio: number; critico: number; students_count: number } }>;
+  movements: RiskMovement[]; movements_truncated: boolean; assessments: RiskHistoryAssessment[];
+  pagination: { page: number; page_size: number; total: number; pages: number }; definition: string;
+};
+export type StudentRiskHistoryResponse = {
+  student: { id: string; name: string; matricula: string; course?: string | null; tenant_id: string };
+  period: { from: string; to: string }; assessments: RiskHistoryAssessment[]; total_assessments: number;
+  pagination: { page: number; page_size: number; total: number; pages: number };
+  interventions: Array<{ id: string; created_at: string; channel?: string | null; status: string; risk_score?: number | null; risk_level?: string | null; decision_reason?: string | null; outcome?: string | null; outcome_at?: string | null }>;
+  explanation_note: string;
+};

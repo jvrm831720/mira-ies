@@ -5,10 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel, Field
 from typing import Optional, Any
+from datetime import datetime, timedelta, timezone
+from collections import defaultdict
 
 from app.db.session import get_db
 from app.core.auth import AuthContext, get_current_tenant
 from app.models.student import Student
+from app.models.risk_assessment import RiskAssessment
+from app.models.intervention import InterventionLog
 from app.services.consent import effective_preferences
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT
 from app.ml.scoring import score_batch, score_student_dict, score_all_pending, get_model_info
@@ -206,6 +210,222 @@ async def get_student_risk(
         "shap_top_factors": student.shap_top_factors,
         "recommended_actions": (student.shap_top_factors or {}).get("recommended_actions"),
         "tenant_id": auth.tenant_id,
+    }
+
+
+
+
+_VALID_RISK_LEVELS = {"baixo", "medio", "critico"}
+
+
+def _utc(value: datetime | None, fallback: datetime) -> datetime:
+    if value is None:
+        return fallback
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
+def _assessment_payload(row: RiskAssessment, student: Student | None = None) -> dict[str, Any]:
+    return {
+        "id": row.id, "student_id": row.student_id, "tenant_id": row.tenant_id,
+        "student_name": student.nome if student else None,
+        "matricula": student.matricula if student else None,
+        "course": student.curso if student else None,
+        "evaluated_at": row.evaluated_at.isoformat(), "score": row.score,
+        "risk_level": row.risk_level, "model_version": row.model_version,
+        "model_scope": row.model_scope, "model_score": row.model_score,
+        "dynamic_adjustment": row.dynamic_adjustment,
+        "explanation": row.explanation if row.explanation and row.explanation.get("available") else None,
+        "explanation_available": bool(row.explanation and row.explanation.get("available")),
+        "scoring_run_id": row.scoring_run_id, "batch_id": row.batch_id,
+    }
+
+
+def _change_type(current: RiskAssessment, previous: RiskAssessment | None) -> tuple[str, float | None]:
+    if previous is None:
+        return "sem_historico_comparavel", None
+    if not current.model_version or not previous.model_version or current.model_version != previous.model_version or current.model_scope != previous.model_scope:
+        return "mudanca_modelo", None
+    delta = round(float(current.score) - float(previous.score), 1)
+    if delta > 0:
+        return "risco_aumentou", delta
+    if delta < 0:
+        return "risco_diminuiu", delta
+    return "sem_mudanca_relevante", delta
+
+
+@router.get("/risk/history")
+async def risk_history(
+    from_date: datetime | None = Query(default=None, alias="from"),
+    to_date: datetime | None = Query(default=None, alias="to"),
+    course: str | None = Query(default=None, max_length=150),
+    risk_level: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Consulta histórica; não calcula novo score. Todas as leituras são tenant-scoped."""
+    now = datetime.now(timezone.utc)
+    end = _utc(to_date, now)
+    start = _utc(from_date, end - timedelta(days=90))
+    if start > end:
+        raise HTTPException(status_code=422, detail="'from' deve ser anterior ou igual a 'to'.")
+    if risk_level and risk_level not in _VALID_RISK_LEVELS:
+        raise HTTPException(status_code=422, detail="risk_level inválido.")
+    course_filter = course.strip() if course and course.strip() else None
+    query = select(RiskAssessment, Student).join(Student, Student.id == RiskAssessment.student_id).where(
+        RiskAssessment.tenant_id == auth.tenant_id,
+        Student.tenant_id == auth.tenant_id,
+        RiskAssessment.evaluated_at >= start,
+        RiskAssessment.evaluated_at <= end,
+    )
+    if course_filter:
+        query = query.where(Student.curso.ilike("%" + course_filter + "%"))
+    if risk_level:
+        query = query.where(RiskAssessment.risk_level == risk_level)
+    total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    page_rows = (await db.execute(
+        query.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc())
+        .offset((page - 1) * page_size).limit(page_size)
+    )).all()
+    temporal_rows = (await db.execute(
+        query.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc()).limit(5000)
+    )).all()
+    temporal = [row for row, _student in temporal_rows]
+    student_by_id = {row.student_id: student for row, student in temporal_rows}
+    current_by_student: dict[str, RiskAssessment] = {}
+    for row in temporal:
+        current_by_student.setdefault(row.student_id, row)
+    previous_by_student: dict[str, RiskAssessment] = {}
+    if current_by_student:
+        ranked = select(
+            RiskAssessment.id.label("assessment_id"),
+            func.row_number().over(
+                partition_by=RiskAssessment.student_id,
+                order_by=(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc()),
+            ).label("rn"),
+        ).where(
+            RiskAssessment.tenant_id == auth.tenant_id,
+            RiskAssessment.student_id.in_(list(current_by_student.keys())),
+            RiskAssessment.evaluated_at < start,
+        ).subquery()
+        previous_rows = (await db.execute(
+            select(RiskAssessment).join(ranked, ranked.c.assessment_id == RiskAssessment.id)
+            .where(ranked.c.rn == 1, RiskAssessment.tenant_id == auth.tenant_id)
+        )).scalars().all()
+        previous_by_student = {row.student_id: row for row in previous_rows}
+    movements = []
+    counts = defaultdict(int)
+    for student_id, current in current_by_student.items():
+        previous = previous_by_student.get(student_id)
+        change_type, delta = _change_type(current, previous)
+        counts[change_type] += 1
+        student = student_by_id.get(student_id)
+        movements.append({
+            "student_id": student_id, "student_name": student.nome if student else None,
+            "matricula": student.matricula if student else None, "course": student.curso if student else None,
+            "previous_score": previous.score if previous and delta is not None else None,
+            "previous_risk_level": previous.risk_level if previous and delta is not None else None,
+            "previous_evaluated_at": previous.evaluated_at.isoformat() if previous and delta is not None else None,
+            "current_score": current.score, "current_risk_level": current.risk_level,
+            "current_evaluated_at": current.evaluated_at.isoformat(), "delta": delta,
+            "change_type": change_type, "model_version": current.model_version,
+            "previous_model_version": previous.model_version if previous else None,
+        })
+    order = {"risco_aumentou": 0, "mudanca_modelo": 1, "sem_historico_comparavel": 2, "risco_diminuiu": 3, "sem_mudanca_relevante": 4}
+    movements.sort(key=lambda item: (order.get(item["change_type"], 9), -(item["delta"] or 0), item["student_name"] or "", item["student_id"]))
+    # Latest real assessment per student per week. Version-specific groups prevent
+    # score averages from mixing model versions.
+    representative: dict[tuple[str, str], tuple[RiskAssessment, Student]] = {}
+    for row, student in temporal_rows:
+        d = row.evaluated_at.date()
+        bucket = (d - timedelta(days=d.weekday())).isoformat()
+        key = (row.student_id, bucket)
+        if key not in representative or row.evaluated_at > representative[key][0].evaluated_at:
+            representative[key] = (row, student)
+    grouped: dict[tuple[str, str, str], list[RiskAssessment]] = defaultdict(list)
+    distribution: dict[str, dict[str, int]] = defaultdict(lambda: {"baixo": 0, "medio": 0, "critico": 0, "students_count": 0})
+    for (_student_id, bucket), (row, _student) in representative.items():
+        grouped[(bucket, row.model_scope, row.model_version or "versao_indisponivel")].append(row)
+        distribution[bucket][row.risk_level] += 1
+        distribution[bucket]["students_count"] += 1
+    timeline = []
+    for (bucket, scope, version), rows in sorted(grouped.items()):
+        timeline.append({
+            "bucket": bucket, "model_scope": scope, "model_version": version,
+            "average_score": round(sum(float(r.score) for r in rows) / len(rows), 2),
+            "students_count": len(rows), "risk_distribution": distribution[bucket],
+        })
+    return {
+        "tenant_id": auth.tenant_id, "period": {"from": start.isoformat(), "to": end.isoformat()},
+        "filters": {"course": course_filter, "risk_level": risk_level},
+        "total_assessments": total, "students_with_assessments": len(current_by_student),
+        "temporal_data_truncated": total > len(temporal_rows), "temporal_rows_limit": 5000,
+        "comparison_counts": {
+            "increased": counts["risco_aumentou"], "decreased": counts["risco_diminuiu"],
+            "unchanged": counts["sem_mudanca_relevante"], "model_changed": counts["mudanca_modelo"],
+            "no_comparable_history": counts["sem_historico_comparavel"],
+        },
+        "timeline": timeline, "movements": movements[:500], "movements_truncated": len(movements) > 500,
+        "assessments": [
+            {**_assessment_payload(row, student), "student_name": student.nome, "course": student.curso}
+            for row, student in page_rows
+        ],
+        "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size},
+        "definition": "Aumento significa delta positivo na escala 0–100 (score maior = maior risco). 'Sem mudança relevante' significa delta exatamente zero; não há limiar científico configurado.",
+    }
+
+
+@router.get("/students/{student_id}/risk/history")
+async def student_risk_history(
+    student_id: str,
+    from_date: datetime | None = Query(default=None, alias="from"),
+    to_date: datetime | None = Query(default=None, alias="to"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=200),
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trajetória e intervenções do aluno autenticado; nunca recalcula scores."""
+    student = (await db.execute(
+        select(Student).where(Student.id == student_id, Student.tenant_id == auth.tenant_id)
+    )).scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado.")
+    now = datetime.now(timezone.utc)
+    end = _utc(to_date, now)
+    start = _utc(from_date, end - timedelta(days=365))
+    if start > end:
+        raise HTTPException(status_code=422, detail="'from' deve ser anterior ou igual a 'to'.")
+    base = select(RiskAssessment).where(
+        RiskAssessment.tenant_id == auth.tenant_id, RiskAssessment.student_id == student_id,
+        RiskAssessment.evaluated_at >= start, RiskAssessment.evaluated_at <= end,
+    )
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+    rows = (await db.execute(
+        base.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc())
+        .offset((page - 1) * page_size).limit(page_size)
+    )).scalars().all()
+    rows.reverse()
+    logs = (await db.execute(
+        select(InterventionLog).where(
+            InterventionLog.tenant_id == auth.tenant_id, InterventionLog.student_id == student_id,
+            InterventionLog.created_at >= start, InterventionLog.created_at <= end,
+        ).order_by(InterventionLog.created_at.asc()).limit(200)
+    )).scalars().all()
+    return {
+        "student": {"id": student.id, "name": student.nome, "matricula": student.matricula, "course": student.curso, "tenant_id": auth.tenant_id},
+        "period": {"from": start.isoformat(), "to": end.isoformat()},
+        "assessments": [_assessment_payload(row, student) for row in rows],
+        "total_assessments": total,
+        "pagination": {"page": page, "page_size": page_size, "total": total, "pages": (total + page_size - 1) // page_size},
+        "interventions": [{
+            "id": log.id, "created_at": log.created_at.isoformat(), "channel": log.channel,
+            "status": log.status, "risk_score": log.risk_score, "risk_level": log.risk_level,
+            "decision_reason": log.decision_reason, "outcome": log.outcome,
+            "outcome_at": log.outcome_at.isoformat() if log.outcome_at else None,
+        } for log in logs],
+        "explanation_note": "Fatores são exibidos apenas quando foram preservados na avaliação original; nenhuma explicação histórica é recalculada nesta consulta.",
     }
 
 

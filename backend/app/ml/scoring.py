@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.models.student import Student, UploadBatch
+from app.models.risk_assessment import RiskAssessment
 from app.models.tenant import TrainingEvent, Tenant
 from app.services.tenant import ensure_base_model_registered
 from app.ml.features import build_features_from_student, features_to_dataframe, missing_feature_flags
@@ -81,6 +83,8 @@ async def score_batch(
 
     summary = {"baixo": 0, "medio": 0, "critico": 0}
     scored_details = []
+    scoring_run_id = str(uuid4())
+    evaluated_at = datetime.now(timezone.utc)
     for i, student in enumerate(students):
         proba = float(probas[i])
         model_score = probability_to_risk_score(proba)
@@ -105,7 +109,32 @@ async def score_batch(
             "recommended_actions": rules["recommended_actions"], "confidence": rules["confidence"],
             "model_scope": model_scope,
         }
-        student.updated_at = datetime.now(timezone.utc)
+        student.updated_at = evaluated_at
+        session.add(RiskAssessment(
+            tenant_id=tenant_id,
+            student_id=student.id,
+            batch_id=batch_id,
+            scoring_run_id=scoring_run_id,
+            evaluated_at=evaluated_at,
+            score=final_score,
+            risk_level=final_level,
+            model_version=str(model_version) if model_version is not None else None,
+            model_scope=model_scope,
+            model_score=float(rules["model_score"]) if rules.get("model_score") is not None else None,
+            dynamic_adjustment=dynamic_adjustment,
+            features_snapshot=feature_dicts[i],
+            explanation={
+                "available": bool(explain),
+                "top_factors": top_factors if explain else None,
+                "summary": format_top_factors_human(top_factors) if top_factors else None,
+                "probability": round(proba, 4),
+                "rule_flags": rules["rule_flags"],
+                "rule_boost": rules["rule_boost"],
+                "recommended_actions": rules["recommended_actions"],
+                "confidence": rules["confidence"],
+            },
+            context={"batch_id": batch_id, "source": "score_batch"},
+        ))
         session.add(TrainingEvent(
             tenant_id=tenant_id, student_id=student.id, batch_id=batch_id,
             matricula=student.matricula, features_snapshot=feature_dicts[i],

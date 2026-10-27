@@ -4,6 +4,7 @@ from app.models.auth import AuthChallenge, OrganizationInvite, User
 from app.models.retention_campaign import RetentionCampaign
 from app.models.data_governance import TenantDataUsePolicy
 from app.models.institutional_training_authorization import InstitutionalTrainingAuthorization
+from app.models.risk_assessment import RiskAssessment
 
 __all__ = [
     "UploadBatch",
@@ -17,4 +18,5 @@ __all__ = [
     "RetentionCampaign",
     "TenantDataUsePolicy",
     "InstitutionalTrainingAuthorization",
+    "RiskAssessment",
 ]
