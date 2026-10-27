@@ -177,3 +177,27 @@ A evidência examinada reforça que há controles concretos em vários caminhos,
 6. Definir se o contrato dos provedores suporta consulta/reconciliação de mensagens aceitas sem confirmação local.
 
 **Conclusão da Fase 6:** foram confirmados controles úteis de autenticação HMAC, isolamento por tenant em consultas específicas e idempotência básica de envio. Permanecem lacunas no caminho de recuperação do worker, na propriedade do lock, na atomicidade da promoção e na proteção geral contra replay de webhook. Os cenários de concorrência e falha continuam riscos potenciais até serem testados; não houve teste dinâmico nem correção nesta rodada.
+
+
+### Adendo à Fase 6 — janela de validade e criação de jobs (2026-10-27)
+
+Esta verificação adicional surgiu ao comparar o enqueue com a promoção de jobs agendados. É leitura estática de `main`; não foram executados testes ou serviços externos.
+
+| ID | Caminho | Evidência direta | Avaliação |
+|---|---|---|---|
+| RET-13 | TTL do registro versus data agendada | `enqueue_retention_job` grava o job e aplica `expire(_job_key(job_id), retention_job_ttl_seconds)`; o padrão configurado é 86.400 segundos. O mesmo fluxo aceita `scheduled_at` no futuro e adiciona o ID a um sorted set até `scheduled_ts`. | **Risco concreto para agendamentos além do TTL:** o hash do job pode expirar antes da data de execução. Quando o ID vencer, `promote_due_retries` encontrará o ID, mas `get_job` não encontrará o hash; a função ainda remove o ID do sorted set e o inclui na fila pronta. O worker então não terá registro para processar. A ocorrência depende de a data agendada superar a validade efetiva do hash; não foi reproduzida. |
+| RET-14 | Atomicidade do enqueue imediato | Para jobs não agendados, o fluxo grava o hash, aplica TTL e depois faz `RPUSH` em comandos separados. Para jobs agendados, grava o hash e depois faz `ZADD`, também separadamente. | **Janela de criação órfã:** uma interrupção após persistir o hash e antes de inserir o ID na fila/conjunto pode deixar um job registrado sem gatilho de execução. Não foi identificado reconciliador nesse caminho; o cenário não foi reproduzido. |
+| RET-15 | Registro expirado na promoção | `promote_due_retries` remove todos os IDs vencidos com `ZREM`; se o hash não existe, não atualiza estado, mas ainda faz `RPUSH` com a lista original de IDs. | **Comportamento diretamente observado:** IDs sem hash podem entrar na fila pronta e serem consumidos sem efeito. Além de RET-13, isso torna a promoção de um registro expirado ineficiente e não recuperável por esse caminho. |
+
+#### Ajuste à cobertura observada
+
+`test_retention_queue_reliability.py::test_only_due_retries_are_promoted_to_the_ready_queue` cobre um ID vencido e um futuro, mas não cobre: hash expirado antes da data agendada; interrupção entre persistência do hash e `RPUSH`/`ZADD`; ou promoção de ID vencido cujo hash não existe. A fake Redis desse arquivo implementa `expire` como operação sem expiração real, então os testes lidos não reproduzem naturalmente o vencimento por TTL.
+
+#### Recomendação para a próxima fase de validação
+
+1. Adicionar teste de job agendado para além de `retention_job_ttl_seconds` e definir a política correta de retenção do hash (por exemplo, TTL que cubra o agendamento mais margem operacional).
+2. Simular falhas entre persistência do hash e inclusão na fila, e decidir se enqueue precisa de operação atômica/script ou rotina de reconciliação.
+3. Fazer a promoção ignorar/contabilizar IDs sem hash e evitar removê-los sem uma política explícita de recuperação/limpeza.
+4. Validar todos os achados em Redis isolado/fake mais fiel, sem usar ambientes de produção, disparar provedores ou alterar a funcionalidade durante a fase de auditoria.
+
+**Estado:** adendo documental apenas. Nenhuma alteração funcional, migration, alteração de configuração, envio ou deploy foi realizado.
