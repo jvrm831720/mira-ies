@@ -217,7 +217,7 @@ export default function CommandCenterPage() {
                       <div key={segment.label} className="min-w-0">
                         <div className="flex items-center gap-2 text-xs text-neutral-500"><span className={"h-2 w-2 shrink-0 rounded-full " + segment.color} />{segment.label}</div>
                         <p className={"mt-1 text-xl font-semibold tabular-nums " + segment.text}>{segment.count.toLocaleString("pt-BR")}</p>
-                        <p className="text-[11px] text-neutral-400">{riskTotal > 0 ? ((segment.count / riskTotal) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "% dos registros com score" : "Sem dados para calcular"}</p>
+                        <p className="text-[11px] text-neutral-400">{riskTotal > 0 ? ((segment.count / riskTotal) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "% da base total" : "Sem dados para calcular"}</p>
                       </div>
                     ))}
                   </div>
@@ -234,7 +234,7 @@ export default function CommandCenterPage() {
                     <div><p className="text-3xl font-semibold tracking-[-0.05em] tabular-nums text-neutral-950">{unscoredCount.toLocaleString("pt-BR")}</p><p className="mt-1 text-xs text-neutral-500">Sem score</p></div>
                     <div className="text-right"><p className="text-lg font-semibold tabular-nums text-neutral-800">{totalStudents > 0 ? ((unscoredCount / totalStudents) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%" : "—"}</p><p className="mt-1 text-xs text-neutral-500">da base total</p></div>
                   </div>
-                  <Link href="/alunos?risk=sem_score" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--brand-indigo)] hover:text-[var(--brand-blue)]">Revisar alunos sem score <ArrowRight className="h-3.5 w-3.5" /></Link>
+                  <Link href="/alunos" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--brand-indigo)] hover:text-[var(--brand-blue)]">Revisar alunos sem score <ArrowRight className="h-3.5 w-3.5" /></Link>
                   {operationalGeneratedAtLabel && <p className="mt-4 border-t border-neutral-100 pt-3 text-[11px] text-neutral-400">Resumo operacional gerado em {operationalGeneratedAtLabel}</p>}
                 </article>
               </section>
