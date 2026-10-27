@@ -31,8 +31,8 @@ Para marcar uma regra como validada, registrar commit, teste nominal, cenário c
 
 | Regra | Evidência examinada | Teste de regressão adicionado | Estado após adendo |
 |---|---|---|---|
-| RB-SEC-004 | `backend/app/api/scoring.py`; `score_batch` recebe tenant do contexto | `backend/tests/test_governance_audit_edges.py::test_risk_endpoints_do_not_disclose_another_tenants_student_or_batch` | Implementação evidenciada no escopo dos endpoints selecionados; teste ainda precisa de resultado CI. Não representa cobertura total. |
-| RB-GOV-005 | `backend/app/services/training_policy.py` seleciona registros com `effective_at <= now` | `backend/tests/test_governance_audit_edges.py::test_future_dated_policy_does_not_take_effect_early` | Regra implementada no resolver; teste adicionado, CI pendente. |
+| RB-SEC-004 | `backend/app/api/scoring.py`; `score_batch` recebe tenant do contexto | `backend/tests/test_governance_audit_edges.py::test_risk_endpoints_do_not_disclose_another_tenants_student_or_batch` | Implementação evidenciada no escopo dos endpoints selecionados; teste passou no GitHub Actions run #331. Não representa cobertura total. |
+| RB-GOV-005 | `backend/app/services/training_policy.py` seleciona registros com `effective_at <= now` | `backend/tests/test_governance_audit_edges.py::test_future_dated_policy_does_not_take_effect_early` | Regra implementada no resolver; teste passou no GitHub Actions run #331 (commit 34388663091e8701f05ee776326ab20fe51bbf8b). |
 | RB-GOV-006 | `resolve_institutional_training_authorization`, `tenant_train.py`, testes de autorização | `test_institutional_training_authorization.py` (existente) | Parcialmente coberta; ainda falta comprovar todos os caminhos de treino e auditoria persistente por execução. |
 
 **Novo arquivo de teste:** `backend/tests/test_governance_audit_edges.py`. Nenhum arquivo de aplicação ou migration foi alterado nesta etapa.

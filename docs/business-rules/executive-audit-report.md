@@ -47,5 +47,5 @@ A auditoria foi aprofundada nos dois riscos prioritários sem tocar na aplicaç�
 - Revisados `backend/app/api/scoring.py`, `backend/app/services/training_policy.py`, `backend/app/services/shared_training_guard.py`, modelos de política/autorização e testes existentes de governança.
 - Evidência observada: endpoints de risco consultados filtram por tenant autenticado; o resolver ignora políticas futuras e o guard compartilhado bloqueia o lote inteiro se qualquer contribuinte for negado.
 - Limitação crítica: o guard é uma função de serviço e não há, nesta inspeção, prova de que todos os caminhos futuros/indiretos a chamem; o retorno de decisão não equivale a uma trilha de auditoria persistida por run/dataset.
-- O resultado de CI para esta revisão deve ser confirmado antes de declarar os novos testes aprovados. Staging/produção não foram acessados.
+- GitHub Actions run #331 terminou com sucesso: lint/test do backend e lint/build do frontend passaram para o commit 34388663091e8701f05ee776326ab20fe51bbf8b. Staging/produção não foram acessados; CI verde não comprova comportamento em ambiente hospedado.
 - Escopo respeitado: apenas teste e documentação nesta branch; nenhuma alteração funcional, migration, banco, `main` ou deploy.

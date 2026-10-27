@@ -23,9 +23,9 @@
 ## Expansão da auditoria — API de risco e escopo de lote (2026-10-27)
 
 ### RB-SEC-004 — Endpoints de risco não revelam aluno/lote de outro tenant
-- **Decisão:** APROVADA (regra de isolamento existente). **Implementação:** EVIDÊNCIA ENCONTRADA no escopo verificado. **Validação:** nova regressão adicionada; resultado de CI ainda pendente.
+- **Decisão:** APROVADA (regra de isolamento existente). **Implementação:** EVIDÊNCIA ENCONTRADA no escopo verificado. **Validação:** nova regressão adicionada e aprovada pelo CI GitHub Actions run #331 (commit 34388663091e8701f05ee776326ab20fe51bbf8b).
 - **Regra:** leitura do risco por ID, resumo por lote, lista de críticos por lote e scoring de lote devem sempre limitar dados ao tenant autenticado. ID de recurso de outro tenant não deve revelar nem alterar o recurso.
 - **Critérios de aceite:** tenant B recebe 404 ao consultar risco de aluno de A; resumo/lista para batch de A não expõe linhas a B; tentativa de scoring do batch alheio é negada.
 - **Evidência:** backend/app/api/scoring.py; filtros por `Student.tenant_id == auth.tenant_id` em resumo, críticos e risco individual; serviço `score_batch` recebe `tenant_id` do contexto autenticado.
-- **Teste novo:** backend/tests/test_governance_audit_edges.py::test_risk_endpoints_do_not_disclose_another_tenants_student_or_batch.
+- **Teste novo:** `backend/tests/test_governance_audit_edges.py::test_risk_endpoints_do_not_disclose_another_tenants_student_or_batch`. O run #331 terminou com sucesso.
 - **Limite:** cobre endpoints de risco e scoring de lote identificados, não todos os endpoints/exports/jobs/conectores. Risco P0 até concluir inventário integral.

@@ -29,11 +29,11 @@ Ver [governança e ciclo de vida](../data-governance-and-lifecycle.md) para regr
 ## Expansão da auditoria — efetividade temporal e autorização (2026-10-27)
 
 ### RB-GOV-005 — Somente a política vigente na data da decisão controla o treino
-- **Decisão:** APROVADA (consistente com a política versionada). **Implementação:** EVIDÊNCIA ENCONTRADA no resolver. **Validação:** teste de regressão adicionado; CI pendente.
+- **Decisão:** APROVADA (consistente com a política versionada). **Implementação:** EVIDÊNCIA ENCONTRADA no resolver. **Validação:** teste de regressão adicionado; GitHub Actions run #331 passou para o commit 34388663091e8701f05ee776326ab20fe51bbf8b.
 - **Regra:** registros com `effective_at` futuro não substituem a política efetiva atual antes da data/hora de vigência. Após a vigência, a nova política passa a controlar novas decisões.
 - **Critérios de aceite:** política compartilhada vigente permite treino compartilhado quando o dataset é elegível; política futura `institution_only` não antecipa bloqueio; depois da vigência, bloqueia.
 - **Evidência:** backend/app/services/training_policy.py, filtro de registros efetivos por `effective_at <= now`.
-- **Teste novo:** backend/tests/test_governance_audit_edges.py::test_future_dated_policy_does_not_take_effect_early.
+- **Teste novo:** `backend/tests/test_governance_audit_edges.py::test_future_dated_policy_does_not_take_effect_early`. O run #331 terminou com sucesso.
 
 ### RB-GOV-006 — Autorização institucional e autorização de compartilhamento são controles distintos
 - **Decisão:** APROVADA. **Implementação:** EVIDÊNCIA ENCONTRADA no resolver de autorização local e nos bloqueios do treino por tenant. **Validação:** TESTADA PARCIALMENTE nos testes existentes.
