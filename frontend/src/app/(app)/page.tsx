@@ -103,7 +103,7 @@ export default function CommandCenterPage() {
   return (
     <>
       <Header title="Visão geral" compact />
-      <main className="mx-auto w-full max-w-[1440px] space-y-[var(--space-8)] px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10 mira-page">
+      <main className="mx-auto w-full max-w-[1440px] space-y-[var(--space-8)] px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10 mira-page mira-overview-dark">
         <section className="flex flex-col gap-4 border-b border-neutral-200/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--brand-indigo)]">Inteligência de permanência</p>
