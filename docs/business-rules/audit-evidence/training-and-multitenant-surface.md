@@ -80,3 +80,55 @@ Esta revisão rastreia os pontos de entrada de treinamento que foram localizados
 ### Conclusão desta fase
 
 A evidência examinada reforça que há controles concretos em vários caminhos, mas não autoriza concluir isolamento universal. Nenhum defeito de cross-tenant foi confirmado nesta amostra adicional; as lacunas indicadas são ausência de prova, teste ou decisão explícita, salvo se uma verificação posterior demonstrar comportamento incorreto.
+
+
+## Fase 5 — ciclo de vida do worker de retenção (2026-10-27)
+
+**Base inspecionada:** `main`; leitura estática de `backend/app/worker.py`, `backend/app/services/retention_queue.py`, `backend/app/agents/orchestrator.py`, `backend/app/core/auth.py` e testes de fila/entrega. Nenhum envio, serviço externo, banco de staging/produção ou alteração funcional foi executado. Esta seção registra evidência do código e lacunas de cobertura; não declara vulnerabilidade explorada.
+
+### Evidências e achados
+
+| ID | Controle/caminho | Evidência observada | Estado / impacto não comprovado |
+|---|---|---|---|
+| RET-01 | Consumo do worker — `backend/app/worker.py::run_worker` | O worker promove itens atrasados e consome IDs com `BLPOP`, chamando `process_retention_job`. Não há, no loop inspecionado, varredura de jobs persistidos em `running` nem re-enfileiramento de IDs abandonados. | **Lacuna concreta de recuperação no caminho inspecionado.** Se o processo cair após `BLPOP`, o ID já foi removido da fila. Não foi encontrado um mecanismo alternativo que recupere automaticamente o job; o resultado exato depende do ponto da queda e da expiração do registro. |
+| RET-02 | Lock — `backend/app/services/retention_queue.py::process_retention_job` | Adquire lock com `SET ... EX 900 NX`, grava `running`, executa o orquestrador e apaga a chave no `finally`. Não foi observada renovação/heartbeat do lock. | **Lacuna concreta de lease/recuperação.** Uma execução que exceda 900 s pode perder o lock. Se o job for disponibilizado novamente enquanto a primeira execução continua, pode haver concorrência; não foi reproduzida execução duplicada. |
+| RET-03 | Promoção de atrasados — `promote_due_retries` | Faz `ZRANGEBYSCORE`, depois `ZREM`, depois atualizações de estado e `RPUSH`, em comandos separados. | **Janela não atômica confirmada no código.** Queda após `ZREM` e antes de `RPUSH` pode remover o ID do conjunto atrasado sem colocá-lo na fila pronta. Chamadas concorrentes também podem ler os mesmos IDs antes da remoção e enfileirar duplicatas. Não há teste cobrindo falha entre comandos ou concorrência entre promotores. |
+| RET-04 | Retry/DLQ | Exceções capturadas antes do limite de tentativas são agendadas com backoff exponencial; após esgotar tentativas, o job passa a `dead_letter` e seu ID é adicionado à fila DLQ. | **Caminho feliz coberto; recuperação de processo não.** Não foi observada reconciliação para job abandonado por queda abrupta, nem atomicidade entre gravar `dead_letter` e adicionar o ID à DLQ. |
+| RET-05 | Instituição ativa na execução | `get_current_tenant` exige `Tenant.is_active == True` ao autenticar a requisição que enfileira o job. O worker usa o `tenant_id` persistido no job e instancia o orquestrador; não foi observada consulta/revalidação de `Tenant.is_active` no início do processamento. | **Não comprovado no limite assíncrono.** Uma instituição desativada depois do enqueue pode continuar com jobs pendentes executáveis, salvo controle externo não examinado. Não classificar como exploração confirmada. |
+| RET-06 | Preferências imediatamente antes do envio | O orquestrador filtra alunos ativos por tenant e verifica opt-out/preferências no caminho de seleção; no trecho de envio examinado não foi encontrada uma segunda leitura explícita imediatamente antes da chamada externa. | **Janela de concorrência permanece.** Não há evidência de reprodução de envio após opt-out concorrente. |
+| RET-07 | Callback de entrega | `apply_delivery_event` filtra o log por tenant, ignora repetição do último `event_id` e rejeita certas transições regressivas; opt-out consulta o aluno por ID e tenant. | **Controles positivos parciais.** O dedupe guarda o último ID de evento no log, não um registro global de todos os eventos vistos. Testes de replay fora de ordem, callbacks concorrentes, mesmo ID externo entre tenants e múltiplos eventos repetidos não foram identificados nesta amostra. |
+
+### Cobertura de testes observada na main
+
+- `backend/tests/test_retention_queue_reliability.py` cobre idempotência de enqueue por tenant, retry exponencial em exceção sintética, envio para DLQ após esgotar tentativas, promoção de um item vencido e isolamento na consulta de status.
+- `backend/tests/test_agent_delivery_safety.py` cobre resultado de provedor ambíguo sem fallback para outro canal e reutilização de chave de idempotência para um envio já reservado.
+- `backend/tests/test_consent_governance.py` cobre preferências granulares/auditadas, isolamento dos endpoints de preferência e aplicação de opt-out recebido por webhook.
+- Na amostra de testes lida, **não foi encontrado** teste que simule: queda depois de `BLPOP`; job preso em `running`; lock expirado com execução ainda ativa; falha entre `ZREM` e `RPUSH`; dois promotores concorrentes; tenant desativado após enqueue; mudança de opt-out entre seleção e envio; crash após aceite do provedor antes de persistir o resultado; ou replay/concor­rência de callbacks. Esta afirmação limita-se aos arquivos examinados, não a todo o repositório.
+
+### Matriz de status atualizada
+
+| Controle | Estado |
+|---|---|
+| Filtro de aluno por tenant e `Student.is_active` | Comprovado no caminho de seleção |
+| Autenticação da instituição ativa ao enfileirar | Comprovada na dependência de API inspecionada |
+| Revalidação da instituição ativa pelo worker | Não identificada |
+| Verificação inicial de opt-out/preferências | Comprovada |
+| Revalidação imediatamente antes do envio | Não identificada |
+| Retry por exceção capturada e DLQ após limite | Comprovado no caminho normal |
+| Recuperação de job abandonado em `running` | Não identificada |
+| Renovação/heartbeat do lock de 900 s | Não identificada |
+| Promoção atômica de retries | Não; operações separadas observadas |
+| Dedupe básico de callback e rejeição de alguns estados regressivos | Comprovado parcialmente |
+| Replay concorrente/fora de ordem de callbacks | Cobertura insuficiente |
+
+### Próximos testes de auditoria — sem alterar aplicação nesta fase
+
+1. Teste controlado de worker interrompido após retirar o ID da fila e após gravar `running`; verificar se há mecanismo real de recuperação.
+2. Teste de execução superior ao TTL do lock, com segunda tentativa concorrente, verificando se duas execuções podem avançar.
+3. Injeção de falha entre `ZREM` e `RPUSH`, e execução concorrente de dois promotores; verificar perda/duplicação de IDs.
+4. Enfileirar com tenant ativo e desativá-lo antes do processamento; observar se o worker bloqueia o job antes de qualquer efeito externo.
+5. Mudar opt-out/preferência após a seleção do aluno e antes do envio; confirmar se o caminho real revalida a permissão.
+6. Simular provedor aceitando a mensagem e timeout/quebra antes de persistir resultado; avaliar reconciliação e idempotência do provedor.
+7. Repetir e reordenar callbacks, incluindo eventos concorrentes, e validar o estado final e o registro de engajamento.
+
+**Conclusão desta fase:** há isolamento por tenant no caminho de seleção, idempotência e tratamento de erros no caminho normal. Contudo, a recuperação após consumo destrutivo da fila, a expiração do lock, a promoção não atômica de retries e a revalidação de permissões no limite de execução permanecem lacunas relevantes. Não foi realizado teste dinâmico e não se afirma que uma exploração ocorreu.
