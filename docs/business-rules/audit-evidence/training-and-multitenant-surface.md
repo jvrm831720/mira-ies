@@ -57,3 +57,26 @@ Esta revisão rastreia os pontos de entrada de treinamento que foram localizados
 - **Implementação:** há gates em pontos identificados; cobertura integral e auditoria durável por execução/dataset não estão comprovadas.
 - **Validação:** CI #331 e #332 passaram; isso valida os checks executados, não todos os critérios acima nem staging/produção.
 - **Mudança A→B:** continua decisão pendente do responsável de produto/fundador com assessoria jurídica/técnica.
+
+## Fase 4 — revisão por fronteiras de execução (2026-10-27)
+
+### Achados adicionais sobre treinamento
+
+| ID | Evidência examinada na main | Resultado verificável | Lacuna / decisão |
+|---|---|---|---|
+| TRN-08 | backend/app/services/shared_training_dataset.py::build_shared_training_events | Chama require_shared_training_authorization antes da consulta a TrainingEvent; consulta somente tenants autorizados e eventos rotulados com TARGET_DEFINITION_VERSION. | O construtor é um ponto de entrada protegido. Não foi provado que todo consumidor de dataset compartilhado use exclusivamente esse construtor. O baseline global atual é descrito como sintético; manter essa afirmação vinculada ao caminho examinado. |
+| TRN-09 | backend/app/ml/tenant_train.py e backend/app/models/tenant.py::ModelArtifact | O treino local revalida autorização institucional no serviço, filtra eventos pelo tenant, cria artefato candidato inativo com run_id, versão e métricas. | No trecho de criação do artefato, não são gravados campos dedicados para policy ID, institutional authorization ID, fingerprint imutável do dataset ou lista exata de contribuintes. Métricas contêm contagens e definição do alvo, mas a trilha completa por run/dataset não ficou demonstrada. |
+| TRN-10 | backend/app/api/outcomes.py::train_tenant_endpoint | Exige tenant autenticado e require_tenant_match antes de chamar o treino. | A rota usa get_current_tenant, não require_min_role ou _require_model_approver. Decidir explicitamente se uma credencial de API do tenant pode disparar treino, inclusive force=true sujeito à configuração. Não classificado como vulnerabilidade sem a política de acesso esperada. |
+
+### Fronteiras multi-tenant com evidência positiva parcial
+
+- **Conectores:** backend/app/api/connectors.py usa autenticação de tenant nos endpoints de ingestão e passa tenant_id/tenant_slug do contexto autenticado ao pipeline; rotas de webhook verificam assinatura antes de ingerir. O catálogo de conectores é público e aparenta retornar metadados estáticos, sem dados de tenant. Falta testar cada conector e serviço de destino.
+- **Resultados de aprendizagem:** backend/app/api/outcomes.py compara o slug informado com o tenant autenticado; consultas de eventos, updates de outcomes e ciclo de vida dos artefatos incluem tenant nas consultas examinadas. A cobertura completa das rotas de lifecycle continua pendente.
+- **Campanhas:** backend/app/api/retention_campaigns.py filtra campanhas por tenant e o avaliador seleciona alunos e logs de intervenção do tenant da campanha. Falta E2E cruzado para simulação, versões, status e execução.
+- **Fila:** backend/app/services/retention_queue.py persiste tenant_id no job e get_job aceita filtro de tenant. A rota de status passa o tenant autenticado; a rota dead-letter lê IDs da fila global, mas só adiciona ao resultado jobs retornados por get_job(..., tenant_id=auth.tenant_id). Falta verificar o worker real, revalidação de autorização antes do efeito externo, retries e isolamento de logs.
+- **Webhook de entrega:** backend/app/api/delivery_webhooks.py resolve o tenant ativo pelo ID do caminho, valida HMAC com o segredo desse tenant e encaminha o evento com esse tenant_id. Falta cobertura de assinatura inválida, replay/idempotência e confirmação de que todo lookup do evento de destino permanece tenant-scoped.
+- **Upload:** rotas de histórico, status e listagem de alunos usam tenant autenticado; mutações de preferências consultam o aluno com ID e tenant. A auditoria não abrange todas as 898 linhas nem cada combinação de rota/filtro.
+
+### Conclusão desta fase
+
+A evidência examinada reforça que há controles concretos em vários caminhos, mas não autoriza concluir isolamento universal. Nenhum defeito de cross-tenant foi confirmado nesta amostra adicional; as lacunas indicadas são ausência de prova, teste ou decisão explícita, salvo se uma verificação posterior demonstrar comportamento incorreto.
