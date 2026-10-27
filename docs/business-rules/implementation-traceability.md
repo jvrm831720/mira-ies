@@ -51,3 +51,14 @@ Não inferir aprovação de teste a partir de sua existência. A validação esp
 
 
 **Atualização de validação (HEAD `15e39bceaf5492dbf98125d68e4c938c3d9341f4`):** foi adicionado teste de regressão para o HTTP 409 do endpoint legado de treino global. A existência do teste não é evidência de execução; aguardar CI deste HEAD.
+
+## Adendo fase 4 — rastreabilidade e fronteiras (2026-10-27)
+
+| Regra/controle | Evidência examinada | Estado | Próxima validação |
+|---|---|---|---|
+| RB-GOV-010 | services/shared_training_dataset.py::build_shared_training_events chama o guard antes de consultar eventos | Controle evidenciado neste construtor; consumidores completos não inventariados | Teste que garante nenhum caminho de treino compartilhado contorna o construtor/guard |
+| RB-GOV-011 | tenant_train.py cria ModelArtifact com run_id, versão e métricas; policy/auth IDs e dataset fingerprint não aparecem na criação examinada | Trilha de auditoria incompleta ou não comprovada | Inspecionar outras estruturas de auditoria e definir evidência mínima persistida por run/dataset |
+| RB-GOV-012 | outcomes.py::train_tenant_endpoint usa tenant autenticado e valida slug; não declara dependência explícita de papel aprovador | Política de autorização da ação ainda não definida | Aprovar se credencial tenant-level pode iniciar treino e usar force=true |
+| RB-SEC-006 | Conectores, outcomes, campanhas, uploads, fila e webhook de entrega examinados têm controles tenant-scoped específicos | Evidência parcial; sem falha cross-tenant confirmada nesta amostra | Testes negativos E2E, revisão de workers e cobertura de todas as rotas |
+
+A ausência de campo no modelo/trecho examinado é evidência de que a trilha não foi demonstrada ali; não prova que não exista mecanismo externo. Não inferir teste aprovado sem run que o execute.
