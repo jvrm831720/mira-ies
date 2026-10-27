@@ -173,7 +173,6 @@ export function Sidebar() {
     setMobileOpen(false);
   }, [pathname]);
 
-  // Auto-expand group that contains the active route
   useEffect(() => {
     setOpenGroups((prev) => {
       const next = { ...prev };
@@ -215,75 +214,60 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex min-h-screen shrink-0 flex-col",
+          "fixed inset-y-0 left-0 z-50 flex h-dvh min-h-0 shrink-0 flex-col",
           "border-r border-[#E5E7EB] bg-[#F8FAFC] text-[#111827]",
           "transition-[width,transform] duration-200 ease-out",
-          "md:sticky md:top-0 md:z-20",
+          "md:sticky md:top-0 md:z-20 md:h-screen",
           collapsed ? "w-[68px]" : "w-[264px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
           "md:flex"
         )}
       >
-        {/* ── Header ─────────────────────────────────────────────── */}
+        {/* Header — só logo oficial MIRA (sem mark inventado) */}
         <div
           className={cn(
             "flex h-[52px] shrink-0 items-center border-b border-[#E5E7EB] bg-white",
-            collapsed ? "justify-center px-2" : "gap-2 px-3"
+            collapsed ? "justify-center px-2" : "px-4"
           )}
         >
-          <div className={cn("flex min-w-0 flex-1 items-center gap-2", collapsed && "flex-none justify-center")}>
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#111827]">
+          {collapsed ? (
+            <span
+              className="text-[15px] font-bold tracking-tight text-[#111827]"
+              aria-label="MIRA"
+            >
+              M
+            </span>
+          ) : (
+            <div className="min-w-0 flex-1">
               <Image
-                src="/favicon.svg"
-                alt=""
-                width={16}
-                height={16}
-                className="h-4 w-4 brightness-0 invert"
+                src="/mira-logo.svg"
+                alt="MIRA"
+                width={88}
+                height={22}
+                className="h-[22px] w-auto brightness-0"
                 priority
               />
-            </span>
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <Image
-                  src="/mira-logo.svg"
-                  alt="MIRA"
-                  width={64}
-                  height={18}
-                  className="h-[18px] w-auto brightness-0"
-                  priority
-                />
-                <p className="truncate text-[10px] leading-tight text-[#667085]">{orgName}</p>
-              </div>
-            )}
-          </div>
+              <p className="mt-0.5 truncate text-[11px] text-[#667085]">{orgName}</p>
+            </div>
+          )}
 
-          {mobileOpen ? (
+          {mobileOpen && (
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
               aria-label="Fechar menu"
-              className="grid h-8 w-8 place-items-center rounded-md text-[#667085] hover:bg-[#F3F4F6] md:hidden"
+              className="ml-auto grid h-8 w-8 place-items-center rounded-md text-[#667085] hover:bg-[#F3F4F6] md:hidden"
             >
               <X className="h-4 w-4" />
             </button>
-          ) : !collapsed ? (
-            <button
-              type="button"
-              onClick={() => setCollapsed(true)}
-              aria-label="Recolher menu lateral"
-              title="Recolher"
-              className="hidden h-8 w-8 shrink-0 place-items-center rounded-md text-[#667085] transition hover:bg-[#F3F4F6] hover:text-[#111827] md:grid"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
-          ) : null}
+          )}
         </div>
 
-        {/* ── Nav ────────────────────────────────────────────────── */}
+        {/* Nav — única área com scroll */}
         <nav
           aria-label="Navegação principal"
           className={cn(
-            "flex flex-1 flex-col overflow-y-auto overflow-x-hidden py-2",
+            "min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2",
             collapsed ? "px-1.5" : "px-2"
           )}
         >
@@ -293,7 +277,6 @@ export function Sidebar() {
 
             return (
               <div key={group.id} className={cn("mb-1", collapsed && "mb-2")}>
-                {/* Section header — Cloudflare style */}
                 {!collapsed && (
                   <button
                     type="button"
@@ -319,7 +302,12 @@ export function Sidebar() {
                 )}
 
                 {isOpen && (
-                  <div className={cn("relative", !collapsed && "ml-2 border-l border-[#E5E7EB] pl-2")}>
+                  <div
+                    className={cn(
+                      "relative",
+                      !collapsed && "ml-2 border-l border-[#E5E7EB] pl-2"
+                    )}
+                  >
                     {group.links.map((link) => {
                       const active = isActive(pathname, link);
                       const Icon = link.icon;
@@ -391,7 +379,7 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* ── Footer ─────────────────────────────────────────────── */}
+        {/* Footer fixo (padrão Cloudflare: conta + recolher na base) */}
         <div
           className={cn(
             "relative shrink-0 border-t border-[#E5E7EB] bg-white",
@@ -434,12 +422,14 @@ export function Sidebar() {
               className={cn(
                 "absolute z-30 overflow-hidden rounded-lg border border-[#E5E7EB] bg-white shadow-[0_12px_40px_rgba(16,24,40,0.12)]",
                 collapsed
-                  ? "bottom-12 left-[60px] w-[220px]"
+                  ? "bottom-14 left-[60px] w-[220px]"
                   : "bottom-[calc(100%+4px)] left-2 right-2"
               )}
             >
               <div className="border-b border-[#E5E7EB] px-3 py-2.5">
-                <p className="truncate text-[12px] font-semibold text-[#111827]">{displayName}</p>
+                <p className="truncate text-[12px] font-semibold text-[#111827]">
+                  {displayName}
+                </p>
                 <p className="truncate text-[10px] text-[#667085]">
                   {orgName}
                   {role ? ` · ${role}` : ""}
@@ -471,17 +461,27 @@ export function Sidebar() {
             </div>
           )}
 
-          {collapsed && (
-            <button
-              type="button"
-              onClick={() => setCollapsed(false)}
-              title="Expandir menu"
-              aria-label="Expandir menu lateral"
-              className="mt-1 flex h-9 w-full items-center justify-center rounded-md text-[#667085] transition hover:bg-[#F8FAFC] hover:text-[#111827]"
-            >
+          {/* Recolher / expandir — fixo embaixo, como na Cloudflare */}
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            title={collapsed ? "Expandir menu" : "Recolher menu"}
+            aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            className={cn(
+              "mt-1 flex w-full items-center rounded-md text-[#667085] transition",
+              "hover:bg-[#F8FAFC] hover:text-[#111827]",
+              collapsed ? "h-9 justify-center" : "gap-2 px-2 py-2 text-[12px] font-medium"
+            )}
+          >
+            {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />
-            </button>
-          )}
+            ) : (
+              <>
+                <PanelLeftClose className="h-4 w-4 shrink-0" />
+                <span>Recolher menu</span>
+              </>
+            )}
+          </button>
         </div>
       </aside>
     </>
