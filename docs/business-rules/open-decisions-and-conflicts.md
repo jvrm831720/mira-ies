@@ -59,3 +59,20 @@ Revisão especializada para base legal/finalidade, evidência de autorização d
 - O treino institucional consulta autorização local independente; testes existentes cobrem ausência, expiração, revogação e registros incompletos.
 - Foi adicionado teste de política futura para verificar que não entra em vigor antes da data.
 - **Ainda pendente P0:** persistência de decisões por run/dataset, prova de que todos os caminhos de treino compartilhado usam o guard, revalidação de jobs pendentes após mudança A→B e decisão sobre influência em modelos já treinados. Os testes documentados passaram no CI #331 e o commit documental passou no CI #332; os critérios de auditoria durável e cobertura integral continuam abertos.
+
+
+## Adendo de evidências de código — 2026-10-27
+
+### Governança de treino
+- `POST /api/v1/model/train` responde HTTP 409 e bloqueia o retreinamento global legado (`backend/app/api/scoring.py::retrain_model`). Isso é um controle específico, não prova de que não existam outros caminhos.
+- `train_tenant_model` verifica autorização institucional separada antes de atualizar prontidão, filtra eventos pelo tenant e avalia a política para finalidade local (`backend/app/ml/tenant_train.py`). Falta inventariar todos os chamadores desse serviço.
+- `require_shared_training_authorization` bloqueia se a lista de contribuintes estiver vazia/inválida ou se qualquer tenant não estiver autorizado (`backend/app/services/shared_training_guard.py`). Ainda falta demonstrar a chamada obrigatória em todos os pipelines e jobs.
+- **P0 permanece:** trilha durável por run/dataset, proveniência dos dados materializados, revisão de execuções pendentes em A→B e decisão formal sobre modelos já influenciados.
+
+### Superfície multi-tenant
+- `backend/app/main.py` registra routers de upload, scoring, conectores, outcomes, agentes, campanhas, execução de campanhas, webhooks de entrega, autenticação, organização, billing e administração interna.
+- O registro de routers é apenas inventário inicial. A inspeção por endpoint de todos esses grupos, mais workers/exports/callbacks, ainda não foi concluída; risco P0 não deve ser rebaixado.
+
+### Status de validação
+- O CI #332 foi reportado como aprovado para o commit `2dfb700094831fb50be7aef7e4de771bc26fe98f`; esta rodada de documentação não modifica código de aplicação nem substitui a execução do CI para o novo HEAD.
+- Nenhum staging, produção, banco real ou provedor externo foi acessado.
