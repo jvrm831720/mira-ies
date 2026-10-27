@@ -11,3 +11,18 @@
 - Norma: enqueue idempotente por tenant; retry limitado com backoff; após esgotar tentativas, dead-letter e status consultável apenas pelo tenant proprietário.
 - Evidência: backend/app/services/retention_queue.py, backend/app/worker.py (confirmar caminho exato), docs/AGENTES.md, backend/tests/test_retention_queue_reliability.py.
 - Aceite: duplicação, backoff, dead-letter e leitura cross-tenant testados. Risco P1; crash entre chamada externa e persistência requer reconciliação.
+
+
+## Fase 3 — fronteira entre rotas e execução assíncrona (2026-10-27)
+
+O registro de routers em `backend/app/main.py` inclui conectores, outcomes, agentes, execução de campanhas de retenção e webhooks de entrega. Isso define áreas obrigatórias da auditoria, mas não comprova por si só isolamento, idempotência ou assinatura segura.
+
+Checklist ainda pendente por endpoint/job:
+- origem autenticada do tenant e autorização de papel;
+- ownership dos IDs de campanha, aluno, lote, execução e callback;
+- assinatura, timestamp, replay/idempotência e validação do payload do webhook;
+- propagação de tenant em enqueue, retry, worker, dead-letter e consulta de status;
+- comportamento diante de timeout ambíguo e reconciliação após efeito externo;
+- não exposição de credenciais ou dados pessoais em logs e respostas de erro.
+
+**Status:** os itens acima permanecem como critérios de auditoria, não como defeitos confirmados. A validação por staging/provedor real não foi executada.
