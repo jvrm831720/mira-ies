@@ -195,8 +195,12 @@ export function Sidebar() {
             collapsed ? "justify-center px-2" : "justify-between gap-2 px-4"
           )}
         >
-          <div className={cn("flex min-w-0 items-center gap-2.5 overflow-hidden", collapsed && "justify-center")}>
-            {/* Mark — Foundations blue */}
+          <div
+            className={cn(
+              "flex min-w-0 items-center gap-2.5 overflow-hidden",
+              collapsed && "justify-center"
+            )}
+          >
             <span
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#111827] text-white shadow-sm"
               aria-hidden
@@ -238,7 +242,7 @@ export function Sidebar() {
           {!collapsed && !mobileOpen && (
             <button
               type="button"
-oea              onClick={() => setCollapsed(true)}
+              onClick={() => setCollapsed(true)}
               aria-label="Recolher menu lateral"
               title="Recolher"
               className="hidden h-8 w-8 shrink-0 place-items-center rounded-full text-[#667085] transition hover:bg-[#F3F4F6] hover:text-[#111827] md:grid"
@@ -260,7 +264,6 @@ oea              onClick={() => setCollapsed(true)}
           )}
         </div>
 
-        {/* Institutional context */}
         {!collapsed && (
           <div className="px-4 pb-1">
             <p
@@ -272,7 +275,6 @@ oea              onClick={() => setCollapsed(true)}
           </div>
         )}
 
-        {/* Navigation */}
         <nav
           aria-label="Navegação principal"
           className={cn(
@@ -316,11 +318,8 @@ oea              onClick={() => setCollapsed(true)}
                             : "text-[#667085] group-hover:text-[#111827]"
                         )}
                       />
-                      {!collapsed && (
-                        <span className="truncate">{link.label}</span>
-                      )}
+                      {!collapsed && <span className="truncate">{link.label}</span>}
 
-                      {/* Collapsed tooltip — padrão da inspiração */}
                       {collapsed && (
                         <span
                           role="tooltip"
@@ -343,7 +342,6 @@ oea              onClick={() => setCollapsed(true)}
           ))}
         </nav>
 
-        {/* Footer account */}
         <div
           className={cn(
             "relative shrink-0 border-t border-[#E5E7EB]",
