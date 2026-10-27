@@ -1,7 +1,7 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RiskSummary } from "@/types/api";
 import { AlertTriangle, Activity, CheckCircle2, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: boolean }) {
   const s = data?.summary;
@@ -10,56 +10,50 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       label: "Risco crítico",
       value: s?.critico ?? 0,
       icon: AlertTriangle,
-      accent: "text-[#e76e61] bg-[#fff0ed]",
-      bar: "bg-[var(--brand-coral)]",
+      accent: "text-[#F97066]",
     },
     {
       label: "Risco médio",
       value: s?.medio ?? 0,
       icon: Activity,
-      accent: "text-neutral-700 bg-neutral-100",
-      bar: "bg-neutral-900",
+      accent: "text-[#FDB022]",
     },
     {
       label: "Risco baixo",
       value: s?.baixo ?? 0,
       icon: CheckCircle2,
-      accent: "text-emerald-700 bg-emerald-50",
-      bar: "bg-emerald-500",
+      accent: "text-[#32D583]",
     },
     {
       label: "Total pontuados",
       value: data?.total_scored ?? (s ? s.baixo + s.medio + s.critico : 0),
       icon: Users,
-      accent: "text-neutral-700 bg-neutral-100",
-      bar: "bg-neutral-400",
+      accent: "text-[#7C8DB5]",
     },
   ];
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => (
-        <Card
+        <article
           key={item.label}
-          className="group relative overflow-hidden border-black/[0.07] bg-white transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(31,33,42,0.08)]"
+          data-mira-card="true"
+          className="rounded-xl border border-[var(--overview-border,#292d33)] bg-[var(--overview-surface,#121417)] p-4"
         >
-          <span className={`absolute inset-x-0 top-0 h-[3px] ${item.bar}`} />
-          <CardContent className="flex items-center justify-between p-5 md:p-6">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400">{item.label}</p>
-              {loading ? (
-                <Skeleton className="mt-2 h-8 w-16" />
-              ) : (
-                <p className="mt-3 text-[34px] font-semibold leading-none tracking-[-0.07em] tabular-nums text-neutral-950">
-                  {item.value?.toLocaleString("pt-BR")}
-                </p>
-              )}
-            </div>
-            <div className={`rounded-2xl p-3.5 ${item.accent}`}>
-              <item.icon className="h-[19px] w-[19px]" />
-            </div>
-          </CardContent>
-        </Card>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--overview-subtle,#777f8a)]">
+              {item.label}
+            </p>
+            <item.icon className={cn("h-4 w-4", item.accent)} />
+          </div>
+          {loading ? (
+            <Skeleton className="mt-3 h-8 w-16 bg-white/10" />
+          ) : (
+            <p className="mt-3 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[var(--overview-text,#f8fafc)]">
+              {item.value?.toLocaleString("pt-BR")}
+            </p>
+          )}
+        </article>
       ))}
     </div>
   );
