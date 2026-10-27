@@ -43,3 +43,27 @@ Ver [governança e ciclo de vida](../data-governance-and-lifecycle.md) para regr
 
 ### Lacuna persistente — decisões não necessariamente auditadas por execução
 O resolver retorna a decisão, tenant, finalidade, modo, ID da política e motivo, mas essa função por si só não persiste um evento de auditoria. O guard compartilhado exige aprovação para todos os tenants contribuintes antes de prosseguir, porém a cobertura de todos os chamadores e a persistência da decisão por run/dataset ainda não foram demonstradas. Não confundir retorno de decisão com trilha de auditoria durável.
+
+
+## Fase 3 — inventário dirigido de caminhos de treinamento (2026-10-27)
+
+### RB-GOV-007 — Retreinamento global legado permanece bloqueado
+- **Decisão:** APROVADA como proteção temporária até haver fluxo versionado, revisável e auditável. **Implementação:** EVIDÊNCIA ENCONTRADA. **Validação:** endpoint identificado; teste específico de contrato HTTP ainda deve ser registrado ou localizado.
+- **Regra:** `POST /api/v1/model/train` não pode sobrescrever o modelo global ativo pelo caminho legado.
+- **Evidência:** `backend/app/api/scoring.py::retrain_model` responde HTTP 409 e informa que o treino global está bloqueado até existir relatório versionado, aprovação explícita, ativação controlada e rollback.
+- **Limite:** a resposta 409 prova o bloqueio deste endpoint, não a ausência de outros caminhos de escrita/treino global.
+
+### RB-GOV-008 — Treino institucional é autorizado antes do treinamento
+- **Decisão:** APROVADA. **Implementação:** EVIDÊNCIA ENCONTRADA no caminho examinado. **Validação:** TESTADA PARCIALMENTE pelos testes de autorização existentes; falta prova E2E de todos os pontos de entrada.
+- **Regra:** o treino local deve verificar autorização institucional independente antes de atualizar prontidão ou treinar, e deve selecionar eventos rotulados do tenant solicitado.
+- **Evidência:** `backend/app/ml/tenant_train.py::train_tenant_model` consulta `resolve_institutional_training_authorization` antes de `refresh_tenant_readiness`, seleciona `TrainingEvent` pelo `tenant.id` e exige também decisão permitida de `resolve_training_policy` com finalidade `institutional_training`.
+- **Limite:** o exame deste serviço não comprova que todas as chamadas passam por ele, nem que logs de cada decisão são persistidos por run/dataset.
+
+### RB-GOV-009 — Guard compartilhado deve receber todos os tenants contribuintes
+- **Decisão:** APROVADA. **Implementação:** EVIDÊNCIA ENCONTRADA no serviço guard. **Validação:** TESTADA PARCIALMENTE pelos testes de guard existentes.
+- **Regra:** lista vazia/inválida falha fechada; uma única instituição negada bloqueia a execução compartilhada inteira, sem descartar silenciosamente apenas os registros negados.
+- **Evidência:** `backend/app/services/shared_training_guard.py::require_shared_training_authorization` deduplica a lista, exige pelo menos um tenant válido e levanta `SharedTrainingBlockedError` se qualquer decisão for negada.
+- **Lacuna P0:** ainda não foi demonstrado que todos os pipelines, jobs, comandos operacionais e futuras rotas chamam esse guard antes de materializar dados ou ajustar o modelo global.
+
+### Regra de release
+Não ativar treinamento compartilhado com dados reais até haver inventário de todos os pontos de entrada, prova de chamada do guard antes da leitura/materialização dos dados, trilha persistente por run/dataset e tratamento aprovado de A→B.
