@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Activity,
   BriefcaseBusiness,
   Building2,
   ChartNoAxesCombined,
@@ -64,6 +65,13 @@ const groups: NavGroup[] = [
         label: "Alunos",
         description: "Base acadêmica",
         icon: Users,
+        match: "prefix",
+      },
+      {
+        href: "/monitoramento",
+        label: "Monitoramento",
+        description: "Prioridades e risco atual",
+        icon: Activity,
         match: "prefix",
       },
     ],
@@ -525,40 +533,32 @@ export function Sidebar() {
             <div
               role="menu"
               className={cn(
-                "absolute z-30 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_12px_40px_rgba(16,24,40,0.12)]",
+                "absolute z-40 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_12px_40px_rgba(16,24,40,0.12)]",
                 collapsed
-                  ? "bottom-14 left-[68px] w-[220px]"
-                  : "bottom-[calc(100%+6px)] left-3 right-3"
+                  ? "left-[calc(100%+8px)] bottom-0 w-[220px]"
+                  : "bottom-[calc(100%+8px)] left-0 right-0"
               )}
             >
               <div className="border-b border-[#E5E7EB] px-3 py-2.5">
                 <p className="truncate text-[12px] font-semibold text-[#111827]">{displayName}</p>
-                <p className="truncate text-[10px] text-[#667085]">
-                  {orgName}
-                  {role ? ` · ${role}` : ""}
-                </p>
+                <p className="truncate text-[11px] text-[#667085]">{email || role || ""}</p>
               </div>
               <div className="p-1.5">
                 <Link
                   href="/config"
                   role="menuitem"
-                  onClick={() => {
-                    setAccountOpen(false);
-                    setMobileOpen(false);
-                  }}
-                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] text-[#344054] hover:bg-[#F8FAFC]"
+                  onClick={() => setAccountOpen(false)}
+                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-[#344054] hover:bg-[#F8FAFC]"
                 >
-                  <Settings2 className="h-3.5 w-3.5 text-[#667085]" />
-                  Preferências
+                  <Settings2 className="h-4 w-4" /> Configurações
                 </Link>
                 <button
                   type="button"
                   role="menuitem"
                   onClick={logout}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] text-[#344054] hover:bg-[#F8FAFC]"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-[#B42318] hover:bg-[#FEF3F2]"
                 >
-                  <LogOut className="h-3.5 w-3.5 text-[#667085]" />
-                  Sair da conta
+                  <LogOut className="h-4 w-4" /> Sair
                 </button>
               </div>
             </div>
@@ -567,20 +567,18 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setCollapsed((v) => !v)}
-            title={collapsed ? "Expandir menu" : "Recolher menu"}
-            aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
             className={cn(
-              "mt-1.5 flex w-full items-center rounded-lg text-[#667085] transition",
-              "hover:bg-white hover:text-[#111827]",
-              collapsed ? "h-10 justify-center" : "gap-2 px-2 py-2.5 text-[12px] font-medium"
+              "mt-2 hidden w-full items-center justify-center gap-2 rounded-lg border border-[#E5E7EB] bg-white text-[#667085] transition hover:bg-[#F8FAFC] hover:text-[#111827] md:flex",
+              collapsed ? "h-10" : "h-9 px-2 text-[11px] font-medium"
             )}
           >
             {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />
             ) : (
               <>
-                <PanelLeftClose className="h-4 w-4 shrink-0" />
-                <span>Recolher menu</span>
+                <PanelLeftClose className="h-4 w-4" />
+                Recolher
               </>
             )}
           </button>
