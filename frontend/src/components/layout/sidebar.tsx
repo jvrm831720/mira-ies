@@ -312,7 +312,7 @@ export function Sidebar() {
         {/* ── Footer: account ─────────────────────────────────────── */}
         <div
           className={cn(
-            "shrink-0 border-t border-white/[0.06]",
+            "relative shrink-0 border-t border-white/[0.06]",
             collapsed ? "p-2" : "p-3"
           )}
           ref={accountRef}
