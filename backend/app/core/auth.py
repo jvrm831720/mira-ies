@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -26,6 +26,11 @@ class AuthContext:
     tenant_slug: str
     user_id: Optional[str] = None
     role: Optional[str] = None  # None = API key legada (poder equivalente a admin em dev)
+
+
+async def _set_tenant_rls_context(db: AsyncSession, tenant_id: str) -> None:
+    """Set transaction-local tenant context for tables protected by PostgreSQL RLS."""
+    await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
 
 
 def _unauthorized(detail: str = "API key ou sessão inválida.") -> HTTPException:
@@ -50,6 +55,7 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     if not tenant or not tenant.is_active:
         raise _unauthorized()
     role = user.role if getattr(user, "role", None) in ROLE_RANK else "coordinator"
+    await _set_tenant_rls_context(db, tenant.id)
     return AuthContext(
         tenant=tenant,
         tenant_id=tenant.id,
@@ -91,6 +97,7 @@ async def get_current_tenant(
 
     if settings.app_env == "development" and settings.dev_api_key and raw_key == settings.dev_api_key:
         tenant = await _get_or_bootstrap_default(db, raw_key)
+        await _set_tenant_rls_context(db, tenant.id)
         return AuthContext(
             tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug, role="admin"
         )
@@ -103,6 +110,7 @@ async def get_current_tenant(
     if not tenant:
         raise _unauthorized("API key inválida ou tenant inativo.")
     # API key de integração: privilégio operacional alto (sem user)
+    await _set_tenant_rls_context(db, tenant.id)
     return AuthContext(
         tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug, role="admin"
     )

@@ -44,9 +44,22 @@ def upgrade() -> None:
     op.create_index("ix_risk_assessments_tenant_evaluated", "risk_assessments", ["tenant_id", "evaluated_at"])
     op.create_index("ix_risk_assessments_tenant_student_evaluated", "risk_assessments", ["tenant_id", "student_id", "evaluated_at"])
     op.create_index("ix_risk_assessments_tenant_level_evaluated", "risk_assessments", ["tenant_id", "risk_level", "evaluated_at"])
+    # The backend sets app.tenant_id transaction-locally after authentication.
+    # Fail closed when no tenant context is present.
+    op.execute("ALTER TABLE risk_assessments ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE risk_assessments FORCE ROW LEVEL SECURITY")
+    op.execute("""
+        CREATE POLICY risk_assessments_tenant_isolation ON risk_assessments
+        FOR ALL
+        USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+        WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    """)
 
 
 def downgrade() -> None:
+    op.execute("DROP POLICY IF EXISTS risk_assessments_tenant_isolation ON risk_assessments")
+    op.execute("ALTER TABLE risk_assessments NO FORCE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE risk_assessments DISABLE ROW LEVEL SECURITY")
     op.drop_index("ix_risk_assessments_tenant_level_evaluated", table_name="risk_assessments")
     op.drop_index("ix_risk_assessments_tenant_student_evaluated", table_name="risk_assessments")
     op.drop_index("ix_risk_assessments_tenant_evaluated", table_name="risk_assessments")
