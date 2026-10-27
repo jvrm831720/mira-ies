@@ -8,13 +8,15 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.engagement import StudentEngagementEvent
 from app.models.intervention import InterventionLog
 from app.models.student import Student
+from app.models.risk_assessment import RiskAssessment
+from app.ml.features import build_features_from_student
 
 STANDARD_PROPERTY_LIMITS = {
     "last_class_missed": 120,
@@ -176,6 +178,11 @@ async def refresh_engagement_profile(
     if not student:
         return None
 
+    # This service is also called by the background worker, outside HTTP auth dependencies.
+    await session.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
+    previous_risk_score = student.risk_score
+    previous_risk_level = student.risk_level
+
     event_rows = (
         await session.execute(
             select(StudentEngagementEvent)
@@ -223,6 +230,34 @@ async def refresh_engagement_profile(
             else "medio" if student.risk_score >= 40
             else "baixo"
         )
+        # Persist only a real change in the stored risk score/classification.
+        # Replayed engagement events and periodic sweeps with no score change do not
+        # create duplicate historical assessments.
+        if student.risk_score != previous_risk_score or student.risk_level != previous_risk_level:
+            snapshot = student.shap_top_factors or {}
+            model_version = snapshot.get("model_version")
+            model_scope = snapshot.get("model_scope") or "base"
+            session.add(RiskAssessment(
+                tenant_id=tenant_id,
+                student_id=student.id,
+                batch_id=student.batch_id,
+                scoring_run_id=str(__import__("uuid").uuid4()),
+                evaluated_at=current,
+                score=float(student.risk_score),
+                risk_level=student.risk_level,
+                model_version=str(model_version) if model_version is not None else None,
+                model_scope=model_scope,
+                model_score=float(student.model_risk_score) if student.model_risk_score is not None else None,
+                dynamic_adjustment=adjustment,
+                features_snapshot=build_features_from_student(student),
+                explanation={
+                    "available": bool(snapshot.get("top_3")),
+                    "top_factors": snapshot.get("top_3") or None,
+                    "summary": snapshot.get("summary"),
+                    "note": "Fatores da avaliação base; o ajuste dinâmico foi atualizado por eventos de engajamento.",
+                },
+                context={"source": "engagement_refresh", "events_considered": len(event_rows), "no_response_events_30d": len(no_response_logs)},
+            ))
     await session.flush()
     return {
         "student_id": student.id,

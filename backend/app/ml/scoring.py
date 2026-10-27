@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 from datetime import datetime, timezone
 from uuid import uuid4
+from sqlalchemy import text
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -53,6 +54,7 @@ async def score_batch(
     settings = get_settings()
     if explain is None:
         explain = settings.shap_on_batch
+    await session.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
 
     result = await session.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalar_one_or_none()
@@ -108,6 +110,7 @@ async def score_batch(
             "rule_flags": rules["rule_flags"], "rule_boost": rules["rule_boost"],
             "recommended_actions": rules["recommended_actions"], "confidence": rules["confidence"],
             "model_scope": model_scope,
+            "model_version": str(model_version) if model_version is not None else None,
         }
         student.updated_at = evaluated_at
         session.add(RiskAssessment(
