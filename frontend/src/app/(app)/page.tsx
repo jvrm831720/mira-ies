@@ -54,12 +54,23 @@ export default function CommandCenterPage() {
     { label: "Sem score", count: risk.sem_score, color: "bg-neutral-300", text: "text-neutral-600" },
   ] : [];
   const riskTotal = riskSegments.reduce((sum, segment) => sum + segment.count, 0);
+  const totalStudentsFieldValid = summary.data?.total_students == null || (typeof summary.data.total_students === "number" && Number.isFinite(summary.data.total_students) && summary.data.total_students >= 0);
+  const scoredStudentsFieldValid = summary.data?.total_scored == null || (typeof summary.data.total_scored === "number" && Number.isFinite(summary.data.total_scored) && summary.data.total_scored >= 0);
+  const riskDataConsistent = Boolean(
+    riskBreakdownAvailable &&
+    risk &&
+    totalStudentsFieldValid &&
+    scoredStudentsFieldValid &&
+    totalStudents != null &&
+    riskTotal === totalStudents &&
+    (summary.data?.total_scored == null || summary.data.total_scored === risk.baixo + risk.medio + risk.critico)
+  );
   const operationalGeneratedAt = workSummary.data?.generated_at ? new Date(workSummary.data.generated_at) : null;
   const operationalGeneratedAtLabel = operationalGeneratedAt && !Number.isNaN(operationalGeneratedAt.getTime())
     ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(operationalGeneratedAt)
     : null;
-  const criticalCount = riskBreakdownAvailable && risk ? risk.critico : null;
-  const unscoredCount = riskBreakdownAvailable && risk ? risk.sem_score : null;
+  const criticalCount = riskDataConsistent && risk ? risk.critico : null;
+  const unscoredCount = riskDataConsistent && risk ? risk.sem_score : null;
   const isEmpty = !summary.isLoading && !summary.isError && totalStudents === 0;
 
   const searchHits = useMemo(() => {
@@ -210,7 +221,7 @@ export default function CommandCenterPage() {
                 tone="coral"
               />
             </div>
-            {!summary.isLoading && !summary.isError && riskBreakdownAvailable && risk && (
+            {!summary.isLoading && !summary.isError && riskDataConsistent && risk && (
               <section className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]" aria-label="Distribuição de risco e qualidade da base">
                 <article className="rounded-[var(--radius-card)] border border-[var(--border-subtle)] bg-white p-5 sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -252,9 +263,9 @@ export default function CommandCenterPage() {
                 </article>
               </section>
             )}
-            {!summary.isLoading && !summary.isError && !riskBreakdownAvailable && (
+            {!summary.isLoading && !summary.isError && !riskDataConsistent && (
               <p role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                A distribuição de risco e a cobertura não estão disponíveis porque a resposta da API está incompleta. Os valores não foram tratados como zero.
+                A distribuição de risco e a cobertura não estão disponíveis porque os dados da API estão incompletos ou inconsistentes. Os valores não foram tratados como zero.
               </p>
             )}
           </section>
