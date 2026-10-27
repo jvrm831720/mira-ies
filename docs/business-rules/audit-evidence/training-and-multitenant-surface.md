@@ -132,3 +132,48 @@ A evidência examinada reforça que há controles concretos em vários caminhos,
 7. Repetir e reordenar callbacks, incluindo eventos concorrentes, e validar o estado final e o registro de engajamento.
 
 **Conclusão desta fase:** há isolamento por tenant no caminho de seleção, idempotência e tratamento de erros no caminho normal. Contudo, a recuperação após consumo destrutivo da fila, a expiração do lock, a promoção não atômica de retries e a revalidação de permissões no limite de execução permanecem lacunas relevantes. Não foi realizado teste dinâmico e não se afirma que uma exploração ocorreu.
+
+
+## Fase 6 — recuperação, concorrência e callbacks do worker (2026-10-27)
+
+**Escopo:** leitura estática de `main`; nenhum teste foi executado nesta rodada, nenhum envio foi realizado e nenhum serviço externo ou banco de produção/staging foi acionado. Nenhum código funcional foi alterado. As conclusões abaixo distinguem comportamento diretamente observado de cenários condicionais.
+
+### Produtores e consumidores encontrados
+
+- `backend/app/api/agents.py::enqueue_retention` enfileira jobs usando o tenant autenticado; para `optimize_send_time`, seleciona alunos por tenant, verifica a permissão de comunicação no agendamento e cria um job por aluno com `scheduled_at`.
+- `backend/app/worker.py::run_worker` promove itens vencidos e consome a fila por `BLPOP`, chamando `process_retention_job`.
+- `backend/app/api/agents.py::retention_job_status` consulta o job com `get_job(job_id, tenant_id=auth.tenant_id)`.
+- Na amostra de diretórios/arquivos consultada, não foi identificado outro scheduler de recuperação de jobs abandonados. Isso não prova sua inexistência em todos os componentes ou infraestrutura externa.
+
+### Achados complementares
+
+| ID | Caminho | Evidência observada | Avaliação |
+|---|---|---|---|
+| RET-08 | Propriedade do lock em `process_retention_job` | O lock usa valor constante `"1"`, TTL de 900 s e remoção incondicional via `DELETE` no `finally`. | Se a primeira execução ultrapassar o TTL, uma segunda execução adquirir o lock e a primeira terminar depois, o `finally` da primeira poderá apagar a chave da segunda. Risco de concorrência concreto no desenho, condicionado à expiração; não reproduzido. |
+| RET-09 | Estado durante promoção de retries | `promote_due_retries` remove IDs vencidos do sorted set, altera para `queued` somente jobs com estado `scheduled`, mas faz `RPUSH` para a lista inteira de IDs retornados que ainda tenham registro. | Jobs em estados como `running`, `retrying` ou `completed` podem ser recolocados na fila se ainda estiverem no conjunto atrasado. O efeito final depende das guardas de `process_retention_job`; não foi reproduzido. |
+| RET-10 | Autenticidade de webhook | `receive_delivery_webhook` verifica tenant ativo e assinatura HMAC sobre o corpo bruto com o segredo daquele tenant antes de normalizar/aplicar o evento. Segredo ausente falha fechado fora da exceção de desenvolvimento explicitamente configurada. | Controle positivo de autenticidade observado. |
+| RET-11 | Replay de webhook | A verificação HMAC inspecionada não inclui timestamp, nonce ou janela de validade. O serviço calcula um ID/hash do evento e compara apenas com `log.delivery_event_id`, que representa o último evento registrado; também bloqueia algumas transições regressivas. | Não foi demonstrada proteção temporal contra replay. O dedupe do último evento e as regras de transição reduzem alguns efeitos, mas não equivalem a um registro de todos os eventos vistos nem a um mecanismo geral anti-replay. Sem teste dinâmico, não se afirma exploração confirmada. |
+| RET-12 | Testes de webhook | `test_agent_delivery_safety.py` cobre normalização de payloads de provedores e distingue `delivered` de `read`; `test_security_pure.py` contém um teste HMAC puro que compara o cálculo esperado, mas não chama o endpoint real. | Na lista de testes consultada, não foi localizado teste de endpoint para assinatura inválida, segredo/tenant incorreto, replay, concorrência de callbacks ou transições fora de ordem. Limita-se aos arquivos consultados. |
+
+### Revalidação do tenant e do consentimento no worker
+
+- `get_current_tenant` verifica `Tenant.is_active` durante a requisição que cria o job. No caminho de execução do worker examinado, o `tenant_id` persistido é passado ao orquestrador sem uma nova leitura explícita do estado ativo do tenant.
+- O fluxo de seleção de alunos verifica tenant, atividade do aluno, opt-out e preferências de comunicação. Não foi identificada uma segunda leitura explícita de consentimento imediatamente antes da chamada ao provedor.
+- Ambos são limites de autorização relevantes em processamento assíncrono. A possibilidade de desativação/opt-out concorrente permanece um risco condicional; não há reprodução nesta auditoria.
+
+### Cobertura verificada nesta rodada
+
+- A listagem de `backend/tests` contém `test_retention_queue_reliability.py`, `test_provider_guard.py`, `test_agent_delivery_safety.py` e `test_consent_governance.py`, entre outros.
+- Os testes de fila cobrem caminhos normais de retry, DLQ, promoção de item vencido e isolamento da consulta por tenant; os testes de guard cobrem `SET NX` e liberação após falha definitiva.
+- Não foi executado pytest nesta rodada. Ausência de teste específico na amostra inspecionada não deve ser generalizada para qualquer teste ou mecanismo externo não consultado.
+
+### Próximas verificações recomendadas
+
+1. Testar em ambiente isolado a queda após `BLPOP` e verificar se jobs `running` são reconciliados por algum componente.
+2. Testar expiração do lock e garantir que uma execução antiga não remova o lock de uma execução mais nova; avaliar lock com token de proprietário e renovação/lease.
+3. Simular concorrência e falhas entre `ZREM`, atualização do estado e `RPUSH`; definir transição de estado válida antes de re-enfileirar qualquer ID.
+4. Testar tenant desativado e opt-out alterado depois do enqueue/seleção, assegurando bloqueio antes de qualquer chamada externa.
+5. Exercitar o endpoint de webhook com HMAC inválido, segredo incorreto, replay idêntico, replay antigo após outro evento e eventos concorrentes/fora de ordem.
+6. Definir se o contrato dos provedores suporta consulta/reconciliação de mensagens aceitas sem confirmação local.
+
+**Conclusão da Fase 6:** foram confirmados controles úteis de autenticação HMAC, isolamento por tenant em consultas específicas e idempotência básica de envio. Permanecem lacunas no caminho de recuperação do worker, na propriedade do lock, na atomicidade da promoção e na proteção geral contra replay de webhook. Os cenários de concorrência e falha continuam riscos potenciais até serem testados; não houve teste dinâmico nem correção nesta rodada.
