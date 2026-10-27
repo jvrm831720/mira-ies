@@ -23,3 +23,23 @@ Ver [governança e ciclo de vida](../data-governance-and-lifecycle.md) para regr
 - Decisão PENDENTE para tratamento de influência passada; implementação PARCIALMENTE IMPLEMENTADA para bloquear contribuições futuras; validação TESTADA PARCIALMENTE.
 - Norma provisória: bloquear novos dados globais na vigência B e revisar runs pendentes; não alegar que excluir dados futuros apaga influência de modelo já treinado.
 - Risco P0. Decisão de retreino/unlearning/rollback e tratamento contratual exige fundador e assessoria jurídica.
+
+
+
+## Expansão da auditoria — efetividade temporal e autorização (2026-10-27)
+
+### RB-GOV-005 — Somente a política vigente na data da decisão controla o treino
+- **Decisão:** APROVADA (consistente com a política versionada). **Implementação:** EVIDÊNCIA ENCONTRADA no resolver. **Validação:** teste de regressão adicionado; CI pendente.
+- **Regra:** registros com `effective_at` futuro não substituem a política efetiva atual antes da data/hora de vigência. Após a vigência, a nova política passa a controlar novas decisões.
+- **Critérios de aceite:** política compartilhada vigente permite treino compartilhado quando o dataset é elegível; política futura `institution_only` não antecipa bloqueio; depois da vigência, bloqueia.
+- **Evidência:** backend/app/services/training_policy.py, filtro de registros efetivos por `effective_at <= now`.
+- **Teste novo:** backend/tests/test_governance_audit_edges.py::test_future_dated_policy_does_not_take_effect_early.
+
+### RB-GOV-006 — Autorização institucional e autorização de compartilhamento são controles distintos
+- **Decisão:** APROVADA. **Implementação:** EVIDÊNCIA ENCONTRADA no resolver de autorização local e nos bloqueios do treino por tenant. **Validação:** TESTADA PARCIALMENTE nos testes existentes.
+- **Regra:** uma política de compartilhamento, mesmo aprovada, não substitui a autorização independente de treino institucional; a autorização local precisa de aprovação, evidência contratual, referência de elegibilidade do dataset e vigência.
+- **Evidência:** backend/app/services/training_policy.py::resolve_institutional_training_authorization; backend/app/ml/tenant_train.py; backend/tests/test_institutional_training_authorization.py.
+- **Risco:** P0 se houver caminho de treino que não use o gate. Inventário de todos os callers e trilhas de treino continua pendente.
+
+### Lacuna persistente — decisões não necessariamente auditadas por execução
+O resolver retorna a decisão, tenant, finalidade, modo, ID da política e motivo, mas essa função por si só não persiste um evento de auditoria. O guard compartilhado exige aprovação para todos os tenants contribuintes antes de prosseguir, porém a cobertura de todos os chamadores e a persistência da decisão por run/dataset ainda não foram demonstradas. Não confundir retorno de decisão com trilha de auditoria durável.

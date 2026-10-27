@@ -24,3 +24,15 @@ GitHub Actions run #328, associado à PR #47 antes do merge: jobs `lint-and-test
 
 ## Método de conclusão por regra
 Para marcar uma regra como validada, registrar commit, teste nominal, cenário coberto, resultado, ambiente e link do run. Testes que não foram executados nesta auditoria não são inferidos como aprovados a partir do nome do arquivo.
+
+
+
+## Adendo de auditoria dirigida (2026-10-27)
+
+| Regra | Evidência examinada | Teste de regressão adicionado | Estado após adendo |
+|---|---|---|---|
+| RB-SEC-004 | `backend/app/api/scoring.py`; `score_batch` recebe tenant do contexto | `backend/tests/test_governance_audit_edges.py::test_risk_endpoints_do_not_disclose_another_tenants_student_or_batch` | Implementação evidenciada no escopo dos endpoints selecionados; teste ainda precisa de resultado CI. Não representa cobertura total. |
+| RB-GOV-005 | `backend/app/services/training_policy.py` seleciona registros com `effective_at <= now` | `backend/tests/test_governance_audit_edges.py::test_future_dated_policy_does_not_take_effect_early` | Regra implementada no resolver; teste adicionado, CI pendente. |
+| RB-GOV-006 | `resolve_institutional_training_authorization`, `tenant_train.py`, testes de autorização | `test_institutional_training_authorization.py` (existente) | Parcialmente coberta; ainda falta comprovar todos os caminhos de treino e auditoria persistente por execução. |
+
+**Novo arquivo de teste:** `backend/tests/test_governance_audit_edges.py`. Nenhum arquivo de aplicação ou migration foi alterado nesta etapa.

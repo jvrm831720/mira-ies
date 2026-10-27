@@ -44,3 +44,18 @@ Prioridade de acordo com o prompt fundador: P0 risco crítico; P1 alto; P2 médi
 
 ## Dependências jurídicas/contratuais
 Revisão especializada para base legal/finalidade, evidência de autorização de treino, revogação, retenção, exclusão, direitos de titulares, transferências a provedores e uso de modelos já treinados. Este documento não declara conformidade com a LGPD.
+
+
+
+## Adendo após auditoria dirigida (2026-10-27)
+
+### Isolamento institucional
+- Foram examinados endpoints selecionados de risco em `backend/app/api/scoring.py`. Há filtros de tenant nos endpoints de resumo, lista de críticos e consulta individual; o scoring por lote recebe o tenant autenticado.
+- Foi adicionado teste de regressão para tentar acessar aluno e lote de A usando credenciais de B.
+- **Ainda pendente:** matriz completa de rotas, dependências, exportações, consultas de banco, workers, webhooks, integrações e tarefas assíncronas. Não reduzir prioridade P0 até terminar essa cobertura e obter CI verde.
+
+### Governança de modelos
+- O resolver considera somente políticas com vigência iniciada e bloqueia treino compartilhado quando não há política vigente aprovada, a política está revogada/expirada, o modo é privado ou o dataset é inelegível.
+- O treino institucional consulta autorização local independente; testes existentes cobrem ausência, expiração, revogação e registros incompletos.
+- Foi adicionado teste de política futura para verificar que não entra em vigor antes da data.
+- **Ainda pendente P0:** persistência de decisões por run/dataset, inventário de todos os chamadores do guard, reconciliação de runs pendentes após mudança A→B e decisão sobre influência em modelos já treinados. O teste novo ainda precisa passar no CI.

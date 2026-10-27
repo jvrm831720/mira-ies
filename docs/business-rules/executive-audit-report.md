@@ -36,3 +36,16 @@ Catálogo inicial: 21 regras transversais/representativas listadas no catálogo 
 ## Garantias de escopo
 
 Não houve alteração funcional, migration, escrita em banco, mudança de configuração de produção, merge na `main` ou deploy como parte desta auditoria. A documentação será entregue em branch separada para revisão. Não declarar a missão concluída enquanto houver domínios relevantes sem auditoria detalhada.
+
+
+
+## Fase 2 — auditoria dirigida (2026-10-27)
+
+A auditoria foi aprofundada nos dois riscos prioritários sem tocar na aplicação: isolamento institucional e governança de treinamento.
+
+- Criado `backend/tests/test_governance_audit_edges.py` com cenários para negar leitura/scoring cross-tenant de aluno/lote e respeitar a data de vigência de uma política.
+- Revisados `backend/app/api/scoring.py`, `backend/app/services/training_policy.py`, `backend/app/services/shared_training_guard.py`, modelos de política/autorização e testes existentes de governança.
+- Evidência observada: endpoints de risco consultados filtram por tenant autenticado; o resolver ignora políticas futuras e o guard compartilhado bloqueia o lote inteiro se qualquer contribuinte for negado.
+- Limitação crítica: o guard é uma função de serviço e não há, nesta inspeção, prova de que todos os caminhos futuros/indiretos a chamem; o retorno de decisão não equivale a uma trilha de auditoria persistida por run/dataset.
+- O resultado de CI para esta revisão deve ser confirmado antes de declarar os novos testes aprovados. Staging/produção não foram acessados.
+- Escopo respeitado: apenas teste e documentação nesta branch; nenhuma alteração funcional, migration, banco, `main` ou deploy.

@@ -68,3 +68,14 @@ Esta lista é a base mínima de regressão. “Passou no CI” comprova somente 
 ## Execução real nesta auditoria
 
 Não executei a suíte completa localmente nem acessei staging. A execução GitHub Actions #328 (PR #47, antes do merge) foi observada com jobs `lint-and-test` e `frontend-check` aprovados. Isso valida os checks daquele commit, não toda esta matriz.
+
+
+
+## Novos critérios de regressão — isolamento e governança (2026-10-27)
+
+1. **Isolamento de risco:** criar aluno/lote no tenant A; tentar consultar o risco individual, resumo, críticos e scoring do lote como tenant B. Esperado: 404 para recurso individual/lote não pertencente e respostas de listas/resumo sem registros de A.
+2. **Política futura:** criar política `shared_training` efetiva e uma política `institution_only` com vigência futura. Antes da vigência, a política atual permanece ativa; após a vigência, a nova política bloqueia compartilhamento.
+3. **Autorização local independente:** uma política de compartilhamento não concede automaticamente treino institucional; exigir autorização local válida e elegibilidade.
+4. **Guard compartilhado atômico em termos de decisão:** uma instituição contribuinte não autorizada bloqueia o conjunto inteiro; não descartar silenciosamente o tenant negado.
+
+**Teste novo:** `backend/tests/test_governance_audit_edges.py`. A inclusão do teste não significa que foi executado/aprovado; consultar GitHub Actions da PR. Testes existentes relacionados: `test_training_policy.py`, `test_shared_training_guard.py`, `test_institutional_training_authorization.py`, `test_governance_e2e.py`.
