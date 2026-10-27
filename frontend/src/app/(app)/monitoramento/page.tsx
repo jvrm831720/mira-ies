@@ -65,7 +65,7 @@ export default function MonitoramentoPage() {
   const historyQuery = useQuery({queryKey:["risk-history",period,course,riskLevel],queryFn:()=>api.riskHistory({from,to,course:course||undefined,risk_level:riskLevel||undefined,page:1,page_size:50}),retry:false});
   const selectedHistoryQuery = useQuery({queryKey:["student-risk-history",selectedStudentId,from,to],queryFn:()=>api.studentRiskHistory(selectedStudentId!,{from,to,page:1,page_size:200}),enabled:Boolean(selectedStudentId),retry:false});
   const data = historyQuery.data;
-  const courseOptions = useMemo(()=>[...new Set((data?.assessments??[]).map(a=>a.course).filter((v):v is string=>Boolean(v)))].sort((a,b)=>a.localeCompare(b,"pt-BR")),[data?.assessments]);
+  const courseOptions = data?.courses ?? [];
   const refresh = ()=>{void historyQuery.refetch();if(selectedStudentId)void selectedHistoryQuery.refetch();};
   const counts = data?.comparison_counts;
   const movements = data?.movements ?? [];

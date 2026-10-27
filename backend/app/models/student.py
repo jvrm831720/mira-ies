@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import String, Integer, Float, DateTime, Text, ForeignKey, Index, Boolean
+from sqlalchemy import String, Integer, Float, DateTime, Text, ForeignKey, Index, Boolean, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
@@ -94,6 +94,7 @@ class Student(Base):
     batch: Mapped["UploadBatch"] = relationship("UploadBatch", back_populates="students")
 
     __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_students_tenant_id_id"),
         Index("ix_students_batch_matricula", "batch_id", "matricula"),
         Index("ix_students_risk_level", "risk_level"),
         Index("ix_students_curso", "curso"),

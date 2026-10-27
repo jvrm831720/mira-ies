@@ -307,11 +307,11 @@ async def risk_history(
         ).where(
             RiskAssessment.tenant_id == auth.tenant_id,
             RiskAssessment.student_id.in_(list(current_by_student.keys())),
-            RiskAssessment.evaluated_at < start,
+            RiskAssessment.evaluated_at <= end,
         ).subquery()
         previous_rows = (await db.execute(
             select(RiskAssessment).join(ranked, ranked.c.assessment_id == RiskAssessment.id)
-            .where(ranked.c.rn == 1, RiskAssessment.tenant_id == auth.tenant_id)
+            .where(ranked.c.rn == 2, RiskAssessment.tenant_id == auth.tenant_id)
         )).scalars().all()
         previous_by_student = {row.student_id: row for row in previous_rows}
     movements = []
@@ -324,9 +324,9 @@ async def risk_history(
         movements.append({
             "student_id": student_id, "student_name": student.nome if student else None,
             "matricula": student.matricula if student else None, "course": student.curso if student else None,
-            "previous_score": previous.score if previous and delta is not None else None,
-            "previous_risk_level": previous.risk_level if previous and delta is not None else None,
-            "previous_evaluated_at": previous.evaluated_at.isoformat() if previous and delta is not None else None,
+            "previous_score": previous.score if previous else None,
+            "previous_risk_level": previous.risk_level if previous else None,
+            "previous_evaluated_at": previous.evaluated_at.isoformat() if previous else None,
             "current_score": current.score, "current_risk_level": current.risk_level,
             "current_evaluated_at": current.evaluated_at.isoformat(), "delta": delta,
             "change_type": change_type, "model_version": current.model_version,
@@ -344,18 +344,26 @@ async def risk_history(
         if key not in representative or row.evaluated_at > representative[key][0].evaluated_at:
             representative[key] = (row, student)
     grouped: dict[tuple[str, str, str], list[RiskAssessment]] = defaultdict(list)
-    distribution: dict[str, dict[str, int]] = defaultdict(lambda: {"baixo": 0, "medio": 0, "critico": 0, "students_count": 0})
     for (_student_id, bucket), (row, _student) in representative.items():
         grouped[(bucket, row.model_scope, row.model_version or "versao_indisponivel")].append(row)
-        distribution[bucket][row.risk_level] += 1
-        distribution[bucket]["students_count"] += 1
     timeline = []
     for (bucket, scope, version), rows in sorted(grouped.items()):
+        group_distribution = {"baixo": 0, "medio": 0, "critico": 0, "students_count": len(rows)}
+        for assessment in rows:
+            group_distribution[assessment.risk_level] += 1
         timeline.append({
             "bucket": bucket, "model_scope": scope, "model_version": version,
             "average_score": round(sum(float(r.score) for r in rows) / len(rows), 2),
-            "students_count": len(rows), "risk_distribution": distribution[bucket],
+            "students_count": len(rows), "risk_distribution": group_distribution,
         })
+    course_rows = (await db.execute(
+        select(Student.curso).join(RiskAssessment, RiskAssessment.student_id == Student.id).where(
+            RiskAssessment.tenant_id == auth.tenant_id, Student.tenant_id == auth.tenant_id,
+            RiskAssessment.evaluated_at >= start, RiskAssessment.evaluated_at <= end,
+            Student.curso.is_not(None),
+        ).distinct().order_by(Student.curso)
+    )).all()
+    courses = [row[0] for row in course_rows if row[0]]
     return {
         "tenant_id": auth.tenant_id, "period": {"from": start.isoformat(), "to": end.isoformat()},
         "filters": {"course": course_filter, "risk_level": risk_level},
@@ -366,7 +374,7 @@ async def risk_history(
             "unchanged": counts["sem_mudanca_relevante"], "model_changed": counts["mudanca_modelo"],
             "no_comparable_history": counts["sem_historico_comparavel"],
         },
-        "timeline": timeline, "movements": movements[:500], "movements_truncated": len(movements) > 500,
+        "timeline": timeline, "courses": courses, "movements": movements[:500], "movements_truncated": len(movements) > 500,
         "assessments": [
             {**_assessment_payload(row, student), "student_name": student.nome, "course": student.curso}
             for row, student in page_rows
