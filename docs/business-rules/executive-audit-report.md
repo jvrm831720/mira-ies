@@ -49,3 +49,17 @@ A auditoria foi aprofundada nos dois riscos prioritários sem tocar na aplicaç�
 - Limitação crítica: o guard é uma função de serviço e não há, nesta inspeção, prova de que todos os caminhos futuros/indiretos a chamem; o retorno de decisão não equivale a uma trilha de auditoria persistida por run/dataset.
 - GitHub Actions run #331 terminou com sucesso: lint/test do backend e lint/build do frontend passaram para o commit 34388663091e8701f05ee776326ab20fe51bbf8b. Staging/produção não foram acessados; CI verde não comprova comportamento em ambiente hospedado.
 - Escopo respeitado: apenas teste e documentação nesta branch; nenhuma alteração funcional, migration, banco, `main` ou deploy.
+
+
+## Fase 3 — caminhos de treinamento e superfície da API (2026-10-27)
+
+A inspeção dirigida acrescentou evidência sobre três fronteiras de treinamento e iniciou o inventário da superfície multi-tenant:
+
+- O endpoint legado `POST /api/v1/model/train` responde 409 e não executa retreinamento global.
+- O serviço de treino institucional verifica autorização independente antes de atualizar prontidão e filtra eventos por tenant.
+- O guard de treino compartilhado falha fechado para lista vazia/inválida e bloqueia a operação inteira quando qualquer instituição contribuinte é negada.
+- O registro central da API mostra routers para upload, scoring, conectores, outcomes, agentes, campanhas, execução de campanhas, webhooks, autenticação, organização, billing e administração.
+
+**Não significa conclusão:** ainda não está demonstrado que todos os callers de treino usam os gates, que as decisões são persistidas por run/dataset ou que todas as rotas/exports/workers/webhooks preservam isolamento. A regra de release permanece: não declarar governança compartilhada ou isolamento multi-tenant completos sem inventário e testes abrangentes.
+
+Esta atualização é documental. Nenhum arquivo de aplicação, migration, banco, configuração de produção, `main` ou deploy foi alterado. O CI #332 aprovado pertence ao HEAD anterior; o novo commit documental precisa de sua própria verificação automatizada.
