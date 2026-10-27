@@ -89,3 +89,35 @@ async def test_score_comparison_never_compares_different_model_versions():
     kind, delta = _change_type(current, previous)
     assert kind == "mudanca_modelo"
     assert delta is None
+
+
+
+async def test_risk_history_compares_latest_assessment_to_previous_within_period(client, tenant, db_session):
+    t, api_key = tenant
+    batch = UploadBatch(
+        tenant_id=t.id, filename="movement.csv", original_filename="movement.csv",
+        status="scored", total_rows=1, processed_rows=1,
+    )
+    db_session.add(batch)
+    await db_session.flush()
+    student = Student(tenant_id=t.id, batch_id=batch.id, matricula="M-001", nome="Movimentação", curso="Medicina")
+    db_session.add(student)
+    await db_session.flush()
+    now = datetime.now(timezone.utc)
+    for days_ago, score, level in [(2, 42.0, "medio"), (1, 67.0, "medio")]:
+        db_session.add(RiskAssessment(
+            tenant_id=t.id, student_id=student.id, batch_id=batch.id,
+            scoring_run_id=str(uuid4()), evaluated_at=now - timedelta(days=days_ago),
+            score=score, risk_level=level, model_version="base-v1", model_scope="base",
+            model_score=score, dynamic_adjustment=0, features_snapshot={},
+            explanation={"available": False}, context={"source": "test"},
+        ))
+    await db_session.commit()
+
+    response = await client.get("/api/v1/risk/history", headers={"X-API-Key": api_key})
+    assert response.status_code == 200, response.text
+    movement = next(item for item in response.json()["movements"] if item["student_id"] == student.id)
+    assert movement["previous_score"] == 42.0
+    assert movement["current_score"] == 67.0
+    assert movement["delta"] == 25.0
+    assert movement["change_type"] == "risco_aumentou"

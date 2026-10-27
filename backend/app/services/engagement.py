@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any
 
@@ -241,7 +242,7 @@ async def refresh_engagement_profile(
                 tenant_id=tenant_id,
                 student_id=student.id,
                 batch_id=student.batch_id,
-                scoring_run_id=str(__import__("uuid").uuid4()),
+                scoring_run_id=str(uuid4()),
                 evaluated_at=current,
                 score=float(student.risk_score),
                 risk_level=student.risk_level,

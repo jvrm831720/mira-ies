@@ -284,6 +284,17 @@ async def risk_history(
     if risk_level:
         query = query.where(RiskAssessment.risk_level == risk_level)
     total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    students_total_query = select(func.count(func.distinct(RiskAssessment.student_id))).select_from(
+        RiskAssessment
+    ).join(Student, Student.id == RiskAssessment.student_id).where(
+        RiskAssessment.tenant_id == auth.tenant_id,
+        Student.tenant_id == auth.tenant_id,
+        RiskAssessment.evaluated_at >= start,
+        RiskAssessment.evaluated_at <= end,
+        *([Student.curso.ilike("%" + course_filter + "%")] if course_filter else []),
+        *([RiskAssessment.risk_level == risk_level] if risk_level else []),
+    )
+    students_total = (await db.execute(students_total_query)).scalar_one()
     page_rows = (await db.execute(
         query.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc())
         .offset((page - 1) * page_size).limit(page_size)
@@ -293,8 +304,25 @@ async def risk_history(
     )).all()
     temporal = [row for row, _student in temporal_rows]
     student_by_id = {row.student_id: student for row, student in temporal_rows}
+
+    # Movement comparisons use each student's latest assessment in the period,
+    # even when a risk-level filter is active. The filter is applied after selecting
+    # the latest assessment so it cannot accidentally promote an older score.
+    movement_query = select(RiskAssessment, Student).join(
+        Student, Student.id == RiskAssessment.student_id
+    ).where(
+        RiskAssessment.tenant_id == auth.tenant_id,
+        Student.tenant_id == auth.tenant_id,
+        RiskAssessment.evaluated_at >= start,
+        RiskAssessment.evaluated_at <= end,
+        *([Student.curso.ilike("%" + course_filter + "%")] if course_filter else []),
+    )
+    movement_rows = (await db.execute(
+        movement_query.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc()).limit(5000)
+    )).all()
+    movement_student_by_id = {row.student_id: student for row, student in movement_rows}
     current_by_student: dict[str, RiskAssessment] = {}
-    for row in temporal:
+    for row, _student in movement_rows:
         current_by_student.setdefault(row.student_id, row)
     previous_by_student: dict[str, RiskAssessment] = {}
     if current_by_student:
@@ -317,10 +345,12 @@ async def risk_history(
     movements = []
     counts = defaultdict(int)
     for student_id, current in current_by_student.items():
+        if risk_level and current.risk_level != risk_level:
+            continue
         previous = previous_by_student.get(student_id)
         change_type, delta = _change_type(current, previous)
         counts[change_type] += 1
-        student = student_by_id.get(student_id)
+        student = movement_student_by_id.get(student_id)
         movements.append({
             "student_id": student_id, "student_name": student.nome if student else None,
             "matricula": student.matricula if student else None, "course": student.curso if student else None,
@@ -367,14 +397,15 @@ async def risk_history(
     return {
         "tenant_id": auth.tenant_id, "period": {"from": start.isoformat(), "to": end.isoformat()},
         "filters": {"course": course_filter, "risk_level": risk_level},
-        "total_assessments": total, "students_with_assessments": len(current_by_student),
-        "temporal_data_truncated": total > len(temporal_rows), "temporal_rows_limit": 5000,
+        "total_assessments": total, "students_with_assessments": students_total,
+        "temporal_data_truncated": total > len(temporal_rows) or len(movement_rows) >= 5000,
+        "temporal_rows_limit": 5000,
         "comparison_counts": {
             "increased": counts["risco_aumentou"], "decreased": counts["risco_diminuiu"],
             "unchanged": counts["sem_mudanca_relevante"], "model_changed": counts["mudanca_modelo"],
             "no_comparable_history": counts["sem_historico_comparavel"],
         },
-        "timeline": timeline, "courses": courses, "movements": movements[:500], "movements_truncated": len(movements) > 500,
+        "timeline": timeline, "courses": courses, "movements": movements[:500], "movements_truncated": len(movements) > 500 or len(movement_rows) >= 5000,
         "assessments": [
             {**_assessment_payload(row, student), "student_name": student.nome, "course": student.curso}
             for row, student in page_rows
