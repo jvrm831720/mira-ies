@@ -129,3 +129,15 @@ async def test_future_dated_policy_does_not_take_effect_early(
     assert after_effective_date.allowed is False
     assert after_effective_date.policy_id == future_private.id
     assert after_effective_date.mode == "institution_only"
+
+
+@pytest.mark.asyncio
+async def test_legacy_global_training_endpoint_fails_closed(client, tenant_factory):
+    _tenant, api_key = await tenant_factory(slug="audit-global-training-block")
+    response = await client.post(
+        "/api/v1/model/train",
+        headers={"X-API-Key": api_key},
+    )
+
+    assert response.status_code == 409
+    assert "Treinamento global bloqueado" in response.json()["detail"]
