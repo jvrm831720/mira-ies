@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   BriefcaseBusiness,
+  Building2,
   ChartNoAxesCombined,
   ChevronDown,
   ChevronsUpDown,
@@ -16,6 +17,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
   Settings2,
   Users,
   Workflow,
@@ -126,14 +128,11 @@ function isActive(pathname: string, link: NavLink): boolean {
   if (link.href === "/retencao") {
     return (
       pathname === "/retencao" ||
-      (pathname.startsWith("/retencao/") &&
-        !pathname.startsWith("/retencao/logs"))
+      (pathname.startsWith("/retencao/") && !pathname.startsWith("/retencao/logs"))
     );
   }
   if (link.href === "/retencao/logs") {
-    return (
-      pathname === "/retencao/logs" || pathname.startsWith("/retencao/logs/")
-    );
+    return pathname === "/retencao/logs" || pathname.startsWith("/retencao/logs/");
   }
   return pathname === link.href || pathname.startsWith(link.href + "/");
 }
@@ -144,10 +143,13 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [orgOpen, setOrgOpen] = useState(false);
+  const [navQuery, setNavQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(groups.map((g) => [g.id, true]))
   );
   const accountRef = useRef<HTMLDivElement>(null);
+  const orgRef = useRef<HTMLDivElement>(null);
 
   const me = useQuery({
     queryKey: ["org-me"],
@@ -161,9 +163,26 @@ export function Sidebar() {
   const role = me.data?.role;
   const email = me.data?.email;
 
+  const filteredGroups = useMemo(() => {
+    const q = navQuery.trim().toLocaleLowerCase("pt-BR");
+    if (!q) return groups;
+    return groups
+      .map((g) => ({
+        ...g,
+        links: g.links.filter(
+          (l) =>
+            l.label.toLocaleLowerCase("pt-BR").includes(q) ||
+            l.description.toLocaleLowerCase("pt-BR").includes(q) ||
+            g.label.toLocaleLowerCase("pt-BR").includes(q)
+        ),
+      }))
+      .filter((g) => g.links.length > 0);
+  }, [navQuery]);
+
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!accountRef.current?.contains(e.target as Node)) setAccountOpen(false);
+      if (!orgRef.current?.contains(e.target as Node)) setOrgOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -218,172 +237,260 @@ export function Sidebar() {
           "border-r border-[#E5E7EB] bg-[#F8FAFC] text-[#111827]",
           "transition-[width,transform] duration-200 ease-out",
           "md:sticky md:top-0 md:z-20 md:h-screen",
-          collapsed ? "w-[68px]" : "w-[264px]",
+          collapsed ? "w-[72px]" : "w-[272px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
           "md:flex"
         )}
       >
-        {/* Header — só logo oficial MIRA (sem mark inventado) */}
+        {/* Org switcher + logo — respiro no topo (Cloudflare) */}
         <div
           className={cn(
-            "flex h-[52px] shrink-0 items-center border-b border-[#E5E7EB] bg-white",
-            collapsed ? "justify-center px-2" : "px-4"
+            "shrink-0 border-b border-[#E5E7EB] bg-[#F8FAFC]",
+            collapsed ? "px-2 py-3" : "px-3 py-4"
           )}
         >
-          {collapsed ? (
-            <span
-              className="text-[15px] font-bold tracking-tight text-[#111827]"
-              aria-label="MIRA"
+          <div className={cn("relative", collapsed && "flex justify-center")} ref={orgRef}>
+            <button
+              type="button"
+              onClick={() => setOrgOpen((v) => !v)}
+              aria-expanded={orgOpen}
+              aria-haspopup="listbox"
+              aria-label={`Organização: ${orgName}`}
+              className={cn(
+                "flex w-full items-center rounded-lg transition hover:bg-white",
+                collapsed ? "h-10 w-10 justify-center" : "gap-2.5 px-2 py-2"
+              )}
             >
-              M
-            </span>
-          ) : (
-            <div className="min-w-0 flex-1">
-              <Image
-                src="/mira-logo.svg"
-                alt="MIRA"
-                width={88}
-                height={22}
-                className="h-[22px] w-auto brightness-0"
-                priority
-              />
-              <p className="mt-0.5 truncate text-[11px] text-[#667085]">{orgName}</p>
-            </div>
-          )}
+              {collapsed ? (
+                <Image
+                  src="/favicon.svg"
+                  alt="MIRA"
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 rounded-md"
+                  priority
+                />
+              ) : (
+                <>
+                  <Image
+                    src="/favicon.svg"
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 shrink-0 rounded-lg"
+                    priority
+                  />
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block truncate text-[13px] font-semibold text-[#111827]">
+                      {orgName}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] text-[#667085]">MIRA</span>
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#667085]" />
+                </>
+              )}
+            </button>
+
+            {orgOpen && (
+              <div
+                role="listbox"
+                className={cn(
+                  "absolute z-40 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_12px_40px_rgba(16,24,40,0.12)]",
+                  collapsed ? "left-[calc(100%+8px)] top-0 w-[240px]" : "left-0 right-0 top-[calc(100%+6px)]"
+                )}
+              >
+                <div className="border-b border-[#E5E7EB] px-3 py-2">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98A2B3]" />
+                    <input
+                      type="search"
+                      placeholder="Buscar contas…"
+                      className="h-9 w-full rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] pl-8 pr-2 text-[12px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#2563EB]"
+                      aria-label="Buscar contas"
+                    />
+                  </div>
+                </div>
+                <div className="p-1.5">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected
+                    className="flex w-full items-center gap-2.5 rounded-lg bg-[#F8FAFC] px-2.5 py-2 text-left"
+                    onClick={() => setOrgOpen(false)}
+                  >
+                    <Building2 className="h-4 w-4 text-[#2563EB]" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12px] font-semibold text-[#111827]">
+                        {orgName}
+                      </span>
+                      <span className="block truncate text-[10px] text-[#667085]">Instituição ativa</span>
+                    </span>
+                    <span className="text-[11px] font-medium text-[#2563EB]">Atual</span>
+                  </button>
+                </div>
+                <p className="border-t border-[#E5E7EB] px-3 py-2 text-[10px] leading-relaxed text-[#667085]">
+                  Alternância entre instituições depende do acesso provisionado na sua conta.
+                </p>
+              </div>
+            )}
+          </div>
 
           {mobileOpen && (
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
               aria-label="Fechar menu"
-              className="ml-auto grid h-8 w-8 place-items-center rounded-md text-[#667085] hover:bg-[#F3F4F6] md:hidden"
+              className="mt-2 grid h-8 w-8 place-items-center rounded-md text-[#667085] hover:bg-white md:hidden"
             >
               <X className="h-4 w-4" />
             </button>
           )}
+
+          {/* Busca rápida */}
+          {!collapsed && (
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
+              <input
+                type="search"
+                value={navQuery}
+                onChange={(e) => setNavQuery(e.target.value)}
+                placeholder="Pesquisa rápida…"
+                aria-label="Pesquisar na navegação"
+                className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white pl-9 pr-3 text-[13px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+              />
+            </div>
+          )}
         </div>
 
-        {/* Nav — única área com scroll */}
+        {/* Nav */}
         <nav
           aria-label="Navegação principal"
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2",
-            collapsed ? "px-1.5" : "px-2"
+            "min-h-0 flex-1 overflow-y-auto overflow-x-hidden",
+            collapsed ? "px-2 py-3" : "px-3 py-4"
           )}
         >
-          {groups.map((group) => {
-            const isOpen = collapsed ? true : openGroups[group.id] !== false;
-            const hasActive = group.links.some((l) => isActive(pathname, l));
+          <div className={cn("flex flex-col", collapsed ? "gap-2" : "gap-4")}>
+            {filteredGroups.map((group) => {
+              const isOpen = collapsed || navQuery ? true : openGroups[group.id] !== false;
+              const hasActive = group.links.some((l) => isActive(pathname, l));
 
-            return (
-              <div key={group.id} className={cn("mb-1", collapsed && "mb-2")}>
-                {!collapsed && (
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(group.id)}
-                    aria-expanded={isOpen}
-                    className={cn(
-                      "mb-0.5 flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left",
-                      "text-[11px] font-semibold uppercase tracking-[0.06em] text-[#667085]",
-                      "transition hover:bg-white hover:text-[#111827]"
-                    )}
-                  >
-                    <ChevronDown
+              return (
+                <div key={group.id}>
+                  {!collapsed && (
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.id)}
+                      aria-expanded={isOpen}
                       className={cn(
-                        "h-3.5 w-3.5 shrink-0 transition-transform duration-150",
-                        !isOpen && "-rotate-90"
+                        "mb-1.5 flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-left",
+                        "text-[11px] font-semibold uppercase tracking-[0.08em] text-[#667085]",
+                        "transition hover:bg-white hover:text-[#111827]"
                       )}
-                    />
-                    <span className="truncate">{group.label}</span>
-                    {hasActive && !isOpen && (
-                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#2563EB]" />
-                    )}
-                  </button>
-                )}
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 shrink-0 transition-transform duration-150",
+                          !isOpen && "-rotate-90"
+                        )}
+                      />
+                      <span className="truncate">{group.label}</span>
+                      {hasActive && !isOpen && (
+                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#2563EB]" />
+                      )}
+                    </button>
+                  )}
 
-                {isOpen && (
-                  <div
-                    className={cn(
-                      "relative",
-                      !collapsed && "ml-2 border-l border-[#E5E7EB] pl-2"
-                    )}
-                  >
-                    {group.links.map((link) => {
-                      const active = isActive(pathname, link);
-                      const Icon = link.icon;
-                      return (
-                        <Link
-                          key={link.href + link.label}
-                          href={link.href}
-                          aria-label={link.label}
-                          aria-current={active ? "page" : undefined}
-                          onClick={() => setMobileOpen(false)}
-                          className={cn(
-                            "group relative flex items-center rounded-md transition-colors duration-100",
-                            collapsed
-                              ? "mx-auto mb-1 h-10 w-10 justify-center"
-                              : "mb-0.5 gap-2.5 px-2 py-1.5",
-                            active
-                              ? "bg-white text-[#111827] shadow-[0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-[#E5E7EB]"
-                              : "text-[#344054] hover:bg-white/80 hover:text-[#111827]"
-                          )}
-                        >
-                          <Icon
+                  {isOpen && (
+                    <div
+                      className={cn(
+                        "relative space-y-1",
+                        !collapsed && "ml-2.5 border-l border-[#E5E7EB] pl-2.5"
+                      )}
+                    >
+                      {group.links.map((link) => {
+                        const active = isActive(pathname, link);
+                        const Icon = link.icon;
+                        return (
+                          <Link
+                            key={link.href + link.label}
+                            href={link.href}
+                            aria-label={link.label}
+                            aria-current={active ? "page" : undefined}
+                            onClick={() => setMobileOpen(false)}
                             className={cn(
-                              "h-4 w-4 shrink-0",
+                              "group relative flex items-center rounded-lg transition-colors duration-100",
+                              collapsed
+                                ? "mx-auto h-11 w-11 justify-center"
+                                : "gap-3 px-2.5 py-2.5",
                               active
-                                ? "text-[#2563EB]"
-                                : "text-[#667085] group-hover:text-[#344054]"
+                                ? "bg-white text-[#111827] shadow-sm ring-1 ring-[#E5E7EB]"
+                                : "text-[#344054] hover:bg-white hover:text-[#111827]"
                             )}
-                          />
-                          {!collapsed && (
-                            <span className="min-w-0 flex-1">
+                          >
+                            <Icon
+                              className={cn(
+                                "h-[18px] w-[18px] shrink-0",
+                                active
+                                  ? "text-[#2563EB]"
+                                  : "text-[#667085] group-hover:text-[#344054]"
+                              )}
+                            />
+                            {!collapsed && (
+                              <span className="min-w-0 flex-1">
+                                <span
+                                  className={cn(
+                                    "block truncate text-[13px] leading-tight",
+                                    active ? "font-semibold" : "font-medium"
+                                  )}
+                                >
+                                  {link.label}
+                                </span>
+                                <span className="mt-0.5 block truncate text-[11px] leading-tight text-[#667085]">
+                                  {link.description}
+                                </span>
+                              </span>
+                            )}
+
+                            {collapsed && (
                               <span
+                                role="tooltip"
                                 className={cn(
-                                  "block truncate text-[13px] leading-tight",
-                                  active ? "font-semibold" : "font-medium"
+                                  "pointer-events-none absolute left-[calc(100%+10px)] z-50",
+                                  "rounded-lg bg-[#111827] px-2.5 py-1.5",
+                                  "text-[12px] font-medium text-white shadow-lg",
+                                  "opacity-0 transition-opacity",
+                                  "group-hover:opacity-100 group-focus-visible:opacity-100"
                                 )}
                               >
-                                {link.label}
+                                <span className="block">{link.label}</span>
+                                <span className="block text-[10px] font-normal text-white/60">
+                                  {link.description}
+                                </span>
                               </span>
-                              <span className="mt-0.5 block truncate text-[11px] leading-tight text-[#667085]">
-                                {link.description}
-                              </span>
-                            </span>
-                          )}
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
-                          {collapsed && (
-                            <span
-                              role="tooltip"
-                              className={cn(
-                                "pointer-events-none absolute left-[calc(100%+8px)] z-50",
-                                "rounded-md bg-[#111827] px-2.5 py-1.5",
-                                "text-[12px] font-medium text-white shadow-lg",
-                                "opacity-0 transition-opacity",
-                                "group-hover:opacity-100 group-focus-visible:opacity-100"
-                              )}
-                            >
-                              <span className="block">{link.label}</span>
-                              <span className="block text-[10px] font-normal text-white/60">
-                                {link.description}
-                              </span>
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+            {!collapsed && filteredGroups.length === 0 && (
+              <p className="px-2.5 py-4 text-center text-[12px] text-[#667085]">
+                Nenhum módulo encontrado para “{navQuery}”.
+              </p>
+            )}
+          </div>
         </nav>
 
-        {/* Footer fixo (padrão Cloudflare: conta + recolher na base) */}
+        {/* Footer */}
         <div
           className={cn(
-            "relative shrink-0 border-t border-[#E5E7EB] bg-white",
-            collapsed ? "p-1.5" : "p-2"
+            "relative shrink-0 border-t border-[#E5E7EB] bg-[#F8FAFC]",
+            collapsed ? "p-2" : "p-3"
           )}
           ref={accountRef}
         >
@@ -394,11 +501,11 @@ export function Sidebar() {
             aria-haspopup="menu"
             aria-label={`Conta: ${displayName}`}
             className={cn(
-              "flex w-full items-center rounded-md transition hover:bg-[#F8FAFC]",
-              collapsed ? "h-10 justify-center" : "gap-2.5 px-2 py-2"
+              "flex w-full items-center rounded-lg transition hover:bg-white",
+              collapsed ? "h-11 justify-center" : "gap-2.5 px-2 py-2.5"
             )}
           >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EFF6FF] text-[11px] font-semibold text-[#1D4ED8]">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EFF6FF] text-[11px] font-semibold text-[#2563EB]">
               {(displayName || "U").slice(0, 1)}
             </span>
             {!collapsed && (
@@ -420,22 +527,20 @@ export function Sidebar() {
             <div
               role="menu"
               className={cn(
-                "absolute z-30 overflow-hidden rounded-lg border border-[#E5E7EB] bg-white shadow-[0_12px_40px_rgba(16,24,40,0.12)]",
+                "absolute z-30 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-[0_12px_40px_rgba(16,24,40,0.12)]",
                 collapsed
-                  ? "bottom-14 left-[60px] w-[220px]"
-                  : "bottom-[calc(100%+4px)] left-2 right-2"
+                  ? "bottom-14 left-[68px] w-[220px]"
+                  : "bottom-[calc(100%+6px)] left-3 right-3"
               )}
             >
               <div className="border-b border-[#E5E7EB] px-3 py-2.5">
-                <p className="truncate text-[12px] font-semibold text-[#111827]">
-                  {displayName}
-                </p>
+                <p className="truncate text-[12px] font-semibold text-[#111827]">{displayName}</p>
                 <p className="truncate text-[10px] text-[#667085]">
                   {orgName}
                   {role ? ` · ${role}` : ""}
                 </p>
               </div>
-              <div className="p-1">
+              <div className="p-1.5">
                 <Link
                   href="/config"
                   role="menuitem"
@@ -443,7 +548,7 @@ export function Sidebar() {
                     setAccountOpen(false);
                     setMobileOpen(false);
                   }}
-                  className="flex items-center gap-2 rounded-md px-2.5 py-2 text-[12px] text-[#344054] hover:bg-[#F8FAFC]"
+                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] text-[#344054] hover:bg-[#F8FAFC]"
                 >
                   <Settings2 className="h-3.5 w-3.5 text-[#667085]" />
                   Preferências
@@ -452,7 +557,7 @@ export function Sidebar() {
                   type="button"
                   role="menuitem"
                   onClick={logout}
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[12px] text-[#344054] hover:bg-[#F8FAFC]"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] text-[#344054] hover:bg-[#F8FAFC]"
                 >
                   <LogOut className="h-3.5 w-3.5 text-[#667085]" />
                   Sair da conta
@@ -461,16 +566,15 @@ export function Sidebar() {
             </div>
           )}
 
-          {/* Recolher / expandir — fixo embaixo, como na Cloudflare */}
           <button
             type="button"
             onClick={() => setCollapsed((v) => !v)}
             title={collapsed ? "Expandir menu" : "Recolher menu"}
             aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
             className={cn(
-              "mt-1 flex w-full items-center rounded-md text-[#667085] transition",
-              "hover:bg-[#F8FAFC] hover:text-[#111827]",
-              collapsed ? "h-9 justify-center" : "gap-2 px-2 py-2 text-[12px] font-medium"
+              "mt-1.5 flex w-full items-center rounded-lg text-[#667085] transition",
+              "hover:bg-white hover:text-[#111827]",
+              collapsed ? "h-10 justify-center" : "gap-2 px-2 py-2.5 text-[12px] font-medium"
             )}
           >
             {collapsed ? (
