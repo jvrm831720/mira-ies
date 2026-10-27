@@ -52,10 +52,10 @@ Revisão especializada para base legal/finalidade, evidência de autorização d
 ### Isolamento institucional
 - Foram examinados endpoints selecionados de risco em `backend/app/api/scoring.py`. Há filtros de tenant nos endpoints de resumo, lista de críticos e consulta individual; o scoring por lote recebe o tenant autenticado.
 - Foi adicionado teste de regressão para tentar acessar aluno e lote de A usando credenciais de B.
-- **Ainda pendente:** matriz completa de rotas, dependências, exportações, consultas de banco, workers, webhooks, integrações e tarefas assíncronas. Não reduzir prioridade P0 até terminar essa cobertura e obter CI verde.
+- **Ainda pendente:** matriz completa de rotas, dependências, exportações, consultas de banco, workers, webhooks, integrações e tarefas assíncronas. A revisão dirigida agora tem inventário separado em [evidências de treino e superfície multi-tenant](audit-evidence/training-and-multitenant-surface.md), mas não é cobertura integral. CI #331 e #332 passaram; isso não substitui a cobertura restante nem staging.
 
 ### Governança de modelos
 - O resolver considera somente políticas com vigência iniciada e bloqueia treino compartilhado quando não há política vigente aprovada, a política está revogada/expirada, o modo é privado ou o dataset é inelegível.
 - O treino institucional consulta autorização local independente; testes existentes cobrem ausência, expiração, revogação e registros incompletos.
 - Foi adicionado teste de política futura para verificar que não entra em vigor antes da data.
-- **Ainda pendente P0:** persistência de decisões por run/dataset, inventário de todos os chamadores do guard, reconciliação de runs pendentes após mudança A→B e decisão sobre influência em modelos já treinados. O teste novo ainda precisa passar no CI.
+- **Ainda pendente P0:** persistência de decisões por run/dataset, prova de que todos os caminhos de treino compartilhado usam o guard, revalidação de jobs pendentes após mudança A→B e decisão sobre influência em modelos já treinados. Os testes documentados passaram no CI #331 e o commit documental passou no CI #332; os critérios de auditoria durável e cobertura integral continuam abertos.
