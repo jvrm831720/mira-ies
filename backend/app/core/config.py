@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     app_env: str = "development"
     debug: bool = True
     secret_key: str = "change-this-in-production"
+    # When true, runs `alembic upgrade head` on API startup (safe for additive migrations).
+    auto_migrate: bool = True
 
     # Auth
     dev_api_key: str = "bkn_dev_change_me_in_production"
