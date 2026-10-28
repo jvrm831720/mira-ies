@@ -144,7 +144,7 @@ async def score_batch(
             dynamic_adjustment=dynamic_adjustment,
             features_snapshot=feature_dicts[i],
             explanation={
-                "available": bool(explain),
+                "available": bool(top_factors),
                 "top_factors": top_factors if explain else None,
                 "summary": format_top_factors_human(top_factors) if top_factors else None,
                 "probability": round(proba, 4),

@@ -178,3 +178,13 @@ async def test_score_comparison_rejects_semantics_version_change():
     kind, delta = _change_type(current, previous)
     assert kind == "mudanca_modelo"
     assert delta is None
+
+
+
+def test_score_classification_thresholds_are_explicit_and_shared():
+    from app.ml.risk_semantics import classify_risk_score
+
+    assert classify_risk_score(39.9) == "baixo"
+    assert classify_risk_score(40.0) == "medio"
+    assert classify_risk_score(69.9) == "medio"
+    assert classify_risk_score(70.0) == "critico"
