@@ -544,7 +544,7 @@ export type RiskMovement = {
 export type RiskHistoryResponse = {
   tenant_id: string; period: { from: string; to: string }; filters: { course?: string | null; risk_level?: string | null };
   total_assessments: number; students_with_assessments: number; temporal_data_truncated: boolean; temporal_rows_limit: number;
-  comparison_counts: { increased: number; decreased: number; unchanged: number; model_changed: number; no_comparable_history: number };
+  comparison_counts: { increased: number; decreased: number; unchanged: number; model_changed: number; no_comparable_history: number; classification_changed: number };
   timeline: Array<{ bucket: string; model_scope: string; model_version: string; average_score: number; students_count: number; risk_distribution: { baixo: number; medio: number; critico: number; students_count: number } }>;
   courses: string[];
   movements: RiskMovement[]; movements_truncated: boolean; assessments: RiskHistoryAssessment[];

@@ -354,12 +354,15 @@ async def risk_history(
         previous_by_student = {row.student_id: row for row in previous_rows}
     movements = []
     counts = defaultdict(int)
+    classification_changes = 0
     for student_id, current in current_by_student.items():
         if risk_level and current.risk_level != risk_level:
             continue
         previous = previous_by_student.get(student_id)
         change_type, delta = _change_type(current, previous)
         counts[change_type] += 1
+        if previous and delta is not None and previous.risk_level != current.risk_level:
+            classification_changes += 1
         student = movement_student_by_id.get(student_id)
         movements.append({
             "student_id": student_id, "student_name": student.nome if student else None,
@@ -414,6 +417,7 @@ async def risk_history(
             "increased": counts["risco_aumentou"], "decreased": counts["risco_diminuiu"],
             "unchanged": counts["sem_mudanca_relevante"], "model_changed": counts["mudanca_modelo"],
             "no_comparable_history": counts["sem_historico_comparavel"],
+            "classification_changed": classification_changes,
         },
         "timeline": timeline, "courses": courses, "movements": movements[:500], "movements_truncated": len(movements) > 500 or len(movement_rows) >= 5000,
         "assessments": [
