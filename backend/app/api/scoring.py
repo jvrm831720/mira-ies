@@ -314,7 +314,6 @@ async def risk_history(
         query.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc()).limit(5000)
     )).all()
     temporal = [row for row, _student in temporal_rows]
-    student_by_id = {row.student_id: student for row, student in temporal_rows}
 
     # Movement comparisons use each student's latest assessment in the period,
     # even when a risk-level filter is active. The filter is applied after selecting
