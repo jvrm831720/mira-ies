@@ -18,6 +18,7 @@ from app.models.intervention import InterventionLog
 from app.models.student import Student
 from app.models.risk_assessment import RiskAssessment
 from app.ml.features import build_features_from_student
+from app.ml.risk_semantics import RISK_SCORE_SEMANTICS_VERSION, classify_risk_score
 
 STANDARD_PROPERTY_LIMITS = {
     "last_class_missed": 120,
@@ -226,11 +227,7 @@ async def refresh_engagement_profile(
     student.dynamic_risk_adjustment = adjustment
     if baseline is not None:
         student.risk_score = round(max(0.0, min(100.0, float(baseline) + adjustment)), 1)
-        student.risk_level = (
-            "critico" if student.risk_score >= 70
-            else "medio" if student.risk_score >= 40
-            else "baixo"
-        )
+        student.risk_level = classify_risk_score(float(student.risk_score))
         # Persist only a real change in the stored risk score/classification.
         # Replayed engagement events and periodic sweeps with no score change do not
         # create duplicate historical assessments.
@@ -247,6 +244,7 @@ async def refresh_engagement_profile(
                 score=float(student.risk_score),
                 risk_level=student.risk_level,
                 model_version=str(model_version) if model_version is not None else None,
+                score_semantics_version=RISK_SCORE_SEMANTICS_VERSION,
                 model_scope=model_scope,
                 model_score=float(student.model_risk_score) if student.model_risk_score is not None else None,
                 dynamic_adjustment=adjustment,

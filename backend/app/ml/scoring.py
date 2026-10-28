@@ -19,6 +19,7 @@ from app.ml.model import load_model, load_meta, predict_proba, probability_to_ri
 from app.ml.explain import explain_instance, format_top_factors_human
 from app.ml.rules import apply_business_rules
 from app.ml.tenant_train import resolve_scoring_model, predict_proba_with_model
+from app.ml.risk_semantics import RISK_SCORE_SEMANTICS_VERSION, classify_risk_score
 
 
 def score_student_dict(student_data: dict) -> dict[str, Any]:
@@ -114,11 +115,7 @@ async def score_batch(
         student.model_risk_score = rules["adjusted_score"]
         dynamic_adjustment = float(student.dynamic_risk_adjustment or 0.0)
         final_score = round(min(100.0, rules["adjusted_score"] + dynamic_adjustment), 1)
-        final_level = (
-            "critico" if final_score >= 70
-            else "medio" if final_score >= 40
-            else "baixo"
-        )
+        final_level = classify_risk_score(final_score)
         student.risk_score = final_score
         student.risk_level = final_level
         student.tenant_id = tenant_id
@@ -141,6 +138,7 @@ async def score_batch(
             score=final_score,
             risk_level=final_level,
             model_version=str(model_version) if model_version is not None else None,
+            score_semantics_version=RISK_SCORE_SEMANTICS_VERSION,
             model_scope=model_scope,
             model_score=float(rules["model_score"]) if rules.get("model_score") is not None else None,
             dynamic_adjustment=dynamic_adjustment,
