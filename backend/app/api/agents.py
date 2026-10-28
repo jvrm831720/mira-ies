@@ -1,6 +1,7 @@
-"""Rotas do sistema multiagente de retencao (orquestrador + canais WhatsApp/E-mail/SMS)."""
+"""Assemble retention agents routes from body parts (temporary restore mechanism)."""
+from pathlib import Path
 
-from app.api._agents_routes import router  # noqa: F401
-
-# Side-effect imports register additional routes on the shared router.
-from app.api import _agents_analytics  # noqa: F401, E402
+_dir = Path(__file__).resolve().parent
+_body = "".join((_dir / f"_agents_body_part{i}.py").read_text(encoding="utf-8") for i in range(3))
+_globals = globals()
+exec(compile(_body, str(_dir / "agents_body.py"), "exec"), _globals)
