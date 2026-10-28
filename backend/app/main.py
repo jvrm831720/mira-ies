@@ -8,7 +8,7 @@ from starlette.requests import Request
 
 from app.core.config import get_settings
 from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing, retention_campaigns, retention_campaign_execution, control_center_auth, control_center_admin, mira_admin
-from app.db.session import init_db, apply_runtime_schema_patches
+from app.db.session import init_db, apply_runtime_schema_patches, SchemaPatchError
 from app.ml.model import load_model
 
 settings = get_settings()
@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
         )
     print(f"{settings.app_name} starting in {settings.app_env} mode...")
 
+    # Alembic first (additive), then runtime column patches + verification.
     if settings.auto_migrate:
         try:
             print("AUTO_MIGRATE habilitado: executando alembic upgrade head...")
@@ -55,13 +56,19 @@ async def lifespan(app: FastAPI):
     try:
         if settings.app_env == "development":
             await init_db()
-            print("Tabelas prontas (create_all em development).")
+            print("Tabelas prontas (create_all + patches + verificação em development).")
         else:
-            # Production/staging: never drop data; only additive column patches.
+            # Production/staging: never drop data; only additive column patches + verify.
             await apply_runtime_schema_patches()
-            print("Schema patches aditivos aplicados (intervention_logs e correlatos).")
+            print("Schema patches aditivos aplicados e intervention_logs verificado.")
+    except SchemaPatchError as e:
+        # Critical: API would serve 500 on /agents/retention/logs without these columns.
+        print(f"ERRO CRÍTICO de schema: {e}")
+        raise
     except Exception as e:
-        print(f"Aviso ao alinhar schema: {e}")
+        # Unexpected DB errors (connectivity) must not leave a half-ready API.
+        print(f"ERRO ao alinhar schema: {e}")
+        raise
 
     try:
         from app.core.security import hash_api_key
