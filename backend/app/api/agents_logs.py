@@ -14,7 +14,7 @@ from app.db.session import get_db
 from app.models.intervention import InterventionLog
 from app.services.engagement import record_engagement_event
 from app.agents.orchestrator import preview_message
-from app.api.agents_routes import (
+from app.api.agents_common import (
     router,
     _VALID_CHANNELS,
     _VALID_STATUSES,
