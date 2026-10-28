@@ -39,6 +39,7 @@ class RiskAssessment(Base):
     score: Mapped[float] = mapped_column(Float, nullable=False)
     risk_level: Mapped[str] = mapped_column(String(20), nullable=False)
     model_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    score_semantics_version: Mapped[str] = mapped_column(String(40), nullable=False, default="risk-score-v1")
     model_scope: Mapped[str] = mapped_column(String(20), nullable=False)
     model_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     dynamic_adjustment: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)

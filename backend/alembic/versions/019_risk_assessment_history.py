@@ -26,6 +26,7 @@ def upgrade() -> None:
         sa.Column("score", sa.Float(), nullable=False),
         sa.Column("risk_level", sa.String(length=20), nullable=False),
         sa.Column("model_version", sa.String(length=80), nullable=True),
+        sa.Column("score_semantics_version", sa.String(length=40), nullable=False, server_default="risk-score-v1"),
         sa.Column("model_scope", sa.String(length=20), nullable=False),
         sa.Column("model_score", sa.Float(), nullable=True),
         sa.Column("dynamic_adjustment", sa.Float(), nullable=False, server_default="0"),
