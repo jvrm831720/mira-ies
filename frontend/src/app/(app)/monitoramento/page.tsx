@@ -122,14 +122,67 @@ export default function MonitoramentoPage() {
           {movements.length===0?<div className="p-10 text-center"><div className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-[#F8FAFC] text-[#667085]"><Info className="h-5 w-5"/></div><p className="mt-3 text-[13px] font-semibold text-[#344054]">Nenhuma movimentação para este período</p><p className="mt-1 text-[12px] text-[#667085]">Pode não haver avaliações históricas. Isso não significa que o risco ficou estável.</p></div>:<div className="overflow-x-auto"><table className="w-full min-w-[860px] text-left"><thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]"><tr><th className="px-5 py-3">Aluno</th><th className="px-3 py-3">Anterior</th><th className="px-3 py-3">Atual</th><th className="px-3 py-3">Variação</th><th className="px-3 py-3">Movimento</th><th className="px-5 py-3">Última avaliação</th></tr></thead><tbody className="divide-y divide-[#EAECF0]">{movements.map(m=><tr key={m.student_id} className="hover:bg-[#F9FAFB]"><td className="px-5 py-3.5"><button onClick={()=>setSelectedStudentId(m.student_id)} className="text-left text-[12px] font-semibold text-[#175CD3] hover:underline">{m.student_name||m.matricula||"Aluno"}</button><p className="mt-0.5 text-[10px] text-[#667085]">{m.course||"Curso não informado"} · {m.matricula||"—"}</p></td><td className="px-3 py-3.5 text-[12px] text-[#475467]">{scoreLabel(m.previous_score)}{m.previous_risk_level&&<div className="mt-1"><RiskBadge level={m.previous_risk_level}/></div>}</td><td className="px-3 py-3.5 text-[12px] font-semibold text-[#101828]">{scoreLabel(m.current_score)}<div className="mt-1"><RiskBadge level={m.current_risk_level}/></div></td><td className="px-3 py-3.5 text-[12px] font-semibold">{m.delta==null?"—":(m.delta>0?"+":"")+scoreLabel(m.delta)}</td><td className="px-3 py-3.5"><span className={cn("inline-flex rounded-full px-2 py-1 text-[10px] font-medium",movementTone(m.change_type))}>{CHANGE_LABEL[m.change_type]}</span></td><td className="px-5 py-3.5 text-[11px] text-[#667085]">{dateTimeLabel(m.current_evaluated_at)}<div className="mt-1 text-[10px]">Modelo {m.model_version||"não identificado"}</div><Link href={"/alunos/"+m.student_id} className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[#175CD3]">Ficha do aluno<ArrowRight className="h-3 w-3"/></Link></td></tr>)}</tbody></table></div>}
           {data.movements_truncated&&<p className="border-t border-[#EAECF0] px-5 py-3 text-[11px] text-[#B54708]">Exibindo os 500 primeiros casos por prioridade; refine os filtros.</p>}
         </section>
-        {selectedStudentId&&<section className="rounded-xl border border-[#B2CCFF] bg-white p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-[14px] font-semibold text-[#101828]">Trajetória individual</h2><p className="mt-1 text-[11px] text-[#667085]">{selectedHistoryQuery.data?.student.name||"Carregando aluno"} · avaliações e intervenções registradas</p></div><button onClick={()=>setSelectedStudentId(null)} className="text-[11px] font-semibold text-[#475467] underline">Fechar</button></div>
-          {selectedHistoryQuery.isLoading?<Skeleton className="mt-4 h-20 rounded-lg"/>:selectedHistoryQuery.isError?<p className="mt-4 text-[12px] text-[#B42318]">Não foi possível consultar esta trajetória.</p>:selectedHistoryQuery.data&&<><StudentAssessmentTimeline assessments={selectedHistoryQuery.data.assessments}/><div className="mt-4 grid gap-4 lg:grid-cols-2"><div><h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Avaliações preservadas</h3>{selectedHistoryQuery.data.assessments.length?<div className="space-y-2">{selectedHistoryQuery.data.assessments.map(a=><div key={a.id} className="rounded-lg border border-[#EAECF0] p-3"><div className="flex items-center justify-between gap-3"><span className="text-[11px] text-[#667085]">{dateTimeLabel(a.evaluated_at)}</span><span className="text-[13px] font-semibold text-[#101828]">{scoreLabel(a.score)}</span></div><div className="mt-1 flex flex-wrap items-center gap-2"><RiskBadge level={a.risk_level}/><span className="text-[10px] text-[#667085]">Modelo {a.model_version||"não identificado"} · {a.model_scope} · {a.score_semantics_version}</span>{a.score_basis==="legacy_adjusted"&&<span className="text-[9px] text-[#B54708]">Score histórico sem ajuste dinâmico</span>}</div>{a.explanation_available&&a.explanation?.top_factors?.length?<ul className="mt-2 list-disc pl-4 text-[11px] text-[#475467]">{a.explanation.top_factors.map((f,i)=><li key={a.id+"-"+i}>{f.label||f.feature||"Fator"}{f.value!=null?": "+f.value:""}</li>)}</ul>:<p className="mt-2 text-[10px] text-[#667085]">Fatores explicativos não foram preservados nesta avaliação.</p>}</div>)}</div>:<p className="rounded-lg bg-[#F8FAFC] p-3 text-[12px] text-[#667085]">Nenhuma avaliação histórica no período. A consulta não gera novos scores.</p>}</div>
-            <div><h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Intervenções e desfechos registrados</h3>{selectedHistoryQuery.data.interventions.length?<div className="space-y-2">{selectedHistoryQuery.data.interventions.map(i=><div key={i.id} className="rounded-lg border border-[#EAECF0] p-3"><div className="flex items-center justify-between gap-2"><span className="text-[11px] font-medium text-[#344054]">{i.channel||"Canal não informado"} · {i.status}</span><span className="text-[10px] text-[#667085]">{dateTimeLabel(i.created_at)}</span></div><p className="mt-1 text-[11px] text-[#667085]">{i.decision_reason||"Sem justificativa registrada"}</p><p className="mt-1 text-[10px] text-[#475467]">Desfecho: {i.outcome||"Ainda não registrado"}{i.outcome_at?" · "+dateTimeLabel(i.outcome_at):""}</p></div>)}</div>:<p className="rounded-lg bg-[#F8FAFC] p-3 text-[12px] text-[#667085]">Nenhuma intervenção registrada neste período.</p>}<p className="mt-3 text-[10px] leading-relaxed text-[#667085]">Proximidade temporal não demonstra causalidade. Permanência, evasão e recuperação financeira dependem dos desfechos próprios.</p></div>
-          </div></>}</section>
+        {selectedStudentId && <section className="rounded-xl border border-[#B2CCFF] bg-white p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#101828]">Trajetória individual</h2>
+              <p className="mt-1 text-[11px] text-[#667085]">{selectedHistoryQuery.data?.student.name || "Carregando aluno"} · avaliações e intervenções registradas</p>
+            </div>
+            <button onClick={() => setSelectedStudentId(null)} className="text-[11px] font-semibold text-[#475467] underline">Fechar</button>
+          </div>
+          {selectedHistoryQuery.isLoading && <Skeleton className="mt-4 h-20 rounded-lg" />}
+          {selectedHistoryQuery.isError && <p className="mt-4 text-[12px] text-[#B42318]">Não foi possível consultar esta trajetória.</p>}
+          {selectedHistoryQuery.data && <>
+            <StudentAssessmentTimeline assessments={selectedHistoryQuery.data.assessments} />
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Avaliações preservadas</h3>
+                {selectedHistoryQuery.data.assessments.length ? <div className="space-y-2">
+                  {selectedHistoryQuery.data.assessments.map((a) => <div key={a.id} className="rounded-lg border border-[#EAECF0] p-3">
+                    <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-[#667085]">{dateTimeLabel(a.evaluated_at)}</span><span className="text-[13px] font-semibold text-[#101828]">{scoreLabel(a.score)}</span></div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2"><RiskBadge level={a.risk_level} /><span className="text-[10px] text-[#667085]">Modelo {a.model_version || "não identificado"} · {a.model_scope} · {a.score_semantics_version}</span>{a.score_basis === "legacy_adjusted" && <span className="text-[9px] text-[#B54708]">Score histórico sem ajuste dinâmico</span>}</div>
+                    {a.explanation_available && a.explanation?.top_factors?.length ? <ul className="mt-2 list-disc pl-4 text-[11px] text-[#475467]">{a.explanation.top_factors.map((f, i) => <li key={a.id + "-" + i}>{f.label || f.feature || "Fator"}{f.value != null ? ": " + f.value : ""}</li>)}</ul> : <p className="mt-2 text-[10px] text-[#667085]">Fatores explicativos não foram preservados nesta avaliação.</p>}
+                  </div>)}
+                </div> : <p className="rounded-lg bg-[#F8FAFC] p-3 text-[12px] text-[#667085]">Nenhuma avaliação histórica no período. A consulta não gera novos scores.</p>}
+              </div>
+              <div>
+                <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Intervenções e desfechos registrados</h3>
+                {selectedHistoryQuery.data.interventions.length ? <div className="space-y-2">{selectedHistoryQuery.data.interventions.map((i) => <div key={i.id} className="rounded-lg border border-[#EAECF0] p-3">
+                  <div className="flex items-center justify-between gap-2"><span className="text-[11px] font-medium text-[#344054]">{i.channel || "Canal não informado"} · {i.status}</span><span className="text-[10px] text-[#667085]">{dateTimeLabel(i.created_at)}</span></div>
+                  <p className="mt-1 text-[11px] text-[#667085]">{i.decision_reason || "Sem justificativa registrada"}</p>
+                  <p className="mt-1 text-[10px] text-[#475467]">Desfecho: {i.outcome || "Ainda não registrado"}{i.outcome_at ? " · " + dateTimeLabel(i.outcome_at) : ""}</p>
+                </div>)}</div> : <p className="rounded-lg bg-[#F8FAFC] p-3 text-[12px] text-[#667085]">Nenhuma intervenção registrada neste período.</p>}
+                <p className="mt-3 text-[10px] leading-relaxed text-[#667085]">Proximidade temporal não demonstra causalidade. Permanência, evasão e recuperação financeira dependem dos desfechos próprios.</p>
+              </div>
+            </div>
+          </>}
+        </section>}
         <p className="text-[10px] leading-relaxed text-[#667085]">Base: avaliações registradas entre {dateTimeLabel(data.period.from)} e {dateTimeLabel(data.period.to)}. Ausência de histórico não equivale a score zero. {data.definition}</p>
       </>}
     </main>
   </>;
+}
+
+
+function dateLabel(value?: string | null) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(new Date(value));
+}
+
+function dateTimeLabel(value?: string | null) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function scoreLabel(value?: number | null) {
+  return value == null || Number.isNaN(value) ? "—" : value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function movementTone(changeType: RiskMovement["change_type"]) {
+  if (changeType === "risco_aumentou") return "bg-[#FEF3F2] text-[#B42318]";
+  if (changeType === "risco_diminuiu") return "bg-[#ECFDF3] text-[#027A48]";
+  if (changeType === "mudanca_modelo") return "bg-[#F4F3FF] text-[#6941C6]";
+  return "bg-[#F2F4F7] text-[#475467]";
 }
 
 function Metric({label,value,hint,icon,tone="neutral"}:{label:string;value:number;hint:string;icon:React.ReactNode;tone?:"neutral"|"danger"|"success"}) {
