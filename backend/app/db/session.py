@@ -41,9 +41,14 @@ async def get_db():
             await session.close()
 
 
-async def _dev_schema_patches(conn) -> None:
-    """create_all não altera tabelas antigas — aplica patches mínimos em development."""
+async def ensure_schema_patches(conn) -> None:
+    """Additive schema patches for environments where create_all / alembic lag the ORM.
+
+    Safe to run repeatedly (IF NOT EXISTS). Does not drop or rewrite data.
+    Covers intervention_logs columns required by list_retention_logs serialization.
+    """
     patches = [
+        # Users / invites (legacy drift)
         """
         ALTER TABLE mira_users
         ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'coordinator'
@@ -64,7 +69,7 @@ async def _dev_schema_patches(conn) -> None:
         ALTER TABLE mira_org_invites
         ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'coordinator'
         """,
-        # Eventos de retenção
+        # Intervention logs — decision / outcome (post-create_all)
         """
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS decision_reason VARCHAR(240) NULL
@@ -89,12 +94,125 @@ async def _dev_schema_patches(conn) -> None:
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS outcome_note VARCHAR(240) NULL
         """,
+        # Intervention logs — safe delivery (migration 006)
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS correlation_id VARCHAR(160) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(255) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS job_id VARCHAR(80) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS campaign_id VARCHAR(120) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS delivery_status VARCHAR(30) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS delivery_event_id VARCHAR(160) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS delivery_updated_at TIMESTAMPTZ NULL
+        """,
+        # Core columns that older partial tables might miss
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS template_id VARCHAR(80) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS message_preview VARCHAR(160) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS skip_reason VARCHAR(120) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS error TEXT NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS provider VARCHAR(40) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS external_id VARCHAR(120) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS risk_level VARCHAR(20) NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS risk_score FLOAT NULL
+        """,
+        """
+        ALTER TABLE intervention_logs
+        ADD COLUMN IF NOT EXISTS channel VARCHAR(20) NULL
+        """,
+        # Helpful indexes (idempotent)
+        """
+        CREATE INDEX IF NOT EXISTS ix_intervention_logs_correlation_id
+        ON intervention_logs (correlation_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_intervention_logs_job_id
+        ON intervention_logs (job_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_intervention_logs_campaign_id
+        ON intervention_logs (campaign_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_intervention_logs_tenant_external_id
+        ON intervention_logs (tenant_id, external_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_intervention_logs_tenant_outcome
+        ON intervention_logs (tenant_id, outcome)
+        """,
     ]
     for sql in patches:
         try:
             await conn.execute(text(sql))
         except Exception as exc:
-            print(f"Aviso schema patch: {exc}")
+            # Table may not exist yet; create_all / alembic will handle structure.
+            print(f"Aviso schema patch: {type(exc).__name__}: {exc}")
+
+    # Unique constraint for idempotency (nullable keys allowed multiple NULLs in PG)
+    try:
+        await conn.execute(
+            text(
+                """
+                DO $$ BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'uq_intervention_logs_tenant_idempotency_key'
+                  ) THEN
+                    ALTER TABLE intervention_logs
+                      ADD CONSTRAINT uq_intervention_logs_tenant_idempotency_key
+                      UNIQUE (tenant_id, idempotency_key);
+                  END IF;
+                END $$;
+                """
+            )
+        )
+    except Exception as exc:
+        print(f"Aviso schema patch (idempotency constraint): {type(exc).__name__}: {exc}")
+
+
+# Backwards-compatible alias used by older call sites / tests
+_dev_schema_patches = ensure_schema_patches
 
 
 async def init_db():
@@ -103,5 +221,10 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Patches também em produção quando create_all já rodou antes (Supabase)
-        await _dev_schema_patches(conn)
+        await ensure_schema_patches(conn)
+
+
+async def apply_runtime_schema_patches() -> None:
+    """Apply additive patches without create_all (production-safe)."""
+    async with engine.begin() as conn:
+        await ensure_schema_patches(conn)
