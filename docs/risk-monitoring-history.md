@@ -19,11 +19,11 @@ A migration **019_risk_assessment_history** cria **risk_assessments**, com:
 - versão explícita da semântica de score/classificação, independente da versão do artefato de modelo;
 - snapshot de features, explicação preservada quando disponível e contexto de origem.
 
-A avaliação é gravada na mesma transação que atualiza o score do aluno. O índice composto tenant/aluno/data suporta consultas históricas. Uma constraint única por scoring_run_id e aluno evita duplicação dentro da mesma execução. O fluxo normal ignora alunos já pontuados. Reavaliações com force=true exigem o cabeçalho Idempotency-Key; retries com a mesma chave reutilizam a execução já gravada e não duplicam o histórico.
+A avaliação é gravada na mesma transação que atualiza o score do aluno. O índice composto tenant/aluno/data suporta consultas históricas. Uma constraint única por `scoring_run_id` e aluno evita duplicação dentro da mesma execução. O fluxo normal ignora alunos já pontuados. Reavaliações com `force=true` exigem o cabeçalho `Idempotency-Key`; retries com a mesma chave reutilizam a execução já gravada e não duplicam o histórico.
 
 ## Histórico anterior
 
-TrainingEvent possui timestamps, versão e score ajustado do modelo, mas não preserva o ajuste dinâmico aplicado ao score final exibido, nem a explicação original de forma consistente. Por isso a migration **não converte automaticamente esses eventos** para risk_assessments: essa conversão produziria uma trajetória que poderia divergir do score final real. O histórico confiável começa com avaliações gravadas pelo novo fluxo; não se inventam pontos anteriores.
+A migration `020_risk_assessment_score_basis` reutiliza eventos reais de `training_events` quando existe aluno no mesmo tenant, timestamp, score ajustado e classificação válida. Como esses eventos não preservam o ajuste dinâmico aplicado ao score final, são marcados `score_basis=legacy_adjusted` e `score_semantics_version=legacy-adjusted-v1`. Podem ser comparados entre si somente quando escopo, versão do modelo e semântica coincidem; nunca são comparados diretamente com avaliações novas `score_basis=final` / `risk-score-v1`. A migração evita duplicar eventos que já tenham avaliação correspondente. Não são criadas avaliações artificiais.
 
 ## Segurança e governança
 
@@ -40,12 +40,12 @@ O teste de integração via Base.metadata.create_all não simula por si só a po
 ### GET /api/v1/risk/history
 
 Parâmetros:
-- from, to: timestamps ISO-8601; padrão: últimos 90 dias.
-- course: filtro parcial por curso.
+- from, to: timestamps ISO-8601; padrão: últimos 90 dias; máximo de 366 dias e `from < to`.
+- course: filtro exato por curso.
 - risk_level: baixo, medio ou critico.
 - page, page_size: paginação das avaliações (1–200).
 
-Retorna contagem de avaliações, alunos com avaliação, série semanal, distribuição representativa por semana, movimentações e avaliações paginadas. A série de score usa a média das últimas avaliações por aluno em cada semana, agrupada por escopo/versão do modelo; não mistura versões. Cada aluno contribui com uma avaliação representativa por semana para a distribuição. A consulta temporal usa até 5.000 registros recentes e sinaliza truncamento; a lista de movimentações limita a 500 casos priorizados.
+Retorna contagem de avaliações, alunos com avaliação, série semanal, distribuição representativa por semana, movimentações e avaliações paginadas. A série de score usa a média da última avaliação real por aluno em cada semana, agrupada por escopo, versão e semântica do score. Cada aluno contribui com uma avaliação representativa por semana para a distribuição. A análise temporal e as movimentações usam até 5.000 avaliações recentes e sinalizam truncamento; a lista de movimentações limita a 500 casos priorizados. Quando houver truncamento, os indicadores de movimentação são parciais e a interface deve exibir o aviso.
 
 ### GET /api/v1/students/{student_id}/risk/history
 
@@ -55,7 +55,7 @@ Erros: 401 para falta/invalidade de credenciais; 404 para aluno fora do tenant; 
 
 ## Comparação
 
-A versão de semântica atual é **risk-score-v1**: escala operacional 0–100, baixo abaixo de 40, moderado a partir de 40 e crítico a partir de 70. Ela deve ser incrementada quando mudar a escala, os limiares ou a regra de classificação, mesmo que o artefato do modelo mantenha a mesma versão. O score tem escala operacional de 0 a 100; quanto maior, maior o risco. A variação só é calculada quando versão e escopo do modelo são idênticos e estão presentes. delta = score atual - score anterior; delta positivo indica aumento de risco, negativo redução. Delta exatamente zero é classificado como “sem mudança relevante”; nenhum limiar não-zero é apresentado como cientificamente validado. Versões/escopos incompatíveis são classificados como mudança de modelo e não recebem delta. Ausência de avaliação não é convertida em score zero.
+A versão de semântica atual é **risk-score-v1**: escala operacional 0–100, baixo abaixo de 40, moderado a partir de 40 e crítico a partir de 70. Ela deve ser incrementada quando mudar a escala, os limiares ou a regra de classificação, mesmo que o artefato do modelo mantenha a mesma versão. O score tem escala operacional de 0 a 100; quanto maior, maior o risco. A variação só é calculada quando versão, escopo e `score_semantics_version` são idênticos e estão presentes. delta = score atual - score anterior; delta positivo indica aumento de risco, negativo redução. Delta exatamente zero é classificado como “sem mudança relevante”; nenhum limiar não-zero é apresentado como cientificamente validado. Versões, escopos ou semânticas incompatíveis são classificados como mudança de modelo e não recebem delta. Ausência de avaliação não é convertida em score zero.
 
 ## Explicabilidade e intervenções
 

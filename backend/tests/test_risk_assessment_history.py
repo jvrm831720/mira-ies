@@ -30,6 +30,8 @@ async def test_scoring_batch_persists_real_assessment_history(client, tenant, db
     assert body["total_assessments"] == 1
     assert body["assessments"][0]["student_id"] == student.id
     assert body["assessments"][0]["model_version"]
+    assert body["assessments"][0]["score_semantics_version"] == "risk-score-v1"
+    assert body["assessments"][0]["score_basis"] == "final"
     assert body["assessments"][0]["score"] >= 0
     assert body["timeline"]
 
@@ -50,7 +52,7 @@ async def test_risk_history_is_tenant_scoped_and_unknown_student_is_404(client, 
         tenant_id=tenant_a.id, student_id=student.id, batch_id=batch.id,
         scoring_run_id=str(uuid4()), evaluated_at=datetime.now(timezone.utc),
         score=72, risk_level="critico", model_version="test-v1", model_scope="base", score_semantics_version="risk-score-v1",
-        model_score=70, dynamic_adjustment=2, features_snapshot={}, score_semantics_version="risk-score-v1",
+        model_score=70, dynamic_adjustment=2, features_snapshot={}, score_basis="final",
         explanation={"available": False}, context={"source": "test"},
     ))
     await db_session.commit()
@@ -188,3 +190,47 @@ def test_score_classification_thresholds_are_explicit_and_shared():
     assert classify_risk_score(40.0) == "medio"
     assert classify_risk_score(69.9) == "medio"
     assert classify_risk_score(70.0) == "critico"
+
+
+async def test_risk_level_filter_uses_latest_assessment_not_older_matching_level(client, tenant, db_session):
+    t, api_key = tenant
+    batch = UploadBatch(
+        tenant_id=t.id, filename="filter.csv", original_filename="filter.csv",
+        status="scored", total_rows=1, processed_rows=1,
+    )
+    db_session.add(batch)
+    await db_session.flush()
+    student = Student(
+        tenant_id=t.id, batch_id=batch.id, matricula="FILTER-001",
+        nome="Filtro Temporal", curso="Direito",
+    )
+    db_session.add(student)
+    await db_session.flush()
+    now = datetime.now(timezone.utc)
+    for days_ago, score, level in [(2, 45.0, "medio"), (1, 78.0, "critico")]:
+        db_session.add(RiskAssessment(
+            tenant_id=t.id, student_id=student.id, batch_id=batch.id,
+            scoring_run_id=str(uuid4()), evaluated_at=now - timedelta(days=days_ago),
+            score=score, risk_level=level, model_version="base-v1", model_scope="base",
+            score_semantics_version="risk-score-v1", score_basis="final",
+            model_score=score, dynamic_adjustment=0, features_snapshot={},
+            explanation={"available": False}, context={"source": "test"},
+        ))
+    await db_session.commit()
+
+    medium = await client.get(
+        "/api/v1/risk/history", headers={"X-API-Key": api_key}, params={"risk_level": "medio"}
+    )
+    assert medium.status_code == 200, medium.text
+    assert medium.json()["total_assessments"] == 1
+    assert all(item["student_id"] != student.id for item in medium.json()["movements"])
+
+    critical = await client.get(
+        "/api/v1/risk/history", headers={"X-API-Key": api_key}, params={"risk_level": "critico"}
+    )
+    assert critical.status_code == 200, critical.text
+    movement = next(item for item in critical.json()["movements"] if item["student_id"] == student.id)
+    assert movement["previous_score"] == 45.0
+    assert movement["current_score"] == 78.0
+    assert movement["change_type"] == "risco_aumentou"
+    assert movement["classification_changed"] is True

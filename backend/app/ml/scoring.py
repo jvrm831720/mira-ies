@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 from datetime import datetime, timezone
 from uuid import uuid4
+import logging
 from sqlalchemy import text
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -139,6 +140,7 @@ async def score_batch(
             risk_level=final_level,
             model_version=str(model_version) if model_version is not None else None,
             score_semantics_version=RISK_SCORE_SEMANTICS_VERSION,
+            score_basis="final",
             model_scope=model_scope,
             model_score=float(rules["model_score"]) if rules.get("model_score") is not None else None,
             dynamic_adjustment=dynamic_adjustment,
@@ -157,7 +159,7 @@ async def score_batch(
         ))
         session.add(TrainingEvent(
             tenant_id=tenant_id, student_id=student.id, batch_id=batch_id,
-            matricula=student.matricula, features_snapshot=feature_dicts[i],
+            matricula=student.matricula, scored_at=evaluated_at, features_snapshot=feature_dicts[i],
             model_score=rules["model_score"], adjusted_score=rules["adjusted_score"],
             risk_level=rules["risk_level"], model_version=model_version, model_scope=model_scope,
         ))
@@ -171,9 +173,18 @@ async def score_batch(
     batch.status = "scored"
     batch.tenant_id = tenant_id
     batch.processed_at = datetime.now(timezone.utc)
-    await session.commit()
+    try:
+        await session.commit()
+    except Exception as exc:
+        await session.rollback()
+        logging.getLogger(__name__).exception(
+            "risk_assessment_persistence_failed",
+            extra={"tenant_id": tenant_id, "batch_id": batch_id, "scoring_run_id": run_id},
+        )
+        raise RuntimeError("Falha ao persistir avaliações de risco; o lote não foi confirmado.") from exc
     return {
         "batch_id": batch_id, "scored": len(students), "summary": summary,
+        "scoring_run_id": run_id, "idempotent_replay": False,
         "students": scored_details[:20], "model_scope": model_scope, "model_version": model_version,
         "tenant_id": tenant_id, "explain": explain,
         "message": f"{len(students)} alunos pontuados via modelo {model_scope} v{model_version}",

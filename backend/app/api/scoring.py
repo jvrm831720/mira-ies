@@ -242,7 +242,7 @@ def _assessment_payload(row: RiskAssessment, student: Student | None = None) -> 
         "course": student.curso if student else None,
         "evaluated_at": row.evaluated_at.isoformat(), "score": row.score,
         "risk_level": row.risk_level, "model_version": row.model_version,
-        "score_semantics_version": row.score_semantics_version,
+        "score_semantics_version": row.score_semantics_version, "score_basis": row.score_basis,
         "model_scope": row.model_scope, "model_score": row.model_score,
         "dynamic_adjustment": row.dynamic_adjustment,
         "explanation": row.explanation if row.explanation and row.explanation.get("available") else None,
@@ -286,8 +286,10 @@ async def risk_history(
     now = datetime.now(timezone.utc)
     end = _utc(to_date, now)
     start = _utc(from_date, end - timedelta(days=90))
-    if start > end:
-        raise HTTPException(status_code=422, detail="'from' deve ser anterior ou igual a 'to'.")
+    if start >= end:
+        raise HTTPException(status_code=422, detail="'from' deve ser anterior a 'to'.")
+    if end - start > timedelta(days=366):
+        raise HTTPException(status_code=422, detail="O período máximo de consulta é de 366 dias.")
     if risk_level and risk_level not in _VALID_RISK_LEVELS:
         raise HTTPException(status_code=422, detail="risk_level inválido.")
     course_filter = course.strip() if course and course.strip() else None
@@ -298,7 +300,7 @@ async def risk_history(
         RiskAssessment.evaluated_at <= end,
     )
     if course_filter:
-        query = query.where(Student.curso.ilike("%" + course_filter + "%"))
+        query = query.where(Student.curso == course_filter)
     if risk_level:
         query = query.where(RiskAssessment.risk_level == risk_level)
     total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
@@ -317,8 +319,20 @@ async def risk_history(
         query.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc())
         .offset((page - 1) * page_size).limit(page_size)
     )).all()
+    temporal_query = select(RiskAssessment, Student).join(
+        Student, Student.id == RiskAssessment.student_id
+    ).where(
+        RiskAssessment.tenant_id == auth.tenant_id,
+        Student.tenant_id == auth.tenant_id,
+        RiskAssessment.evaluated_at >= start,
+        RiskAssessment.evaluated_at <= end,
+        *([Student.curso == course_filter] if course_filter else []),
+    )
+    temporal_total = (await db.execute(
+        select(func.count()).select_from(temporal_query.subquery())
+    )).scalar_one()
     temporal_rows = (await db.execute(
-        query.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc()).limit(5000)
+        temporal_query.order_by(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc()).limit(5000)
     )).all()
     # Movement comparisons use each student's latest assessment in the period,
     # even when a risk-level filter is active. The filter is applied after selecting
@@ -379,9 +393,12 @@ async def risk_history(
             "current_evaluated_at": current.evaluated_at.isoformat(), "delta": delta,
             "change_type": change_type, "model_version": current.model_version,
             "previous_model_version": previous.model_version if previous else None,
+            "score_semantics_version": current.score_semantics_version,
+            "previous_score_semantics_version": previous.score_semantics_version if previous else None,
+            "classification_changed": bool(previous and delta is not None and previous.risk_level != current.risk_level),
         })
     order = {"risco_aumentou": 0, "mudanca_modelo": 1, "sem_historico_comparavel": 2, "risco_diminuiu": 3, "sem_mudanca_relevante": 4}
-    movements.sort(key=lambda item: (order.get(item["change_type"], 9), -(item["delta"] or 0), item["student_name"] or "", item["student_id"]))
+    movements.sort(key=lambda item: (order.get(item["change_type"], 9), -abs(item["delta"]) if item["delta"] is not None else 0, item["student_name"] or "", item["student_id"]))
     # Latest real assessment per student per week. Version-specific groups prevent
     # score averages from mixing model versions.
     representative: dict[tuple[str, str], tuple[RiskAssessment, Student]] = {}
@@ -391,16 +408,19 @@ async def risk_history(
         key = (row.student_id, bucket)
         if key not in representative or row.evaluated_at > representative[key][0].evaluated_at:
             representative[key] = (row, student)
-    grouped: dict[tuple[str, str, str], list[RiskAssessment]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str, str], list[RiskAssessment]] = defaultdict(list)
     for (_student_id, bucket), (row, _student) in representative.items():
-        grouped[(bucket, row.model_scope, row.model_version or "versao_indisponivel")].append(row)
+        if risk_level and row.risk_level != risk_level:
+            continue
+        grouped[(bucket, row.model_scope, row.model_version or "versao_indisponivel", row.score_semantics_version)].append(row)
     timeline = []
-    for (bucket, scope, version), rows in sorted(grouped.items()):
+    for (bucket, scope, version, semantics_version), rows in sorted(grouped.items()):
         group_distribution = {"baixo": 0, "medio": 0, "critico": 0, "students_count": len(rows)}
         for assessment in rows:
             group_distribution[assessment.risk_level] += 1
         timeline.append({
             "bucket": bucket, "model_scope": scope, "model_version": version,
+            "score_semantics_version": semantics_version,
             "average_score": round(sum(float(r.score) for r in rows) / len(rows), 2),
             "students_count": len(rows), "risk_distribution": group_distribution,
         })
@@ -416,7 +436,7 @@ async def risk_history(
         "tenant_id": auth.tenant_id, "period": {"from": start.isoformat(), "to": end.isoformat()},
         "filters": {"course": course_filter, "risk_level": risk_level},
         "total_assessments": total, "students_with_assessments": students_total,
-        "temporal_data_truncated": total > len(temporal_rows) or len(movement_rows) >= 5000,
+        "temporal_data_truncated": temporal_total > len(temporal_rows) or len(movement_rows) >= 5000,
         "temporal_rows_limit": 5000,
         "comparison_counts": {
             "increased": counts["risco_aumentou"], "decreased": counts["risco_diminuiu"],
@@ -453,8 +473,10 @@ async def student_risk_history(
     now = datetime.now(timezone.utc)
     end = _utc(to_date, now)
     start = _utc(from_date, end - timedelta(days=365))
-    if start > end:
-        raise HTTPException(status_code=422, detail="'from' deve ser anterior ou igual a 'to'.")
+    if start >= end:
+        raise HTTPException(status_code=422, detail="'from' deve ser anterior a 'to'.")
+    if end - start > timedelta(days=366):
+        raise HTTPException(status_code=422, detail="O período máximo de consulta é de 366 dias.")
     base = select(RiskAssessment).where(
         RiskAssessment.tenant_id == auth.tenant_id, RiskAssessment.student_id == student_id,
         RiskAssessment.evaluated_at >= start, RiskAssessment.evaluated_at <= end,

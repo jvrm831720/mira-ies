@@ -530,6 +530,7 @@ export type RiskHistoryAssessment = {
   id: string; student_id: string; tenant_id: string; student_name?: string | null;
   matricula?: string | null; course?: string | null; evaluated_at: string; score: number;
   risk_level: "baixo" | "medio" | "critico"; model_version?: string | null; score_semantics_version: string; model_scope: string;
+  score_basis: "final" | "legacy_adjusted";
   model_score?: number | null; dynamic_adjustment: number;
   explanation?: { available?: boolean; top_factors?: Array<{ feature?: string; label?: string; impact?: number; value?: number }>; summary?: string | null; rule_flags?: string[]; rule_boost?: number; recommended_actions?: string[]; confidence?: string; probability?: number } | null;
   explanation_available: boolean; scoring_run_id: string; batch_id?: string | null;
@@ -540,12 +541,13 @@ export type RiskMovement = {
   current_score: number; current_risk_level: string; current_evaluated_at: string; delta?: number | null;
   change_type: "risco_aumentou" | "risco_diminuiu" | "sem_mudanca_relevante" | "sem_historico_comparavel" | "mudanca_modelo";
   model_version?: string | null; previous_model_version?: string | null;
+  score_semantics_version: string; previous_score_semantics_version?: string | null; classification_changed: boolean;
 };
 export type RiskHistoryResponse = {
   tenant_id: string; period: { from: string; to: string }; filters: { course?: string | null; risk_level?: string | null };
   total_assessments: number; students_with_assessments: number; temporal_data_truncated: boolean; temporal_rows_limit: number;
   comparison_counts: { increased: number; decreased: number; unchanged: number; model_changed: number; no_comparable_history: number; classification_changed: number };
-  timeline: Array<{ bucket: string; model_scope: string; model_version: string; average_score: number; students_count: number; risk_distribution: { baixo: number; medio: number; critico: number; students_count: number } }>;
+  timeline: Array<{ bucket: string; model_scope: string; model_version: string; score_semantics_version: string; average_score: number; students_count: number; risk_distribution: { baixo: number; medio: number; critico: number; students_count: number } }>;
   courses: string[];
   movements: RiskMovement[]; movements_truncated: boolean; assessments: RiskHistoryAssessment[];
   pagination: { page: number; page_size: number; total: number; pages: number }; definition: string;
