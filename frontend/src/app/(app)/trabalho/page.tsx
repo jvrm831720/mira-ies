@@ -59,9 +59,9 @@ export default function WorkCenterPage() {
         </section>
 
         <section aria-label="Indicadores operacionais" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric label="Pendentes" value={work.isLoading || work.isError ? "—" : work.data.pending.toLocaleString("pt-BR")} description="Decisões planejadas aguardando execução" icon={<ClipboardList className="h-5 w-5" />} />
-          <Metric label="Há mais de 48 horas" value={work.isLoading || work.isError ? "—" : work.data.overdue_48h.toLocaleString("pt-BR")} description={work.data?.overdue_policy_hours ? `Política atual: ${work.data.overdue_policy_hours}h` : "Pendências acima do prazo operacional"} icon={<Clock3 className="h-5 w-5" />} tone="warning" />
-          <Metric label="Falhas registradas" value={work.isLoading || work.isError ? "—" : work.data.failed.toLocaleString("pt-BR")} description="Falhas sinalizadas pelo backend" icon={<XCircle className="h-5 w-5" />} tone="danger" />
+          <Metric label="Pendentes" value={work.isLoading || work.isError ? "—" : (work.data?.pending ?? 0).toLocaleString("pt-BR")} description="Decisões planejadas aguardando execução" icon={<ClipboardList className="h-5 w-5" />} />
+          <Metric label="Há mais de 48 horas" value={work.isLoading || work.isError ? "—" : (work.data?.overdue_48h ?? 0).toLocaleString("pt-BR")} description={work.data?.overdue_policy_hours ? `Política atual: ${work.data.overdue_policy_hours}h` : "Pendências acima do prazo operacional"} icon={<Clock3 className="h-5 w-5" />} tone="warning" />
+          <Metric label="Falhas registradas" value={work.isLoading || work.isError ? "—" : (work.data?.failed ?? 0).toLocaleString("pt-BR")} description="Falhas sinalizadas pelo backend" icon={<XCircle className="h-5 w-5" />} tone="danger" />
           <Metric label="Alunos em risco crítico" value={summary.isLoading || summary.isError ? "—" : (summary.data?.summary.critico ?? 0).toLocaleString("pt-BR")} description="Casos para revisão prioritária" icon={<AlertCircle className="h-5 w-5" />} tone="critical" />
         </section>
 
