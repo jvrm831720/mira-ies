@@ -1,17 +1,9 @@
 """Rotas do sistema multiagente de retencao (orquestrador + canais WhatsApp/E-mail/SMS).
 
-Corpo completo recuperado da versão saudável pré-truncamento (histório pré-4342004),
-com hardening de list_retention_logs. Não é um módulo mínimo: expande o fonte integral.
+Módulo de entrada legível: o router completo vive em agents_routes e agents_analytics.
 """
-from __future__ import annotations
 
-import base64
-import zlib
-from pathlib import Path
+from app.api.agents_routes import router  # noqa: F401
 
-_dir = Path(__file__).resolve().parent
-_BODY = (_dir / "_agents_body_a.b64").read_text(encoding="utf-8").strip() + (
-    _dir / "_agents_body_b.b64"
-).read_text(encoding="utf-8").strip()
-_SRC = zlib.decompress(base64.b64decode(_BODY)).decode("utf-8")
-exec(compile(_SRC, str(_dir / "_agents_expanded.py"), "exec"), globals())
+# Register analytics / dead-letter routes on the shared router.
+from app.api import agents_analytics  # noqa: F401, E402
