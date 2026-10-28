@@ -18,6 +18,18 @@ _DEV_ADMIN_EMAIL = "admin@mira.local"
 _DEV_ADMIN_PASSWORD = "MiraAdmin123!"
 
 
+def _run_alembic_upgrade() -> None:
+    """Apply pending migrations (additive). Used when AUTO_MIGRATE=true."""
+    from pathlib import Path
+    from alembic import command
+    from alembic.config import Config
+
+    backend_dir = Path(__file__).resolve().parents[1]
+    cfg = Config(str(backend_dir / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend_dir / "alembic"))
+    command.upgrade(cfg, "head")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if settings.app_env != "development" and (
@@ -30,12 +42,22 @@ async def lifespan(app: FastAPI):
             "Configure uma chave secreta real antes de subir em producao."
         )
     print(f"{settings.app_name} starting in {settings.app_env} mode...")
+
+    if settings.auto_migrate:
+        try:
+            print("AUTO_MIGRATE habilitado: executando alembic upgrade head...")
+            _run_alembic_upgrade()
+            print("Migrations aplicadas (alembic upgrade head).")
+        except Exception as e:
+            print(f"ERRO ao aplicar migrations: {e}")
+            raise
+
     try:
         if settings.app_env == "development":
             await init_db()
             print("Tabelas prontas (create_all em development).")
         else:
-            print("Producao: use `alembic upgrade head` para schema (create_all desligado).")
+            print("Producao: use `alembic upgrade head` ou AUTO_MIGRATE=true para schema.")
     except Exception as e:
         print(f"Aviso ao criar tabelas: {e}")
 
