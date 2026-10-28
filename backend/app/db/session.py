@@ -41,6 +41,43 @@ async def get_db():
             await session.close()
 
 
+# Columns the InterventionLog ORM expects (list_retention_logs SELECT mapping).
+_INTERVENTION_LOG_REQUIRED_COLUMNS = frozenset({
+    "id",
+    "tenant_id",
+    "student_id",
+    "matricula",
+    "channel",
+    "risk_level",
+    "risk_score",
+    "template_id",
+    "message_preview",
+    "status",
+    "skip_reason",
+    "decision_reason",
+    "decision_context",
+    "error",
+    "provider",
+    "external_id",
+    "correlation_id",
+    "idempotency_key",
+    "job_id",
+    "campaign_id",
+    "delivery_status",
+    "delivery_event_id",
+    "delivery_updated_at",
+    "outcome",
+    "outcome_at",
+    "outcome_source",
+    "outcome_note",
+    "created_at",
+})
+
+
+class SchemaPatchError(RuntimeError):
+    """Critical schema alignment failure — API must not serve half-broken routes."""
+
+
 async def ensure_schema_patches(conn) -> None:
     """Additive schema patches for environments where create_all / alembic lag the ORM.
 
@@ -48,7 +85,6 @@ async def ensure_schema_patches(conn) -> None:
     Covers intervention_logs columns required by list_retention_logs serialization.
     """
     patches = [
-        # Users / invites (legacy drift)
         """
         ALTER TABLE mira_users
         ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'coordinator'
@@ -69,7 +105,6 @@ async def ensure_schema_patches(conn) -> None:
         ALTER TABLE mira_org_invites
         ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'coordinator'
         """,
-        # Intervention logs — decision / outcome (post-create_all)
         """
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS decision_reason VARCHAR(240) NULL
@@ -94,7 +129,6 @@ async def ensure_schema_patches(conn) -> None:
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS outcome_note VARCHAR(240) NULL
         """,
-        # Intervention logs — safe delivery (migration 006)
         """
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS correlation_id VARCHAR(160) NULL
@@ -123,7 +157,6 @@ async def ensure_schema_patches(conn) -> None:
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS delivery_updated_at TIMESTAMPTZ NULL
         """,
-        # Core columns that older partial tables might miss
         """
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS template_id VARCHAR(80) NULL
@@ -160,7 +193,6 @@ async def ensure_schema_patches(conn) -> None:
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS channel VARCHAR(20) NULL
         """,
-        # Helpful indexes (idempotent)
         """
         CREATE INDEX IF NOT EXISTS ix_intervention_logs_correlation_id
         ON intervention_logs (correlation_id)
@@ -182,14 +214,31 @@ async def ensure_schema_patches(conn) -> None:
         ON intervention_logs (tenant_id, outcome)
         """,
     ]
+
+    critical_failures: list[str] = []
     for sql in patches:
         try:
             await conn.execute(text(sql))
         except Exception as exc:
-            # Table may not exist yet; create_all / alembic will handle structure.
-            print(f"Aviso schema patch: {type(exc).__name__}: {exc}")
+            msg = f"{type(exc).__name__}: {exc}"
+            if "mira_users" in sql or "mira_org_invites" in sql:
+                print(f"Aviso schema patch (não crítico): {msg}")
+                continue
+            lower = msg.lower()
+            if any(
+                tok in lower
+                for tok in (
+                    "permission",
+                    "password",
+                    "could not connect",
+                    "timeout",
+                    "authentication",
+                )
+            ):
+                critical_failures.append(msg)
+                continue
+            print(f"Aviso schema patch: {msg}")
 
-    # Unique constraint for idempotency (nullable keys allowed multiple NULLs in PG)
     try:
         await conn.execute(
             text(
@@ -210,8 +259,48 @@ async def ensure_schema_patches(conn) -> None:
     except Exception as exc:
         print(f"Aviso schema patch (idempotency constraint): {type(exc).__name__}: {exc}")
 
+    if critical_failures:
+        raise SchemaPatchError(
+            "Falha crítica ao aplicar patches de schema: " + "; ".join(critical_failures[:3])
+        )
 
-# Backwards-compatible alias used by older call sites / tests
+
+async def verify_intervention_logs_schema(conn) -> None:
+    """Fail startup if intervention_logs cannot support the ORM SELECT used by logs."""
+    exists = await conn.execute(
+        text(
+            """
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.tables
+              WHERE table_schema = 'public' AND table_name = 'intervention_logs'
+            )
+            """
+        )
+    )
+    if not bool(exists.scalar()):
+        raise SchemaPatchError(
+            "Tabela intervention_logs ausente. Execute alembic upgrade head "
+            "(AUTO_MIGRATE) antes de servir rotas de retenção."
+        )
+
+    result = await conn.execute(
+        text(
+            """
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'intervention_logs'
+            """
+        )
+    )
+    present = {row[0] for row in result.fetchall()}
+    missing = sorted(_INTERVENTION_LOG_REQUIRED_COLUMNS - present)
+    if missing:
+        raise SchemaPatchError(
+            "intervention_logs sem colunas exigidas pelo ORM: "
+            + ", ".join(missing)
+            + ". Patches aditivos e/ou alembic upgrade head são necessários."
+        )
+
+
 _dev_schema_patches = ensure_schema_patches
 
 
@@ -222,9 +311,11 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await ensure_schema_patches(conn)
+        await verify_intervention_logs_schema(conn)
 
 
 async def apply_runtime_schema_patches() -> None:
-    """Apply additive patches without create_all (production-safe)."""
+    """Apply additive patches without create_all (production-safe), then verify."""
     async with engine.begin() as conn:
         await ensure_schema_patches(conn)
+        await verify_intervention_logs_schema(conn)
