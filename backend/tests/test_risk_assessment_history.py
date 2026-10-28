@@ -49,8 +49,8 @@ async def test_risk_history_is_tenant_scoped_and_unknown_student_is_404(client, 
     db_session.add(RiskAssessment(
         tenant_id=tenant_a.id, student_id=student.id, batch_id=batch.id,
         scoring_run_id=str(uuid4()), evaluated_at=datetime.now(timezone.utc),
-        score=72, risk_level="critico", model_version="test-v1", model_scope="base",
-        model_score=70, dynamic_adjustment=2, features_snapshot={},
+        score=72, risk_level="critico", model_version="test-v1", model_scope="base", score_semantics_version="risk-score-v1",
+        model_score=70, dynamic_adjustment=2, features_snapshot={}, score_semantics_version="risk-score-v1",
         explanation={"available": False}, context={"source": "test"},
     ))
     await db_session.commit()
@@ -108,7 +108,7 @@ async def test_risk_history_compares_latest_assessment_to_previous_within_period
         db_session.add(RiskAssessment(
             tenant_id=t.id, student_id=student.id, batch_id=batch.id,
             scoring_run_id=str(uuid4()), evaluated_at=now - timedelta(days=days_ago),
-            score=score, risk_level=level, model_version="base-v1", model_scope="base",
+            score=score, risk_level=level, model_version="base-v1", model_scope="base", score_semantics_version="risk-score-v1",
             model_score=score, dynamic_adjustment=0, features_snapshot={},
             explanation={"available": False}, context={"source": "test"},
         ))
@@ -158,3 +158,23 @@ async def test_forced_batch_score_requires_and_reuses_idempotency_key(client, te
     history = await client.get("/api/v1/risk/history", headers={"X-API-Key": api_key})
     assert history.status_code == 200
     assert history.json()["total_assessments"] == 1
+
+
+
+async def test_score_comparison_rejects_semantics_version_change():
+    from app.api.scoring import _change_type
+    now = datetime.now(timezone.utc)
+    current = RiskAssessment(
+        tenant_id=str(uuid4()), student_id=str(uuid4()), scoring_run_id=str(uuid4()),
+        evaluated_at=now, score=80, risk_level="critico", model_version="same-model",
+        model_scope="base", score_semantics_version="risk-score-v2", features_snapshot={},
+    )
+    previous = RiskAssessment(
+        tenant_id=current.tenant_id, student_id=current.student_id, scoring_run_id=str(uuid4()),
+        evaluated_at=now - timedelta(days=1), score=40, risk_level="medio",
+        model_version="same-model", model_scope="base", score_semantics_version="risk-score-v1",
+        features_snapshot={},
+    )
+    kind, delta = _change_type(current, previous)
+    assert kind == "mudanca_modelo"
+    assert delta is None

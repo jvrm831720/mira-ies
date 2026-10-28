@@ -529,7 +529,7 @@ export type RetentionAnalytics = {
 export type RiskHistoryAssessment = {
   id: string; student_id: string; tenant_id: string; student_name?: string | null;
   matricula?: string | null; course?: string | null; evaluated_at: string; score: number;
-  risk_level: "baixo" | "medio" | "critico"; model_version?: string | null; model_scope: string;
+  risk_level: "baixo" | "medio" | "critico"; model_version?: string | null; score_semantics_version: string; model_scope: string;
   model_score?: number | null; dynamic_adjustment: number;
   explanation?: { available?: boolean; top_factors?: Array<{ feature?: string; label?: string; impact?: number; value?: number }>; summary?: string | null; rule_flags?: string[]; rule_boost?: number; recommended_actions?: string[]; confidence?: string; probability?: number } | null;
   explanation_available: boolean; scoring_run_id: string; batch_id?: string | null;

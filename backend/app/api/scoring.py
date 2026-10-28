@@ -242,6 +242,7 @@ def _assessment_payload(row: RiskAssessment, student: Student | None = None) -> 
         "course": student.curso if student else None,
         "evaluated_at": row.evaluated_at.isoformat(), "score": row.score,
         "risk_level": row.risk_level, "model_version": row.model_version,
+        "score_semantics_version": row.score_semantics_version,
         "model_scope": row.model_scope, "model_score": row.model_score,
         "dynamic_adjustment": row.dynamic_adjustment,
         "explanation": row.explanation if row.explanation and row.explanation.get("available") else None,
@@ -253,7 +254,7 @@ def _assessment_payload(row: RiskAssessment, student: Student | None = None) -> 
 def _change_type(current: RiskAssessment, previous: RiskAssessment | None) -> tuple[str, float | None]:
     if previous is None:
         return "sem_historico_comparavel", None
-    if not current.model_version or not previous.model_version or current.model_version != previous.model_version or current.model_scope != previous.model_scope:
+    if (not current.model_version or not previous.model_version or current.model_version != previous.model_version or current.model_scope != previous.model_scope or not current.score_semantics_version or current.score_semantics_version != previous.score_semantics_version):
         return "mudanca_modelo", None
     delta = round(float(current.score) - float(previous.score), 1)
     if delta > 0:

@@ -16,6 +16,7 @@ A migration **019_risk_assessment_history** cria **risk_assessments**, com:
 - evaluated_at do cálculo real;
 - score final (0–100), classificação, escopo e versão do modelo;
 - score base e ajuste dinâmico;
+- versão explícita da semântica de score/classificação, independente da versão do artefato de modelo;
 - snapshot de features, explicação preservada quando disponível e contexto de origem.
 
 A avaliação é gravada na mesma transação que atualiza o score do aluno. O índice composto tenant/aluno/data suporta consultas históricas. Uma constraint única por scoring_run_id e aluno evita duplicação dentro da mesma execução. O fluxo normal ignora alunos já pontuados. Reavaliações com force=true exigem o cabeçalho Idempotency-Key; retries com a mesma chave reutilizam a execução já gravada e não duplicam o histórico.
@@ -54,7 +55,7 @@ Erros: 401 para falta/invalidade de credenciais; 404 para aluno fora do tenant; 
 
 ## Comparação
 
-O score tem escala operacional de 0 a 100; quanto maior, maior o risco. A variação só é calculada quando versão e escopo do modelo são idênticos e estão presentes. delta = score atual - score anterior; delta positivo indica aumento de risco, negativo redução. Delta exatamente zero é classificado como “sem mudança relevante”; nenhum limiar não-zero é apresentado como cientificamente validado. Versões/escopos incompatíveis são classificados como mudança de modelo e não recebem delta. Ausência de avaliação não é convertida em score zero.
+A versão de semântica atual é **risk-score-v1**: escala operacional 0–100, baixo abaixo de 40, moderado a partir de 40 e crítico a partir de 70. Ela deve ser incrementada quando mudar a escala, os limiares ou a regra de classificação, mesmo que o artefato do modelo mantenha a mesma versão. O score tem escala operacional de 0 a 100; quanto maior, maior o risco. A variação só é calculada quando versão e escopo do modelo são idênticos e estão presentes. delta = score atual - score anterior; delta positivo indica aumento de risco, negativo redução. Delta exatamente zero é classificado como “sem mudança relevante”; nenhum limiar não-zero é apresentado como cientificamente validado. Versões/escopos incompatíveis são classificados como mudança de modelo e não recebem delta. Ausência de avaliação não é convertida em score zero.
 
 ## Explicabilidade e intervenções
 
