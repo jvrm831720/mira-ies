@@ -8,7 +8,7 @@ from starlette.requests import Request
 
 from app.core.config import get_settings
 from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing, retention_campaigns, retention_campaign_execution, control_center_auth, control_center_admin, mira_admin
-from app.db.session import init_db
+from app.db.session import init_db, apply_runtime_schema_patches
 from app.ml.model import load_model
 
 settings = get_settings()
@@ -57,9 +57,11 @@ async def lifespan(app: FastAPI):
             await init_db()
             print("Tabelas prontas (create_all em development).")
         else:
-            print("Producao: use `alembic upgrade head` ou AUTO_MIGRATE=true para schema.")
+            # Production/staging: never drop data; only additive column patches.
+            await apply_runtime_schema_patches()
+            print("Schema patches aditivos aplicados (intervention_logs e correlatos).")
     except Exception as e:
-        print(f"Aviso ao criar tabelas: {e}")
+        print(f"Aviso ao alinhar schema: {e}")
 
     try:
         from app.core.security import hash_api_key
