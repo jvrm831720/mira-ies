@@ -30,8 +30,7 @@ function moneyLabel(value: number | null | undefined) {
 }
 
 /**
- * Painel alinhado ao contrato *efetivo* de GET /api/v1/agents/retention/analytics
- * (backend/app/api/agents_analytics.py), não ao tipo TypeScript expandido.
+ * Painel alinhado ao contrato efetivo de GET /api/v1/agents/retention/analytics.
  *
  * Campos reais do backend:
  * - period_days, generated_at
@@ -43,8 +42,8 @@ function moneyLabel(value: number | null | undefined) {
  * - providers: channel, provider, average_latency_ms, attempts
  *
  * Limitações documentadas na UI:
- * - messages_sent inclui status sent e dry_run.
- * - retention_rate_pct = alunos com outcome "stayed" / alunos contactados — NÃO é causalidade.
+ * - messages_sent inclui status sent (e dry_run quando status gravado como sent).
+ * - retention_rate_pct é descritiva — NÃO é causalidade.
  * - Sem série temporal no endpoint; apenas agregado do recorte `days`.
  */
 export function RetentionAnalyticsPanel({ days }: { days: number }) {
@@ -106,7 +105,7 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
         <div>
           <h2 className="text-[14px] font-semibold text-[#101828]">Analytics de retenção</h2>
           <p className="mt-1 text-[11px] text-[#667085]">
-            Agregados de InterventionLog no tenant autenticado · últimos {" "}
+            Agregados de InterventionLog no tenant autenticado · últimos{" "}
             {data?.period_days ?? days} dias
             {data?.generated_at
               ? ` · gerado em ${new Date(data.generated_at).toLocaleString("pt-BR")}`
@@ -141,7 +140,7 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
         <div className="rounded-lg bg-[#F8FAFC] p-6 text-center">
           <p className="text-[13px] font-semibold text-[#344054]">Sem intervenções no período</p>
           <p className="mt-1 text-[12px] text-[#667085]">
-            Não há registros de InterventionLog com status sent/dry_run nos últimos{" "}
+            Não há registros de InterventionLog com status sent nos últimos{" "}
             {data.period_days ?? days} dias para este tenant. Isso não indica estabilidade do risco.
           </p>
         </div>
@@ -153,7 +152,7 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
             <Stat
               label="Mensagens registradas"
               value={numLabel(summary?.messages_sent)}
-              hint="Contagem de logs com status sent ou dry_run"
+              hint="Contagem de logs com status sent no período"
             />
             <Stat
               label="Alunos contactados"
@@ -161,12 +160,12 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
               hint="Estudantes distintos com ao menos um envio no período"
             />
             <Stat
-              label="Outcome 'stayed'"
+              label="Outcome stayed"
               value={numLabel(summary?.retained_students)}
               hint="Alunos contactados com desfecho registrado como stayed"
             />
             <Stat
-              label="Taxa stayed / contactados"
+              label="Taxa stayed (descritiva)"
               value={pctLabel(summary?.retention_rate_pct)}
               hint="Proporção descritiva — não prova causalidade da intervenção"
               caution
@@ -190,15 +189,14 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
                 <p className="font-semibold">Leitura correta dos indicadores</p>
                 <ul className="mt-1 list-disc space-y-0.5 pl-4">
                   <li>
-                    Envio de mensagem ≠ retenção comprovada. dry_run entra no volume de mensagens
-                    registradas.
+                    Envio de mensagem ≠ retenção comprovada. Volume reflete logs com status sent.
                   </li>
                   <li>
                     Ausência de desfecho (outcome nulo) não é contada como falha nem como permanência.
                   </li>
                   <li>
-                    A taxa stayed/contactados descreve coocorrência de outcome registrado; não afirma
-                    que a mensagem causou a permanência.
+                    A taxa stayed descreve coocorrência de outcome registrado; não afirma que a
+                    mensagem causou a permanência.
                   </li>
                   <li>
                     Este endpoint não expõe série temporal diária — apenas o agregado do recorte de{" "}
@@ -265,7 +263,6 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
                 período (backend). Latência média, quando disponível, vem de ProviderCallMetric.
               </p>
 
-              {/* Barras simples de volume por canal — SVG mínimo */}
               <div className="mt-4 space-y-2">
                 {channelKeys.map((key) => {
                   const sent = channels![key].messages_sent ?? 0;
@@ -326,20 +323,18 @@ function Stat({
   label,
   value,
   hint,
-  caution,
+  caution = false,
 }: {
   label: string;
   value: string;
   hint: string;
   caution?: boolean;
 }) {
+  const base = "rounded-xl border bg-white p-4";
+  const cautionCls = "border-amber-300 bg-amber-50";
+  const normalCls = "border-gray-200";
   return (
-    <div
-      className={cn(
-        "rounded-xl border bg-white p-4",
-        caution ? "border-[#FEDF89] bg-[#FFFAEB]/ : "border-[#E5E7EB]"
-      )}
-    >
+    <div className={cn(base, caution ? cautionCls : normalCls)}>
       <p className="text-[11px] font-medium text-[#667085]">{label}</p>
       <p className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#101828]">{value}</p>
       <p className="mt-1 text-[10px] leading-relaxed text-[#667085]">{hint}</p>
