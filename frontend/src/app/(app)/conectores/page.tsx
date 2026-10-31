@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
+import type { UploadHistoryItem } from "@/types/api";
 
 export default function DadosIntegracoesPage() {
   const [tab, setTab] = useState("overview");
@@ -45,11 +46,15 @@ export default function DadosIntegracoesPage() {
   });
 
   const items = catalog.data?.connectors ?? [];
-  const historyItems = history.data?.items ?? history.data?.batches ?? [];
-  const studentTotal =
-    typeof students.data?.total === "number"
-      ? students.data.total
-      : students.data?.students?.length;
+
+  // UploadHistoryResponse exposes `items` only (no `batches` in types/api.ts)
+  const historyItems = useMemo<UploadHistoryItem[]>(
+    () => history.data?.items ?? [],
+    [history.data?.items]
+  );
+
+  // StudentsResponse has `students` array; no guaranteed total field
+  const studentSampleCount = students.data?.students?.length;
 
   const overviewCards = useMemo(
     () => [
@@ -59,17 +64,33 @@ export default function DadosIntegracoesPage() {
         hint: catalog.isError ? "Catálogo indisponível" : "Conectores listados pela API",
       },
       {
-        label: "Alunos na base",
-        value: students.isLoading ? "—" : studentTotal != null ? String(studentTotal) : "—",
-        hint: students.isError ? "Não foi possível consultar alunos" : "Total retornado pela API",
+        label: "Amostra de alunos",
+        value: students.isLoading
+          ? "—"
+          : studentSampleCount != null
+            ? String(studentSampleCount)
+            : "—",
+        hint: students.isError
+          ? "Não foi possível consultar alunos"
+          : "Tamanho da amostra retornada (limit=1); total agregado não está no contrato",
       },
       {
         label: "Importações recentes",
-        value: history.isLoading ? "—" : String(Array.isArray(historyItems) ? historyItems.length : 0),
+        value: history.isLoading ? "—" : String(historyItems.length),
         hint: history.isError ? "Histórico indisponível" : "Últimos lotes de upload",
       },
     ],
-    [catalog.isError, catalog.isLoading, history.isError, history.isLoading, historyItems, items.length, studentTotal, students.isError, students.isLoading]
+    [
+      catalog.isError,
+      catalog.isLoading,
+      history.isError,
+      history.isLoading,
+      historyItems.length,
+      items.length,
+      studentSampleCount,
+      students.isError,
+      students.isLoading,
+    ]
   );
 
   async function onIngest() {
@@ -199,7 +220,15 @@ export default function DadosIntegracoesPage() {
                       Status de sincronização: não informado pela API
                     </p>
                   </div>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => { setSelected(c.id); setTab("ingest"); }}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelected(c.id);
+                      setTab("ingest");
+                    }}
+                  >
                     Usar
                   </Button>
                 </div>
@@ -231,7 +260,7 @@ export default function DadosIntegracoesPage() {
                   description="A API não retornou o histórico de importações neste momento."
                 />
               )}
-              {!history.isLoading && !history.isError && (!Array.isArray(historyItems) || historyItems.length === 0) && (
+              {!history.isLoading && !history.isError && historyItems.length === 0 && (
                 <EmptyState
                   icon={<History className="h-5 w-5" />}
                   title="Nenhuma importação registrada"
@@ -245,17 +274,15 @@ export default function DadosIntegracoesPage() {
                   }
                 />
               )}
-              {Array.isArray(historyItems) && historyItems.length > 0 && (
+              {historyItems.length > 0 && (
                 <ul className="divide-y divide-border">
-                  {historyItems.slice(0, 10).map((item: Record<string, unknown>, index: number) => {
-                    const id = String(item.id ?? item.batch_id ?? index);
-                    const label = String(item.filename ?? item.name ?? item.source ?? "Lote");
-                    const when = item.created_at ?? item.imported_at;
+                  {historyItems.slice(0, 10).map((item) => {
+                    const when = item.uploaded_at || item.processed_at;
                     return (
-                      <li key={id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                        <span className="min-w-0 truncate font-medium">{label}</span>
+                      <li key={item.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                        <span className="min-w-0 truncate font-medium">{item.filename || "Lote"}</span>
                         <span className="shrink-0 text-xs text-muted-foreground">
-                          {when ? new Date(String(when)).toLocaleString("pt-BR") : "—"}
+                          {when ? new Date(when).toLocaleString("pt-BR") : "—"}
                         </span>
                       </li>
                     );
