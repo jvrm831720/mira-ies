@@ -41,7 +41,6 @@ async def get_db():
             await session.close()
 
 
-# Columns the InterventionLog ORM expects (list_retention_logs SELECT mapping).
 _INTERVENTION_LOG_REQUIRED_COLUMNS = frozenset({
     "id",
     "tenant_id",
@@ -79,11 +78,7 @@ class SchemaPatchError(RuntimeError):
 
 
 async def ensure_schema_patches(conn) -> None:
-    """Additive schema patches for environments where create_all / alembic lag the ORM.
-
-    Safe to run repeatedly (IF NOT EXISTS). Does not drop or rewrite data.
-    Covers intervention_logs columns required by list_retention_logs serialization.
-    """
+    """Additive schema patches for environments where create_all / alembic lag the ORM."""
     patches = [
         """
         ALTER TABLE mira_users
@@ -100,6 +95,10 @@ async def ensure_schema_patches(conn) -> None:
         """
         ALTER TABLE mira_users
         ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ NULL
+        """,
+        """
+        ALTER TABLE mira_users
+        ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ NULL
         """,
         """
         ALTER TABLE mira_org_invites
@@ -266,7 +265,6 @@ async def ensure_schema_patches(conn) -> None:
 
 
 async def verify_intervention_logs_schema(conn) -> None:
-    """Fail startup if intervention_logs cannot support the ORM SELECT used by logs."""
     exists = await conn.execute(
         text(
             """
@@ -315,7 +313,6 @@ async def init_db():
 
 
 async def apply_runtime_schema_patches() -> None:
-    """Apply additive patches without create_all (production-safe), then verify."""
     async with engine.begin() as conn:
         await ensure_schema_patches(conn)
         await verify_intervention_logs_schema(conn)
