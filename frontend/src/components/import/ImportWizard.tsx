@@ -336,7 +336,13 @@ export function ImportWizard() {
                     <div key={item.name + item.size + item.lastModified} className="flex flex-col gap-2 rounded-xl border px-3.5 py-3 sm:flex-row sm:items-center">
                       <div className="min-w-0 flex-1"><p className="break-all text-sm font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{formatFileSize(item.size)}</p></div>
                       <select aria-label={`Tipo ${item.name}`} value={multiRoles[index] || "cadastro"}
-                        onChange={(e) => { setMultiRoles((r) => r.map((x, i) => (i === index ? e.target.value : x))); setMultiPreview(null); setMultiConfirmedPolicy(false); }}
+                        onChange={(e) => {
+                          setMultiRoles((r) => r.map((x, i) => (i === index ? e.target.value : x)));
+                          setMultiPreview(null);
+                          setMultiConfirmedPolicy(false);
+                          setMultiIdempotencyKey(crypto.randomUUID());
+                          setMultiError(null);
+                        }}
                         className="h-9 rounded-lg border bg-white px-2 text-xs">
                         <option value="cadastro">Cadastro</option><option value="financeiro">Financeiro</option>
                         <option value="academico">Acadêmico</option><option value="historico">Histórico</option><option value="matriculas">Matrículas</option>
@@ -489,7 +495,7 @@ export function ImportWizard() {
               <CardDescription>Idempotency-Key: {multiIdempotencyKey ? `${multiIdempotencyKey.slice(0, 8)}…` : "—"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">{multiFiles.length} arquivo(s). A chave evita gravação duplicada.</p>
+              <p className="text-sm text-muted-foreground">{multiFiles.length} arquivo(s). A chave identifica a operação; falha de rede pode reutilizar a mesma chave.</p>
               <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" className="mt-1" checked={multiConfirmedPolicy} onChange={(e) => setMultiConfirmedPolicy(e.target.checked)} />
                 <span>Autorizo a confirmação e gravação deste lote.</span>
