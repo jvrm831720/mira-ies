@@ -269,8 +269,9 @@ async def accept_invite(
 
 @router.get("/me")
 async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db)):
-    """Perfil da sessão atual (papel + instituição)."""
+    """Perfil da sessão atual (papel + instituição + onboarding)."""
     user = await db.get(User, auth.user_id) if auth.user_id else None
+    completed_at = getattr(user, "onboarding_completed_at", None) if user else None
     return {
         "tenant_id": auth.tenant_id,
         "tenant_name": auth.tenant.name,
@@ -279,4 +280,29 @@ async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession =
         "role": auth.role or (user.role if user else "admin"),
         "display_name": user.display_name if user else None,
         "email": user.email if user else None,
+        "onboarding_completed": bool(completed_at),
+        "onboarding_completed_at": completed_at.isoformat() if completed_at else None,
+    }
+
+
+@router.post("/me/onboarding/complete")
+async def complete_onboarding(
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Marca o onboarding institucional como concluído para o usuário autenticado."""
+    if not auth.user_id:
+        raise HTTPException(status_code=400, detail="Sessão sem usuário associado.")
+    user = await db.get(User, auth.user_id)
+    if not user or user.tenant_id != auth.tenant_id:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado nesta instituição.")
+    if not user.onboarding_completed_at:
+        user.onboarding_completed_at = _now()
+        await db.commit()
+        await db.refresh(user)
+    return {
+        "onboarding_completed": True,
+        "onboarding_completed_at": user.onboarding_completed_at.isoformat()
+        if user.onboarding_completed_at
+        else None,
     }
