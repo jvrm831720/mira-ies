@@ -2,6 +2,7 @@
 
 import { AuthGate } from "@/components/auth-gate";
 import { Sidebar } from "@/components/layout/sidebar";
+import { InstitutionalOnboarding } from "@/components/onboarding/institutional-onboarding";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <div className="min-w-0 flex-1">{children}</div>
       </div>
+      <InstitutionalOnboarding />
     </AuthGate>
   );
 }
