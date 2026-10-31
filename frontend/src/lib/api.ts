@@ -115,6 +115,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
+export type OrgMeResponse = {
+  role?: string;
+  tenant_name?: string;
+  tenant_id?: string;
+  tenant_slug?: string;
+  user_id?: string | null;
+  display_name?: string;
+  email?: string;
+  onboarding_completed?: boolean;
+  onboarding_completed_at?: string | null;
+};
+
 export const api = {
   baseUrl: BASE,
 
@@ -180,14 +192,29 @@ export const api = {
 
   studentRisk: (id: string) => request<StudentRisk>("/api/v1/students/" + id + "/risk"),
 
-  riskHistory: (params: { from: string; to: string; course?: string; risk_level?: string; page?: number; page_size?: number }) => {
-    const q = new URLSearchParams({ from: params.from, to: params.to, page: String(params.page ?? 1), page_size: String(params.page_size ?? 50) });
+  riskHistory: (params: {
+    from: string;
+    to: string;
+    course?: string;
+    risk_level?: string;
+    page?: number;
+    page_size?: number;
+  }) => {
+    const q = new URLSearchParams({
+      from: params.from,
+      to: params.to,
+      page: String(params.page ?? 1),
+      page_size: String(params.page_size ?? 50),
+    });
     if (params.course) q.set("course", params.course);
     if (params.risk_level) q.set("risk_level", params.risk_level);
     return request<RiskHistoryResponse>("/api/v1/risk/history?" + q.toString());
   },
 
-  studentRiskHistory: (id: string, params?: { from?: string; to?: string; page?: number; page_size?: number }) => {
+  studentRiskHistory: (
+    id: string,
+    params?: { from?: string; to?: string; page?: number; page_size?: number }
+  ) => {
     const q = new URLSearchParams();
     if (params?.from) q.set("from", params.from);
     if (params?.to) q.set("to", params.to);
@@ -283,7 +310,12 @@ export const api = {
     });
   },
 
-  upload: async (file: File, autoScore = true, columnMapping?: Record<string, string>, sheetName?: string) => {
+  upload: async (
+    file: File,
+    autoScore = true,
+    columnMapping?: Record<string, string>,
+    sheetName?: string
+  ) => {
     const form = new FormData();
     form.append("file", file);
     if (columnMapping) form.append("column_mapping", JSON.stringify(columnMapping));
@@ -345,9 +377,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  me: () =>
-    request<{ role?: string; tenant_name?: string; display_name?: string; email?: string }>(
-      "/api/v1/org/me"
+  me: () => request<OrgMeResponse>("/api/v1/org/me"),
+
+  completeOnboarding: () =>
+    request<{ onboarding_completed: boolean; onboarding_completed_at?: string | null }>(
+      "/api/v1/org/me/onboarding/complete",
+      { method: "POST" }
     ),
 
   listConnectors: () =>
