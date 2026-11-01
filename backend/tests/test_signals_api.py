@@ -23,7 +23,7 @@ async def _seed_student(db_session, tenant, **fields):
         tenant_id=t.id,
         matricula=fields.pop("matricula", "SIG001"),
         nome=fields.pop("nome", "Aluno Sinais"),
-        is_active=True,
+        is_active=fields.pop("is_active", True),
         **fields,
     )
     db_session.add(student)
