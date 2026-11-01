@@ -167,3 +167,24 @@ def test_operational_signal_set_is_explicit():
         "days_without_login_elevated",
         "risk_increase",
     }
+
+
+
+def test_group_evaluation_keeps_per_signal_state_evidence_and_limitations():
+    group = _by_id(
+        _evaluate(
+            {
+                "risk_level": "critico",
+                "risk_score": 92,
+                "dias_atraso_boleto": 15,
+                "dias_sem_login": None,
+            }
+        )
+    )["multiple_active_signals"]
+    signals = {signal["signal_id"]: signal for signal in group.signals}
+    assert signals["risk_critical"]["status"] == "TRUE"
+    assert signals["financial_delay"]["status"] == "TRUE"
+    assert signals["days_without_login_elevated"]["status"] == "INDETERMINATE"
+    assert signals["financial_delay"]["evidence"]["threshold"] == 15
+    assert signals["financial_delay"]["limitations"]
+    assert group.evidence["active_signal_ids"] == ["risk_critical", "financial_delay"]
