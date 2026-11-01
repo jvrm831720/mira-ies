@@ -1,6 +1,7 @@
 /** Atividade operacional da Central de Trabalho (distinta de InterventionLog). */
 export type WorkActivityStatus = "open" | "in_progress" | "completed" | "cancelled";
 export type WorkActivityType = "follow_up" | "contact" | "review" | "other";
+export type WorkResultKind = "done" | "unreachable" | "deferred" | "referred";
 
 export type WorkActivityAssignee = {
   id: string;
@@ -66,4 +67,34 @@ export type PatchWorkActivityBody = {
   due_at?: string | null;
   clear_due?: boolean;
   status?: WorkActivityStatus;
+  student_id?: string | null;
+  clear_student?: boolean;
+  intervention_log_id?: string | null;
+  clear_intervention_log?: boolean;
+};
+
+export type RecordResultBody = {
+  note: string;
+  kind?: WorkResultKind | null;
+};
+
+export type RecordResultResponse = {
+  activity_id: string;
+  status: string;
+  intervention_log_id?: string | null;
+  event_type: string;
+  count: number;
+  events: WorkActivityEvent[];
+  note?: string;
+};
+
+/** Prefill when creating an activity from an intervention log row. */
+export type CreateFromLogDraft = {
+  student_id?: string | null;
+  intervention_log_id: string;
+  matricula?: string | null;
+  channel?: string | null;
+  decision_reason?: string | null;
+  status?: string | null;
+  suggested_title: string;
 };

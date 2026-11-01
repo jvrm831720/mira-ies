@@ -2,6 +2,8 @@ import { api, ApiError } from "./api";
 import type {
   CreateWorkActivityBody,
   PatchWorkActivityBody,
+  RecordResultBody,
+  RecordResultResponse,
   WorkActivitiesResponse,
   WorkActivity,
   WorkActivityEventsResponse,
@@ -13,9 +15,6 @@ const BASE =
     : "";
 
 async function workRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  // Reuse the same auth headers path as api via a thin wrapper calling the shared request pattern.
-  // We call through relative paths that the main api client would use; for mutations we need full control.
-  // Prefer delegating to fetch with same credentials by importing getAccessToken.
   const { getAccessToken, getApiKey, clearAuth } = await import("./auth");
   const token = getAccessToken();
   const key = getApiKey();
@@ -41,10 +40,7 @@ async function workRequest<T>(path: string, init: RequestInit = {}): Promise<T> 
   }
   if (res.status === 401) {
     clearAuth();
-    if (
-      typeof window !== "undefined" &&
-      !window.location.pathname.startsWith("/login")
-    ) {
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
       window.location.href = "/login";
     }
     throw new ApiError(401, "Sessão expirada ou não autorizada");
@@ -71,12 +67,16 @@ export const workApi = {
   list: (params?: {
     status?: string;
     assignee?: string;
+    student_id?: string;
+    intervention_log_id?: string;
     overdue_only?: boolean;
     limit?: number;
   }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set("status", params.status);
     if (params?.assignee) q.set("assignee", params.assignee);
+    if (params?.student_id) q.set("student_id", params.student_id);
+    if (params?.intervention_log_id) q.set("intervention_log_id", params.intervention_log_id);
     if (params?.overdue_only) q.set("overdue_only", "true");
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
@@ -105,7 +105,12 @@ export const workApi = {
     workRequest<WorkActivityEventsResponse>(
       `/api/v1/work/activities/${encodeURIComponent(id)}/events`
     ),
+
+  recordResult: (id: string, body: RecordResultBody) =>
+    workRequest<RecordResultResponse>(
+      `/api/v1/work/activities/${encodeURIComponent(id)}/result`,
+      { method: "POST", body: JSON.stringify(body) }
+    ),
 };
 
-// Silence unused if tree-shaken differently
 void api;
