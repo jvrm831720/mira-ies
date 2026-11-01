@@ -5,6 +5,7 @@ from app.models.retention_campaign import RetentionCampaign
 from app.models.data_governance import TenantDataUsePolicy
 from app.models.institutional_training_authorization import InstitutionalTrainingAuthorization
 from app.models.risk_assessment import RiskAssessment
+from app.models.work_activity import WorkActivity, WorkActivityEvent
 
 __all__ = [
     "UploadBatch",
@@ -19,4 +20,6 @@ __all__ = [
     "TenantDataUsePolicy",
     "InstitutionalTrainingAuthorization",
     "RiskAssessment",
+    "WorkActivity",
+    "WorkActivityEvent",
 ]

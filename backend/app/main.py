@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 
 from app.core.config import get_settings
-from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing, retention_campaigns, retention_campaign_execution, control_center_auth, control_center_admin, mira_admin
+from app.api import upload, health, scoring, connectors, outcomes, agents, auth, delivery_webhooks, org, billing, retention_campaigns, retention_campaign_execution, control_center_auth, control_center_admin, mira_admin, work_activities
 from app.db.session import init_db, apply_runtime_schema_patches, SchemaPatchError
 from app.ml.model import load_model
 
@@ -43,7 +43,6 @@ async def lifespan(app: FastAPI):
         )
     print(f"{settings.app_name} starting in {settings.app_env} mode...")
 
-    # Alembic first (additive), then runtime column patches + verification.
     if settings.auto_migrate:
         try:
             print("AUTO_MIGRATE habilitado: executando alembic upgrade head...")
@@ -58,15 +57,12 @@ async def lifespan(app: FastAPI):
             await init_db()
             print("Tabelas prontas (create_all + patches + verificação em development).")
         else:
-            # Production/staging: never drop data; only additive column patches + verify.
             await apply_runtime_schema_patches()
             print("Schema patches aditivos aplicados e intervention_logs verificado.")
     except SchemaPatchError as e:
-        # Critical: API would serve 500 on /agents/retention/logs without these columns.
         print(f"ERRO CRÍTICO de schema: {e}")
         raise
     except Exception as e:
-        # Unexpected DB errors (connectivity) must not leave a half-ready API.
         print(f"ERRO ao alinhar schema: {e}")
         raise
 
@@ -129,7 +125,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Mira — permanência estudantil, autenticação e isolamento multi-tenant",
-    version="0.7.0-billing",
+    version="0.8.0-work-activities",
     lifespan=lifespan,
 )
 
@@ -169,6 +165,7 @@ app.include_router(delivery_webhooks.router, prefix="/api/v1", tags=["Webhooks d
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(org.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
+app.include_router(work_activities.router, prefix="/api/v1")
 app.include_router(control_center_auth.router, prefix="/api/v1")
 app.include_router(control_center_admin.router, prefix="/api/v1")
 app.include_router(mira_admin.router, prefix="/api/v1")
@@ -178,9 +175,9 @@ app.include_router(mira_admin.router, prefix="/api/v1")
 async def root():
     return {
         "project": settings.app_name,
-        "version": "0.7.0-billing",
-        "phase": "Fatura e créditos por canal",
+        "version": "0.8.0-work-activities",
+        "phase": "Central de Trabalho — atividades atribuíveis",
         "status": "running",
         "docs": "/docs",
-        "billing": "/api/v1/billing/summary · /api/v1/billing/credits",
+        "work": "/api/v1/work/activities · /api/v1/work/activities/mine",
     }
