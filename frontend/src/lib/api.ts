@@ -36,6 +36,10 @@ import type {
   UploadHistoryResponse,
   RiskHistoryResponse,
   StudentRiskHistoryResponse,
+  StudentGroupsCatalogResponse,
+  StudentGroupsSummaryResponse,
+  StudentGroupDetailResponse,
+  StudentGroupMembersResponse,
 } from "@/types/api";
 
 const BASE =
@@ -396,6 +400,30 @@ export const api = {
       `/api/v1/connectors/${encodeURIComponent(connectorId)}/students?auto_score=${autoScore}`,
       { method: "POST", body: JSON.stringify(payload) }
     ),
+
+  studentGroupsCatalog: () =>
+    request<StudentGroupsCatalogResponse>("/api/v1/student-groups/catalog"),
+
+  studentGroupsSummary: () =>
+    request<StudentGroupsSummaryResponse>("/api/v1/student-groups/summary"),
+
+  studentGroupDetail: (groupId: string) =>
+    request<StudentGroupDetailResponse>(
+      "/api/v1/student-groups/" + encodeURIComponent(groupId)
+    ),
+
+  studentGroupMembers: (
+    groupId: string,
+    params?: { limit?: number; cursor?: string | null }
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.limit != null) query.set("limit", String(params.limit));
+    if (params?.cursor) query.set("cursor", params.cursor);
+    const suffix = query.toString() ? "?" + query.toString() : "";
+    return request<StudentGroupMembersResponse>(
+      "/api/v1/student-groups/" + encodeURIComponent(groupId) + "/members" + suffix
+    );
+  },
 
   billingSummary: () => request<BillingSummary>("/api/v1/billing/summary"),
 

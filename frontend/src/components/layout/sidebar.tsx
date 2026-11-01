@@ -14,6 +14,7 @@ import {
   ChevronsUpDown,
   Database,
   LayoutDashboard,
+  Layers,
   LogOut,
   Menu,
   PanelLeftClose,
@@ -65,6 +66,13 @@ const groups: NavGroup[] = [
         label: "Alunos",
         description: "Base acadêmica",
         icon: Users,
+        match: "prefix",
+      },
+      {
+        href: "/alunos/grupos",
+        label: "Grupos de alunos",
+        description: "Segmentos por sinais e critérios",
+        icon: Layers,
         match: "prefix",
       },
       {
@@ -133,6 +141,12 @@ const groups: NavGroup[] = [
 
 function isActive(pathname: string, link: NavLink): boolean {
   if (link.match === "exact" || link.href === "/") return pathname === "/";
+  if (link.href === "/alunos") {
+    return (
+      pathname === "/alunos" ||
+      (pathname.startsWith("/alunos/") && !pathname.startsWith("/alunos/grupos"))
+    );
+  }
   if (link.href === "/retencao") {
     return (
       pathname === "/retencao" ||

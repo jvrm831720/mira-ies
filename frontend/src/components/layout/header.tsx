@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 const mobileLinks = [
   { href: "/", label: "Visão geral" },
   { href: "/alunos", label: "Alunos" },
+  { href: "/alunos/grupos", label: "Grupos de alunos" },
   { href: "/importar", label: "Importar" },
   { href: "/conectores", label: "Conectores" },
   { href: "/retencao", label: "Retenção" },
@@ -269,7 +270,8 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
               onClick={() => setMobileOpen(false)}
               className={cn(
                 "block rounded-[11px] px-2.5 py-2 text-[13px]",
-                pathname === l.href
+                pathname === l.href ||
+                (l.href === "/alunos/grupos" && pathname.startsWith("/alunos/grupos/"))
                   ? "bg-neutral-900 font-semibold text-white"
                   : "text-neutral-600 hover:bg-neutral-50"
               )}
