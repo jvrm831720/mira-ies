@@ -228,17 +228,21 @@ export default function StudentGroupsPage() {
           </div>
         </section>
 
-        {summary.isError && !summary.data ? (
+        {summary.isError ? (
           <div
             role="alert"
             className="flex flex-col gap-2 rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-4 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
               <p className="text-[13px] font-semibold text-[#B42318]">
-                As contagens não estão disponíveis.
+                {summary.data
+                  ? "Não foi possível atualizar as contagens."
+                  : "As contagens não estão disponíveis."}
               </p>
               <p className="mt-1 text-[12px] text-[#667085]">
-                A consulta falhou. Os grupos continuam sem números até que a API responda.
+                {summary.data
+                  ? "Exibindo o último resumo carregado em " + formatDateTime(summary.data.evaluated_at) + "."
+                  : "A consulta falhou. Os grupos continuam sem números até que a API responda."}
               </p>
             </div>
             <button
@@ -293,6 +297,16 @@ export default function StudentGroupsPage() {
               >
                 Tentar novamente
               </button>
+            </div>
+          ) : null}
+
+          {catalog.isError && catalog.data ? (
+            <div
+              role="status"
+              className="rounded-xl border border-[#FEDF89] bg-[#FFFAEB] p-3 text-[11px] leading-relaxed text-[#B54708]"
+            >
+              Não foi possível atualizar o catálogo. A lista continua mostrando a última
+              versão carregada ({catalog.data.catalog_version}).
             </div>
           ) : null}
 
