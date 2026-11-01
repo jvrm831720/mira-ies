@@ -141,15 +141,17 @@ async def institutional_training_authorization(tenant, db_session):
     )
     db_session.add(admin)
     await db_session.flush()
-    db_session.add(InstitutionalTrainingAuthorization(
-        tenant_id=t.id,
-        contract_reference=f"test-contract-{t.slug}",
-        contract_version="v1",
-        effective_at=datetime.now(timezone.utc) - timedelta(minutes=1),
-        approved_by_admin_id=admin.id,
-        evidence_reference=f"test-evidence://{t.slug}",
-        dataset_eligibility_reference=f"test-dataset://{t.slug}
-    ))
+    db_session.add(
+        InstitutionalTrainingAuthorization(
+            tenant_id=t.id,
+            contract_reference=f"test-contract-{t.slug}",
+            contract_version="v1",
+            effective_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+            approved_by_admin_id=admin.id,
+            evidence_reference=f"test-evidence://{t.slug}",
+            dataset_eligibility_reference=f"test-dataset://{t.slug}",
+        )
+    )
     await db_session.commit()
     return t
 
