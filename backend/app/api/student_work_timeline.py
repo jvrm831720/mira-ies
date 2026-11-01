@@ -14,7 +14,7 @@ from app.models.engagement import StudentEngagementEvent
 from app.models.intervention import InterventionLog
 from app.models.risk_assessment import RiskAssessment
 from app.models.student import Student
-from app.models.work_activity import WorkActivity
+from app.models.work_activity import WorkActivity, WorkActivityEvent
 
 router = APIRouter(tags=["Central de Trabalho"])
 
@@ -30,9 +30,10 @@ async def student_work_timeline(
     auth: AuthContext = Depends(require_min_role("operator")),
     db: AsyncSession = Depends(get_db),
 ):
-    """Agrega RiskAssessment, InterventionLog, WorkActivity e StudentEngagementEvent.
+    """Agrega RiskAssessment, InterventionLog, WorkActivity, WorkActivityEvent e StudentEngagementEvent.
 
     Não inventa eventos; não mistura status de envio com conclusão de atividade.
+    Ordenação: mais antigo primeiro (frontend pode inverter para leitura cronológica recente).
     """
     st = await db.execute(
         select(Student.id).where(
@@ -67,8 +68,8 @@ async def student_work_timeline(
                     "refs": {
                         "risk_level": r.risk_level,
                         "score": r.score,
-                        "model_version": r.model_version,
-                        "score_basis": r.score_basis,
+                        "model_version": getattr(r, "model_version", None),
+                        "score_basis": getattr(r, "score_basis", None),
                     },
                 }
             )
@@ -112,7 +113,7 @@ async def student_work_timeline(
             }
         )
 
-    # Work activities
+    # Work activities (criação)
     act_rows = (
         await db.execute(
             select(WorkActivity)
@@ -124,6 +125,7 @@ async def student_work_timeline(
             .limit(limit)
         )
     ).scalars().all()
+    activity_ids = [act.id for act in act_rows]
     for act in act_rows:
         items.append(
             {
@@ -134,13 +136,66 @@ async def student_work_timeline(
                 "refs": {
                     "status": act.status,
                     "activity_type": act.activity_type,
+                    "title": act.title,
                     "assignee_user_id": act.assignee_user_id,
                     "intervention_log_id": act.intervention_log_id,
                     "due_at": _iso(act.due_at),
                     "completed_at": _iso(act.completed_at),
+                    "event_type": "created",
                 },
             }
         )
+
+    # Work activity events (result_recorded, status changes, etc.) for student's activities
+    if activity_ids:
+        try:
+            evt_rows = (
+                await db.execute(
+                    select(WorkActivityEvent)
+                    .where(
+                        WorkActivityEvent.tenant_id == auth.tenant_id,
+                        WorkActivityEvent.activity_id.in_(activity_ids),
+                    )
+                    .order_by(WorkActivityEvent.created_at.desc())
+                    .limit(limit)
+                )
+            ).scalars().all()
+            act_by_id = {a.id: a for a in act_rows}
+            for ev in evt_rows:
+                # Skip pure "created" if we already emit activity creation
+                if ev.event_type == "created":
+                    continue
+                act = act_by_id.get(ev.activity_id)
+                title = act.title if act else "atividade"
+                payload = ev.payload or {}
+                if ev.event_type == "result_recorded":
+                    kind = payload.get("kind") or ""
+                    note = payload.get("note") or ""
+                    summary = f"Resultado operacional: {kind or 'registrado'}"
+                    if note:
+                        summary += f" — {note[:120]}"
+                elif ev.event_type in ("status_changed", "completed", "cancelled"):
+                    summary = f"Atividade [{ev.event_type}] {title}"
+                else:
+                    summary = f"Atividade evento {ev.event_type}: {title}"
+                items.append(
+                    {
+                        "source": "work_activity",
+                        "id": ev.id,
+                        "at": _iso(ev.created_at),
+                        "summary": summary,
+                        "refs": {
+                            "activity_id": ev.activity_id,
+                            "event_type": ev.event_type,
+                            "payload": payload,
+                            "title": title,
+                            "status": act.status if act else None,
+                            "intervention_log_id": act.intervention_log_id if act else None,
+                        },
+                    }
+                )
+        except Exception:
+            pass
 
     # Engagement events
     try:
@@ -166,8 +221,8 @@ async def student_work_timeline(
                     "refs": {
                         "event_type": ev.event_type,
                         "channel": ev.channel,
-                        "source": ev.source,
-                        "intervention_log_id": ev.intervention_log_id,
+                        "source": getattr(ev, "source", None),
+                        "intervention_log_id": getattr(ev, "intervention_log_id", None),
                     },
                 }
             )
@@ -179,7 +234,8 @@ async def student_work_timeline(
         return item.get("at") or ""
 
     items.sort(key=_sort_key)
-    if len(items) > limit:
+    truncated = len(items) > limit
+    if truncated:
         items = items[-limit:]
 
     return {
@@ -187,10 +243,11 @@ async def student_work_timeline(
         "tenant_id": auth.tenant_id,
         "count": len(items),
         "limit": limit,
+        "truncated": truncated,
         "items": items,
         "definition": (
             "Linha do tempo somente com registros persistidos: "
-            "risk_assessment, intervention_log, work_activity, engagement_event. "
+            "risk_assessment, intervention_log, work_activity (+ events), engagement_event. "
             "Status de comunicação ≠ conclusão de atividade; absence of outcome ≠ evasão."
         ),
     }
