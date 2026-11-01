@@ -4,6 +4,7 @@ import type {
   PatchWorkActivityBody,
   RecordResultBody,
   RecordResultResponse,
+  StudentWorkTimelineResponse,
   WorkActivitiesResponse,
   WorkActivity,
   WorkActivityEventsResponse,
@@ -110,6 +111,12 @@ export const workApi = {
     workRequest<RecordResultResponse>(
       `/api/v1/work/activities/${encodeURIComponent(id)}/result`,
       { method: "POST", body: JSON.stringify(body) }
+    ),
+
+  /** Linha do tempo integrada do aluno (somente registros persistidos). */
+  getTimeline: (studentId: string, limit = 100) =>
+    workRequest<StudentWorkTimelineResponse>(
+      `/api/v1/students/${encodeURIComponent(studentId)}/work-timeline?limit=${limit}`
     ),
 };
 
