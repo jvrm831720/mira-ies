@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from pydantic import BaseModel, Field
 from typing import Optional, Any
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from uuid import uuid5, NAMESPACE_URL
 import logging
 
