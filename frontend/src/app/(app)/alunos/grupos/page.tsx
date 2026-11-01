@@ -115,6 +115,14 @@ function GroupCard({
             {group.inclusion_rule}
           </p>
         </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
+            Interpretação da cobertura
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-[#667085]">
+            {group.coverage_semantics}
+          </p>
+        </div>
         {summary ? (
           <div className="border-t border-[#F2F4F7] pt-3">
             <div className="flex items-center justify-between gap-2 text-[11px]">
