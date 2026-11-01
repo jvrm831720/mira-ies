@@ -29,3 +29,11 @@ def test_terminal_states_are_final():
 def test_in_progress_can_reopen():
     assert can_transition("in_progress", "open")
     assert can_transition("in_progress", "completed")
+
+
+def test_all_status_pairs_are_explicit():
+    statuses = ("open", "in_progress", "completed", "cancelled")
+    for current in statuses:
+        for target in statuses:
+            expected = target in ALLOWED[current]
+            assert can_transition(current, target) is expected
