@@ -26,6 +26,7 @@ from app.api import (
     work_activities,
     student_work_timeline,
     signals,
+    student_groups,
 )
 from app.db.session import init_db, apply_runtime_schema_patches, SchemaPatchError
 from app.ml.model import load_model
@@ -187,6 +188,7 @@ app.include_router(billing.router, prefix="/api/v1")
 app.include_router(work_activities.router, prefix="/api/v1")
 app.include_router(student_work_timeline.router, prefix="/api/v1")
 app.include_router(signals.router, prefix="/api/v1")
+app.include_router(student_groups.router, prefix="/api/v1")
 app.include_router(control_center_auth.router, prefix="/api/v1")
 app.include_router(control_center_admin.router, prefix="/api/v1")
 app.include_router(mira_admin.router, prefix="/api/v1")
