@@ -653,3 +653,110 @@ export type StudentRiskHistoryResponse = {
   }>;
   explanation_note: string;
 };
+
+
+export type StudentGroupState = "TRUE" | "FALSE" | "INDETERMINATE";
+export type StudentGroupCoverage = {
+  evaluated: number;
+  eligible: number;
+  percentage: number | null;
+  complete: boolean;
+  has_indeterminate: boolean;
+};
+export type StudentGroupCatalogItem = {
+  id: string;
+  name: string;
+  description: string;
+  signal_ids: string[];
+  inclusion_rule: string;
+  limitations: string[];
+  coverage_semantics: string;
+};
+export type StudentGroupsCatalogResponse = {
+  catalog_version: string;
+  count: number;
+  groups: StudentGroupCatalogItem[];
+  scope: string;
+  tenant_id: string;
+  notes: string[];
+};
+export type StudentGroupSummaryItem = {
+  id: string;
+  name: string;
+  matched_count: number;
+  false_count: number;
+  indeterminate_count: number;
+  coverage: StudentGroupCoverage;
+  limitations: string[];
+};
+export type StudentGroupsSummaryResponse = {
+  evaluated_at: string;
+  scope: string;
+  total_eligible: number;
+  evaluated: number;
+  groups: StudentGroupSummaryItem[];
+  truncated: boolean;
+  notes: string[];
+};
+export type StudentGroupSignalDefinition = {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  activation_rule: string;
+  data_source: string;
+  reliability: string;
+  version: string;
+};
+export type StudentGroupDetailResponse = {
+  id: string;
+  name: string;
+  description: string;
+  catalog_version: string;
+  signals_used: StudentGroupSignalDefinition[];
+  inclusion_rule: string;
+  metrics: {
+    total_eligible: number;
+    total_evaluated: number;
+    total_belonging: number;
+    total_not_belonging: number;
+    total_indeterminate: number;
+  };
+  coverage: StudentGroupCoverage;
+  limitations: string[];
+  evaluated_at: string;
+  truncated: boolean;
+  notes: string[];
+};
+export type StudentGroupSignalEvaluation = {
+  signal_id: string;
+  status: StudentGroupState;
+  evidence: Record<string, unknown>;
+  reliability: string;
+  signal_version: string;
+  evaluated_at: string;
+  limitations: string[];
+};
+export type StudentGroupMember = {
+  student_id: string;
+  name: string | null;
+  group_id: string;
+  membership_status: "TRUE";
+  matched_signals: StudentGroupSignalEvaluation[];
+  signals: StudentGroupSignalEvaluation[];
+  evidence: Record<string, unknown>;
+  limitations: string[];
+  evaluated_at: string;
+};
+export type StudentGroupMembersResponse = {
+  group_id: string;
+  catalog_version: string;
+  evaluated_at: string;
+  ordering: string;
+  count: number;
+  members: StudentGroupMember[];
+  next_cursor: string | null;
+  has_more: boolean | null;
+  truncated: boolean;
+  notes: string[];
+};
