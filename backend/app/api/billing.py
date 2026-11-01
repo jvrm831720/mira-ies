@@ -4,14 +4,21 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.auth import AuthContext, require_min_role
 
 router = APIRouter(prefix="/billing", tags=["Fatura e créditos"])
 
-# MVP em memória por tenant. Depois: tabela tenant_billing + invoices.
+# Catálogo oficial de pacotes — preços e quantidades não vêm do cliente.
+CREDIT_PACKS: dict[str, dict] = {
+    "starter": {"credits": 500, "price_brl": 89.0},
+    "growth": {"credits": 2000, "price_brl": 279.0},
+    "scale": {"credits": 8000, "price_brl": 890.0},
+}
+
+# MVP em memória por tenant. Persistência definitiva: tabela tenant_billing + invoices.
 # Campos pensados para edição via banco / admin:
 # plan_name, plan_price_brl, billing_cycle, payment_link, credits, invoices
 _STORE: dict[str, dict] = {}
@@ -28,7 +35,7 @@ def _default_state() -> dict:
         "next_invoice_brl": 497.0,
         "period_spend_brl": 126.0,
         "period_messages": 184,
-        "payment_link": None,  # ex.: "https://pay.stripe.com/..." por cliente
+        "payment_link": None,
         "credits": {"whatsapp": 850, "email": 2400, "sms": 320},
         "used_period": {"whatsapp": 120, "email": 310, "sms": 45},
         "invoices": [
@@ -66,7 +73,8 @@ def _state_for(tenant_id: str) -> dict:
 class PurchaseBody(BaseModel):
     channel: Literal["whatsapp", "email", "sms"]
     pack_id: str = Field(min_length=1, max_length=40)
-    credits: int = Field(gt=0, le=100_000)
+    # Aceito por compatibilidade com o cliente; quantidade efetiva vem do catálogo.
+    credits: int | None = Field(default=None, gt=0, le=100_000)
 
 
 class PlanUpdateBody(BaseModel):
@@ -90,15 +98,30 @@ async def purchase_credits(
     body: PurchaseBody,
     auth: AuthContext = Depends(require_min_role("admin")),
 ):
+    pack = CREDIT_PACKS.get(body.pack_id)
+    if not pack:
+        raise HTTPException(status_code=422, detail="Pacote de créditos inválido.")
+
+    credits = int(pack["credits"])
+    # Não confiar em body.credits enviado pelo frontend.
+    if body.credits is not None and body.credits != credits:
+        raise HTTPException(
+            status_code=422,
+            detail="Quantidade de créditos não corresponde ao pacote oficial.",
+        )
+
     state = _state_for(auth.tenant_id)
-    state["credits"][body.channel] = int(state["credits"].get(body.channel, 0)) + body.credits
+    state["credits"][body.channel] = int(state["credits"].get(body.channel, 0)) + credits
     unit = {"whatsapp": 0.12, "email": 0.03, "sms": 0.18}.get(body.channel, 0.1)
-    state["period_spend_brl"] = round(float(state.get("period_spend_brl", 0)) + body.credits * unit, 2)
+    state["period_spend_brl"] = round(
+        float(state.get("period_spend_brl", 0)) + credits * unit, 2
+    )
     return {
         "channel": body.channel,
-        "added": body.credits,
+        "added": credits,
         "balance": state["credits"][body.channel],
         "pack_id": body.pack_id,
+        "price_brl": pack["price_brl"],
     }
 
 
