@@ -98,3 +98,28 @@ export type CreateFromLogDraft = {
   status?: string | null;
   suggested_title: string;
 };
+
+/** Timeline integrada do aluno (GET /students/{id}/work-timeline). */
+export type WorkTimelineSource =
+  | "risk_assessment"
+  | "intervention_log"
+  | "work_activity"
+  | "engagement_event";
+
+export type WorkTimelineItem = {
+  source: WorkTimelineSource | string;
+  id: string;
+  at?: string | null;
+  summary: string;
+  refs?: Record<string, unknown> | null;
+};
+
+export type StudentWorkTimelineResponse = {
+  student_id: string;
+  tenant_id: string;
+  count: number;
+  limit: number;
+  truncated?: boolean;
+  items: WorkTimelineItem[];
+  definition?: string;
+};
