@@ -72,6 +72,8 @@ async def _prepare_test_database():
     import app.models.intervention  # noqa: F401
     import app.models.consent  # noqa: F401
     import app.models.engagement  # noqa: F401
+    import app.models.auth  # noqa: F401
+    import app.models.work_activity  # noqa: F401
 
     async with db_session_module.engine.begin() as sa_conn:
         await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
@@ -146,7 +148,7 @@ async def institutional_training_authorization(tenant, db_session):
         effective_at=datetime.now(timezone.utc) - timedelta(minutes=1),
         approved_by_admin_id=admin.id,
         evidence_reference=f"test-evidence://{t.slug}",
-        dataset_eligibility_reference=f"test-dataset://{t.slug}",
+        dataset_eligibility_reference=f"test-dataset://{t.slug}
     ))
     await db_session.commit()
     return t
