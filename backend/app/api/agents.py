@@ -5,6 +5,10 @@ Pacote legível em Python convencional (sem exec/zlib):
 """
 
 from app.api.agents_common import router  # noqa: F401
+from app.services.engagement import recommend_send_time
+from app.services.retention_queue import enqueue_retention_job
+
+__all__ = ["router", "recommend_send_time", "enqueue_retention_job"]
 
 from app.api import agents_run  # noqa: F401, E402
 from app.api import agents_ops  # noqa: F401, E402

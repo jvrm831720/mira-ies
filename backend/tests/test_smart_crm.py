@@ -13,7 +13,6 @@ from app.services.engagement import (
     normalize_behavior_properties,
     recommend_send_time,
     record_engagement_event,
-    refresh_engagement_profile,
     sweep_unanswered_reads,
 )
 

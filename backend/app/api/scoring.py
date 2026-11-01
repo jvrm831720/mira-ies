@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Any
 from datetime import datetime
 from uuid import uuid5, NAMESPACE_URL
@@ -15,6 +15,7 @@ from app.models.student import Student
 from app.services.consent import effective_preferences
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT
 from app.ml.scoring import score_batch, score_student_dict, score_all_pending, get_model_info
+from app.api.risk_history_impl import _change_type as _history_change_type
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -34,7 +35,14 @@ class StudentFeaturesInput(BaseModel):
     curso: Optional[str] = Field(default=None, max_length=150)
 
 
+def _change_type(current, previous):
+    """Expose the shared history comparison helper for legacy API consumers."""
+    return _history_change_type(current, previous)
+
+
 class PredictResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     risk_score: float
     model_score: float | None = None
     risk_level: str
@@ -86,6 +94,20 @@ async def predict_what_if(payload: StudentFeaturesInput, auth: AuthContext = Dep
     if not model_version:
         raise HTTPException(status_code=503, detail="Versão do modelo base indisponível.")
     base = score_student_dict(payload.model_dump())
+    scenarios = []
+    if payload.dias_atraso_boleto and payload.dias_atraso_boleto > 0:
+        scenario_payload = payload.model_dump()
+        scenario_payload["dias_atraso_boleto"] = 0
+        scenario_payload["recorrencia_atrasos"] = max(0, (payload.recorrencia_atrasos or 0) - 1)
+        scenario = score_student_dict(scenario_payload)
+        scenarios.append({
+            "name": "Quitar boleto",
+            "risk_score": scenario["risk_score"],
+            "risk_level": scenario["risk_level"],
+            "delta": round(scenario["risk_score"] - base["risk_score"], 1),
+            "model_scope": "base",
+            "model_version": str(model_version),
+        })
     return {
         "current": {
             "risk_score": base["risk_score"],
@@ -94,7 +116,7 @@ async def predict_what_if(payload: StudentFeaturesInput, auth: AuthContext = Dep
             "model_scope": "base",
             "model_version": str(model_version),
         },
-        "scenarios": [],
+        "scenarios": scenarios,
     }
 
 

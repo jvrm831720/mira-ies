@@ -1,17 +1,12 @@
 """Wave 4.3.1 — filters, relation integrity, timeline, result_recorded."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
 
-from app.core.mira_security import hash_password
-from app.models.auth import User
 from app.models.intervention import InterventionLog
 from app.models.student import Student, UploadBatch
-from app.models.work_activity import WorkActivityEvent
-from sqlalchemy import select
 
 
 async def _seed_student(db_session, tenant_id: str, matricula: str = "M-001") -> Student:

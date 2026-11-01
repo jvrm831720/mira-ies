@@ -12,8 +12,6 @@ from app.agents.rules import decide_channels
 from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
 from app.services.consent import is_communication_allowed
-from app.services.engagement import recommend_send_time
-from app.services.retention_queue import enqueue_retention_job
 from app.api.agents_common import (
     router,
     RetentionRunRequest,
@@ -79,7 +77,9 @@ async def enqueue_retention(
 
     if not body.optimize_send_time:
         try:
-            job = await enqueue_retention_job(
+            from app.api import agents as agents_api
+
+            job = await agents_api.enqueue_retention_job(
                 tenant_id=auth.tenant_id,
                 tenant_slug=auth.tenant_slug,
                 payload=body.model_dump(),
@@ -121,7 +121,11 @@ async def enqueue_retention(
             skipped += 1
             continue
         try:
-            recommendation = await recommend_send_time(
+            # Resolve providers through the public aggregator so callers can
+            # replace scheduling behavior without patching this module.
+            from app.api import agents as agents_api
+
+            recommendation = await agents_api.recommend_send_time(
                 db,
                 tenant_id=auth.tenant_id,
                 student_id=student.id,
@@ -141,7 +145,7 @@ async def enqueue_retention(
                 import hashlib
                 digest = hashlib.sha256(f"{idempotency_key}:{student.id}".encode("utf-8")).hexdigest()
                 student_key = f"smart-send:{digest}"
-            job = await enqueue_retention_job(
+            job = await agents_api.enqueue_retention_job(
                 tenant_id=auth.tenant_id,
                 tenant_slug=auth.tenant_slug,
                 payload=payload,

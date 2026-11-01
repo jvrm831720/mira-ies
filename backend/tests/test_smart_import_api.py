@@ -4,7 +4,7 @@ import json
 import pytest
 from sqlalchemy import select
 
-from app.models.student import Student, UploadBatch
+from app.models.student import Student
 
 
 def _upload(csv: bytes, name: str = "students.csv"):
