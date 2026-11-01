@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.risk_assessment import RiskAssessment
@@ -41,6 +41,7 @@ class StudentGroupBatch:
 @dataclass(frozen=True)
 class StudentSnapshot:
     id: str
+    nome: str
     risk_level: Any
     risk_score: Any
     dias_atraso_boleto: Any
@@ -61,6 +62,7 @@ def _student_query(tenant_id: str, after_id: str | None, limit: int) -> Select:
     query = (
         select(
             Student.id,
+            Student.nome,
             Student.risk_level,
             Student.risk_score,
             Student.dias_atraso_boleto,
@@ -81,53 +83,73 @@ async def iter_student_group_batches(
     tenant_id: str,
     batch_size: int = GROUP_BATCH_SIZE,
     max_students: int = GROUP_MAX_STUDENTS,
+    after_id: str | None = None,
 ) -> AsyncIterator[StudentGroupBatch]:
     """Yield active students and at most two deterministic history rows per student.
 
-    A batch uses one student query and one history query, both tenant-scoped. A
-    history failure is represented as unavailable so callers preserve
-    INDETERMINATE rather than treating a technical failure as FALSE.
+    A batch uses one tenant-scoped student query and one tenant-scoped history query.
+    `after_id` enables keyset continuation without OFFSET. A history failure is
+    represented as unavailable so callers preserve INDETERMINATE rather than FALSE.
     """
-    after_id: str | None = None
+    last_id = after_id
     loaded = 0
     while loaded < max_students:
         limit = min(batch_size, max_students - loaded)
-        result = await db.execute(_student_query(tenant_id, after_id, limit))
+        result = await db.execute(_student_query(tenant_id, last_id, limit))
         students = [StudentSnapshot(**row) for row in result.mappings().all()]
         if not students:
             return
         student_ids = [student.id for student in students]
         history_unavailable = False
-        assessments_by_student: dict[str, list[dict[str, Any]]] = {sid: [] for sid in student_ids}
+        assessments_by_student: dict[str, list[dict[str, Any]]] = {
+            student_id: [] for student_id in student_ids
+        }
         try:
-            history_result = await db.execute(
-                select(RiskAssessment)
+            ranked_assessments = (
+                select(
+                    RiskAssessment.id.label("id"),
+                    RiskAssessment.student_id.label("student_id"),
+                    RiskAssessment.evaluated_at.label("evaluated_at"),
+                    RiskAssessment.score.label("score"),
+                    RiskAssessment.risk_level.label("risk_level"),
+                    RiskAssessment.model_version.label("model_version"),
+                    RiskAssessment.score_semantics_version.label("score_semantics_version"),
+                    func.row_number()
+                    .over(
+                        partition_by=RiskAssessment.student_id,
+                        order_by=(RiskAssessment.evaluated_at.desc(), RiskAssessment.id.desc()),
+                    )
+                    .label("student_history_rank"),
+                )
                 .where(
                     RiskAssessment.tenant_id == tenant_id,
                     RiskAssessment.student_id.in_(student_ids),
                 )
+                .subquery("ranked_student_assessments")
+            )
+            history_result = await db.execute(
+                select(ranked_assessments)
+                .where(ranked_assessments.c.student_history_rank <= 2)
                 .order_by(
-                    RiskAssessment.student_id.asc(),
-                    RiskAssessment.evaluated_at.desc(),
-                    RiskAssessment.id.desc(),
+                    ranked_assessments.c.student_id.asc(),
+                    ranked_assessments.c.evaluated_at.desc(),
+                    ranked_assessments.c.id.desc(),
                 )
             )
-            for assessment in history_result.scalars().all():
-                rows = assessments_by_student[assessment.student_id]
-                if len(rows) < 2:
-                    rows.append(
-                        {
-                            "score": assessment.score,
-                            "risk_level": assessment.risk_level,
-                            "model_version": assessment.model_version,
-                            "score_semantics_version": assessment.score_semantics_version,
-                            "evaluated_at": (
-                                assessment.evaluated_at.isoformat()
-                                if assessment.evaluated_at
-                                else None
-                            ),
-                        }
-                    )
+            for assessment in history_result.mappings().all():
+                assessments_by_student[assessment["student_id"]].append(
+                    {
+                        "score": assessment["score"],
+                        "risk_level": assessment["risk_level"],
+                        "model_version": assessment["model_version"],
+                        "score_semantics_version": assessment["score_semantics_version"],
+                        "evaluated_at": (
+                            assessment["evaluated_at"].isoformat()
+                            if assessment["evaluated_at"]
+                            else None
+                        ),
+                    }
+                )
         except Exception as exc:  # pragma: no cover - exercised with DB failure integration test
             logger.warning(
                 "student_groups_history_unavailable tenant=%s err=%s",
@@ -135,9 +157,9 @@ async def iter_student_group_batches(
                 type(exc).__name__,
             )
             history_unavailable = True
-            assessments_by_student = {sid: [] for sid in student_ids}
+            assessments_by_student = {student_id: [] for student_id in student_ids}
         yield StudentGroupBatch(students, assessments_by_student, history_unavailable)
         loaded += len(students)
-        after_id = students[-1].id
+        last_id = students[-1].id
         if len(students) < limit:
             return

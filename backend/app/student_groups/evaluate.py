@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
+from app.signals.catalog import SIGNAL_CATALOG
 from app.signals.evaluate import SignalEvaluation, evaluate_student_signals
 from app.student_groups.catalog import (
     GROUP_DEFINITIONS,
@@ -20,6 +21,7 @@ class GroupEvaluation:
     evidence: dict[str, Any]
     evaluated_at: str
     limitations: list[str]
+    signals: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -41,7 +43,33 @@ def _group_limitations(group_id: str) -> list[str]:
     return list(definition.limitations)
 
 
-def _single_group(group_id: str, signal: SignalEvaluation, evaluated_at: str) -> GroupEvaluation:
+def _serialize_relevant_signals(
+    signal_ids: Sequence[str], signals: Mapping[str, SignalEvaluation]
+) -> list[dict[str, Any]]:
+    """Expose details from the signal evaluators without re-deriving their rules."""
+    details: list[dict[str, Any]] = []
+    for signal_id in signal_ids:
+        signal = signals[signal_id]
+        definition = SIGNAL_CATALOG[signal_id]
+        details.append(
+            {
+                "signal_id": signal.signal_id,
+                "status": _state_for_signal(signal),
+                "evidence": signal.evidence,
+                "reliability": definition["reliability_class"],
+                "signal_version": signal.signal_version,
+                "evaluated_at": signal.evaluated_at,
+                "limitations": list(signal.limitations),
+            }
+        )
+    return details
+
+
+def _single_group(
+    group_id: str,
+    signal: SignalEvaluation,
+    evaluated_at: str,
+) -> GroupEvaluation:
     return GroupEvaluation(
         group_id=group_id,
         state=_state_for_signal(signal),
@@ -53,6 +81,7 @@ def _single_group(group_id: str, signal: SignalEvaluation, evaluated_at: str) ->
         },
         evaluated_at=evaluated_at,
         limitations=_group_limitations(group_id),
+        signals=_serialize_relevant_signals((signal.signal_id,), {signal.signal_id: signal}),
     )
 
 
@@ -60,7 +89,10 @@ def evaluate_multiple_active_signals(
     signals: Mapping[str, SignalEvaluation], evaluated_at: str
 ) -> GroupEvaluation:
     operational = [signals[signal_id] for signal_id in OPERATIONAL_SIGNAL_IDS]
-    active_count = sum(signal.active and not signal.insufficient_data for signal in operational)
+    active_ids = [
+        signal.signal_id for signal in operational if signal.active and not signal.insufficient_data
+    ]
+    active_count = len(active_ids)
     indeterminate_count = sum(signal.insufficient_data for signal in operational)
     if active_count >= 2:
         state: GroupState = "TRUE"
@@ -73,6 +105,7 @@ def evaluate_multiple_active_signals(
         state=state,
         evidence={
             "operational_signal_ids": list(OPERATIONAL_SIGNAL_IDS),
+            "active_signal_ids": active_ids,
             "active_count": active_count,
             "indeterminate_count": indeterminate_count,
             "threshold": 2,
@@ -80,6 +113,7 @@ def evaluate_multiple_active_signals(
         },
         evaluated_at=evaluated_at,
         limitations=_group_limitations("multiple_active_signals"),
+        signals=_serialize_relevant_signals(OPERATIONAL_SIGNAL_IDS, signals),
     )
 
 
@@ -122,6 +156,7 @@ def serialize_group_evaluation(evaluation: GroupEvaluation) -> dict[str, Any]:
         "state": evaluation.state,
         "matched": evaluation.state == "TRUE",
         "evidence": evaluation.evidence,
+        "signals": evaluation.signals,
         "evaluated_at": evaluation.evaluated_at,
         "limitations": evaluation.limitations,
     }
