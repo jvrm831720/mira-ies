@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Activity,
   BrainCircuit,
   Building2,
   ExternalLink,
@@ -124,7 +123,8 @@ export default function ConfigPage() {
 
   const channelsSummary = useMemo(() => {
     if (!status.data?.providers) return null;
-    const states = CHANNELS.map(({ key }) => channelState(status.data.providers[key]));
+    const providers = status.data.providers;
+    const states = CHANNELS.map(({ key }) => channelState(providers[key]));
     const configured = states.filter((s) => s.kind === "connected").length;
     const simulation = states.filter((s) => s.kind === "simulation").length;
     return { configured, simulation, total: CHANNELS.length };
@@ -164,7 +164,6 @@ export default function ConfigPage() {
           items={SECTIONS.map((s) => ({ id: s.id, label: s.label }))}
         />
 
-        {/* —— Instituição —— */}
         <TabPanel when="instituicao" active={section} className="space-y-4">
           <SectionIntro
             icon={Building2}
@@ -218,7 +217,6 @@ export default function ConfigPage() {
           </Card>
         </TabPanel>
 
-        {/* —— Comunicação —— */}
         <TabPanel when="comunicacao" active={section} className="space-y-4">
           <SectionIntro
             icon={MessageCircle}
@@ -306,7 +304,6 @@ export default function ConfigPage() {
           )}
         </TabPanel>
 
-        {/* —— Regras operacionais —— */}
         <TabPanel when="regras" active={section} className="space-y-4">
           <SectionIntro
             icon={Settings2}
@@ -365,7 +362,6 @@ export default function ConfigPage() {
           </p>
         </TabPanel>
 
-        {/* —— Inteligência —— */}
         <TabPanel when="inteligencia" active={section} className="space-y-4">
           <SectionIntro
             icon={BrainCircuit}
@@ -405,7 +401,6 @@ export default function ConfigPage() {
           )}
         </TabPanel>
 
-        {/* —— Segurança —— */}
         <TabPanel when="seguranca" active={section} className="space-y-4">
           <SectionIntro
             icon={ShieldCheck}
@@ -421,12 +416,15 @@ export default function ConfigPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {me.isLoading && <Skeleton className="h-16 w-full" />}
+              {me.isError && (
+                <ErrorBanner message="Não foi possível carregar os dados da sessão." />
+              )}
               {me.data && (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Datum label="Nome de exibição" value={me.data.display_name || "—"} />
                   <Datum label="E-mail" value={me.data.email || "—"} />
                   <Datum label="Papel (RBAC)" value={String(me.data.role || "—")} />
-                  <Datum label="Tenant ID" value={me.data.tenant_id || "—"} />
+                  <Datum label="Instituição" value={me.data.tenant_name || "—"} />
                 </div>
               )}
               <Button type="button" variant="outline" onClick={logout}>
