@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 const mobileLinks = [
   { href: "/", label: "Visão geral" },
   { href: "/alunos", label: "Alunos" },
+  { href: "/alunos/grupos", label: "Grupos de alunos" },
   { href: "/importar", label: "Importar" },
   { href: "/conectores", label: "Conectores" },
   { href: "/retencao", label: "Retenção" },
