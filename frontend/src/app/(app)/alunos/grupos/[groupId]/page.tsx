@@ -282,6 +282,16 @@ export default function StudentGroupDetailPage() {
           />
         ) : null}
 
+        {detail.isError && detail.data ? (
+          <div
+            role="status"
+            className="rounded-xl border border-[#FEDF89] bg-[#FFFAEB] p-3 text-[11px] leading-relaxed text-[#B54708]"
+          >
+            Não foi possível atualizar a avaliação. Os detalhes exibidos são da última
+            avaliação carregada em {formatDateTime(detail.data.evaluated_at)}.
+          </div>
+        ) : null}
+
         {detail.data ? (
           <>
             <section className="rounded-xl border border-[#E5E7EB] bg-white p-5 sm:p-6">
@@ -474,6 +484,16 @@ export default function StudentGroupDetailPage() {
                   }
                   onRetry={() => void members.refetch()}
                 />
+              ) : null}
+
+              {members.isError && members.data && !members.isFetchNextPageError ? (
+                <div
+                  role="status"
+                  className="rounded-xl border border-[#FEDF89] bg-[#FFFAEB] p-3 text-[11px] leading-relaxed text-[#B54708]"
+                >
+                  Não foi possível atualizar os integrantes. As páginas exibidas são da
+                  última consulta carregada em {latestPage ? formatDateTime(latestPage.evaluated_at) : "data não informada"}.
+                </div>
               ) : null}
 
               {members.data ? (
