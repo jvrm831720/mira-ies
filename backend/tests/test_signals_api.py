@@ -1,8 +1,6 @@
 """Testes de integração HTTP dos endpoints de sinais."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
 
 
@@ -119,17 +117,25 @@ async def test_summary_unique_students_multi_signal(client, auth_headers, tenant
         dias_atraso_boleto=20,
         dias_sem_login=30,
     )
-    resp = await client.get("/api/v1/signals/summary?limit=50", headers=auth_headers)
+    resp = await client.get("/api/v1/signals/summary", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.json()
-    assert body["students_evaluated"] >= 1
+    assert body["scope"] == "tenant_full"
+    assert body["total_students_in_tenant"] >= 1
+    assert body["students_evaluated"] == body["total_students_in_tenant"] or body.get("truncated") is True
     assert body["students_with_active_signals"] >= 1
-    # activations can exceed unique students
     activations = sum(body["activations_by_signal"].values())
     assert activations >= body["students_with_active_signals"]
+    assert "page" not in body
 
 
 @pytest.mark.asyncio
 async def test_evaluate_missing_student_id_validation(client, auth_headers):
     resp = await client.get("/api/v1/signals/evaluate", headers=auth_headers)
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_summary_requires_auth(client):
+    resp = await client.get("/api/v1/signals/summary")
+    assert resp.status_code == 401
