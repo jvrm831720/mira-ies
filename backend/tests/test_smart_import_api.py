@@ -414,8 +414,8 @@ async def test_blank_predictive_alias_invalidates_score_and_updates_canonical_ra
     tenant_obj, key = tenant
     first_csv = (
         b"matricula,nome,dias_atraso_boleto,recorrencia_atrasos,dias_sem_login,"
-        b"presenca_percentual,nota_media,reprovacoes,semestre\\n"
-        b"QUALITY-ALIAS-001,Ana,0,0,0,95,8,0,3\\n"
+        b"presenca_percentual,nota_media,reprovacoes,semestre\n"
+        b"QUALITY-ALIAS-001,Ana,0,0,0,95,8,0,3\n"
     )
     first = await client.post(
         "/api/v1/upload",
@@ -438,7 +438,7 @@ async def test_blank_predictive_alias_invalidates_score_and_updates_canonical_ra
     await db_session.commit()
 
     # Alias is normalized to the canonical predictive field before persistence.
-    refresh_csv = b"matricula,nome,Average Grade\\nQUALITY-ALIAS-001,Ana,\\n"
+    refresh_csv = b"matricula,nome,Average Grade\nQUALITY-ALIAS-001,Ana,\n"
     refresh = await client.post(
         "/api/v1/upload",
         headers={"X-API-Key": key},
