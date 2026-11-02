@@ -7,8 +7,8 @@
 - Cada requisição informa `CodCliSponte`, `DataExtracao`, `PageNumber` e `PageSize`.
 - `PageSize` máximo documentado: 1.000.
 - Envelope paginado: `currentPage`, `totalPages`, `pageSize`, `totalCount`, `items`, `hasPrevious`, `hasNext`.
-- Defasagem de dados documentada: D-1.
-- Limite documentado: 1.000 requisições por minuto por API Key.
+- A documentação pública consultada não define SLA de defasagem nem limite de requisições por API Key.
+- Como proteção operacional interna, a MIRA inicia com limite configurável de 300 requisições/minuto por chave e 5 requisições/segundo global. Esses valores são limites internos conservadores, não limites publicados pela Sponte; devem ser ajustados após homologação.
 
 Fonte: https://sponte-bi.sponteweb.com.br/docs
 
@@ -34,7 +34,7 @@ Todos os endpoints de extração documentados usam paginação e `DataExtracao`.
 
 - Primeira coleta: data inicial configurável, com padrão recomendado pela documentação de `2025-01-01`.
 - Coletas seguintes: watermark independente por endpoint.
-- Como `DataExtracao` é uma data sem horário e a API tem defasagem D-1, a consulta incremental usa sobreposição de um dia.
+- Como `DataExtracao` é uma data sem horário, a consulta incremental usa sobreposição de um dia. A MIRA grava a data de corte local e reconsulta desde o dia anterior; isso reduz risco de lacunas sem afirmar um SLA de atualização do fornecedor.
 - Upsert/deduplicação por identificadores do fornecedor (`AlunoID`, `ContratoID`, `contaReceberID`, `notaDetalheID`, e chaves de snapshot).
 - Watermark só avança depois de todas as páginas do endpoint terem sido persistidas.
 - Registros com `excluido` são preservados como excluídos e não alimentam indicadores.
