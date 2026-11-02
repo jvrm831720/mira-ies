@@ -38,15 +38,16 @@ Todos os endpoints de extração documentados usam paginação e `DataExtracao`.
 - Upsert/deduplicação por identificadores do fornecedor (`AlunoID`, `ContratoID`, `contaReceberID`, `notaDetalheID`, e chaves de snapshot).
 - Watermark só avança depois de todas as páginas do endpoint terem sido persistidas.
 - Registros com `excluido` são preservados como excluídos e não alimentam indicadores.
+- Indicadores financeiros e de frequência são vinculados aos contratos do snapshot mais recente de alunos ativos; sem esse vínculo, os campos permanecem desconhecidos.
 - Reprocessar a janela de sobreposição é seguro e idempotente.
 
 ## 4. Semântica dos indicadores
 
 ### Financeiro
 A documentação descreve `Situacao = 'Pendente'` para parcelas em aberto, `DataVencimentoParcela` para vencimento, `ValorTotalParcela` e `ValorPagoParcela`. A MIRA pode calcular:
-- dias de atraso: maior atraso entre parcelas pendentes vencidas;
-- recorrência: quantidade de parcelas pendentes vencidas;
-- saldo devedor: soma de `max(0, ValorTotalParcela - ValorPagoParcela)` nas parcelas pendentes não excluídas.
+- dias de atraso: maior atraso entre parcelas pendentes vencidas, apenas nos contratos presentes no snapshot mais recente de alunos ativos;
+- recorrência histórica de atrasos: permanece desconhecida. A quantidade de parcelas atualmente vencidas não representa recorrência histórica e não alimenta `recorrencia_atrasos`;
+- saldo devedor: soma de `max(0, ValorTotalParcela - ValorPagoParcela)` nas parcelas pendentes não excluídas, apenas nos contratos presentes no snapshot mais recente de alunos ativos. Se não houver snapshot de contratos ativos ou os valores estiverem incompletos, o saldo permanece desconhecido.
 
 Os valores de outras situações não serão reinterpretados sem homologação.
 
@@ -54,7 +55,7 @@ Os valores de outras situações não serão reinterpretados sem homologação.
 Notas são preservadas por avaliação, turma, estágio, semestre e ano. Não será criada média global sem regra institucional de pesos, escalas, recuperação e aprovação.
 
 ### Frequência
-O endpoint de fatos retorna snapshots semanais com `aulasAssistidas`, `aulasTotais` e `totalFaltas`. A MIRA mantém a série temporal e usa o snapshot mais recente por aluno/contrato. Percentual de presença só é calculado quando `aulasTotais > 0` e os campos são válidos; snapshots não são somados entre semanas.
+O endpoint de fatos retorna snapshots semanais com `AlunoID`, `ContratoID`, `aulasAssistidas`, `aulasTotais` e `totalFaltas`. A MIRA mantém a série temporal e considera apenas contratos presentes no snapshot mais recente de alunos ativos. Para cada contrato ativo, usa seu snapshot mais recente; o percentual consolidado é calculado pela soma de aulas assistidas dividida pela soma de aulas totais, somente quando todos os contratos ativos têm dados válidos. Snapshots não são somados entre semanas.
 
 ### Limites conhecidos
 - A API BI documentada não apresenta um campo confiável de último login; `dias_sem_login` permanece desconhecido.
