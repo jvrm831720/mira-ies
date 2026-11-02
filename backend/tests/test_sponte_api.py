@@ -212,3 +212,26 @@ def test_sponte_mapping_does_not_assume_zero_debt_or_paid_without_active_contrac
     assert payload["DiasAtraso"] is None
     assert payload["SaldoDevedor"] is None
     assert payload["Frequencia"] is None
+
+
+def test_sponte_mapping_excludes_provider_deleted_students_from_indicators():
+    student = SimpleNamespace(
+        matricula="107", nome="Lia", curso=None, turma=None, email=None, telefone=None,
+        raw_data={"sponte": {
+            "profile": {"nome": "Lia", "excluido": True},
+            "fatoalunosativos": {"active": {"aluno_id": "107", "contrato_id": 70, "data_extracao": "2026-11-01"}},
+            "contasreceber": {
+                "debt": {"aluno_id": "107", "contrato_id": 70, "situacao": "Pendente", "data_vencimento": "2026-10-01", "valor_total": 500, "valor_pago": 0}
+            },
+            "fatofrequenciaalunosativos": {
+                "attendance": {"aluno_id": "107", "contrato_id": 70, "data_extracao": "2026-11-01", "aulas_assistidas": 1, "aulas_totais": 10}
+            },
+        }},
+    )
+    [payload] = build_student_payloads([student], as_of=date(2026, 11, 2))
+    assert payload["SituacaoAluno"] == "EXCLUIDO"
+    assert payload["DiasAtraso"] is None
+    assert payload["QtdAtrasos"] is None
+    assert payload["SaldoDevedor"] is None
+    assert payload["StatusFinanceiro"] is None
+    assert payload["Frequencia"] is None
