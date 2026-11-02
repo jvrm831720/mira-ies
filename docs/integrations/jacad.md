@@ -75,8 +75,8 @@ O cadastro de alunos e o resumo financeiro enriquecem a cobertura, mas não forn
 - A lista de alunos não prova dias sem login, frequência, média, reprovações ou recorrência de atraso. O resumo financeiro fornece evidência para situação financeira e, quando vencido, para calcular dias desde o vencimento da parcela aberta mais antiga informada.
 - O resumo financeiro por matrícula é uma evidência explícita de situação (`VENCIDO`, `EM_ABERTO`, `PAGO`, `SEM_FINANCEIRO`) e da próxima parcela em aberto. O detalhe de parcelas expõe vencimento, valor, valor pago e situação.
 - Não inferir recorrência de atraso a partir de um resumo consolidado: a contagem histórica precisa ser derivada de parcelas/transações com regras de cancelamento, renegociação e baixa confirmadas.
-- Notas são retornadas por turma/disciplina e precisam de regra documentada para agregação por aluno e período.
-- Frequência e acesso exigem endpoints e semântica específicos, ainda a homologar.
+- Notas e resultados por disciplina são consultados e preservados por turma, disciplina e período; ainda exigem regra institucional para agregação por aluno.
+- A frequência reportada por disciplina é preservada, mas sua escala e regra de consolidação precisam ser homologadas. Acesso/último login ainda exige uma fonte de leitura específica.
 
 Portanto, o primeiro sync não inventa valores preditivos nem gera score automático. Campos sem evidência permanecem desconhecidos e o motor de risco continua sujeito ao bloqueio de cobertura/frescor da Wave 3.
 
@@ -141,4 +141,4 @@ Para declarar a conexão validada em produção, é necessário testar com um am
 - notas e frequência;
 - cadência e semântica dos timestamps por campo.
 
-**Conclusão:** a conexão nativa sincroniza cadastro, matrículas e resumo financeiro por organização. A situação financeira e os dias de atraso têm mapeamento explícito; recorrência, saldo total, notas, frequência e acesso continuam desconhecidos até homologação das fontes correspondentes. O score automático permanece desabilitado.
+**Conclusão:** a conexão nativa sincroniza cadastro, matrículas, resumo e parcelas financeiras, disciplinas, resultados acadêmicos e notas por avaliação. Os dados detalhados são preservados com checkpoints e limites de taxa. Saldo total, recorrência, média institucional, frequência canônica e acesso continuam sem inferência até homologação das regras e semântica da instalação. O score automático permanece desabilitado.
