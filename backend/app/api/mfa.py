@@ -79,7 +79,10 @@ async def verify_login_mfa(body: LoginMfaPayload, db: AsyncSession = Depends(get
     if challenge.attempts >= MAX_ATTEMPTS:
         raise HTTPException(status_code=429, detail="Limite de tentativas atingido. Inicie o login novamente.")
     challenge.attempts += 1
-    user = await db.get(User, challenge.user_id)
+    user_result = await db.execute(
+        select(User).where(User.id == challenge.user_id).with_for_update()
+    )
+    user = user_result.scalar_one_or_none()
     tenant = await db.get(Tenant, challenge.tenant_id)
     if not user or not tenant or not user.is_active or not tenant.is_active or not user.mfa_enabled_at or not user.mfa_totp_secret_encrypted:
         challenge.consumed_at = now

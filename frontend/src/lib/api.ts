@@ -57,7 +57,11 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const isAuthRoute =
-    path.startsWith("/api/v1/auth/") || path.startsWith("/api/v1/org/invites/accept");
+    path === "/api/v1/auth/login/password" ||
+    path.startsWith("/api/v1/auth/whatsapp/") ||
+    path.startsWith("/api/v1/auth/password/") ||
+    path === "/api/v1/auth/mfa/login/verify" ||
+    path.startsWith("/api/v1/org/invites/accept");
   const token = getAccessToken();
   const key = getApiKey();
   const headers = new Headers(init.headers || {});
