@@ -1,7 +1,6 @@
 """Wave 3.1 regression tests: missing data must never become favorable features."""
 import math
 
-import pandas as pd
 import pytest
 
 from app.ml.data_quality import (
@@ -109,7 +108,7 @@ def test_rules_reject_missing_features_without_favorable_defaults():
 def test_invalid_imported_raw_value_is_not_reported_as_merely_missing():
     student = {
         **COMPLETE_STUDENT,
-        "nota_media": None,
+        "nota_media": 7.0,
         "raw_data": {"nota_media": "nota não publicada"},
     }
     quality = assess_student_data_quality(student)
@@ -117,3 +116,14 @@ def test_invalid_imported_raw_value_is_not_reported_as_merely_missing():
     assert "nota_media" not in quality["missing_fields"]
     issue = next(item for item in quality["issues"] if item["field"] == "nota_media")
     assert issue["reason"] == "invalid_number"
+
+
+def test_blank_latest_import_does_not_reuse_previous_database_value():
+    student = {
+        **COMPLETE_STUDENT,
+        "nota_media": 8.5,
+        "raw_data": {"nota_media": ""},
+    }
+    quality = assess_student_data_quality(student)
+    assert quality["can_score"] is False
+    assert "nota_media" in quality["missing_fields"]
