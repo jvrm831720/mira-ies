@@ -127,3 +127,17 @@ def test_blank_latest_import_does_not_reuse_previous_database_value():
     quality = assess_student_data_quality(student)
     assert quality["can_score"] is False
     assert "nota_media" in quality["missing_fields"]
+
+
+def test_brazilian_decimal_comma_is_valid_in_raw_import_cells():
+    student = {
+        **COMPLETE_STUDENT,
+        "presenca_percentual": 92.5,
+        "nota_media": 8.5,
+        "raw_data": {
+            "presenca_percentual": "92,5",
+            "nota_media": "8,5",
+        },
+    }
+    quality = assess_student_data_quality(student)
+    assert quality["can_score"] is True
