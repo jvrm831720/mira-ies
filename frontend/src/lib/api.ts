@@ -144,6 +144,15 @@ export type JacadSyncJob = {
   updated_at?: number;
 };
 
+export type SponteSyncJob = {
+  job_id: string;
+  status: "queued" | "running" | "retrying" | "completed" | "failed" | string;
+  progress?: { stage?: string; endpoint?: string | null; endpoint_index?: number; endpoint_count?: number; percent?: number; pages_done?: number; pages_total?: number } | null;
+  result?: { endpoints?: Record<string, number>; watermarks?: Record<string, string>; students_updated?: number; scoring?: string } | null;
+  last_error?: string | null;
+  attempt?: number;
+};
+
 export type OrgMeResponse = {
   role?: string;
   tenant_name?: string;
@@ -490,6 +499,40 @@ export const api = {
   retryJacadSync: (jobId: string) =>
     request<{ job_id: string; status: string; progress?: Record<string, unknown> }>(
       `/api/v1/integrations/jacad/sync/${encodeURIComponent(jobId)}/retry`, { method: "POST" }
+    ),
+
+  sponteConnection: () =>
+    request<{
+      provider: string; configured: boolean; enabled?: boolean; client_code?: number;
+      initial_extraction_date?: string; status?: string; last_tested_at?: string | null;
+      last_sync_at?: string | null; last_sync_status?: string | null; last_sync_records?: number;
+      last_error?: string | null; credential_configured?: boolean; sync_watermarks?: Record<string, string>;
+    }>("/api/v1/integrations/sponte"),
+
+  configureSponte: (body: { api_key?: string; client_code: number; initial_extraction_date: string }) =>
+    request<Record<string, unknown>>("/api/v1/integrations/sponte", {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  testSponte: () =>
+    request<{ status: string; endpoint: string; records_sampled: number; client_code: number }>(
+      "/api/v1/integrations/sponte/test", { method: "POST" }
+    ),
+
+  syncSponte: () =>
+    request<{ job_id: string; status: string; deduplicated?: boolean; progress?: Record<string, unknown> }>(
+      "/api/v1/integrations/sponte/sync", { method: "POST" }
+    ),
+
+  sponteSyncCurrent: () =>
+    request<SponteSyncJob | null>("/api/v1/integrations/sponte/sync/current"),
+
+  sponteSyncStatus: (jobId: string) =>
+    request<SponteSyncJob>(`/api/v1/integrations/sponte/sync/${encodeURIComponent(jobId)}`),
+
+  retrySponteSync: (jobId: string) =>
+    request<{ job_id: string; status: string; progress?: Record<string, unknown> }>(
+      `/api/v1/integrations/sponte/sync/${encodeURIComponent(jobId)}/retry`, { method: "POST" }
     ),
 
   studentGroupsCatalog: () =>

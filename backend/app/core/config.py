@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     jacad_retry_backoff_seconds: int = Field(default=15, ge=1, le=3600)
     jacad_detail_refresh_hours: int = Field(default=24, ge=1, le=168)
     jacad_sync_concurrency: int = Field(default=5, ge=1, le=12)
+    sponte_queue_name: str = "beacon:sponte:jobs"
+    sponte_job_ttl_seconds: int = Field(default=604800, ge=3600, le=2592000)
+    sponte_max_attempts: int = Field(default=3, ge=1, le=8)
+    sponte_retry_backoff_seconds: int = Field(default=15, ge=1, le=3600)
+    sponte_sync_concurrency: int = Field(default=5, ge=1, le=12)
+    sponte_requests_per_minute: int = Field(default=900, ge=1, le=1000)
+    sponte_global_requests_per_second: int = Field(default=5, ge=1, le=15)
 
 
     max_upload_size_mb: int = 50
