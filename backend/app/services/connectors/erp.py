@@ -109,7 +109,7 @@ class SponteConnector:
                 "turma": to_str(pick(item, "Turma", "NomeTurma")),
                 "semestre": to_int(pick(item, "Semestre", "Periodo", "Modulo")),
                 "forma_ingresso": to_str(pick(item, "FormaIngresso", "Origem")),
-                "telefone": to_str(pick(item, "Telefone", "Celular", "WhatsApp", "Fone", "TelefoneAluno")),
+                "telefone": to_str(pick(item, "Telefone", "Celular", "WhatsApp", "Fone", "TelefoneAluno", "FoneCelular", "FoneResidencial")),
                 "email": to_str(pick(item, "Email", "EmailAluno", "EmailInstitucional", "E-mail")),
                 "dias_atraso_boleto": to_int(pick(item, "DiasAtraso", "DiasEmAtraso", "Atraso")),
                 "recorrencia_atrasos": to_int(pick(item, "QtdAtrasos", "AtrasosAnteriores")),
