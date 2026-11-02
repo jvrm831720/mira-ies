@@ -129,13 +129,13 @@ export type JacadSyncJob = {
   progress?: {
     stage?: string; percent?: number; students?: number; enrollments?: number;
     financial_summaries?: number; contracts_total?: number; contracts_done?: number;
-    discipline_enrollments_total?: number; discipline_enrollments_done?: number;
+    discipline_pairs_total?: number; discipline_pairs_done?: number;
     assessment_groups_total?: number; assessment_groups_done?: number;
   } | null;
   result?: {
     source_records?: number; students_imported?: number; enrollments_received?: number;
     financial_summaries_received?: number; students_with_financial_status?: number;
-    contracts_with_installments?: number; discipline_enrollments?: number;
+    contracts_consulted?: number; discipline_pairs_consulted?: number; classes_consulted?: number;
     assessment_groups?: number; scoring?: string;
   } | null;
   last_error?: string | null;
