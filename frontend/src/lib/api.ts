@@ -60,7 +60,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     path === "/api/v1/auth/login/password" ||
     path.startsWith("/api/v1/auth/whatsapp/") ||
     path.startsWith("/api/v1/auth/password/") ||
-    path === "/api/v1/auth/mfa/login/verify" ||
+    path.startsWith("/api/v1/auth/mfa/login/") ||
     path.startsWith("/api/v1/org/invites/accept");
   const token = getAccessToken();
   const key = getApiKey();
@@ -144,6 +144,17 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  beginRequiredMfaEnrollment: (challenge_token: string) =>
+    request<import("@/types/api").MfaEnrollment>("/api/v1/auth/mfa/login/enroll", {
+      method: "POST",
+      body: JSON.stringify({ code: challenge_token }),
+    }),
+  confirmRequiredMfaEnrollment: (challenge_token: string, code: string) =>
+    request<AuthResponse & { enabled: boolean; recovery_codes: string[] }>("/api/v1/auth/mfa/login/enroll/confirm", {
+      method: "POST",
+      body: JSON.stringify({ challenge_token, code }),
+    }),
+
   verifyMfaLogin: (challenge_token: string, code: string) =>
     request<AuthResponse>("/api/v1/auth/mfa/login/verify", {
       method: "POST",
@@ -151,6 +162,14 @@ export const api = {
     }),
 
   mfaStatus: () => request<import("@/types/api").MfaStatus>("/api/v1/auth/mfa/status"),
+  mfaPolicy: () => request<import("@/types/api").MfaPolicy>("/api/v1/auth/mfa/policy"),
+  updateMfaPolicy: (body: import("@/types/api").MfaPolicy) =>
+    request<AuthResponse & import("@/types/api").MfaPolicy>("/api/v1/auth/mfa/policy", { method: "PUT", body: JSON.stringify(body) }),
+  stepUpMfa: (code: string) => request<AuthResponse>("/api/v1/auth/mfa/step-up", { method: "POST", body: JSON.stringify({ code }) }),
+  mfaSessions: () => request<import("@/types/api").MfaSessionsResponse>("/api/v1/auth/mfa/sessions"),
+  revokeMfaSession: (sessionId: string) => request<{ revoked: boolean; session_id: string }>(`/api/v1/auth/mfa/sessions/${sessionId}`, { method: "DELETE" }),
+  revokeOtherMfaSessions: () => request<{ revoked_count: number }>("/api/v1/auth/mfa/sessions/revoke-others", { method: "POST" }),
+  adminRevokeMemberSessions: (userId: string) => request<{ revoked_count: number; user_id: string }>(`/api/v1/auth/mfa/admin/users/${userId}/revoke-sessions`, { method: "POST" }),
   enrollMfa: () => request<import("@/types/api").MfaEnrollment>("/api/v1/auth/mfa/enroll", { method: "POST" }),
   confirmMfa: (code: string) => request<AuthResponse & { enabled: boolean; recovery_codes: string[] }>("/api/v1/auth/mfa/confirm", { method: "POST", body: JSON.stringify({ code }) }),
   regenerateMfaRecoveryCodes: (code: string) => request<import("@/types/api").MfaRecoveryCodes>("/api/v1/auth/mfa/recovery-codes/regenerate", { method: "POST", body: JSON.stringify({ code }) }),
@@ -163,7 +182,7 @@ export const api = {
     }),
 
   verifyWhatsappCode: (phone: string, code: string) =>
-    request<AuthResponse>("/api/v1/auth/whatsapp/verify", {
+    request<AuthResponse | import("@/types/api").MfaLoginChallenge>("/api/v1/auth/whatsapp/verify", {
       method: "POST",
       body: JSON.stringify({ phone, code }),
     }),
