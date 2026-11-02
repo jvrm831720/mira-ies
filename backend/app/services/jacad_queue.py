@@ -25,6 +25,7 @@ from app.services.connectors.jacad_api import JacadApiClient, JacadQuotaDeferred
 logger = logging.getLogger(__name__)
 PREFIX = "beacon:jacad:job:"
 ACTIVE = "beacon:jacad:active:"
+LAST = "beacon:jacad:last:"
 CHECKPOINT = ":checkpoint:"
 
 
@@ -103,6 +104,7 @@ async def enqueue_jacad_sync(*, tenant_id: str, tenant_slug: str | None):
             "progress": _json(progress), "created_at": str(now), "updated_at": str(now),
         })
         await redis.expire(_key(job_id), settings.jacad_job_ttl_seconds)
+        await redis.set(LAST + tenant_id, job_id, ex=settings.jacad_job_ttl_seconds)
         await redis.rpush(settings.jacad_queue_name, job_id)
         return await get_jacad_job(job_id, tenant_id=tenant_id, redis=redis)
     finally:
@@ -112,7 +114,7 @@ async def enqueue_jacad_sync(*, tenant_id: str, tenant_slug: str | None):
 async def get_active_jacad_job(*, tenant_id: str):
     redis = redis_client()
     try:
-        job_id = await redis.get(ACTIVE + tenant_id)
+        job_id = await redis.get(ACTIVE + tenant_id) or await redis.get(LAST + tenant_id)
         return await get_jacad_job(job_id, tenant_id=tenant_id, redis=redis) if job_id else None
     finally:
         await redis.aclose()
@@ -130,6 +132,7 @@ async def retry_jacad_sync(job_id: str, *, tenant_id: str):
         if not await redis.set(ACTIVE + tenant_id, job_id, ex=settings.jacad_job_ttl_seconds, nx=True):
             raise ValueError("Já existe uma sincronização JACAD em andamento.")
         await _update(redis, job_id, status="queued", attempt=0, last_error="")
+        await redis.set(LAST + tenant_id, job_id, ex=settings.jacad_job_ttl_seconds)
         await redis.rpush(settings.jacad_queue_name, job_id)
         return await get_jacad_job(job_id, tenant_id=tenant_id, redis=redis)
     finally:
