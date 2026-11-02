@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from datetime import date
+from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
@@ -30,7 +31,7 @@ class SponteConnectionError(RuntimeError):
 class SponteQuotaDeferred(SponteConnectionError):
     def __init__(self, wait_seconds: float):
         self.wait_seconds = max(1.0, wait_seconds)
-        super().__init__("Quota horária conservadora da API Sponte atingida; sincronização pausada.")
+        super().__init__("Limite interno conservador de requisições Sponte atingido; sincronização pausada.")
 
 
 class SponteApiClient:
@@ -85,7 +86,20 @@ class SponteApiClient:
         if response.status_code in {401, 403}:
             raise SponteConnectionError("API Key Sponte inválida ou sem acesso ao cliente informado.")
         if response.status_code == 429:
-            raise SponteConnectionError("Limite de requisições da API Sponte atingido; tente novamente.")
+            retry_after = response.headers.get("Retry-After")
+            wait_seconds = 60.0
+            if retry_after:
+                try:
+                    wait_seconds = max(1.0, float(retry_after))
+                except ValueError:
+                    try:
+                        retry_at = parsedate_to_datetime(retry_after)
+                        if retry_at.tzinfo is None:
+                            retry_at = retry_at.replace(tzinfo=timezone.utc)
+                        wait_seconds = max(1.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+                    except (TypeError, ValueError, OverflowError):
+                        pass
+            raise SponteQuotaDeferred(wait_seconds)
         if response.status_code >= 500:
             raise SponteConnectionError(f"API Sponte indisponível (HTTP {response.status_code}).")
         if response.status_code >= 400:
