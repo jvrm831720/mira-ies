@@ -42,7 +42,7 @@ Documentação consultada:
 
 A consulta v2 de alunos documenta `pageSize` até 5.000 e retorna um objeto `page` com `idCursor` e `idCursorProximo`. A implementação usa o cursor retornado para continuar a leitura, com limite defensivo de páginas e registros para evitar loops ou sincronizações ilimitadas.
 
-Outros recursos documentam paginação por `currentPage` e `pageSize`; os limites variam por endpoint (há endpoints v1 com máximo 500). Cada recurso deve respeitar o limite publicado em sua própria documentação. O endpoint v2 de alunos aceita `idCursor` (inicia em 0) e a resposta devolve `idCursorProximo`. A documentação também informa limite técnico de 10 requisições por segundo por IP e um filtro de negócio por token (padrão ilustrado de 1.000 requisições por hora, configurável pela instituição). A MIRA faz chamadas sequenciais, sem paralelismo nesta primeira versão.
+Outros recursos documentam paginação por `currentPage` e `pageSize`; os limites variam por endpoint (há endpoints v1 com máximo 500). Cada recurso deve respeitar o limite publicado em sua própria documentação. O endpoint v2 de alunos aceita `idCursor` (inicia em 0) e a resposta devolve `idCursorProximo`. A documentação também informa limite técnico de 10 requisições por segundo por IP e quota horária por token (o exemplo padrão é 1.000 requisições por hora, sujeito à configuração da instituição). O worker usa concorrência limitada, um limitador Redis compartilhado de até 9 requisições por segundo por IP e uma margem conservadora de 900 requisições por token em janela móvel de uma hora. Ao atingir a quota conservadora, o job é pausado e retomado após a janela, sem consumir uma tentativa de falha.
 
 ## 5. Mapeamento acadêmico e financeiro
 
@@ -82,12 +82,17 @@ Portanto, o primeiro sync não inventa valores preditivos nem gera score automá
 
 ## 7. Estratégia de sincronização
 
-### Primeira carga
-- Consulta paginada do cadastro de alunos e matrículas (v2).
-- Consulta paginada do resumo financeiro por matrícula (v2), com `idOrg` obrigatório.
-- Junção por `idAluno`, com fallback de RA.
-- Persistência de status acadêmico, curso/turma, situação financeira e dias de atraso quando a API informa vencimento de parcela vencida.
-- Preservação mínima dos IDs JACAD e resumo da parcela em `raw_data.jacad`; sem armazenar a resposta integral.
+### Primeira carga e sincronização completa
+- A API responde imediatamente com um ID de job; o processamento ocorre em segundo plano no worker Redis já usado pela MIRA.
+- Consulta paginada de alunos, matrículas e resumo financeiro por matrícula (v2).
+- Consulta dos detalhes de parcelas por contrato, em lotes com concorrência configurável e limitada.
+- Descoberta das disciplinas por turma e consulta em lote das matrículas-disciplina por código de disciplina do professor. Isso evita uma chamada por matrícula.
+- Consulta das notas por avaliação uma vez por combinação única de turma e disciplina do professor.
+- Persistência incremental por lote. O checkpoint só é marcado depois do commit no banco; se uma chamada falhar, a retomada pula os itens já persistidos.
+- Checkpoints de contratos, disciplinas e avaliações ficam no Redis por até sete dias. O job também expõe etapa, percentual, contadores, erro e resultado.
+- Retry automático com backoff para falhas transitórias e retomada manual do último checkpoint após falha definitiva.
+- Limitador distribuído no Redis respeita a quota por IP e aplica margem conservadora à quota horária por token.
+- Preservação seletiva dos campos financeiros e acadêmicos em `students.raw_data.jacad`; não armazena payload integral.
 - Proveniência registra `source_type=jacad_api` e horário de importação. Como `dataAlteracao` não é timestamp de observação por campo, `observed_at` permanece desconhecido.
 - Score automático permanece desabilitado.
 
@@ -98,7 +103,7 @@ A API documenta filtros de alteração em alguns recursos, como `dataAlteracaoIn
 A primeira versão não desativa alunos ausentes de uma resposta nem interpreta ausência como exclusão. Exclusões, transferências e status de matrícula precisam ser reconciliados com endpoint e regra específicos.
 
 ### Frequência operacional
-A primeira versão oferece teste e sincronização sob demanda. Agendamento, checkpoints persistidos, retentativas e reconciliação automática serão adicionados depois de medir limites e cadência no ambiente real.
+A sincronização é iniciada sob demanda e executada pelo processo `PYTHONPATH=. python -m app.worker`. O worker deve estar ativo no ambiente de execução; caso contrário, o job permanece na fila. O estado e os checkpoints são mantidos no Redis por até sete dias. A sincronização incremental por data de alteração e o agendamento periódico ainda dependem de homologação da cadência e dos filtros do ambiente real.
 
 ## 8. Segurança
 
@@ -112,13 +117,15 @@ A primeira versão oferece teste e sincronização sob demanda. Agendamento, che
 
 ## 9. Recursos adicionais identificados e decisão de escopo
 
-A documentação atual também expõe:
-- **Notas por turma e disciplina:** `GET /api/v1/academico/notas/consultar`, com `mediaMatriculaDisciplina`, status da matrícula-disciplina e itens de avaliação. Exige os códigos da turma e da disciplina do professor. A MIRA ainda não agrega várias disciplinas/períodos em uma média única por aluno; não foi incluído no sync automático para evitar uma média sem regra institucional.
-- **Parcelas por contrato:** `GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas`, com valor, valor pago, vencimento, pagamento e situação. A consulta exige uma chamada por contrato. O endpoint foi identificado, mas não foi ativado em massa porque pode gerar milhares de chamadas por sincronização. Além disso, os valores possíveis de `situacao` e as regras de cancelamento, renegociação e baixa precisam ser homologados antes de calcular saldo ou recorrência.
-- **Frequência:** a documentação consultada descreve operações de lançamento de frequência, mas não confirmou um endpoint de leitura agregado que permita calcular presença percentual de forma confiável.
-- **Acesso/último login:** não foi identificado um endpoint acadêmico de leitura que represente último acesso do aluno ao AVA/portal com semântica adequada.
+A expansão já consulta esses recursos em segundo plano:
+- **Parcelas por contrato:** `GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas`. Os campos `idTransacao`, `valor`, `valorPago`, `situacao`, `dataVencimento` e `dataPagamento` são preservados em `raw_data.jacad.installments_by_contract`. A MIRA ainda não converte `situacao` em estados financeiros canônicos nem calcula saldo/recorrência sem homologar cancelamento, renegociação, baixa e estorno.
+- **Disciplinas de turma:** `GET /api/v1/academico/turmas/{idTurma}/disciplinas` descobre os códigos `idDisciplinaProfessor`. A consulta `GET /api/v1/academico/disciplinas/{idDisciplinaProfessor}/matriculas` retorna em lote os estudantes da disciplina e campos como `mediaFinal`, `notaFinal`, `notaExame`, `frequencia`, `quantAulas` e `quantFaltas`. Esses registros ficam em `raw_data.jacad.academic_disciplines_by_class_discipline`.
+- **Notas por avaliação:** `GET /api/v1/academico/notas/consultar` é consultado por combinação única de turma e disciplina do professor. `mediaMatriculaDisciplina`, status e `itensNotas` ficam em `raw_data.jacad.assessment_notes_by_class_discipline`.
+- **Frequência:** o campo `frequencia` e as quantidades de aulas/faltas são preservados por disciplina, mas não são convertidos em `presenca_percentual` enquanto a escala, as faltas transferidas e as regras da IES não forem homologadas.
+- **Média acadêmica:** notas e médias permanecem no nível da disciplina/período. A MIRA não calcula uma média institucional única sem conhecer pesos, conceitos, exames e regras de aprovação.
+- **Acesso/último login:** ainda não foi identificado um endpoint de leitura que represente último acesso do aluno ao AVA/portal com semântica adequada.
 
-Esses recursos são candidatos para uma próxima expansão após homologação com uma IES. A integração permanece somente leitura.
+O worker usa lotes e concorrência limitada; os checkpoints são gravados após persistência, permitindo retomada. A integração permanece somente leitura.
 
 ## 10. Homologação pendente
 
