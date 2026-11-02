@@ -7,10 +7,10 @@ is blocked until every raw input used to derive its 17 features is available.
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 from typing import Any
 
 FEATURE_SCHEMA_VERSION = "student-risk-features-v2"
-from datetime import datetime, timezone
 
 # Limites conservadoras para idade da observação, quando a origem informar
 # explicitamente quando o dado foi medido. Importar hoje não prova que o dado
