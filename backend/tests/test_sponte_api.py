@@ -121,3 +121,19 @@ def test_sponte_mapping_does_not_infer_balance_when_payment_amount_is_missing():
     [payload] = build_student_payloads([student], as_of=date(2026, 11, 2))
     assert payload["StatusFinanceiro"] == "EM_ABERTO"
     assert payload["SaldoDevedor"] is None
+
+
+def test_sponte_mapping_keeps_overdue_unknown_when_pending_due_date_is_missing():
+    student = SimpleNamespace(
+        matricula="103", nome="Caio", curso=None, turma=None, email=None, telefone=None,
+        raw_data={"sponte": {
+            "profile": {"nome": "Caio"},
+            "contasreceber": {
+                "a": {"aluno_id": "103", "situacao": "Pendente", "valor_total": 100, "valor_pago": 0}
+            },
+        }},
+    )
+    [payload] = build_student_payloads([student], as_of=date(2026, 11, 2))
+    assert payload["StatusFinanceiro"] is None
+    assert payload["DiasAtraso"] is None
+    assert payload["QtdAtrasos"] is None
