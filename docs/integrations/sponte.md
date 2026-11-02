@@ -49,7 +49,7 @@ A documentação descreve `Situacao = 'Pendente'` para parcelas em aberto, `Data
 - recorrência histórica de atrasos: permanece desconhecida. A quantidade de parcelas atualmente vencidas não representa recorrência histórica e não alimenta `recorrencia_atrasos`;
 - saldo devedor: soma de `max(0, ValorTotalParcela - ValorPagoParcela)` nas parcelas pendentes não excluídas, apenas nos contratos presentes no snapshot mais recente de alunos ativos. Se não houver snapshot de contratos ativos ou os valores estiverem incompletos, o saldo permanece desconhecido.
 
-Os valores de outras situações não serão reinterpretados sem homologação.
+A documentação pública exemplifica `Pendente` como parcela em aberto, mas não publica um enum completo de situações. Portanto, qualquer outra situação (inclusive possíveis estados de quitação) permanece desconhecida até homologação com a instituição; esses registros impedem afirmar saldo total ou status `PAGO`.
 
 ### Acadêmico
 Notas são preservadas por avaliação, turma, estágio, semestre e ano. Não será criada média global sem regra institucional de pesos, escalas, recuperação e aprovação.
