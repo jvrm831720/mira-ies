@@ -37,9 +37,10 @@ class JacadConnector:
         id="jacad",
         name="JACAD",
         category="erp",
-        description="API REST estruturada (Academico, Financeiro, Acesso, Queries).",
+        description="Conector nativo de leitura REST; cadastro de alunos disponível, expansão acadêmica/financeira em homologação.",
         has_api=True,
-        endpoints=["POST /api/v1/connectors/jacad/students", "POST /api/v1/connectors/jacad/sync"],
+        endpoints=["GET /api/v2/academico/alunos", "POST /api/v1/integrations/jacad/test", "POST /api/v1/integrations/jacad/sync"],
+        docs_url="https://auden-developer.jacad.com.br/docs/academico",
         sample_fields=["codigoAluno", "nomeAluno", "curso", "turma", "periodo", "diasAtraso", "frequencia", "mediaGeral"],
     )
 
