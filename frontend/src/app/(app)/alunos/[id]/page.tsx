@@ -338,7 +338,7 @@ export default function StudentDetailPage() {
                       Cada item mostra a condição observada e o ajuste solicitado pela regra.
                     </p>
                     <ul className="mt-4 space-y-2">
-                      {ruleAdjustments.map((rule: Record<string, unknown>, index: number) => {
+                      {ruleAdjustments.map((rule, index) => {
                         const evidence = rule.evidence && typeof rule.evidence === "object"
                           ? rule.evidence as Record<string, unknown>
                           : {};
