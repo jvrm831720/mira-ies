@@ -65,7 +65,11 @@ def assess_student_data_quality(source: Any) -> dict[str, Any]:
             reason = "boolean_not_numeric"
         else:
             try:
-                number = float(value)
+                # Importação brasileira aceita vírgula como separador decimal.
+                # O raw_data preserva a célula original, portanto o validador
+                # precisa interpretar a mesma convenção que safe_float do importador.
+                normalized_value = value.strip().replace(",", ".") if isinstance(value, str) else value
+                number = float(normalized_value)
                 if not math.isfinite(number):
                     raise ValueError
                 if spec["type"] == "integer" and not number.is_integer():
