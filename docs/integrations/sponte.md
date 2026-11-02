@@ -70,4 +70,5 @@ O endpoint de fatos retorna snapshots semanais com `AlunoID`, `ContratoID`, `aul
 - Worker Redis assíncrono, concorrência limitada, checkpoints por endpoint/página, retry e retomada.
 - Watermarks por endpoint são persistidos por instituição.
 - Estado do job não substitui os dados normalizados e auditáveis no Postgres.
+- A sincronização parcial atualiza apenas campos com valor conhecido da Sponte. Campos ausentes não apagam valores de outras fontes; valores previamente atribuídos à Sponte só são limpos quando a nova observação da própria Sponte os torna desconhecidos.
 - Homologação real depende de API key e código de cliente autorizados por uma instituição Sponte.
