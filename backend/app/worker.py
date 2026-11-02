@@ -21,22 +21,29 @@ from app.services.jacad_queue import (
     promote_due_jacad_retries,
     requeue_stale_jacad_jobs,
 )
+from app.services.sponte_queue import (
+    process_sponte_sync_job,
+    promote_due_sponte_retries,
+    requeue_stale_sponte_jobs,
+)
 
 
 async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
     settings = get_settings()
     redis = redis_client()
-    print(f"Worker Redis ouvindo {settings.retention_queue_name} e {settings.jacad_queue_name}")
-    prefer_jacad = True
+    print(f"Worker Redis ouvindo {settings.retention_queue_name}, {settings.jacad_queue_name} e {settings.sponte_queue_name}")
+    queue_cycle = 0
     last_engagement_sweep = 0.0
     last_jacad_recovery_sweep = 0.0
     try:
         while True:
             await promote_due_retries(redis)
             await promote_due_jacad_retries(redis)
+            await promote_due_sponte_retries(redis)
             now_monotonic = time.monotonic()
             if now_monotonic - last_jacad_recovery_sweep >= 30:
                 await requeue_stale_jacad_jobs(redis)
+                await requeue_stale_sponte_jobs(redis)
                 last_jacad_recovery_sweep = now_monotonic
             if now_monotonic - last_engagement_sweep >= settings.engagement_sweep_interval_seconds:
                 try:
@@ -51,15 +58,15 @@ async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
                     # Keep processing the message queue if the periodic refresh fails.
                     print(f"Aviso: engagement sweep falhou ({type(exc).__name__}).")
                 last_engagement_sweep = now_monotonic
-            queue_order = (
-                [settings.jacad_queue_name, settings.retention_queue_name]
-                if prefer_jacad else [settings.retention_queue_name, settings.jacad_queue_name]
-            )
+            queues = [settings.sponte_queue_name, settings.jacad_queue_name, settings.retention_queue_name]
+            queue_order = queues[queue_cycle:] + queues[:queue_cycle]
             item = await redis.blpop(queue_order, timeout=poll_seconds)
-            prefer_jacad = not prefer_jacad
+            queue_cycle = (queue_cycle + 1) % len(queues)
             if item:
                 queue_name, job_id = item
-                if queue_name == settings.jacad_queue_name:
+                if queue_name == settings.sponte_queue_name:
+                    await process_sponte_sync_job(job_id, redis)
+                elif queue_name == settings.jacad_queue_name:
                     await process_jacad_sync_job(job_id, redis)
                 else:
                     await process_retention_job(job_id, redis)
