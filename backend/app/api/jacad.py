@@ -111,7 +111,7 @@ async def test_jacad_connection(
         raise HTTPException(status_code=404, detail="Configure a conexão JACAD antes de testar.")
     client = JacadApiClient(connection.base_url, decrypt_api_token(connection.encrypted_api_token))
     try:
-        result = await client.test_connection()
+        result = await client.test_connection(org_id=connection.default_org_id)
         connection.status = "connected"
         connection.last_tested_at = datetime.now(timezone.utc)
         connection.last_error = None
