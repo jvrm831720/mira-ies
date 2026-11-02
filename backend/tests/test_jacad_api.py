@@ -186,3 +186,23 @@ async def test_jacad_api_client_fetches_enrollment_and_financial_summary_pages()
     assert enrollments == [{"idMatricula": 1}]
     assert summaries[0]["situacaoFinanceira"] == "PAGO"
     assert len([request for request in seen if request.url.path == "/api/v1/auth/token"]) == 1
+
+
+
+def test_jacad_mapping_ignores_financial_debt_from_non_active_enrollment():
+    from app.services.connectors.jacad_mapping import enrich_jacad_students
+
+    students = [{"idAluno": 10, "ra": "RA-10", "nome": "Ana"}]
+    enrollments = [
+        {"idMatricula": 100, "idAluno": 10, "status": "CANCELADA"},
+        {"idMatricula": 200, "idAluno": 10, "status": "ATIVA"},
+    ]
+    summaries = [
+        {"idMatricula": 100, "idAluno": 10, "situacaoFinanceira": "VENCIDO",
+         "dataVencimentoParcela": "2026-09-01T00:00:00"},
+        {"idMatricula": 200, "idAluno": 10, "situacaoFinanceira": "PAGO"},
+    ]
+    enriched, metadata = enrich_jacad_students(students, enrollments, summaries)
+    assert enriched[0]["status_financeiro"] == "PAGO"
+    assert enriched[0]["dias_atraso_boleto"] == 0
+    assert metadata["RA-10"]["financial_summaries"][0]["id_matricula"] == 200
