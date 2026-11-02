@@ -12,8 +12,8 @@ async def test_predict_returns_risk_score(client, auth_headers):
         headers=auth_headers,
         json={
             "matricula": "1", "nome": "Risco Alto",
-            "dias_atraso_boleto": 45, "dias_sem_login": 30,
-            "presenca_percentual": 40.0, "nota_media": 3.0, "reprovacoes": 2,
+            "dias_atraso_boleto": 45, "recorrencia_atrasos": 3, "dias_sem_login": 30,
+            "presenca_percentual": 40.0, "nota_media": 3.0, "reprovacoes": 2, "semestre": 1,
         },
     )
     assert resp.status_code == 200
@@ -47,8 +47,8 @@ async def test_predict_what_if_quitar_boleto_reduces_risk(client, auth_headers):
         headers=auth_headers,
         json={
             "matricula": "1", "nome": "X",
-            "dias_atraso_boleto": 30, "recorrencia_atrasos": 2,
-            "presenca_percentual": 90.0, "nota_media": 7.0,
+            "dias_atraso_boleto": 30, "recorrencia_atrasos": 2, "dias_sem_login": 5,
+            "presenca_percentual": 90.0, "nota_media": 7.0, "reprovacoes": 0, "semestre": 3,
         },
     )
     assert resp.status_code == 200
@@ -60,7 +60,7 @@ async def test_predict_what_if_quitar_boleto_reduces_risk(client, auth_headers):
 async def test_model_info_is_public_and_discloses_synthetic_training(client):
     resp = await client.get("/api/v1/model/info")
     assert resp.status_code == 200
-    assert "sintet" in resp.json()["disclaimer"].lower()
+    assert "sintét" in resp.json()["disclaimer"].lower()
 
 
 async def test_feature_importance_requires_auth(client):
