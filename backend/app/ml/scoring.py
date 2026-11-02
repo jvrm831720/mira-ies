@@ -21,7 +21,7 @@ from app.ml.data_quality import (
     require_scoreable_student,
 )
 from app.ml.features import build_features_from_student, features_to_dataframe
-from app.ml.model import load_meta, predict_proba, probability_to_risk_score
+from app.ml.model import load_meta, load_model, predict_proba, probability_to_risk_score
 from app.ml.explain import explain_instance, format_top_factors_human
 from app.ml.rules import apply_business_rules
 from app.ml.tenant_train import resolve_scoring_model, predict_proba_with_model
@@ -32,7 +32,7 @@ def score_student_dict(student_data: dict) -> dict[str, Any]:
     quality = require_scoreable_student(student_data)
     features = build_features_from_student(student_data)
     X = features_to_dataframe([features])
-    model = __import__("app.ml.model", fromlist=["load_model"]).load_model()
+    model = load_model()
     proba = float(predict_proba(model, X)[0])
     model_score = probability_to_risk_score(proba)
     rules = apply_business_rules(features, model_score)
@@ -229,12 +229,9 @@ async def score_batch(
                 "recommended_actions": rules["recommended_actions"][:2],
             })
 
-    if indeterminate and eligible:
-        batch.status = "scored_with_gaps"
-    elif indeterminate:
-        batch.status = "insufficient_data"
-    else:
-        batch.status = "scored"
+    # "scored" means the batch scoring pass completed. Individual students may
+    # remain indeterminate; their data-quality state is persisted per student.
+    batch.status = "scored"
     batch.tenant_id = tenant_id
     batch.processed_at = evaluated_at
     try:
