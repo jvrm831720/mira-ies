@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -26,12 +26,29 @@ export default function DadosIntegracoesPage() {
   const [payload, setPayload] = useState('{\n  "students": []\n}');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [jacadBaseUrl, setJacadBaseUrl] = useState("");
+  const [jacadToken, setJacadToken] = useState("");
+  const [jacadOrgId, setJacadOrgId] = useState("");
+  const [jacadBusy, setJacadBusy] = useState(false);
+  const [jacadAction, setJacadAction] = useState<"test" | "sync" | null>(null);
 
   const catalog = useQuery({
     queryKey: ["connectors"],
     queryFn: () => api.listConnectors(),
     retry: false,
   });
+
+  const jacadConnection = useQuery({
+    queryKey: ["jacad-connection"],
+    queryFn: () => api.jacadConnection(),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!jacadConnection.data?.configured) return;
+    setJacadBaseUrl(jacadConnection.data.base_url || "");
+    setJacadOrgId(jacadConnection.data.default_org_id ? String(jacadConnection.data.default_org_id) : "");
+  }, [jacadConnection.data?.configured, jacadConnection.data?.base_url, jacadConnection.data?.default_org_id]);
 
   const history = useQuery({
     queryKey: ["upload-history"],
@@ -121,6 +138,7 @@ export default function DadosIntegracoesPage() {
           items={[
             { id: "overview", label: "Visão geral" },
             { id: "sources", label: "Fontes de dados" },
+            { id: "jacad", label: "JACAD" },
             { id: "history", label: "Histórico" },
             { id: "ingest", label: "Ingestão JSON" },
           ]}
@@ -233,6 +251,103 @@ export default function DadosIntegracoesPage() {
                   </Button>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        </TabPanel>
+
+
+        <TabPanel when="jacad" active={tab} className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Conexão nativa · JACAD</CardTitle>
+              <CardDescription>Conecte a MIRA diretamente ao ambiente JACAD da instituição. A conexão é somente leitura.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5 text-sm">
+                  <span className="font-medium">URL do ambiente JACAD</span>
+                  <input value={jacadBaseUrl} onChange={(e) => setJacadBaseUrl(e.target.value)}
+                    placeholder="https://sua-instituicao.jacad.com.br" autoComplete="url"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
+                </label>
+                <label className="space-y-1.5 text-sm">
+                  <span className="font-medium">ID da organização (opcional)</span>
+                  <input value={jacadOrgId} onChange={(e) => setJacadOrgId(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="Ex.: 1" inputMode="numeric"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
+                </label>
+              </div>
+              <label className="block space-y-1.5 text-sm">
+                <span className="font-medium">Token de acesso da API JACAD</span>
+                <input type="password" value={jacadToken} onChange={(e) => setJacadToken(e.target.value)}
+                  placeholder={jacadConnection.data?.credential_configured ? "Token salvo. Informe outro apenas para substituir." : "Cole o token gerado no JACAD"}
+                  autoComplete="new-password" maxLength={40}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
+                <span className="block text-xs text-muted-foreground">O token é cifrado no banco. A MIRA não o exibe novamente nem o registra em logs.</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" disabled={jacadBusy || !jacadBaseUrl.trim() || !jacadToken.trim()}
+                  onClick={async () => {
+                    setJacadBusy(true);
+                    try {
+                      await api.configureJacad({ base_url: jacadBaseUrl.trim(), api_token: jacadToken.trim(),
+                        default_org_id: jacadOrgId ? Number(jacadOrgId) : null });
+                      setJacadToken("");
+                      await jacadConnection.refetch();
+                      toast.success("Configuração JACAD salva com segurança");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Não foi possível salvar a conexão");
+                    } finally { setJacadBusy(false); }
+                  }}>
+                  {jacadBusy && !jacadAction ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+                  Salvar conexão
+                </Button>
+                <Button type="button" variant="outline" disabled={jacadBusy || !jacadConnection.data?.configured}
+                  onClick={async () => {
+                    setJacadBusy(true); setJacadAction("test");
+                    try {
+                      const response = await api.testJacad();
+                      await jacadConnection.refetch();
+                      toast.success("Conexão validada · " + response.sample_records + " registro(s) na amostra");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Falha no teste JACAD");
+                      await jacadConnection.refetch();
+                    } finally { setJacadBusy(false); setJacadAction(null); }
+                  }}>
+                  {jacadAction === "test" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <AlertCircle className="h-4 w-4" />}
+                  Testar conexão
+                </Button>
+                <Button type="button" variant="secondary"
+                  disabled={jacadBusy || !jacadConnection.data?.configured || jacadConnection.data?.status !== "connected"}
+                  onClick={async () => {
+                    setJacadBusy(true); setJacadAction("sync");
+                    try {
+                      const response = await api.syncJacad();
+                      await jacadConnection.refetch();
+                      toast.success("Sincronização concluída · " + response.students_imported + " aluno(s) importado(s)");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Falha na sincronização JACAD");
+                      await jacadConnection.refetch();
+                    } finally { setJacadBusy(false); setJacadAction(null); }
+                  }}>
+                  {jacadAction === "sync" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+                  Sincronizar alunos
+                </Button>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">Estado da integração</span>
+                  <span className="text-xs text-muted-foreground">
+                    {jacadConnection.isLoading ? "Consultando…" : jacadConnection.data?.status || (jacadConnection.data?.configured ? "configured" : "não configurada")}
+                  </span>
+                </div>
+                {jacadConnection.data?.last_tested_at && <p className="mt-1 text-xs text-muted-foreground">Último teste: {new Date(jacadConnection.data.last_tested_at).toLocaleString("pt-BR")}</p>}
+                {jacadConnection.data?.last_sync_at && <p className="mt-1 text-xs text-muted-foreground">Última sincronização: {new Date(jacadConnection.data.last_sync_at).toLocaleString("pt-BR")} · {jacadConnection.data.last_sync_records || 0} registros</p>}
+                {jacadConnection.data?.last_error && <p className="mt-2 text-xs text-destructive">{jacadConnection.data.last_error}</p>}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Nesta primeira etapa, a sincronização importa cadastro de alunos. Notas, frequência, acesso e financeiro ainda não alimentam o score até que seus endpoints e significados sejam homologados. O sync não calcula risco automaticamente.
+              </p>
             </CardContent>
           </Card>
         </TabPanel>
