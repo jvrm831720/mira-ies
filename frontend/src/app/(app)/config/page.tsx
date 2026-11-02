@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -98,6 +98,8 @@ export default function ConfigPage() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [mfaMessage, setMfaMessage] = useState<string | null>(null);
   const [mfaError, setMfaError] = useState<string | null>(null);
+  const [requireMfaAll, setRequireMfaAll] = useState(false);
+  const [requiredMfaRoles, setRequiredMfaRoles] = useState<string[]>([]);
   const mfaStatus = useQuery({ queryKey: ["mfa-status"], queryFn: () => api.mfaStatus(), retry: false });
 
   const me = useQuery({
@@ -118,6 +120,65 @@ export default function ConfigPage() {
     queryFn: () => api.modelInfo(),
     retry: false,
   });
+
+  const mfaPolicy = useQuery({
+    queryKey: ["mfa-policy"],
+    queryFn: () => api.mfaPolicy(),
+    enabled: me.data?.role === "admin",
+    retry: false,
+  });
+
+  const mfaSessions = useQuery({
+    queryKey: ["mfa-sessions"],
+    queryFn: () => api.mfaSessions(),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!mfaPolicy.data) return;
+    setRequireMfaAll(mfaPolicy.data.require_mfa_all);
+    setRequiredMfaRoles(mfaPolicy.data.required_roles || []);
+  }, [mfaPolicy.data]);
+
+  async function saveMfaPolicy() {
+    setMfaError(null); setMfaMessage(null);
+    try {
+      const stepUp = await api.stepUpMfa(mfaCode);
+      setAccessToken(stepUp.access_token);
+      const result = await api.updateMfaPolicy({
+        require_mfa_all: requireMfaAll,
+        required_roles: requireMfaAll ? [] : requiredMfaRoles,
+      });
+      setAccessToken(result.access_token);
+      setMfaCode("");
+      await Promise.all([mfaPolicy.refetch(), mfaSessions.refetch()]);
+      setMfaMessage("Política institucional salva. As sessões anteriores foram encerradas e todos precisarão autenticar novamente.");
+    } catch (error) {
+      setMfaError(error instanceof Error ? error.message : "Não foi possível atualizar a política institucional.");
+    }
+  }
+
+  async function revokeSession(sessionId: string) {
+    setMfaError(null);
+    try {
+      await api.revokeMfaSession(sessionId);
+      await mfaSessions.refetch();
+      setMfaMessage("Sessão encerrada.");
+    } catch (error) {
+      setMfaError(error instanceof Error ? error.message : "Não foi possível encerrar a sessão.");
+    }
+  }
+
+  async function revokeOtherSessions() {
+    setMfaError(null);
+    try {
+      const result = await api.revokeOtherMfaSessions();
+      await mfaSessions.refetch();
+      setMfaMessage(`${result.revoked_count} outra(s) sessão(ões) encerrada(s).`);
+    } catch (error) {
+      setMfaError(error instanceof Error ? error.message : "Não foi possível encerrar as outras sessões.");
+    }
+  }
 
   async function startMfaEnrollment() {
     setMfaError(null); setMfaMessage(null);
@@ -520,9 +581,76 @@ export default function ConfigPage() {
               )}
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Política institucional de MFA</CardTitle>
+              <CardDescription>
+                Defina se o segundo fator será obrigatório para toda a instituição ou apenas para perfis específicos.
+                A regra é aplicada pelo backend também a novos convites e novos acessos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {me.data?.role !== "admin" ? (
+                <p className="text-sm text-muted-foreground">Somente administradores podem consultar e alterar a política institucional.</p>
+              ) : (
+                <>
+                  {mfaPolicy.isLoading && <Skeleton className="h-16 w-full" />}
+                  {mfaPolicy.isError && <ErrorBanner message="Não foi possível consultar a política de MFA." />}
+                  {mfaPolicy.data && (
+                    <>
+                      <label className="flex items-start gap-3 rounded-xl border p-3">
+                        <input type="checkbox" checked={requireMfaAll} onChange={(e) => { setRequireMfaAll(e.target.checked); if (e.target.checked) setRequiredMfaRoles([]); }} className="mt-1 h-4 w-4" />
+                        <span><span className="block text-sm font-medium">Exigir MFA para todos os membros</span><span className="block text-xs text-muted-foreground">Todos os usuários atuais e futuros deverão configurar um autenticador para acessar a instituição.</span></span>
+                      </label>
+                      <div className="space-y-2 rounded-xl border p-3">
+                        <p className="text-sm font-medium">Ou exigir MFA por perfil</p>
+                        {(["admin", "coordinator", "operator", "viewer"] as const).map((role) => (
+                          <label key={role} className="flex items-center gap-3 py-1.5 text-sm">
+                            <input type="checkbox" disabled={requireMfaAll} checked={requiredMfaRoles.includes(role)} onChange={(e) => setRequiredMfaRoles((current) => e.target.checked ? [...current, role] : current.filter((item) => item !== role))} className="h-4 w-4" />
+                            <span>{{admin:"Administrador",coordinator:"Coordenador",operator:"Operador",viewer:"Visualizador"}[role]}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="space-y-2 rounded-xl bg-muted/35 p-3">
+                        <label className="text-xs font-medium" htmlFor="mfa-policy-code">Confirme sua identidade com o código atual do autenticador</label>
+                        <Input id="mfa-policy-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0,6))} inputMode="numeric" placeholder="Código de 6 dígitos" maxLength={6} />
+                        <Button onClick={saveMfaPolicy} disabled={mfaCode.length !== 6}>Salvar política institucional</Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Política atual: {mfaPolicy.data.require_mfa_all ? "MFA obrigatório para todos" : mfaPolicy.data.required_roles.length ? `MFA obrigatório para: ${mfaPolicy.data.required_roles.join(", ")}` : "MFA opcional"}.
+                        Ao alterar a regra, as sessões existentes da instituição são encerradas.
+                      </p>
+                    </>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Dispositivos e sessões</CardTitle>
+              <CardDescription>Consulte os acessos desta conta e encerre sessões que não reconhece.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {mfaSessions.isLoading && <Skeleton className="h-20 w-full" />}
+              {mfaSessions.isError && <ErrorBanner message="Não foi possível carregar as sessões desta conta." />}
+              {mfaSessions.data?.sessions.map((session) => (
+                <div key={session.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{session.device_label}{session.current ? " · Este dispositivo" : ""}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Criada em {new Date(session.created_at).toLocaleString("pt-BR")} · {session.ip_address || "IP indisponível"} · AAL{session.aal}</p>
+                    <p className="text-[11px] text-muted-foreground">{session.active ? `Expira em ${new Date(session.expires_at).toLocaleString("pt-BR")}` : session.revoked_at ? "Encerrada" : "Expirada"}</p>
+                  </div>
+                  {session.active && !session.current && <Button size="sm" variant="outline" onClick={() => revokeSession(session.id)}>Encerrar</Button>}
+                  {session.current && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Atual</span>}
+                </div>
+              ))}
+              {mfaSessions.data?.sessions.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma sessão registrada.</p>}
+              <Button type="button" variant="outline" onClick={revokeOtherSessions}>Encerrar todas as outras sessões</Button>
+            </CardContent>
+          </Card>
           <p className="text-xs text-muted-foreground">
-            Permissões de API são aplicadas no backend (RBAC + tenant_id). A interface não substitui
-            essa validação.
+            Permissões de API são aplicadas no backend (RBAC + tenant_id). A interface não substitui essa validação.
           </p>
         </TabPanel>
       </main>
