@@ -55,7 +55,7 @@ A documentação pública exemplifica `Pendente` como parcela em aberto, mas nã
 Notas são preservadas por avaliação, turma, estágio, semestre e ano. Não será criada média global sem regra institucional de pesos, escalas, recuperação e aprovação.
 
 ### Frequência
-O endpoint de fatos retorna snapshots semanais com `AlunoID`, `ContratoID`, `aulasAssistidas`, `aulasTotais` e `totalFaltas`. A MIRA mantém a série temporal e considera apenas contratos presentes no snapshot mais recente de alunos ativos. Para cada contrato ativo, usa seu snapshot mais recente; o percentual consolidado é calculado pela soma de aulas assistidas dividida pela soma de aulas totais, somente quando todos os contratos ativos têm dados válidos. Snapshots não são somados entre semanas.
+O endpoint de fatos retorna snapshots semanais com `AlunoID`, `ContratoID`, `aulasAssistidas`, `aulasTotais` e `totalFaltas`. A MIRA mantém a série temporal e considera apenas contratos presentes no snapshot mais recente de alunos ativos. Para cada contrato ativo, usa seu snapshot mais recente. O percentual consolidado só é calculado quando existe exatamente um registro válido por contrato nesse snapshot; se houver múltiplos registros por curso, estágio ou professor, a MIRA preserva os fatos separados e deixa o percentual desconhecido até validar a regra de agregação. Snapshots não são somados entre semanas.
 
 ### Limites conhecidos
 - A API BI documentada não apresenta um campo confiável de último login; `dias_sem_login` permanece desconhecido.
