@@ -149,11 +149,34 @@ def enrich_jacad_students(
         metadata[matricula] = {
             "id_aluno": provider_id,
             "ra": ra,
+            "organizacao_id": source.get("idOrg"),
+            "organizacao": _text(source.get("orgDescricao")),
             "id_matriculas": sorted({
                 str(item.get("idMatricula")) for item in enrollment_rows
                 if item.get("idMatricula") is not None
             }),
-            "status_matricula": row.get("status_aluno"),
+            "matriculas": [
+                {
+                    "id_matricula": item.get("idMatricula"),
+                    "status": _status(item),
+                    "id_periodo_letivo": item.get("idPeriodoLetivo"),
+                    "periodo_letivo": _text(item.get("periodoLetivo")),
+                    "id_curso_base": item.get("idCursoBase"),
+                    "curso": _text(item.get("curso")),
+                    "id_matriz": item.get("idCursoMatriz"),
+                    "matriz": _text(item.get("matriz")),
+                    "id_turma": item.get("idTurma"),
+                    "turma": _text(item.get("turma")),
+                    "id_unidade_fisica": item.get("idUnidadeFisica"),
+                    "unidade_fisica": _text(item.get("unidadeFisica")),
+                    "data_matricula": item.get("dataMatricula"),
+                    "data_ativacao": item.get("dataAtivacao"),
+                    "data_trancamento": item.get("dataTrancamento"),
+                    "id_contrato": item.get("idContrato"),
+                    "contrato_entregue": item.get("contratoEntregue"),
+                }
+                for item in enrollment_rows
+            ],
             "financial_summaries": [
                 {
                     "id_matricula": item.get("idMatricula"),
