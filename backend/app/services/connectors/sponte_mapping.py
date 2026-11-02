@@ -255,6 +255,24 @@ def build_student_payloads(
             str(row.get("contrato_id")) for row in latest_facts
             if row.get("contrato_id") is not None
         }
+        active_contracts = [
+            row for row in contracts
+            if row.get("contrato_id") is not None
+            and str(row.get("contrato_id")) in active_contract_ids
+        ]
+        active_contracts.sort(key=lambda row: as_date(
+            row.get("data_contrato") or row.get("data_inicio") or row.get("data_matricula") or row.get("inicio_atividades")
+        ) or date.min)
+        current_contract = active_contracts[-1] if active_contracts else {}
+        course = catalogs.get("cursos", {}).get(str(current_contract.get("curso_id")), {})
+        turma = catalogs.get("turmas", {}).get(str(current_contract.get("turma_id")), {})
+        estagio = catalogs.get("estagios", {}).get(str(current_contract.get("estagio_id")), {})
+        if course.get("excluido"):
+            course = {}
+        if turma.get("excluido"):
+            turma = {}
+        if estagio.get("excluido"):
+            estagio = {}
 
         # Financial facts are scoped to contracts present in the latest active-contract snapshot.
         # Without that snapshot, historical receivables are not safe to classify as current debt.
@@ -277,7 +295,7 @@ def build_student_payloads(
         overdue = []
         due_date_unknown = False
         balance = 0.0
-        balance_complete = not unknown_status
+        balance_complete = bool(active_contract_ids) and not unknown_status
         for row in pending:
             due = as_date(row.get("data_vencimento"))
             if due is None:
@@ -298,7 +316,7 @@ def build_student_payloads(
             financial_status = "EM_ABERTO"
         elif active_contract_ids and not receivables:
             financial_status = "SEM_FINANCEIRO"
-        elif all(str(row.get("situacao") or "").strip().casefold() in paid_statuses for row in receivables):
+        elif receivables and all(str(row.get("situacao") or "").strip().casefold() in paid_statuses for row in receivables):
             financial_status = "PAGO"
         else:
             financial_status = None
@@ -361,7 +379,7 @@ def build_student_payloads(
             "Semestre": latest_note.get("semestre") or current_contract.get("semestre") or turma.get("semestre"),
             "Email": profile.get("email") or student.email,
             "Telefone": profile.get("telefone") or student.telefone,
-            "DiasAtraso": None if (due_date_unknown or unknown_status) else (max(overdue) if overdue else 0),
+            "DiasAtraso": None if (not active_contract_ids or due_date_unknown or unknown_status) else (max(overdue) if overdue else 0),
             # Current overdue installments are not historical delinquency recurrence.
             "QtdAtrasos": None,
             "SaldoDevedor": balance if balance_complete else None,
