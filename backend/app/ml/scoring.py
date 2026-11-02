@@ -35,7 +35,11 @@ def score_student_dict(student_data: dict) -> dict[str, Any]:
     proba = float(predict_proba(model, X)[0])
     model_score = probability_to_risk_score(proba)
     rules = apply_business_rules(features, model_score)
-    top_factors = explain_instance(features, top_k=3)
+    meta = load_meta()
+    model_version = str(meta.get("version", "unknown"))
+    top_factors = explain_instance(
+        features, top_k=3, model=model, model_scope="base", model_version=model_version
+    )
     return {
         "risk_score": rules["adjusted_score"],
         "model_score": rules["model_score"],
@@ -50,6 +54,25 @@ def score_student_dict(student_data: dict) -> dict[str, Any]:
         "confidence": rules["confidence"],
         "missing_features": [],
         "data_quality": quality,
+        "model_scope": "base",
+        "model_version": model_version,
+        "explanation_metadata": {
+            "available": bool(top_factors),
+            "method": "SHAP TreeExplainer",
+            "explained_output": "raw_estimator_output",
+            "calibration_included": False,
+            "rules_included": False,
+            "dynamic_adjustment_included": False,
+            "model_scope": "base",
+            "model_version": model_version,
+        },
+        "rule_adjustments": rules["rule_adjustments"],
+        "score_breakdown": {
+            "model_score": rules["model_score"],
+            "business_rule_adjustment": rules["rule_boost"],
+            "dynamic_adjustment": 0.0,
+            "final_score": rules["adjusted_score"],
+        },
     }
 
 
@@ -168,9 +191,12 @@ async def score_batch(
             proba = float(probas[index])
             model_score = probability_to_risk_score(proba)
             rules = apply_business_rules(features, model_score)
-            top_factors = explain_instance(features, top_k=3) if explain else []
+            top_factors = explain_instance(
+                features, top_k=3, model=model, model_scope=model_scope,
+                model_version=str(model_version),
+            ) if explain else []
             dynamic_adjustment = float(student.dynamic_risk_adjustment or 0.0)
-            final_score = round(min(100.0, rules["adjusted_score"] + dynamic_adjustment), 1)
+            final_score = round(min(100.0, max(0.0, rules["adjusted_score"] + dynamic_adjustment)), 1)
             final_level = classify_risk_score(final_score)
 
             student.model_risk_score = rules["adjusted_score"]
@@ -187,6 +213,24 @@ async def score_batch(
                 "rule_boost": rules["rule_boost"],
                 "recommended_actions": rules["recommended_actions"],
                 "confidence": rules["confidence"],
+                "confidence_basis": rules["confidence_basis"],
+                "rule_adjustments": rules["rule_adjustments"],
+                "score_breakdown": {
+                    "model_score": rules["model_score"],
+                    "business_rule_adjustment": rules["rule_boost"],
+                    "dynamic_adjustment": dynamic_adjustment,
+                    "final_score": final_score,
+                },
+                "explanation_metadata": {
+                    "available": bool(top_factors),
+                    "method": "SHAP TreeExplainer" if top_factors else None,
+                    "explained_output": "raw_estimator_output" if top_factors else None,
+                    "calibration_included": False,
+                    "rules_included": False,
+                    "dynamic_adjustment_included": False,
+                    "model_scope": model_scope,
+                    "model_version": str(model_version) if model_version is not None else None,
+                },
                 "model_scope": model_scope,
                 "model_version": str(model_version) if model_version is not None else None,
                 "data_quality": quality,
@@ -215,8 +259,26 @@ async def score_batch(
                     "probability": round(proba, 4),
                     "rule_flags": rules["rule_flags"],
                     "rule_boost": rules["rule_boost"],
+                    "rule_adjustments": rules["rule_adjustments"],
                     "recommended_actions": rules["recommended_actions"],
                     "confidence": rules["confidence"],
+                    "confidence_basis": rules["confidence_basis"],
+                    "score_breakdown": {
+                        "model_score": rules["model_score"],
+                        "business_rule_adjustment": rules["rule_boost"],
+                        "dynamic_adjustment": dynamic_adjustment,
+                        "final_score": final_score,
+                    },
+                    "explanation_metadata": {
+                        "available": bool(top_factors),
+                        "method": "SHAP TreeExplainer" if top_factors else None,
+                        "explained_output": "raw_estimator_output" if top_factors else None,
+                        "calibration_included": False,
+                        "rules_included": False,
+                        "dynamic_adjustment_included": False,
+                        "model_scope": model_scope,
+                        "model_version": str(model_version) if model_version is not None else None,
+                    },
                     "data_quality": quality,
                 },
                 context={"batch_id": batch_id, "source": "score_batch", "feature_schema_version": FEATURE_SCHEMA_VERSION},
@@ -233,6 +295,13 @@ async def score_batch(
                 "matricula": student.matricula, "nome": student.nome,
                 "risk_score": final_score, "risk_level": final_level,
                 "confidence": rules["confidence"],
+                "rule_adjustments": rules["rule_adjustments"],
+                "score_breakdown": {
+                    "model_score": rules["model_score"],
+                    "business_rule_adjustment": rules["rule_boost"],
+                    "dynamic_adjustment": dynamic_adjustment,
+                    "final_score": final_score,
+                },
                 "dynamic_risk_adjustment": dynamic_adjustment,
                 "recommended_actions": rules["recommended_actions"][:2],
             })
