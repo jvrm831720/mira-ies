@@ -271,7 +271,7 @@ export default function DadosIntegracoesPage() {
                     className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
                 </label>
                 <label className="space-y-1.5 text-sm">
-                  <span className="font-medium">ID da organização (opcional)</span>
+                  <span className="font-medium">ID da organização (obrigatório para sincronização completa)</span>
                   <input value={jacadOrgId} onChange={(e) => setJacadOrgId(e.target.value.replace(/[^0-9]/g, ""))}
                     placeholder="Ex.: 1" inputMode="numeric"
                     className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
@@ -318,20 +318,20 @@ export default function DadosIntegracoesPage() {
                   Testar conexão
                 </Button>
                 <Button type="button" variant="secondary"
-                  disabled={jacadBusy || !jacadConnection.data?.configured || jacadConnection.data?.status !== "connected"}
+                  disabled={jacadBusy || !jacadConnection.data?.configured || !jacadConnection.data?.default_org_id || jacadConnection.data?.status !== "connected"}
                   onClick={async () => {
                     setJacadBusy(true); setJacadAction("sync");
                     try {
                       const response = await api.syncJacad();
                       await jacadConnection.refetch();
-                      toast.success("Sincronização concluída · " + response.students_imported + " aluno(s) importado(s)");
+                      toast.success("Sync concluído · " + response.students_imported + " alunos · " + response.enrollments_received + " matrículas · " + response.students_with_financial_status + " com status financeiro");
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : "Falha na sincronização JACAD");
                       await jacadConnection.refetch();
                     } finally { setJacadBusy(false); setJacadAction(null); }
                   }}>
                   {jacadAction === "sync" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-                  Sincronizar alunos
+                  Sincronizar dados acadêmicos e financeiros
                 </Button>
               </div>
               <div className="rounded-xl border border-border bg-muted/20 p-3 text-sm">
@@ -346,7 +346,7 @@ export default function DadosIntegracoesPage() {
                 {jacadConnection.data?.last_error && <p className="mt-2 text-xs text-destructive">{jacadConnection.data.last_error}</p>}
               </div>
               <p className="text-xs text-muted-foreground">
-                Nesta primeira etapa, a sincronização importa cadastro de alunos. Notas, frequência, acesso e financeiro ainda não alimentam o score até que seus endpoints e significados sejam homologados. O sync não calcula risco automaticamente.
+                A sincronização importa alunos, matrículas e resumo financeiro por matrícula. O status financeiro e os dias de atraso derivados da parcela vencida são armazenados com rastreabilidade. Recorrência de atrasos, saldo total, notas, frequência e acesso não são inferidos. O score automático permanece desativado até a cobertura preditiva estar completa.
               </p>
             </CardContent>
           </Card>
