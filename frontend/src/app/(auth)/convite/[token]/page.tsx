@@ -20,6 +20,10 @@ export default function AcceptInvitePage() {
   const [phone, setPhone] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mfaSetupTicket, setMfaSetupTicket] = useState("");
+  const [mfaEnrollment, setMfaEnrollment] = useState<{secret:string; qr_code:string} | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,7 +47,14 @@ export default function AcceptInvitePage() {
         phone: phone.trim(),
         display_name: displayName.trim() || undefined,
       });
-      if (res.access_token) {
+      if ("mfa_enrollment_required" in res && res.mfa_enrollment_required) {
+        setMfaSetupTicket(res.challenge_token);
+        const enrollment = await api.beginRequiredMfaEnrollment(res.challenge_token);
+        setMfaEnrollment(enrollment);
+        toast.message("A instituição exige MFA. Configure seu aplicativo autenticador para concluir o acesso.");
+        return;
+      }
+      if ("access_token" in res && res.access_token) {
         setAccessToken(res.access_token);
       }
       toast.success("Conta criada. Bem-vindo à organização!");
@@ -54,6 +65,22 @@ export default function AcceptInvitePage() {
           ? err.message
           : "Não foi possível concluir o convite. Verifique o link ou peça um novo.";
       toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function confirmRequiredMfa() {
+    setLoading(true);
+    try {
+      const result = await api.confirmRequiredMfaEnrollment(mfaSetupTicket, mfaCode);
+      setAccessToken(result.access_token);
+      setRecoveryCodes(result.recovery_codes);
+      setMfaEnrollment(null);
+      setMfaCode("");
+      toast.success("MFA ativado. Guarde os códigos de recuperação.");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível concluir a configuração do MFA.");
     } finally {
       setLoading(false);
     }
@@ -72,6 +99,26 @@ export default function AcceptInvitePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {recoveryCodes ? (
+            <div className="space-y-4">
+              <p className="text-sm font-semibold text-amber-900">Guarde seus códigos de recuperação</p>
+              <p className="text-xs text-amber-800">Cada código pode ser usado uma única vez. Eles não serão exibidos novamente.</p>
+              <div className="grid grid-cols-2 gap-2">{recoveryCodes.map((item) => <code key={item} className="rounded bg-amber-50 p-2 text-center text-xs">{item}</code>)}</div>
+              <Button type="button" variant="outline" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\\n"))}>Copiar códigos</Button>
+              <Button type="button" className="w-full" onClick={() => router.replace("/")}>Já guardei — entrar</Button>
+            </div>
+          ) : mfaEnrollment ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Esta instituição exige autenticação multifator. Escaneie o QR Code no Google Authenticator, Microsoft Authenticator ou 1Password.</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={mfaEnrollment.qr_code} alt="QR Code para configurar MIRA no aplicativo autenticador" className="mx-auto h-48 w-48" />
+              <p className="break-all rounded-lg bg-muted p-2 font-mono text-xs">{mfaEnrollment.secret}</p>
+              <Input value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\\D/g, "").slice(0,6))} inputMode="numeric" placeholder="Código de 6 dígitos" maxLength={6} />
+              <Button type="button" className="w-full" onClick={confirmRequiredMfa} disabled={loading || mfaCode.length !== 6}>
+                {loading ? "Confirmando…" : "Ativar MFA e concluir acesso"}
+              </Button>
+            </div>
+          ) : (
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="name">
@@ -125,6 +172,7 @@ export default function AcceptInvitePage() {
               {loading ? "Ativando…" : "Criar acesso e entrar"}
             </Button>
           </form>
+          )}
         </CardContent>
       </Card>
     </div>
