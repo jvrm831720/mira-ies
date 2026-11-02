@@ -80,15 +80,18 @@ def test_sponte_mapping_derives_finance_and_latest_attendance_without_global_gra
             "sponte": {
                 "profile": {"nome": "Ana", "situacao_aluno": "Ativo", "email": "ana@example.com"},
                 "contratos": {"20": {"aluno_id": "101", "contrato_id": 20, "curso": "Direito", "turma": "D1"}},
+                "fatoalunosativos": {
+                    "active": {"aluno_id": "101", "contrato_id": 20, "data_extracao": "2026-11-01", "situacao": "Ativo"}
+                },
                 "contasreceber": {
-                    "a": {"aluno_id": "101", "situacao": "Pendente", "data_vencimento": "2026-10-20", "valor_total": 100, "valor_pago": 20},
-                    "b": {"aluno_id": "101", "situacao": "Pendente", "data_vencimento": "2026-11-05", "valor_total": 50, "valor_pago": 0},
-                    "c": {"aluno_id": "101", "situacao": "Pago", "data_vencimento": "2026-09-01", "valor_total": 80, "valor_pago": 80},
-                    "d": {"aluno_id": "101", "situacao": "Pendente", "data_vencimento": "2026-10-01", "valor_total": 90, "valor_pago": 0, "excluido": True},
+                    "a": {"aluno_id": "101", "contrato_id": 20, "situacao": "Pendente", "data_vencimento": "2026-10-20", "valor_total": 100, "valor_pago": 20},
+                    "b": {"aluno_id": "101", "contrato_id": 20, "situacao": "Pendente", "data_vencimento": "2026-11-05", "valor_total": 50, "valor_pago": 0},
+                    "c": {"aluno_id": "101", "contrato_id": 20, "situacao": "Pago", "data_vencimento": "2026-09-01", "valor_total": 80, "valor_pago": 80},
+                    "d": {"aluno_id": "101", "contrato_id": 20, "situacao": "Pendente", "data_vencimento": "2026-10-01", "valor_total": 90, "valor_pago": 0, "excluido": True},
                 },
                 "fatofrequenciaalunosativos": {
-                    "old": {"aluno_id": "101", "data_extracao": "2026-10-25", "aulas_assistidas": 5, "aulas_totais": 10},
-                    "new": {"aluno_id": "101", "data_extracao": "2026-11-01", "aulas_assistidas": 8, "aulas_totais": 10},
+                    "old": {"aluno_id": "101", "contrato_id": 20, "data_extracao": "2026-10-25", "aulas_assistidas": 5, "aulas_totais": 10},
+                    "new": {"aluno_id": "101", "contrato_id": 20, "data_extracao": "2026-11-01", "aulas_assistidas": 8, "aulas_totais": 10},
                 },
                 "notas": {
                     "n1": {"aluno_id": "101", "ano": 2026, "semestre": 1, "media": 8.5},
@@ -99,7 +102,7 @@ def test_sponte_mapping_derives_finance_and_latest_attendance_without_global_gra
     )
     [payload] = build_student_payloads([student], as_of=date(2026, 11, 2))
     assert payload["DiasAtraso"] == 13
-    assert payload["QtdAtrasos"] == 1
+    assert payload["QtdAtrasos"] is None
     assert payload["SaldoDevedor"] == 130
     assert payload["StatusFinanceiro"] == "VENCIDO"
     assert payload["Frequencia"] == 80
@@ -113,8 +116,10 @@ def test_sponte_mapping_does_not_infer_balance_when_payment_amount_is_missing():
         matricula="102", nome="Bia", curso=None, turma=None, email=None, telefone=None,
         raw_data={"sponte": {
             "profile": {"nome": "Bia"},
+            "contratos": {"30": {"aluno_id": "102", "contrato_id": 30}},
+            "fatoalunosativos": {"active": {"aluno_id": "102", "contrato_id": 30, "data_extracao": "2026-11-01"}},
             "contasreceber": {
-                "a": {"aluno_id": "102", "situacao": "Pendente", "data_vencimento": "2026-11-05", "valor_total": 100}
+                "a": {"aluno_id": "102", "contrato_id": 30, "situacao": "Pendente", "data_vencimento": "2026-11-05", "valor_total": 100}
             },
         }},
     )
@@ -128,8 +133,10 @@ def test_sponte_mapping_keeps_overdue_unknown_when_pending_due_date_is_missing()
         matricula="103", nome="Caio", curso=None, turma=None, email=None, telefone=None,
         raw_data={"sponte": {
             "profile": {"nome": "Caio"},
+            "contratos": {"40": {"aluno_id": "103", "contrato_id": 40}},
+            "fatoalunosativos": {"active": {"aluno_id": "103", "contrato_id": 40, "data_extracao": "2026-11-01"}},
             "contasreceber": {
-                "a": {"aluno_id": "103", "situacao": "Pendente", "valor_total": 100, "valor_pago": 0}
+                "a": {"aluno_id": "103", "contrato_id": 40, "situacao": "Pendente", "valor_total": 100, "valor_pago": 0}
             },
         }},
     )
@@ -144,8 +151,10 @@ def test_sponte_mapping_does_not_treat_unknown_receivable_status_as_paid():
         matricula="104", nome="Davi", curso=None, turma=None, email=None, telefone=None,
         raw_data={"sponte": {
             "profile": {"nome": "Davi"},
+            "contratos": {"50": {"aluno_id": "104", "contrato_id": 50}},
+            "fatoalunosativos": {"active": {"aluno_id": "104", "contrato_id": 50, "data_extracao": "2026-11-01"}},
             "contasreceber": {
-                "a": {"aluno_id": "104", "situacao": "Em negociação", "valor_total": 100, "valor_pago": 0}
+                "a": {"aluno_id": "104", "contrato_id": 50, "situacao": "Em negociação", "valor_total": 100, "valor_pago": 0}
             },
         }},
     )
@@ -153,3 +162,53 @@ def test_sponte_mapping_does_not_treat_unknown_receivable_status_as_paid():
     assert payload["StatusFinanceiro"] is None
     assert payload["SaldoDevedor"] is None
     assert payload["DiasAtraso"] is None
+
+
+def test_sponte_mapping_scopes_finance_and_frequency_to_latest_active_contract_snapshot():
+    student = SimpleNamespace(
+        matricula="105", nome="Eva", curso=None, turma=None, email=None, telefone=None,
+        raw_data={"sponte": {
+            "contratos": {
+                "1": {"aluno_id": "105", "contrato_id": 1, "data_contrato": "2024-01-01"},
+                "2": {"aluno_id": "105", "contrato_id": 2, "data_contrato": "2025-01-01"},
+                "3": {"aluno_id": "105", "contrato_id": 3, "data_contrato": "2026-01-01"},
+            },
+            "fatoalunosativos": {
+                "old": {"aluno_id": "105", "contrato_id": 1, "data_extracao": "2026-10-31"},
+                "active-2": {"aluno_id": "105", "contrato_id": 2, "data_extracao": "2026-11-01"},
+                "active-3": {"aluno_id": "105", "contrato_id": 3, "data_extracao": "2026-11-01"},
+            },
+            "contasreceber": {
+                "old-debt": {"aluno_id": "105", "contrato_id": 1, "situacao": "Pendente", "data_vencimento": "2026-09-01", "valor_total": 1000, "valor_pago": 0},
+                "active-overdue": {"aluno_id": "105", "contrato_id": 2, "situacao": "Pendente", "data_vencimento": "2026-10-30", "valor_total": 50, "valor_pago": 0},
+                "active-open": {"aluno_id": "105", "contrato_id": 3, "situacao": "Pendente", "data_vencimento": "2026-11-05", "valor_total": 100, "valor_pago": 0},
+            },
+            "fatofrequenciaalunosativos": {
+                "old": {"aluno_id": "105", "contrato_id": 1, "data_extracao": "2026-11-01", "aulas_assistidas": 99, "aulas_totais": 100},
+                "active-2": {"aluno_id": "105", "contrato_id": 2, "data_extracao": "2026-11-01", "aulas_assistidas": 8, "aulas_totais": 10},
+                "active-3": {"aluno_id": "105", "contrato_id": 3, "data_extracao": "2026-10-31", "aulas_assistidas": 9, "aulas_totais": 10},
+            },
+        }},
+    )
+    [payload] = build_student_payloads([student], as_of=date(2026, 11, 2))
+    assert payload["DiasAtraso"] == 3
+    assert payload["QtdAtrasos"] is None
+    assert payload["SaldoDevedor"] == 150
+    assert payload["StatusFinanceiro"] == "VENCIDO"
+    assert payload["Frequencia"] == 85
+
+
+def test_sponte_mapping_does_not_assume_zero_debt_or_paid_without_active_contract_snapshot():
+    student = SimpleNamespace(
+        matricula="106", nome="Ivo", curso=None, turma=None, email=None, telefone=None,
+        raw_data={"sponte": {
+            "contasreceber": {
+                "old": {"aluno_id": "106", "contrato_id": 60, "situacao": "Pendente", "data_vencimento": "2026-10-01", "valor_total": 100, "valor_pago": 0}
+            }
+        }},
+    )
+    [payload] = build_student_payloads([student], as_of=date(2026, 11, 2))
+    assert payload["StatusFinanceiro"] is None
+    assert payload["DiasAtraso"] is None
+    assert payload["SaldoDevedor"] is None
+    assert payload["Frequencia"] is None
