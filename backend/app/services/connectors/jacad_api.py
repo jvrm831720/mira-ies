@@ -217,6 +217,48 @@ class JacadApiClient:
                 return records
         raise JacadConnectionError("Limite de páginas de contratos JACAD atingido.")
 
+    async def fetch_page_collection(
+        self, path: str, *, params: dict, page_size: int = 500, max_pages: int = 1000
+    ) -> list[dict]:
+        """Fetch endpoints using currentPage pagination; never silently truncate."""
+        size = min(max(int(page_size), 1), 500)
+        records: list[dict] = []
+        for current_page in range(1, max_pages + 1):
+            payload = await self.get(
+                path, {**params, "pageSize": size, "currentPage": current_page}
+            )
+            if not isinstance(payload, dict) or not isinstance(payload.get("elements"), list):
+                raise JacadConnectionError(f"Resposta JACAD sem lista elements em {path}.")
+            elements = [item for item in payload["elements"] if isinstance(item, dict)]
+            records.extend(elements)
+            page = payload.get("page") if isinstance(payload.get("page"), dict) else {}
+            total_pages = page.get("totalPages")
+            if total_pages is not None:
+                if current_page >= int(total_pages):
+                    return records
+            elif not elements or len(elements) < size:
+                return records
+            if not elements:
+                return records
+        raise JacadConnectionError(f"Limite de páginas JACAD atingido em {path}; sync parcial não foi concluído.")
+
+    async def fetch_enrollment_disciplines(self, enrollment_id: int) -> list[dict]:
+        return await self.fetch_page_collection(
+            "/api/v1/academico/matricula-disciplina",
+            params={"idMatricula": int(enrollment_id)},
+            page_size=500,
+        )
+
+    async def fetch_assessment_notes(self, class_id: int, discipline_teacher_id: int) -> list[dict]:
+        return await self.fetch_page_collection(
+            "/api/v1/academico/notas/consultar",
+            params={
+                "codigoDaTurma": int(class_id),
+                "codigoDisciplinaProfessor": int(discipline_teacher_id),
+            },
+            page_size=500,
+        )
+
     async def fetch_contract_installments(self, contract_id: int) -> list[dict]:
         payload = await self.get(f"/api/v1/financeiro/contratos-matricula/{int(contract_id)}/parcelas")
         if not isinstance(payload, list):
