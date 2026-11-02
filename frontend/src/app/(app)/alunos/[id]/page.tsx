@@ -151,7 +151,13 @@ export default function StudentDetailPage() {
     null;
 
   const factors = (data?.shap_top_factors?.top_3 || [])
-    .map((f) => businessText(f.label) || businessText(f.feature))
+    .map((factor) => {
+      const label = businessText(factor.label) || businessText(factor.feature);
+      if (!label) return null;
+      if (factor.contribution === "aumenta_saida_modelo") return "Eleva a saída do estimador: " + label;
+      if (factor.contribution === "reduz_saida_modelo") return "Reduz a saída do estimador: " + label;
+      return label;
+    })
     .filter(Boolean) as string[];
 
   const actions = (
@@ -294,7 +300,7 @@ export default function StudentDetailPage() {
               <div className="space-y-4">
                 <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
                   <h2 className="text-[15px] font-semibold text-[#111827]">Análise de risco</h2>
-                  <p className="mt-1 text-[12px] text-[#667085]">Fatores retornados pela avaliação atual. Correlação não implica causalidade.</p>
+                  <p className="mt-1 text-[12px] text-[#667085]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
                   {summaryText ? (
                     <p className="mt-4 text-[13px] leading-relaxed text-[#344054]">{summaryText}</p>
                   ) : (
