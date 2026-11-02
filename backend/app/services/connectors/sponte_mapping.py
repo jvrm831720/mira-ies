@@ -247,11 +247,14 @@ def build_student_payloads(
         ]
         pending = [row for row in receivables if str(row.get("situacao") or "").strip().casefold() == "pendente"]
         overdue = []
+        due_date_unknown = False
         balance = 0.0
         balance_complete = True
         for row in pending:
             due = as_date(row.get("data_vencimento"))
-            if due and due < as_of:
+            if due is None:
+                due_date_unknown = True
+            elif due < as_of:
                 overdue.append((as_of - due).days)
             total = as_number(row.get("valor_total"))
             paid = as_number(row.get("valor_pago"))
@@ -262,6 +265,8 @@ def build_student_payloads(
         paid_statuses = {"pago", "paga", "quitado", "quitada"}
         if overdue:
             financial_status = "VENCIDO"
+        elif pending and due_date_unknown:
+            financial_status = None
         elif pending:
             financial_status = "EM_ABERTO"
         elif not receivables:
@@ -306,8 +311,8 @@ def build_student_payloads(
             "Semestre": latest_note.get("semestre") or current_contract.get("semestre") or turma.get("semestre"),
             "Email": profile.get("email") or student.email,
             "Telefone": profile.get("telefone") or student.telefone,
-            "DiasAtraso": max(overdue) if overdue else 0,
-            "QtdAtrasos": len(overdue),
+            "DiasAtraso": None if due_date_unknown else (max(overdue) if overdue else 0),
+            "QtdAtrasos": None if due_date_unknown else len(overdue),
             "SaldoDevedor": balance if balance_complete else None,
             "StatusFinanceiro": financial_status,
             "SituacaoAluno": profile.get("situacao_aluno") or latest_fact.get("situacao"),
