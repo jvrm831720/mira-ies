@@ -119,10 +119,14 @@ class MfaLoginChallenge(Base):
 class MfaRecoveryCode(Base):
     """Código de recuperação com hash individual e consumo único."""
     __tablename__ = "mira_mfa_recovery_codes"
-    __table_args__ = (Index("ix_mira_mfa_recovery_codes_user", "user_id", "used_at"),)
+    __table_args__ = (
+        Index("ix_mira_mfa_recovery_codes_user", "user_id", "used_at"),
+        Index("ix_mira_mfa_recovery_codes_tenant_id", "tenant_id"),
+    )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     code_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)

@@ -335,7 +335,7 @@ async def confirm_required_mfa_enrollment(
     user.auth_version += 1
     codes = generate_recovery_codes()
     for code in codes:
-        db.add(MfaRecoveryCode(user_id=user.id, code_hash=recovery_code_hash(code)))
+        db.add(MfaRecoveryCode(user_id=user.id, tenant_id=user.tenant_id, code_hash=recovery_code_hash(code)))
     challenge.consumed_at = _now()
     _audit(db, tenant.id, user.id, "mfa_enabled_by_policy")
     response = _auth_response(db, user, tenant, request, aal=2)
@@ -416,7 +416,7 @@ async def confirm_mfa(
     _record_mfa_success(user)
     codes = generate_recovery_codes()
     for code in codes:
-        db.add(MfaRecoveryCode(user_id=user.id, code_hash=recovery_code_hash(code)))
+        db.add(MfaRecoveryCode(user_id=user.id, tenant_id=user.tenant_id, code_hash=recovery_code_hash(code)))
     _audit(db, auth.tenant_id, user.id, "mfa_enabled")
     token, ttl = create_user_session(db, user, auth.tenant, request, aal=2)
     await db.commit()
@@ -473,7 +473,7 @@ async def regenerate_recovery_codes(
     )
     codes = generate_recovery_codes()
     for code in codes:
-        db.add(MfaRecoveryCode(user_id=user_id, code_hash=recovery_code_hash(code)))
+        db.add(MfaRecoveryCode(user_id=user_id, tenant_id=auth.tenant_id, code_hash=recovery_code_hash(code)))
     _audit(db, auth.tenant_id, user.id, "recovery_codes_regenerated")
     await db.commit()
     return {"recovery_codes": codes}
