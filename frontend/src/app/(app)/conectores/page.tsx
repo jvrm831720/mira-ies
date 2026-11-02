@@ -368,7 +368,7 @@ export default function DadosIntegracoesPage() {
                 </span>
               </label>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" disabled={sponteBusy || sponteJobRunning || !sponteClientCode || !sponteInitialDate || (!sponteApiKey.trim() && !sponteConnection.data?.credential_configured)}
+                <Button type="button" disabled={sponteBusy || sponteJobRunning || !sponteClientCode || !sponteInitialDate || (!sponteApiKey.trim() && !sponteConnection.data?.credential_configured) || (Boolean(sponteConnection.data?.client_code) && Number(sponteClientCode) !== sponteConnection.data?.client_code && !sponteApiKey.trim())}
                   onClick={async () => {
                     setSponteBusy(true);
                     try {
