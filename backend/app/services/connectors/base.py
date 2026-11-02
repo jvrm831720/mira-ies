@@ -11,6 +11,9 @@ from pydantic import BaseModel, Field
 CANONICAL_FIELDS = [
     "matricula",
     "nome",
+    "status_aluno",
+    "saldo_devedor",
+    "status_financeiro",
     "curso",
     "turma",
     "semestre",
@@ -30,6 +33,9 @@ CANONICAL_FIELDS = [
 class CanonicalStudent(BaseModel):
     matricula: str
     nome: str
+    status_aluno: str | None = None
+    saldo_devedor: float | None = None
+    status_financeiro: str | None = None
     curso: str | None = None
     turma: str | None = None
     semestre: int | None = None
