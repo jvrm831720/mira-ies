@@ -310,9 +310,17 @@ async def _run_sync(job_id: str, redis: Redis):
             async def fetch_installments(cid: str):
                 async with semaphore:
                     return await client.fetch_contract_installments(int(cid))
-            fetched = await asyncio.gather(*(fetch_installments(cid) for cid, _ in chunk))
+            fetched = await asyncio.gather(
+                *(fetch_installments(cid) for cid, _ in chunk), return_exceptions=True
+            )
             updates: dict[str, dict[str, Any]] = {}
+            successful_contracts = []
+            failures = []
             for (cid, ra), rows in zip(chunk, fetched):
+                if isinstance(rows, Exception):
+                    failures.append(rows)
+                    continue
+                successful_contracts.append(cid)
                 normalized = [{
                     "id_transacao": x.get("idTransacao"), "valor": x.get("valor"),
                     "valor_pago": x.get("valorPago"), "situacao": x.get("situacao"),
@@ -321,10 +329,12 @@ async def _run_sync(job_id: str, redis: Redis):
                 } for x in rows]
                 updates.setdefault(ra, {}).setdefault("installments_by_contract", {})[cid] = normalized
             await _save_metadata(tenant_id, updates)
-            await _mark(redis, job_id, "contracts", [cid for cid, _ in chunk])
-            progress["contracts_done"] += len(chunk)
+            await _mark(redis, job_id, "contracts", successful_contracts)
+            progress["contracts_done"] += len(successful_contracts)
             progress["percent"] = 30 + int(20 * progress["contracts_done"] / max(1, len(contracts)))
             await _update(redis, job_id, progress=progress)
+            if failures:
+                raise failures[0]
 
         # Stage 3: bulk class -> discipline -> enrolled students.
         # One class catalog request discovers discipline-teacher IDs; one bulk request
@@ -340,19 +350,42 @@ async def _run_sync(job_id: str, redis: Redis):
             for enrollment in ((student.raw_data or {}).get("jacad") or {}).get("matriculas", [])
             if enrollment.get("id_turma") is not None
         })
-        class_disciplines: dict[str, tuple[int, int]] = {}
-        for offset in range(0, len(class_ids), settings.jacad_sync_concurrency * 4):
-            class_chunk = class_ids[offset:offset + settings.jacad_sync_concurrency * 4]
+        class_catalog_key = _key(job_id) + ":class_catalog"
+        pending_classes = [
+            cid for cid in class_ids
+            if not await _done(redis, job_id, "classes", str(cid))
+        ]
+        for offset in range(0, len(pending_classes), settings.jacad_sync_concurrency * 4):
+            class_chunk = pending_classes[offset:offset + settings.jacad_sync_concurrency * 4]
             async def fetch_class(class_id: int):
                 async with semaphore:
                     return await client.fetch_class_disciplines(class_id)
-            catalogs = await asyncio.gather(*(fetch_class(cid) for cid in class_chunk))
+            catalogs = await asyncio.gather(
+                *(fetch_class(cid) for cid in class_chunk), return_exceptions=True
+            )
+            successful = []
+            failures = []
             for class_id, rows in zip(class_chunk, catalogs):
-                for row in rows:
-                    discipline_id = row.get("idDisciplinaProfessor")
-                    if discipline_id is not None:
-                        key = f"{class_id}:{int(discipline_id)}"
-                        class_disciplines[key] = (class_id, int(discipline_id))
+                if isinstance(rows, Exception):
+                    failures.append(rows)
+                    continue
+                ids = sorted({
+                    int(row["idDisciplinaProfessor"]) for row in rows
+                    if row.get("idDisciplinaProfessor") is not None
+                })
+                await redis.hset(class_catalog_key, str(class_id), _json(ids))
+                successful.append(str(class_id))
+            await _mark(redis, job_id, "classes", successful)
+            if failures:
+                raise failures[0]
+
+        saved_catalogs = await redis.hgetall(class_catalog_key)
+        class_disciplines: dict[str, tuple[int, int]] = {}
+        for class_id_text, discipline_ids_json in saved_catalogs.items():
+            for discipline_id in json.loads(discipline_ids_json):
+                class_id = int(class_id_text)
+                key = f"{class_id}:{int(discipline_id)}"
+                class_disciplines[key] = (class_id, int(discipline_id))
 
         pair_items = sorted(class_disciplines.items())
         pending = [(key, pair) for key, pair in pair_items if not await _done(redis, job_id, "disciplines", key)]
@@ -368,9 +401,17 @@ async def _run_sync(job_id: str, redis: Redis):
             async def fetch_discipline(pair: tuple[int, int]):
                 async with semaphore:
                     return await client.fetch_discipline_enrollments(pair[1])
-            fetched = await asyncio.gather(*(fetch_discipline(pair) for _, pair in chunk))
+            fetched = await asyncio.gather(
+                *(fetch_discipline(pair) for _, pair in chunk), return_exceptions=True
+            )
             updates: dict[str, dict[str, Any]] = {}
+            successful_pairs = []
+            failures = []
             for (key, _pair), rows in zip(chunk, fetched):
+                if isinstance(rows, Exception):
+                    failures.append(rows)
+                    continue
+                successful_pairs.append(key)
                 for row in rows:
                     ra = str(row.get("ra") or "").strip()
                     if not ra:
@@ -397,10 +438,12 @@ async def _run_sync(job_id: str, redis: Redis):
                         "data_modificacao": item.get("dataModificacao"),
                     } for item in rows if str(item.get("ra") or "").strip() == ra]
             await _save_metadata(tenant_id, updates)
-            await _mark(redis, job_id, "disciplines", [key for key, _ in chunk])
-            progress["discipline_enrollments_done"] += len(chunk)
+            await _mark(redis, job_id, "disciplines", successful_pairs)
+            progress["discipline_enrollments_done"] += len(successful_pairs)
             progress["percent"] = 55 + int(20 * progress["discipline_enrollments_done"] / max(1, len(pair_items)))
             await _update(redis, job_id, progress=progress)
+            if failures:
+                raise failures[0]
 
         # Stage 4: itemized assessment notes, one request per unique class/discipline pair.
         async with AsyncSessionLocal() as session:
@@ -419,9 +462,17 @@ async def _run_sync(job_id: str, redis: Redis):
             async def fetch_notes(pair: tuple[int, int]):
                 async with semaphore:
                     return await client.fetch_assessment_notes(pair[0], pair[1])
-            fetched = await asyncio.gather(*(fetch_notes(pair) for _, pair in chunk))
+            fetched = await asyncio.gather(
+                *(fetch_notes(pair) for _, pair in chunk), return_exceptions=True
+            )
             updates = {}
+            successful_pairs = []
+            failures = []
             for (key, _), rows in zip(chunk, fetched):
+                if isinstance(rows, Exception):
+                    failures.append(rows)
+                    continue
+                successful_pairs.append(key)
                 for row in rows:
                     ra = str(row.get("ra") or "").strip()
                     if not ra:
@@ -435,10 +486,12 @@ async def _run_sync(job_id: str, redis: Redis):
                         "itens_notas": x.get("itensNotas") or [],
                     } for x in rows if str(x.get("ra") or "").strip() == ra]
             await _save_metadata(tenant_id, updates)
-            await _mark(redis, job_id, "assessment", [key for key, _ in chunk])
-            progress["assessment_groups_done"] += len(chunk)
+            await _mark(redis, job_id, "assessment", successful_pairs)
+            progress["assessment_groups_done"] += len(successful_pairs)
             progress["percent"] = 78 + int(17 * progress["assessment_groups_done"] / max(1, len(pair_items)))
             await _update(redis, job_id, progress=progress)
+            if failures:
+                raise failures[0]
 
         progress.update({"stage": "completed", "percent": 100})
         result.update({
