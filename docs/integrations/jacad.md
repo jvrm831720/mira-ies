@@ -55,12 +55,16 @@ A sincronização agora consulta três conjuntos de dados em sequência: cadastr
 | `nome` | `nome` | Obrigatório para ingestão |
 | `email` | `email` | Opcional |
 | `dataAlteracao` | — | Data de alteração do registro, não é observação de cada atributo |
-| Matrículas: `idMatricula`, `idAluno`, `status`/`statusMatricula`, `curso`, `turma` | `status_aluno`, `curso`, `turma` | Junta por `idAluno` (fallback RA); prioriza matrícula `ATIVA` |
+| Matrículas: `idMatricula`, `idAluno`, `status`/`statusMatricula`, `curso`, `turma`, `periodoLetivo`, `idPeriodoLetivo`, `matriz`, `idCursoMatriz`, `unidadeFisica`, `idUnidadeFisica`, `dataMatricula`, `dataAtivacao`, `dataTrancamento`, `idContrato`, `contratoEntregue` | `status_aluno`, `curso`, `turma` + metadados acadêmicos | Junta por `idAluno` (fallback RA); prioriza matrícula `ATIVA`; preserva o contexto adicional em `raw_data.jacad.matriculas` |
 | Resumo: `situacaoFinanceira` | `status_financeiro` | Apenas os estados documentados: `VENCIDO`, `EM_ABERTO`, `PAGO`, `SEM_FINANCEIRO` |
 | Resumo: `dataVencimentoParcela` | `dias_atraso_boleto` | Só calcula quando `situacaoFinanceira=VENCIDO`; diferença entre data atual da sincronização e vencimento da parcela aberta de menor vencimento |
-| Resumo: `valorParcela` | Metadado de origem | É o valor da parcela aberta de menor vencimento, não saldo devedor total; fica em `raw_data.jacad` e não alimenta `saldo_devedor` |
+| Resumo: `statusContrato`, `contratoEntregue`, `valorParcela` | Metadado de origem | Situação/entrega do contrato e valor da parcela aberta de menor vencimento; ficam em `raw_data.jacad` e não alimentam saldo total |
 
 O identificador interno JACAD deve ser preservado no payload bruto. Não substituir o RA por `idAluno` quando o RA existir.
+
+### Metadados acadêmicos adicionais
+
+A sincronização também preserva, por matrícula, o contexto que a API entrega: período letivo, matriz curricular, unidade física/campus, datas de matrícula/ativação/trancamento, ID do contrato e indicador de entrega do contrato. Esses atributos ficam em `students.raw_data.jacad.matriculas`; não são convertidos em indicadores preditivos sem uma regra de negócio validada.
 
 ## 6. Limites semânticos e confiabilidade preditiva
 
@@ -106,7 +110,17 @@ A primeira versão oferece teste e sincronização sob demanda. Agendamento, che
 - Endpoints de configuração, teste e sync exigem papel de coordenador ou administrador.
 - Respostas e logs não expõem token ou JWT.
 
-## 9. Homologação pendente
+## 9. Recursos adicionais identificados e decisão de escopo
+
+A documentação atual também expõe:
+- **Notas por turma e disciplina:** `GET /api/v1/academico/notas/consultar`, com `mediaMatriculaDisciplina`, status da matrícula-disciplina e itens de avaliação. Exige os códigos da turma e da disciplina do professor. A MIRA ainda não agrega várias disciplinas/períodos em uma média única por aluno; não foi incluído no sync automático para evitar uma média sem regra institucional.
+- **Parcelas por contrato:** `GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas`, com valor, valor pago, vencimento, pagamento e situação. A consulta exige uma chamada por contrato. O endpoint foi identificado, mas não foi ativado em massa porque pode gerar milhares de chamadas por sincronização. Além disso, os valores possíveis de `situacao` e as regras de cancelamento, renegociação e baixa precisam ser homologados antes de calcular saldo ou recorrência.
+- **Frequência:** a documentação consultada descreve operações de lançamento de frequência, mas não confirmou um endpoint de leitura agregado que permita calcular presença percentual de forma confiável.
+- **Acesso/último login:** não foi identificado um endpoint acadêmico de leitura que represente último acesso do aluno ao AVA/portal com semântica adequada.
+
+Esses recursos são candidatos para uma próxima expansão após homologação com uma IES. A integração permanece somente leitura.
+
+## 10. Homologação pendente
 
 Para declarar a conexão validada em produção, é necessário testar com um ambiente real ou sandbox autorizado pela JACAD:
 - URL do ambiente e token com permissão de consulta;
