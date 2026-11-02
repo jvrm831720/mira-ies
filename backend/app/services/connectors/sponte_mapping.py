@@ -191,18 +191,21 @@ def build_student_payloads(
                 overdue.append((as_of - due).days)
             total = as_number(row.get("valor_total"))
             paid = as_number(row.get("valor_pago"))
-            if total is None:
+            if total is None or paid is None:
                 balance_complete = False
             else:
-                balance += max(0.0, total - (paid or 0.0))
+                balance += max(0.0, total - paid)
+        paid_statuses = {"pago", "paga", "quitado", "quitada"}
         if overdue:
             financial_status = "VENCIDO"
         elif pending:
             financial_status = "EM_ABERTO"
-        elif receivables:
+        elif not receivables:
+            financial_status = "SEM_FINANCEIRO"
+        elif all(str(row.get("situacao") or "").strip().casefold() in paid_statuses for row in receivables):
             financial_status = "PAGO"
         else:
-            financial_status = "SEM_FINANCEIRO"
+            financial_status = None
 
         attendance = [
             row for row in (sponte.get("fatofrequenciaalunosativos") or {}).values()
