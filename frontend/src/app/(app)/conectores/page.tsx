@@ -280,17 +280,17 @@ export default function DadosIntegracoesPage() {
               <label className="block space-y-1.5 text-sm">
                 <span className="font-medium">Token de acesso da API JACAD</span>
                 <input type="password" value={jacadToken} onChange={(e) => setJacadToken(e.target.value)}
-                  placeholder={jacadConnection.data?.credential_configured ? "Token salvo. Informe outro apenas para substituir." : "Cole o token gerado no JACAD"}
+                  placeholder={jacadConnection.data?.credential_configured ? "Token salvo. Deixe vazio para manter o token atual ou informe outro para substituir." : "Cole o token gerado no JACAD"}
                   autoComplete="new-password" maxLength={40}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
-                <span className="block text-xs text-muted-foreground">O token é cifrado no banco. A MIRA não o exibe novamente nem o registra em logs.</span>
+                <span className="block text-xs text-muted-foreground">O token é cifrado no banco. A MIRA não o exibe novamente nem o registra em logs. Se a conexão já estiver configurada, você pode atualizar a URL ou o ID da organização sem reenviar o token.</span>
               </label>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" disabled={jacadBusy || !jacadBaseUrl.trim() || !jacadToken.trim()}
+                <Button type="button" disabled={jacadBusy || !jacadBaseUrl.trim() || (!jacadToken.trim() && !jacadConnection.data?.credential_configured)}
                   onClick={async () => {
                     setJacadBusy(true);
                     try {
-                      await api.configureJacad({ base_url: jacadBaseUrl.trim(), api_token: jacadToken.trim(),
+                      await api.configureJacad({ base_url: jacadBaseUrl.trim(), ...(jacadToken.trim() ? { api_token: jacadToken.trim() } : {}),
                         default_org_id: jacadOrgId ? Number(jacadOrgId) : null });
                       setJacadToken("");
                       await jacadConnection.refetch();
@@ -300,7 +300,7 @@ export default function DadosIntegracoesPage() {
                     } finally { setJacadBusy(false); }
                   }}>
                   {jacadBusy && !jacadAction ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-                  Salvar conexão
+                  {jacadConnection.data?.configured ? "Salvar alterações" : "Salvar conexão"}
                 </Button>
                 <Button type="button" variant="outline" disabled={jacadBusy || !jacadConnection.data?.configured}
                   onClick={async () => {
@@ -345,9 +345,23 @@ export default function DadosIntegracoesPage() {
                 {jacadConnection.data?.last_sync_at && <p className="mt-1 text-xs text-muted-foreground">Última sincronização: {new Date(jacadConnection.data.last_sync_at).toLocaleString("pt-BR")} · {jacadConnection.data.last_sync_records || 0} registros</p>}
                 {jacadConnection.data?.last_error && <p className="mt-2 text-xs text-destructive">{jacadConnection.data.last_error}</p>}
               </div>
-              <p className="text-xs text-muted-foreground">
-                A sincronização importa alunos, matrículas e resumo financeiro por matrícula. O status financeiro e os dias de atraso derivados da parcela vencida são armazenados com rastreabilidade. Recorrência de atrasos, saldo total, notas, frequência e acesso não são inferidos. O score automático permanece desativado até a cobertura preditiva estar completa.
-              </p>
+              <div className="rounded-xl border border-border p-3">
+                <p className="text-sm font-medium">Dados buscados automaticamente</p>
+                <ul className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                  <li>• Cadastro do aluno e identificadores JACAD</li>
+                  <li>• Matrícula, situação e curso</li>
+                  <li>• Período letivo, matriz, turma e campus</li>
+                  <li>• Identificador e entrega do contrato</li>
+                  <li>• Situação financeira por matrícula</li>
+                  <li>• Vencimento e valor da parcela em aberto mais antiga</li>
+                </ul>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  A sincronização consulta a API JACAD diretamente. Não é necessário enviar planilha ou JSON para esta conexão.
+                  O histórico detalhado de parcelas e as notas exigem consultas adicionais e regras de agregação; ainda não entram no sync automático.
+                  Frequência e último acesso não são expostos por uma consulta de leitura equivalente na documentação consultada.
+                  Nenhum dado ausente é inventado e o score automático permanece desativado até a cobertura preditiva estar completa.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabPanel>
