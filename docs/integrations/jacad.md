@@ -29,7 +29,9 @@ A chave de acesso documentada tem limite de 40 caracteres. O JWT não é persist
 | Alunos | `GET /api/v2/academico/alunos` | Identidade, RA, nome, e-mail, organização e datas de cadastro/alteração |
 | Matrículas | `GET /api/v2/academico/matriculas` | Situação, aluno, RA, curso, turma e período letivo; consulta paginada por cursor |
 | Notas | `GET /api/v1/academico/notas/consultar` | Notas por turma e disciplina do professor; exige identificadores de turma e disciplina |
-| Resumo financeiro por matrícula | `GET /api/v2/financeiro/matriculas/resumo-financeiro` | Situação consolidada, contrato entregue, próxima parcela em aberto; exige `idOrg` |\n| Contratos de matrícula | `GET /api/v1/financeiro/contratos-matricula` | Relação de contratos por aluno/matrícula; paginação `currentPage` |\n| Parcelas do contrato | `GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas` | Detalhe de vencimento, valor, valor pago e situação de cada parcela |
+| Resumo financeiro por matrícula | `GET /api/v2/financeiro/matriculas/resumo-financeiro` | Situação consolidada, contrato entregue, próxima parcela em aberto; exige `idOrg` |
+| Contratos de matrícula | `GET /api/v1/financeiro/contratos-matricula` | Relação de contratos por aluno/matrícula; paginação `currentPage` |
+| Parcelas do contrato | `GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas` | Detalhe de vencimento, valor, valor pago e situação de cada parcela |
 
 Documentação consultada:
 - Autenticação: https://auden-developer.jacad.com.br/docs/auth
@@ -52,7 +54,11 @@ A sincronização agora consulta três conjuntos de dados em sequência: cadastr
 | `idAluno` | `matricula` | Fallback técnico quando RA não existe |
 | `nome` | `nome` | Obrigatório para ingestão |
 | `email` | `email` | Opcional |
-| `dataAlteracao` | — | Data de alteração do registro, não é observação de cada atributo |\n| Matrículas: `idMatricula`, `idAluno`, `status`/`statusMatricula`, `curso`, `turma` | `status_aluno`, `curso`, `turma` | Junta por `idAluno` (fallback RA); prioriza matrícula `ATIVA` |\n| Resumo: `situacaoFinanceira` | `status_financeiro` | Apenas os estados documentados: `VENCIDO`, `EM_ABERTO`, `PAGO`, `SEM_FINANCEIRO` |\n| Resumo: `dataVencimentoParcela` | `dias_atraso_boleto` | Só calcula quando `situacaoFinanceira=VENCIDO`; diferença entre data atual da sincronização e vencimento da parcela aberta de menor vencimento |\n| Resumo: `valorParcela` | Metadado de origem | É o valor da parcela aberta de menor vencimento, não saldo devedor total; fica em `raw_data.jacad` e não alimenta `saldo_devedor` |
+| `dataAlteracao` | — | Data de alteração do registro, não é observação de cada atributo |
+| Matrículas: `idMatricula`, `idAluno`, `status`/`statusMatricula`, `curso`, `turma` | `status_aluno`, `curso`, `turma` | Junta por `idAluno` (fallback RA); prioriza matrícula `ATIVA` |
+| Resumo: `situacaoFinanceira` | `status_financeiro` | Apenas os estados documentados: `VENCIDO`, `EM_ABERTO`, `PAGO`, `SEM_FINANCEIRO` |
+| Resumo: `dataVencimentoParcela` | `dias_atraso_boleto` | Só calcula quando `situacaoFinanceira=VENCIDO`; diferença entre data atual da sincronização e vencimento da parcela aberta de menor vencimento |
+| Resumo: `valorParcela` | Metadado de origem | É o valor da parcela aberta de menor vencimento, não saldo devedor total; fica em `raw_data.jacad` e não alimenta `saldo_devedor` |
 
 O identificador interno JACAD deve ser preservado no payload bruto. Não substituir o RA por `idAluno` quando o RA existir.
 
@@ -62,8 +68,9 @@ O cadastro de alunos e o resumo financeiro enriquecem a cobertura, mas não forn
 
 - `dataAlteracao` descreve alteração do registro; não prova quando cada campo foi observado.
 - `dataCriacao` não representa último acesso.
-- A lista de alunos não prova dias sem login, frequência, média, reprovações, recorrência de atraso ou dias de atraso.
-- O resumo financeiro por matrícula é uma evidência explícita de situação (`VENCIDO`, `EM_ABERTO`, `PAGO`, `SEM_FINANCEIRO`), mas ainda precisa ser relacionado à matrícula e homologado na instituição. O detalhe de parcelas expõe vencimento, valor, valor pago e situação.\n- Não inferir recorrência de atraso a partir de um resumo consolidado: a contagem histórica precisa ser derivada de parcelas/transações com regras de cancelamento, renegociação e baixa confirmadas.
+- A lista de alunos não prova dias sem login, frequência, média, reprovações ou recorrência de atraso. O resumo financeiro fornece evidência para situação financeira e, quando vencido, para calcular dias desde o vencimento da parcela aberta mais antiga informada.
+- O resumo financeiro por matrícula é uma evidência explícita de situação (`VENCIDO`, `EM_ABERTO`, `PAGO`, `SEM_FINANCEIRO`) e da próxima parcela em aberto. O detalhe de parcelas expõe vencimento, valor, valor pago e situação.
+- Não inferir recorrência de atraso a partir de um resumo consolidado: a contagem histórica precisa ser derivada de parcelas/transações com regras de cancelamento, renegociação e baixa confirmadas.
 - Notas são retornadas por turma/disciplina e precisam de regra documentada para agregação por aluno e período.
 - Frequência e acesso exigem endpoints e semântica específicos, ainda a homologar.
 
@@ -72,10 +79,13 @@ Portanto, o primeiro sync não inventa valores preditivos nem gera score automá
 ## 7. Estratégia de sincronização
 
 ### Primeira carga
-- Consulta paginada do cadastro de alunos.
-- Normalização para o schema canônico MIRA.
-- Ingestão vinculada ao tenant autenticado.
-- Score automático desabilitado nesta primeira fase.
+- Consulta paginada do cadastro de alunos e matrículas (v2).
+- Consulta paginada do resumo financeiro por matrícula (v2), com `idOrg` obrigatório.
+- Junção por `idAluno`, com fallback de RA.
+- Persistência de status acadêmico, curso/turma, situação financeira e dias de atraso quando a API informa vencimento de parcela vencida.
+- Preservação mínima dos IDs JACAD e resumo da parcela em `raw_data.jacad`; sem armazenar a resposta integral.
+- Proveniência registra `source_type=jacad_api` e horário de importação. Como `dataAlteracao` não é timestamp de observação por campo, `observed_at` permanece desconhecido.
+- Score automático permanece desabilitado.
 
 ### Incremental
 A API documenta filtros de alteração em alguns recursos, como `dataAlteracaoInicio`/`dataAlteracaoFim` em alunos e matrículas. A implementação inicial ainda faz leitura paginada completa. O incremental será habilitado somente depois de homologar o comportamento do cursor e dos filtros de alteração no ambiente real da IES.
@@ -104,7 +114,9 @@ Para declarar a conexão validada em produção, é necessário testar com um am
 - campos reais e diferenças entre versões/instalações;
 - escopos/permissões do token;
 - limites de taxa e respostas 401/403/429;
-- matrículas e resumo financeiro com dados reais;\n- situação real de parcelas e regras de saldo/recorrência;\n- notas e frequência;
+- matrículas e resumo financeiro com dados reais;
+- consulta detalhada de parcelas por contrato e homologação dos estados de situação;\n- regras de saldo total e recorrência (cancelamentos, renegociações, baixas);
+- notas e frequência;
 - cadência e semântica dos timestamps por campo.
 
 **Conclusão:** a conexão nativa sincroniza cadastro, matrículas e resumo financeiro por organização. A situação financeira e os dias de atraso têm mapeamento explícito; recorrência, saldo total, notas, frequência e acesso continuam desconhecidos até homologação das fontes correspondentes. O score automático permanece desabilitado.
