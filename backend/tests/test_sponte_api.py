@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from app.services.connectors.erp import SponteConnector
-from app.services.connectors.sponte_api import SponteApiClient
+from app.services.connectors.sponte_api import SponteApiClient, SponteQuotaDeferred
 from app.services.connectors.sponte_mapping import build_student_payloads, compact_row, record_id
 
 
@@ -256,3 +256,18 @@ def test_sponte_mapping_normalizes_only_supported_academic_statuses():
     assert canonical_student_status("Concluído") == "Formado"
     assert canonical_student_status("Interessado") is None
     assert canonical_student_status("Situação não mapeada") is None
+
+
+@pytest.mark.asyncio
+async def test_sponte_api_client_honors_retry_after_for_http_429():
+    def handler(_request: httpx.Request):
+        return httpx.Response(429, headers={"Retry-After": "12"})
+
+    client = SponteApiClient("key", 10, transport=httpx.MockTransport(handler))
+    try:
+        with pytest.raises(SponteQuotaDeferred) as exc:
+            await client.fetch_page("alunos", extraction_date=date(2026, 11, 2))
+    finally:
+        await client.close()
+
+    assert exc.value.wait_seconds == 12
