@@ -1,6 +1,7 @@
 """Read-only client for the official Sponte BI extraction API."""
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import date
 from typing import Any
 
@@ -23,6 +24,12 @@ class SponteConnectionError(RuntimeError):
     pass
 
 
+class SponteQuotaDeferred(SponteConnectionError):
+    def __init__(self, wait_seconds: float):
+        self.wait_seconds = max(1.0, wait_seconds)
+        super().__init__("Quota horária conservadora da API Sponte atingida; sincronização pausada.")
+
+
 class SponteApiClient:
     def __init__(
         self,
@@ -31,9 +38,11 @@ class SponteApiClient:
         *,
         timeout: float = 30.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        request_guard: Callable[[], Awaitable[None]] | None = None,
     ):
         self.api_key = api_key
         self.client_code = int(client_code)
+        self.request_guard = request_guard
         self._client = httpx.AsyncClient(
             base_url=SPONTE_BASE_URL,
             timeout=timeout,
@@ -57,6 +66,8 @@ class SponteApiClient:
             raise ValueError("Endpoint Sponte não permitido.")
         size = min(max(int(page_size), 1), 1000)
         try:
+            if self.request_guard:
+                await self.request_guard()
             response = await self._client.get(
                 f"/api/v1/extracoes/{endpoint}",
                 params={
