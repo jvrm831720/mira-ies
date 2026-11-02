@@ -617,20 +617,36 @@ async def create_batch_and_students(
         merged = {**raw_row, **(raw_data or {})}
         previous = merged.get("_mira_provenance", {})
         provenance = dict(previous) if isinstance(previous, dict) else {}
+        connector_provenance = raw_row.get("__mira_provenance", {})
+        if not isinstance(connector_provenance, dict):
+            connector_provenance = {}
         for field in fields:
-            # Convenção de origem: coluna <campo>_observed_at. A coluna é
-            # mantida no raw_data mesmo sem mapeamento manual para um campo do aluno.
+            # Conectores entregam metadados explícitos por campo. Uploads de arquivo
+            # mantêm compatibilidade com a coluna <campo>_observed_at.
+            connector_metadata = connector_provenance.get(field, {})
+            if not isinstance(connector_metadata, dict):
+                connector_metadata = {}
             observation_column = f"{field}_observed_at"
-            observed_at = raw_row.get(observation_column)
-            provenance[field] = {
-                "source_type": "file_import",
+            observed_at = connector_metadata.get("observed_at")
+            if observed_at is None:
+                observed_at = raw_row.get(observation_column)
+            metadata = {
+                "source_type": connector_metadata.get("source_type") or "file_import",
                 "source_filename": original_filename,
                 "source_batch_id": batch.id,
                 "imported_at": imported_at,
-                # Sem timestamp de observação da origem, a atualidade é desconhecida.
+                # Recebimento/alteração do registro nunca substitui observação do campo.
                 "observed_at": safe_str(observed_at),
-                "observed_at_source_column": observation_column if safe_str(observed_at) else None,
+                "observed_at_source_column": (
+                    connector_metadata.get("observed_at_source")
+                    or (observation_column if safe_str(observed_at) else None)
+                ),
             }
+            for key in ("source_system", "source_field", "source_updated_at"):
+                value = connector_metadata.get(key)
+                if value is not None:
+                    metadata[key] = safe_str(value) if key != "source_updated_at" else value
+            provenance[field] = metadata
         merged["_mira_provenance"] = provenance
         return merged
 
