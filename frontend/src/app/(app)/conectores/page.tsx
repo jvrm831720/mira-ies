@@ -32,6 +32,11 @@ export default function DadosIntegracoesPage() {
   const [jacadBusy, setJacadBusy] = useState(false);
   const [jacadAction, setJacadAction] = useState<"test" | "sync" | null>(null);
   const [jacadJobId, setJacadJobId] = useState<string | null>(null);
+  const [sponteApiKey, setSponteApiKey] = useState("");
+  const [sponteClientCode, setSponteClientCode] = useState("");
+  const [sponteInitialDate, setSponteInitialDate] = useState("2025-01-01");
+  const [sponteBusy, setSponteBusy] = useState(false);
+  const [sponteJobId, setSponteJobId] = useState<string | null>(null);
 
   const catalog = useQuery({
     queryKey: ["connectors"],
@@ -44,6 +49,39 @@ export default function DadosIntegracoesPage() {
     queryFn: () => api.jacadConnection(),
     retry: false,
   });
+
+  const sponteConnection = useQuery({
+    queryKey: ["sponte-connection"],
+    queryFn: () => api.sponteConnection(),
+    retry: false,
+  });
+  const sponteCurrentSync = useQuery({
+    queryKey: ["sponte-sync-current"],
+    queryFn: () => api.sponteSyncCurrent(),
+    retry: false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && ["queued", "running", "retrying"].includes(status) ? 2000 : false;
+    },
+  });
+  const sponteSyncJob = useQuery({
+    queryKey: ["sponte-sync-job", sponteJobId],
+    queryFn: () => api.sponteSyncStatus(sponteJobId!),
+    enabled: Boolean(sponteJobId),
+    retry: false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && ["queued", "running", "retrying"].includes(status) ? 2000 : false;
+    },
+  });
+  useEffect(() => {
+    if (sponteCurrentSync.data?.job_id) setSponteJobId(sponteCurrentSync.data.job_id);
+  }, [sponteCurrentSync.data?.job_id]);
+  const activeSponteJob = sponteSyncJob.data || sponteCurrentSync.data;
+  const sponteJobRunning = ["queued", "running", "retrying"].includes(activeSponteJob?.status || "");
+  const sponteStageLabels: Record<string, string> = {
+    queued: "Na fila", extracting: "Extraindo dados incrementais", completed: "Concluída",
+  };
 
   const jacadCurrentSync = useQuery({
     queryKey: ["jacad-sync-current"],
@@ -83,6 +121,12 @@ export default function DadosIntegracoesPage() {
     setJacadBaseUrl(jacadConnection.data.base_url || "");
     setJacadOrgId(jacadConnection.data.default_org_id ? String(jacadConnection.data.default_org_id) : "");
   }, [jacadConnection.data?.configured, jacadConnection.data?.base_url, jacadConnection.data?.default_org_id]);
+
+  useEffect(() => {
+    if (!sponteConnection.data?.configured) return;
+    setSponteClientCode(sponteConnection.data.client_code ? String(sponteConnection.data.client_code) : "");
+    setSponteInitialDate(sponteConnection.data.initial_extraction_date || "2025-01-01");
+  }, [sponteConnection.data?.configured, sponteConnection.data?.client_code, sponteConnection.data?.initial_extraction_date]);
 
   const history = useQuery({
     queryKey: ["upload-history"],
@@ -173,6 +217,7 @@ export default function DadosIntegracoesPage() {
             { id: "overview", label: "Visão geral" },
             { id: "sources", label: "Fontes de dados" },
             { id: "jacad", label: "JACAD" },
+            { id: "sponte", label: "Sponte" },
             { id: "history", label: "Histórico" },
             { id: "ingest", label: "Ingestão JSON" },
           ]}
@@ -289,6 +334,151 @@ export default function DadosIntegracoesPage() {
           </Card>
         </TabPanel>
 
+
+        <TabPanel when="sponte" active={tab} className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Conexão nativa · Sponte BI</CardTitle>
+              <CardDescription>
+                API oficial Sponte BI. A MIRA consulta dados em modo somente leitura, com extração incremental por endpoint.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5 text-sm">
+                  <span className="font-medium">Código do cliente Sponte</span>
+                  <input value={sponteClientCode} onChange={(e) => setSponteClientCode(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="CodCliSponte" inputMode="numeric"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
+                </label>
+                <label className="space-y-1.5 text-sm">
+                  <span className="font-medium">Data inicial do histórico</span>
+                  <input type="date" value={sponteInitialDate} onChange={(e) => setSponteInitialDate(e.target.value)}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
+                </label>
+              </div>
+              <label className="block space-y-1.5 text-sm">
+                <span className="font-medium">API Key Sponte BI</span>
+                <input type="password" value={sponteApiKey} onChange={(e) => setSponteApiKey(e.target.value)}
+                  placeholder={sponteConnection.data?.credential_configured ? "Chave salva. Deixe vazio para manter ou informe outra para substituir." : "Cole a API Key fornecida pela Sponte"}
+                  autoComplete="new-password" maxLength={512}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/25" />
+                <span className="block text-xs text-muted-foreground">
+                  A API Key é cifrada no banco e nunca é exibida novamente. A URL oficial é fixa; a MIRA não aceita hosts externos nesta integração.
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" disabled={sponteBusy || !sponteClientCode || !sponteInitialDate || (!sponteApiKey.trim() && !sponteConnection.data?.credential_configured)}
+                  onClick={async () => {
+                    setSponteBusy(true);
+                    try {
+                      await api.configureSponte({
+                        ...(sponteApiKey.trim() ? { api_key: sponteApiKey.trim() } : {}),
+                        client_code: Number(sponteClientCode),
+                        initial_extraction_date: sponteInitialDate,
+                      });
+                      setSponteApiKey("");
+                      await sponteConnection.refetch();
+                      toast.success("Configuração Sponte salva.");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Falha ao salvar conexão Sponte.");
+                    } finally { setSponteBusy(false); }
+                  }}>Salvar conexão</Button>
+                <Button type="button" variant="outline" disabled={sponteBusy || !sponteConnection.data?.configured}
+                  onClick={async () => {
+                    setSponteBusy(true);
+                    try {
+                      await api.testSponte();
+                      await sponteConnection.refetch();
+                      toast.success("API Sponte autenticada com sucesso.");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Falha no teste da API Sponte.");
+                    } finally { setSponteBusy(false); }
+                  }}>Testar conexão</Button>
+                <Button type="button" variant="secondary"
+                  disabled={sponteBusy || sponteJobRunning || !sponteConnection.data?.configured || sponteConnection.data?.status !== "connected"}
+                  onClick={async () => {
+                    setSponteBusy(true);
+                    try {
+                      const response = await api.syncSponte();
+                      setSponteJobId(response.job_id);
+                      await sponteCurrentSync.refetch();
+                      toast.success(response.deduplicated ? "Já existe uma sincronização Sponte em andamento." : "Extração incremental Sponte adicionada à fila.");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Falha ao iniciar sincronização Sponte.");
+                    } finally { setSponteBusy(false); }
+                  }}>
+                  {sponteJobRunning ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+                  {sponteJobRunning ? "Sincronização em andamento" : "Iniciar sincronização incremental"}
+                </Button>
+              </div>
+              {activeSponteJob && (
+                <div className="space-y-3 rounded-xl border border-border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium">Sincronização Sponte BI</p>
+                      <p className="text-xs text-muted-foreground">
+                        {sponteStageLabels[activeSponteJob.progress?.stage || ""] || activeSponteJob.progress?.endpoint || "Aguardando worker"}
+                        {activeSponteJob.progress?.endpoint ? " · " + activeSponteJob.progress.endpoint : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs font-medium">{activeSponteJob.status}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: String(Math.max(0, Math.min(100, activeSponteJob.progress?.percent || 0))) + "%" }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Endpoint {activeSponteJob.progress?.endpoint_index ?? 0}/{activeSponteJob.progress?.endpoint_count ?? 8}
+                    {" · "}Páginas {activeSponteJob.progress?.pages_done ?? 0}/{activeSponteJob.progress?.pages_total ?? 0}
+                  </p>
+                  {activeSponteJob.last_error && <p className="text-xs text-destructive">{activeSponteJob.last_error}</p>}
+                  {activeSponteJob.status === "failed" && (
+                    <Button size="sm" variant="outline" disabled={sponteBusy} onClick={async () => {
+                      try {
+                        await api.retrySponteSync(activeSponteJob.job_id);
+                        await sponteSyncJob.refetch();
+                        toast.success("Sincronização retomada do último checkpoint.");
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "Não foi possível retomar a sincronização.");
+                      }
+                    }}>Retomar do último checkpoint</Button>
+                  )}
+                  {activeSponteJob.status === "completed" && activeSponteJob.result && (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p>{activeSponteJob.result.students_updated ?? 0} alunos consolidados.</p>
+                      <p>{Object.entries(activeSponteJob.result.endpoints || {}).map(([name, count]) => name + ": " + count).join(" · ")}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="rounded-xl border border-border p-3">
+                <p className="text-sm font-medium">Dados consultados</p>
+                <ul className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                  <li>• Cadastro e situação dos alunos</li>
+                  <li>• Contratos, cursos, turmas e estágios</li>
+                  <li>• Contas a receber, parcelas e pagamentos</li>
+                  <li>• Notas, avaliações, semestre e ano</li>
+                  <li>• Snapshots de frequência e faltas</li>
+                  <li>• Histórico de follow-ups</li>
+                </ul>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  A primeira extração começa na data configurada. Depois, cada endpoint usa seu próprio watermark com sobreposição de um dia para evitar lacunas. A API tem defasagem D-1; os dados são deduplicados por identificadores do fornecedor.
+                  O score permanece desativado até homologar escala de notas e situações didáticas. A MIRA não infere último login nem reprovações.
+                </p>
+              </div>
+              {Object.keys(sponteConnection.data?.sync_watermarks || {}).length > 0 && (
+                <div className="rounded-xl border border-border p-3">
+                  <p className="text-sm font-medium">Última extração por fonte</p>
+                  <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                    {Object.entries(sponteConnection.data?.sync_watermarks || {}).map(([name, watermark]) => (
+                      <p key={name}>{name}: {watermark}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabPanel>
 
         <TabPanel when="jacad" active={tab} className="space-y-4">
           <Card>
