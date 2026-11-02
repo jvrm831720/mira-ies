@@ -379,6 +379,7 @@ async def _run_sync(job_id: str, redis: Redis):
             if failures:
                 raise failures[0]
 
+        await redis.expire(class_catalog_key, settings.jacad_job_ttl_seconds)
         saved_catalogs = await redis.hgetall(class_catalog_key)
         class_disciplines: dict[str, tuple[int, int]] = {}
         for class_id_text, discipline_ids_json in saved_catalogs.items():
