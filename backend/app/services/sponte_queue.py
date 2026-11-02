@@ -146,6 +146,16 @@ async def _checkpoint_mark(redis: Redis, job_id: str, endpoint: str, page: int):
     await redis.expire(key, get_settings().sponte_job_ttl_seconds)
 
 
+async def _endpoint_done(redis: Redis, job_id: str, endpoint: str) -> bool:
+    return bool(await redis.sismember(f"{_key(job_id)}:endpoints_done", endpoint))
+
+
+async def _endpoint_mark(redis: Redis, job_id: str, endpoint: str):
+    key = f"{_key(job_id)}:endpoints_done"
+    await redis.sadd(key, endpoint)
+    await redis.expire(key, get_settings().sponte_job_ttl_seconds)
+
+
 async def _reserve_window(redis: Redis, key: str, *, limit: int, window_ms: int) -> int:
     script = """
     local now = tonumber(ARGV[1])
@@ -357,6 +367,8 @@ async def _run_sync(job_id: str, redis: Redis):
             "notas", "fatofrequenciaalunosativos", "fatoalunosativos", "followups",
         )
         for endpoint_index, endpoint in enumerate(endpoints):
+            if await _endpoint_done(redis, job_id, endpoint):
+                continue
             watermark = watermarks.get(endpoint)
             extraction_date = (
                 max(initial_date, date.fromisoformat(watermark) - timedelta(days=1))
@@ -423,6 +435,7 @@ async def _run_sync(job_id: str, redis: Redis):
                 if failures:
                     raise failures[0]
 
+            await _endpoint_mark(redis, job_id, endpoint)
             await _update_watermark(tenant_id, endpoint, as_of)
             watermarks[endpoint] = as_of.isoformat()
             result.setdefault("watermarks", {})[endpoint] = as_of.isoformat()
