@@ -20,6 +20,7 @@ def upgrade() -> None:
             client_code INTEGER NOT NULL,
             initial_extraction_date DATE NOT NULL DEFAULT DATE '2025-01-01',
             sync_watermarks JSONB NOT NULL DEFAULT '{}'::jsonb,
+            sync_catalogs JSONB NOT NULL DEFAULT '{}'::jsonb,
             is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
             status VARCHAR(24) NOT NULL DEFAULT 'configured',
             last_tested_at TIMESTAMPTZ NULL,
