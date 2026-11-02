@@ -28,7 +28,9 @@ A chave de acesso documentada tem limite de 40 caracteres. O JWT não é persist
 | Autenticação | `POST /api/v1/auth/token` | Obter JWT |
 | Alunos | `GET /api/v2/academico/alunos` | Identidade, RA, nome, e-mail, organização e datas de cadastro/alteração |
 | Matrículas | `GET /api/v2/academico/matriculas` | Situação, aluno, RA, curso, turma e período letivo; consulta paginada por cursor |
-| Notas | `GET /api/v1/academico/notas/consultar` | Notas por turma e disciplina do professor; exige identificadores de turma e disciplina |
+| Disciplinas da turma | `GET /api/v1/academico/turmas/{idTurma}/disciplinas` | Descobrir disciplinas e códigos de disciplina do professor por turma |
+| Matrículas da disciplina | `GET /api/v1/academico/disciplinas/{idDisciplinaProfessor}/matriculas` | Buscar em lote estudantes, médias, notas, frequência e faltas por disciplina |
+| Notas | `GET /api/v1/academico/notas/consultar` | Notas por turma e disciplina do professor; inclui itens de avaliação |
 | Resumo financeiro por matrícula | `GET /api/v2/financeiro/matriculas/resumo-financeiro` | Situação consolidada, contrato entregue, próxima parcela em aberto; exige `idOrg` |
 | Contratos de matrícula | `GET /api/v1/financeiro/contratos-matricula` | Relação de contratos por aluno/matrícula; paginação `currentPage` |
 | Parcelas do contrato | `GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas` | Detalhe de vencimento, valor, valor pago e situação de cada parcela |
