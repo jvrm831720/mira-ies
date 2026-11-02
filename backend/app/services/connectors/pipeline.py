@@ -28,7 +28,7 @@ async def ingest_records(
     rows = [
         {
             **{k: r.get(k) for k in CANONICAL_FIELDS},
-            "__mira_provenance": r.get("__mira_provenance") or {},
+            "mira_provenance": r.get("__mira_provenance") or {},
         }
         for r in records
     ]
