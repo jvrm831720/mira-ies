@@ -428,7 +428,7 @@ export default function DadosIntegracoesPage() {
                     <div className="h-full rounded-full bg-primary transition-all" style={{ width: String(Math.max(0, Math.min(100, activeSponteJob.progress?.percent || 0))) + "%" }} />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Endpoint {activeSponteJob.progress?.endpoint_index ?? 0}/{activeSponteJob.progress?.endpoint_count ?? 8}
+                    Endpoint {activeSponteJob.progress?.endpoint_index ?? 0}/{activeSponteJob.progress?.endpoint_count ?? 11}
                     {" · "}Páginas {activeSponteJob.progress?.pages_done ?? 0}/{activeSponteJob.progress?.pages_total ?? 0}
                   </p>
                   {activeSponteJob.last_error && <p className="text-xs text-destructive">{activeSponteJob.last_error}</p>}
