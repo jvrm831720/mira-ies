@@ -411,7 +411,7 @@ export default function DadosIntegracoesPage() {
                   )}
                   {activeJacadJob.status === "completed" && activeJacadJob.result && (
                     <p className="text-xs text-muted-foreground">
-                      {activeJacadJob.result.students_imported ?? 0} alunos · {activeJacadJob.result.contracts_consulted ?? 0} contratos consultados · {activeJacadJob.result.discipline_pairs_consulted ?? 0} combinações turma/disciplina · {activeJacadJob.result.assessment_groups ?? 0} grupos de avaliações consultados.
+                      {activeJacadJob.result.students_imported ?? 0} alunos · {activeJacadJob.result.contracts_consulted ?? 0} contratos cobertos · {activeJacadJob.result.discipline_pairs_consulted ?? 0} combinações turma/disciplina cobertas · {activeJacadJob.result.assessment_groups ?? 0} grupos de avaliações cobertos.
                     </p>
                   )}
                 </div>
