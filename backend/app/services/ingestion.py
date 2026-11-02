@@ -618,14 +618,18 @@ async def create_batch_and_students(
         previous = merged.get("_mira_provenance", {})
         provenance = dict(previous) if isinstance(previous, dict) else {}
         for field in fields:
+            # Convenção de origem: coluna <campo>_observed_at. A coluna é
+            # mantida no raw_data mesmo sem mapeamento manual para um campo do aluno.
+            observation_column = f"{field}_observed_at"
+            observed_at = raw_row.get(observation_column)
             provenance[field] = {
                 "source_type": "file_import",
                 "source_filename": original_filename,
                 "source_batch_id": batch.id,
                 "imported_at": imported_at,
-                # Sem data de observação fornecida pela origem, a atualidade
-                # do conteúdo permanece desconhecida, mesmo após importar.
-                "observed_at": None,
+                # Sem timestamp de observação da origem, a atualidade é desconhecida.
+                "observed_at": safe_str(observed_at),
+                "observed_at_source_column": observation_column if safe_str(observed_at) else None,
             }
         merged["_mira_provenance"] = provenance
         return merged
