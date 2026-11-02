@@ -247,3 +247,12 @@ def test_sponte_connector_does_not_infer_presence_without_total_classes():
     })
     assert missing_total["presenca_percentual"] is None
     assert valid_total["presenca_percentual"] == 75
+
+
+def test_sponte_mapping_normalizes_only_supported_academic_statuses():
+    from app.services.connectors.sponte_mapping import canonical_student_status
+
+    assert canonical_student_status("Evasão") == "Evadido"
+    assert canonical_student_status("Concluído") == "Formado"
+    assert canonical_student_status("Interessado") is None
+    assert canonical_student_status("Situação não mapeada") is None
