@@ -116,6 +116,10 @@ def test_jacad_mapping_enriches_enrollment_and_financial_status_without_guessing
     enrollments = [{
         "idMatricula": 100, "idAluno": 10, "ra": "RA-10",
         "status": "ATIVA", "curso": "Administração", "turma": "ADM-2026",
+        "idPeriodoLetivo": 20262, "periodoLetivo": "2026.2",
+        "idCursoBase": 55, "idCursoMatriz": 56, "matriz": "Matriz 2026",
+        "idTurma": 77, "idUnidadeFisica": 3, "unidadeFisica": "Campus Centro",
+        "idContrato": 900, "contratoEntregue": 1,
     }]
     summaries = [{
         "idMatricula": 100, "idAluno": 10, "ra": "RA-10",
@@ -135,6 +139,9 @@ def test_jacad_mapping_enriches_enrollment_and_financial_status_without_guessing
     assert "recorrencia_atrasos" not in enriched[0]
     assert "saldo_devedor" not in enriched[0]
     assert metadata["RA-10"]["id_aluno"] == "10"
+    assert metadata["RA-10"]["matriculas"][0]["periodo_letivo"] == "2026.2"
+    assert metadata["RA-10"]["matriculas"][0]["unidade_fisica"] == "Campus Centro"
+    assert metadata["RA-10"]["matriculas"][0]["id_contrato"] == 900
     assert metadata["RA-10"]["financial_summaries"][0]["valor_parcela_aberta"] == 850.0
 
 
