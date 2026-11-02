@@ -188,6 +188,9 @@ async def test_smoke_whatsapp_verification_obeys_required_mfa_policy(
         require_mfa_all=False,
         required_roles=["operator"],
     )
+    db_session.add_all([user, policy])
+    await db_session.flush()
+
     code = "381204"
     challenge = AuthChallenge(
         user_id=user.id,
@@ -196,7 +199,7 @@ async def test_smoke_whatsapp_verification_obeys_required_mfa_policy(
         token_hash=_token_digest("whatsapp", phone, code),
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=5),
     )
-    db_session.add_all([user, policy, challenge])
+    db_session.add(challenge)
     await db_session.commit()
 
     verified_whatsapp = await client.post(
