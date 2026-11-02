@@ -394,7 +394,7 @@ export default function DadosIntegracoesPage() {
                   <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
                     <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.students ?? activeJacadJob.result?.students_imported ?? "—"}</p><p className="text-muted-foreground">Alunos</p></div>
                     <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.contracts_done ?? 0}/{activeJacadJob.progress?.contracts_total ?? 0}</p><p className="text-muted-foreground">Contratos</p></div>
-                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.discipline_enrollments_done ?? 0}/{activeJacadJob.progress?.discipline_enrollments_total ?? 0}</p><p className="text-muted-foreground">Matrículas-disciplina</p></div>
+                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.discipline_enrollments_done ?? 0}/{activeJacadJob.progress?.discipline_enrollments_total ?? 0}</p><p className="text-muted-foreground">Disciplinas/turmas</p></div>
                     <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.assessment_groups_done ?? 0}/{activeJacadJob.progress?.assessment_groups_total ?? 0}</p><p className="text-muted-foreground">Grupos de avaliações</p></div>
                   </div>
                   {activeJacadJob.last_error && <p className="text-xs text-destructive">{activeJacadJob.last_error}</p>}
@@ -427,10 +427,10 @@ export default function DadosIntegracoesPage() {
                   <li>• Histórico de parcelas, pagamentos e vencimentos por contrato</li>\n                  <li>• Disciplinas, médias, notas finais e frequência reportada</li>\n                  <li>• Notas individuais por avaliação, quando disponíveis</li>
                 </ul>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  A sincronização consulta a API JACAD diretamente. Não é necessário enviar planilha ou JSON para esta conexão.
+                  A sincronização consulta a API JACAD diretamente em segundo plano. Não é necessário enviar planilha ou JSON; você pode sair desta tela e acompanhar o processamento ao voltar.
                   Parcelas e notas detalhadas são buscadas em segundo plano, em lotes com limite de concorrência e checkpoints para retomada.
                   Os valores de frequência, notas e faltas são preservados por disciplina. A MIRA ainda não os converte em score ou média institucional sem homologar escala, pesos e regras acadêmicas.
-                  Nenhum dado ausente é inventado e o score automático permanece desativado até a cobertura preditiva estar completa.
+                  Os dados são preservados por contrato, disciplina e avaliação. A MIRA não inventa médias, saldo total ou recorrência e mantém o score automático desativado até validar a cobertura preditiva.
                 </p>
               </div>
             </CardContent>
