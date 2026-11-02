@@ -117,6 +117,8 @@ Regras:
 - A cobertura é avaliada por campo preditivo, não por registro ou payload inteiro.
 - Conectores que não conseguem provar a observação deixam o campo sem timestamp até que a origem passe a fornecer essa informação.
 
+A cobertura é consultável por tenant em `GET /api/v1/connectors/provenance/coverage`. O endpoint retorna cobertura global e por campo, separando timestamps ausentes de timestamps inválidos/futuros. Ele considera apenas registros ativos do tenant autenticado e não agrega dados entre instituições.
+
 A implementação atual adapta o contrato de payload e a persistência comum. Ela não cria chamadas de API de terceiros nem afirma que cada fornecedor já disponibiliza timestamps confiáveis. O mapeamento semântico de cada campo deve ser confirmado com documentação e payloads reais de cada IES.
 
 ## Pendências fora desta wave
