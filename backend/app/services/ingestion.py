@@ -617,7 +617,7 @@ async def create_batch_and_students(
         merged = {**raw_row, **(raw_data or {})}
         previous = merged.get("_mira_provenance", {})
         provenance = dict(previous) if isinstance(previous, dict) else {}
-        connector_provenance = raw_row.get("__mira_provenance", {})
+        connector_provenance = raw_row.get("mira_provenance", {})
         if not isinstance(connector_provenance, dict):
             connector_provenance = {}
         for field in fields:
