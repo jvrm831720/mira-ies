@@ -5,6 +5,7 @@ import base64
 import hashlib
 import ipaddress
 from urllib.parse import urlsplit
+from collections.abc import Awaitable, Callable
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
@@ -14,6 +15,12 @@ from app.core.config import get_settings
 
 class JacadConnectionError(RuntimeError):
     pass
+
+
+class JacadQuotaDeferred(JacadConnectionError):
+    def __init__(self, wait_seconds: float):
+        self.wait_seconds = max(1.0, wait_seconds)
+        super().__init__("Limite horário conservador da API JACAD atingido; sincronização pausada para continuar depois.")
 
 
 def validate_jacad_base_url(value: str) -> str:
@@ -54,12 +61,13 @@ def decrypt_api_token(value: str) -> str:
 
 
 class JacadApiClient:
-    def __init__(self, base_url: str, api_token: str, *, timeout: float = 25.0, transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(self, base_url: str, api_token: str, *, timeout: float = 25.0, transport: httpx.AsyncBaseTransport | None = None, request_guard: Callable[[], Awaitable[None]] | None = None):
         self.base_url = validate_jacad_base_url(base_url)
         if not api_token or len(api_token) > 40:
             raise ValueError("O token de acesso JACAD deve ter entre 1 e 40 caracteres.")
         self.api_token = api_token
         self.timeout = timeout
+        self.request_guard = request_guard
         self._jwt: str | None = None
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
@@ -76,6 +84,8 @@ class JacadApiClient:
         if self._jwt and not force:
             return self._jwt
         try:
+            if self.request_guard:
+                await self.request_guard()
             response = await self._client.post("/api/v1/auth/token", headers={"token": self.api_token})
         except httpx.HTTPError as exc:
             raise JacadConnectionError("Falha de rede ao autenticar no JACAD.") from exc
@@ -105,6 +115,8 @@ class JacadApiClient:
         for attempt in range(2):
             jwt = await self.authenticate(force=attempt == 1)
             try:
+                if self.request_guard:
+                    await self.request_guard()
                 response = await self._client.get(
                     path, params=params, headers={"Authorization": f"Bearer {jwt}"}
                 )
