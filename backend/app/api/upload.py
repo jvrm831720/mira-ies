@@ -76,7 +76,9 @@ def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None
             for encoding in ["utf-8", "latin-1", "iso-8859-1", "cp1252"]:
                 try:
                     df = pd.read_csv(io.BytesIO(file_content), encoding=encoding, dtype=str)
-                    return df.dropna(axis=1, how="all")
+                    # Preserve explicitly supplied all-blank columns. They are evidence
+                    # of a source refresh and must reach the data-quality gate.
+                    return df
                 except UnicodeDecodeError:
                     continue
             raise ValueError("Nao foi possivel decodificar o CSV")
@@ -89,7 +91,7 @@ def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None
                 required_candidates: list[str] = []
                 tabular_candidates: list[str] = []
                 for candidate in excel.sheet_names:
-                    candidate_df = pd.read_excel(excel, sheet_name=candidate, dtype=str).dropna(axis=1, how="all")
+                    candidate_df = pd.read_excel(excel, sheet_name=candidate, dtype=str)
                     if candidate_df.empty or len(candidate_df.columns) < 2:
                         continue
                     tabular_candidates.append(candidate)
@@ -113,7 +115,7 @@ def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None
                     selected_sheet = tabular_candidates[0]
                 else:
                     selected_sheet = excel.sheet_names[0] if excel.sheet_names else 0
-            return pd.read_excel(excel, sheet_name=selected_sheet if selected_sheet is not None else 0, dtype=str).dropna(axis=1, how="all")
+            return pd.read_excel(excel, sheet_name=selected_sheet if selected_sheet is not None else 0, dtype=str)
         raise ValueError(f"Formato nao suportado: {ext}")
     except HTTPException:
         raise
