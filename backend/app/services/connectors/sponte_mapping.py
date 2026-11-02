@@ -35,9 +35,12 @@ def as_date(value: Any) -> date | None:
     if not value:
         return None
     text = str(value).strip()
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f"):
+    for fmt, length in (
+        ("%Y-%m-%d", 10), ("%d/%m/%Y", 10),
+        ("%Y-%m-%dT%H:%M:%S", 19), ("%Y-%m-%dT%H:%M:%S.%f", 26),
+    ):
         try:
-            return datetime.strptime(text[:26], fmt).date()
+            return datetime.strptime(text[:length], fmt).date()
         except ValueError:
             continue
     try:
@@ -99,7 +102,7 @@ def compact_row(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
             "turma_id": pick(row, "TurmaID", "IdTurma"),
             "turma": pick(row, "NomeTurma", "Turma"),
             "estagio": pick(row, "NomeEstagio", "Estagio"),
-            "situacao": pick(row, "SituacaoContrato", "Situacao", "Status"),
+            "situacao": pick(row, "SituacaoAluno", "SituacaoContrato", "Situacao", "Status"),
             "data_contrato": pick(row, "DataContrato"),
             "data_inicio": pick(row, "DataInicio"),
             "data_fim": pick(row, "DataFim"),
