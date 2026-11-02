@@ -272,3 +272,38 @@ def test_jacad_metadata_deep_merge_preserves_prior_checkpointed_contracts_and_di
     })
     assert set(merged["installments_by_contract"]) == {"100", "200"}
     assert set(merged["academic_disciplines_by_enrollment"]) == {"10", "11"}
+
+
+@pytest.mark.asyncio
+async def test_jacad_bulk_class_discipline_and_student_enrollment_readers():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/api/v1/auth/token":
+            return httpx.Response(200, json={"token": "jwt-session"})
+        if request.url.path == "/api/v1/academico/turmas/77/disciplinas":
+            return httpx.Response(200, json={
+                "page": {"currentPage": 1, "totalPages": 1},
+                "elements": [{"idDisciplinaProfessor": 88, "idTurma": 77}],
+            })
+        if request.url.path == "/api/v1/academico/disciplinas/88/matriculas":
+            return httpx.Response(200, json={
+                "page": {"currentPage": 1, "totalPages": 1},
+                "elements": [{"ra": "RA-1", "idMatricula": 321, "mediaFinal": 9.0}],
+            })
+        raise AssertionError(request.url.path)
+
+    client = JacadApiClient(
+        "https://ies-demo.jacad.com.br", "access-token",
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        disciplines = await client.fetch_class_disciplines(77)
+        enrollments = await client.fetch_discipline_enrollments(88)
+    finally:
+        await client.close()
+
+    assert disciplines[0]["idDisciplinaProfessor"] == 88
+    assert enrollments[0]["ra"] == "RA-1"
+    assert len([r for r in seen if r.url.path == "/api/v1/auth/token"]) == 1
