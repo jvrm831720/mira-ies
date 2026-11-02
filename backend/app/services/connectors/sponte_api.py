@@ -98,6 +98,11 @@ class SponteApiClient:
         items = payload.get("items")
         if not isinstance(items, list):
             raise SponteConnectionError(f"Resposta Sponte sem a lista 'items' no endpoint {endpoint}.")
+        pagination = payload.get("pagination") or payload.get("page") or {}
+        if "totalPages" not in payload and isinstance(pagination, dict):
+            payload["totalPages"] = pagination.get("totalPages")
+        if "hasNext" not in payload and isinstance(pagination, dict):
+            payload["hasNext"] = pagination.get("hasNext")
         return payload
 
     async def fetch_all(
