@@ -115,7 +115,8 @@ Para declarar a conexão validada em produção, é necessário testar com um am
 - escopos/permissões do token;
 - limites de taxa e respostas 401/403/429;
 - matrículas e resumo financeiro com dados reais;
-- consulta detalhada de parcelas por contrato e homologação dos estados de situação;\n- regras de saldo total e recorrência (cancelamentos, renegociações, baixas);
+- consulta detalhada de parcelas por contrato e homologação dos estados de situação;
+- regras de saldo total e recorrência (cancelamentos, renegociações, baixas);
 - notas e frequência;
 - cadência e semântica dos timestamps por campo.
 
