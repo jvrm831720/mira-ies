@@ -29,6 +29,7 @@ def upgrade() -> None:
     op.execute("ALTER TABLE mira_user_sessions ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE mira_mfa_login_challenges ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE mira_mfa_audit_events ENABLE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE mira_mfa_recovery_codes ENABLE ROW LEVEL SECURITY")
     for table in (
         "mira_tenant_mfa_policies",
         "mira_user_sessions",
@@ -43,6 +44,25 @@ def upgrade() -> None:
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
             """
         )
+    op.execute("DROP POLICY IF EXISTS mira_mfa_recovery_codes_tenant_isolation ON mira_mfa_recovery_codes")
+    op.execute(
+        """
+        CREATE POLICY mira_mfa_recovery_codes_tenant_isolation
+        ON mira_mfa_recovery_codes
+        USING (
+          user_id IN (
+            SELECT id FROM mira_users
+            WHERE tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+          )
+        )
+        WITH CHECK (
+          user_id IN (
+            SELECT id FROM mira_users
+            WHERE tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+          )
+        )
+        """
+    )
     op.execute("DROP POLICY IF EXISTS mira_mfa_login_challenges_tenant_isolation ON mira_mfa_login_challenges")
     op.execute(
         """
@@ -65,6 +85,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     for table in (
         "mira_mfa_login_challenges",
+        "mira_mfa_recovery_codes",
         "mira_mfa_audit_events",
         "mira_user_sessions",
         "mira_tenant_mfa_policies",
@@ -73,6 +94,8 @@ def downgrade() -> None:
             op.execute(f"DROP POLICY IF EXISTS {table}_tenant_isolation ON {table}")
         elif table == "mira_mfa_audit_events":
             op.execute("DROP POLICY IF EXISTS mira_mfa_audit_events_tenant_isolation ON mira_mfa_audit_events")
+        elif table == "mira_mfa_recovery_codes":
+            op.execute("DROP POLICY IF EXISTS mira_mfa_recovery_codes_tenant_isolation ON mira_mfa_recovery_codes")
         else:
             op.execute("DROP POLICY IF EXISTS mira_mfa_login_challenges_tenant_isolation ON mira_mfa_login_challenges")
         op.execute(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY")
