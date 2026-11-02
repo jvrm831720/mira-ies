@@ -137,7 +137,8 @@ def test_events_with_different_student_row_ids_share_stable_matricula_group():
     scored_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     events = [
         SimpleNamespace(
-            features_snapshot={}, label=0, student_id=f"row-{i}",
+            features_snapshot={"dias_atraso_boleto": 0, "recorrencia_atrasos": 0, "dias_sem_login": 0,
+                "presenca_percentual": 100, "nota_media": 8, "reprovacoes": 0, "semestre": 3}, label=0, student_id=f"row-{i}",
             matricula=" EVD-01 ", scored_at=scored_at, outcome_at=scored_at,
         )
         for i in range(2)

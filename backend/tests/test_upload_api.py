@@ -47,9 +47,9 @@ async def test_upload_rejects_missing_required_columns(client, auth_headers):
 
 async def test_upload_happy_path_persists_students(client, auth_headers):
     csv_content = (
-        b"matricula,nome,dias_atraso_boleto,dias_sem_login,presenca_percentual,nota_media\n"
-        b"ST001,Joao Teste,5,2,95.0,8.0\n"
-        b"ST002,Maria Teste,40,30,50.0,3.0\n"
+        b"matricula,nome,dias_atraso_boleto,recorrencia_atrasos,dias_sem_login,presenca_percentual,nota_media,reprovacoes,semestre\n"
+        b"ST001,Joao Teste,5,0,2,95.0,8.0,0,3\n"
+        b"ST002,Maria Teste,40,3,30,50.0,3.0,2,1\n"
     )
     resp = await client.post(
         "/api/v1/upload",

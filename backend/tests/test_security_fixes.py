@@ -45,8 +45,8 @@ async def test_tenant_model_artifact_integrity_checksum_rejects_tampered_file(
         observed_at = scored_at + timedelta(days=30 if is_evasion else 100)
         db_session.add(TrainingEvent(
             tenant_id=t.id, matricula=matricula, scored_at=scored_at,
-            features_snapshot={"dias_atraso_boleto": 5, "dias_sem_login": 8,
-                "presenca_percentual": 85, "nota_media": 7, "semestre": 2},
+            features_snapshot={"dias_atraso_boleto": 5, "recorrencia_atrasos": 1, "dias_sem_login": 8,
+                "presenca_percentual": 85, "nota_media": 7, "reprovacoes": 0, "semestre": 2},
         ))
         outcomes.append({
             "matricula": matricula,

@@ -17,7 +17,7 @@ async def test_scoring_batch_persists_real_assessment_history(client, tenant, db
     student = Student(
         tenant_id=t.id, batch_id=batch.id, matricula="H-001", nome="Histórico Real",
         curso="Direito", dias_atraso_boleto=40, recorrencia_atrasos=2,
-        dias_sem_login=30, presenca_percentual=50, nota_media=4, reprovacoes=1,
+        dias_sem_login=30, presenca_percentual=50, nota_media=4, reprovacoes=1, semestre=2,
     )
     db_session.add(student)
     await db_session.commit()
@@ -136,8 +136,8 @@ async def test_forced_batch_score_requires_and_reuses_idempotency_key(client, te
     await db_session.flush()
     db_session.add(Student(
         tenant_id=t.id, batch_id=batch.id, matricula="R-001", nome="Retry Seguro",
-        curso="Direito", dias_atraso_boleto=25, dias_sem_login=20,
-        presenca_percentual=60, nota_media=5,
+        curso="Direito", dias_atraso_boleto=25, recorrencia_atrasos=1, dias_sem_login=20,
+        presenca_percentual=60, nota_media=5, reprovacoes=1, semestre=2,
     ))
     await db_session.commit()
     headers = {"X-API-Key": api_key}

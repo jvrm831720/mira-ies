@@ -357,3 +357,96 @@ async def test_confirm_multiple_blocks_conflicts_without_persisting(client, tena
     assert response.status_code == 422, response.text
     students = await client.get("/api/v1/students", headers={"X-API-Key": key})
     assert students.json()["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_refreshing_predictive_source_invalidates_current_score_but_preserves_history(
+    client, tenant, db_session
+):
+    tenant_obj, key = tenant
+    first_csv = (
+        b"matricula,nome,dias_atraso_boleto,recorrencia_atrasos,dias_sem_login,"
+        b"presenca_percentual,nota_media,reprovacoes,semestre\n"
+        b"QUALITY-001,Ana,0,0,0,95,8,0,3\n"
+    )
+    first = await client.post(
+        "/api/v1/upload",
+        headers={"X-API-Key": key},
+        files=_upload(first_csv, "complete.csv"),
+        params={"auto_score": "false"},
+    )
+    assert first.status_code == 201, first.text
+    student = (
+        await db_session.execute(
+            select(Student).where(Student.tenant_id == tenant_obj.id, Student.matricula == "QUALITY-001")
+        )
+    ).scalar_one()
+    student.risk_score = 18.0
+    student.risk_level = "baixo"
+    student.model_risk_score = 16.0
+    student.shap_top_factors = {"feature_schema_version": "legacy"}
+    await db_session.commit()
+
+    # A blank refresh is not allowed to keep using the previous 8.0 as current evidence.
+    refresh_csv = (
+        b"matricula,nome,nota_media\n"
+        b"QUALITY-001,Ana,\n"
+    )
+    refresh = await client.post(
+        "/api/v1/upload",
+        headers={"X-API-Key": key},
+        files=_upload(refresh_csv, "grade-refresh.csv"),
+        params={"auto_score": "false"},
+    )
+    assert refresh.status_code == 201, refresh.text
+    await db_session.refresh(student)
+    assert student.risk_score is None
+    assert student.risk_level is None
+    assert student.model_risk_score is None
+    assert student.shap_top_factors is None
+    # Existing assessment rows are not deleted by ingestion.
+
+
+@pytest.mark.asyncio
+async def test_blank_predictive_alias_invalidates_score_and_updates_canonical_raw_data(
+    client, tenant, db_session
+):
+    tenant_obj, key = tenant
+    first_csv = (
+        b"matricula,nome,dias_atraso_boleto,recorrencia_atrasos,dias_sem_login,"
+        b"presenca_percentual,nota_media,reprovacoes,semestre\n"
+        b"QUALITY-ALIAS-001,Ana,0,0,0,95,8,0,3\n"
+    )
+    first = await client.post(
+        "/api/v1/upload",
+        headers={"X-API-Key": key},
+        files=_upload(first_csv, "complete.csv"),
+        params={"auto_score": "false"},
+    )
+    assert first.status_code == 201, first.text
+    student = (
+        await db_session.execute(
+            select(Student).where(
+                Student.tenant_id == tenant_obj.id,
+                Student.matricula == "QUALITY-ALIAS-001",
+            )
+        )
+    ).scalar_one()
+    student.risk_score = 22.0
+    student.risk_level = "baixo"
+    student.shap_top_factors = {"feature_schema_version": "legacy"}
+    await db_session.commit()
+
+    # Alias is normalized to the canonical predictive field before persistence.
+    refresh_csv = b"matricula,nome,Average Grade\nQUALITY-ALIAS-001,Ana,\n"
+    refresh = await client.post(
+        "/api/v1/upload",
+        headers={"X-API-Key": key},
+        files=_upload(refresh_csv, "grade-alias-refresh.csv"),
+        params={"auto_score": "false"},
+    )
+    assert refresh.status_code == 201, refresh.text
+    await db_session.refresh(student)
+    assert student.risk_score is None
+    assert student.risk_level is None
+    assert student.raw_data["nota_media"] is None

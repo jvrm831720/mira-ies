@@ -18,6 +18,7 @@ from app.models.intervention import InterventionLog
 from app.models.student import Student
 from app.models.risk_assessment import RiskAssessment
 from app.ml.features import build_features_from_student
+from app.ml.data_quality import assess_student_data_quality, FEATURE_SCHEMA_VERSION
 from app.ml.risk_semantics import RISK_SCORE_SEMANTICS_VERSION, classify_risk_score
 
 STANDARD_PROPERTY_LIMITS = {
@@ -248,12 +249,28 @@ async def refresh_engagement_profile(
                 model_scope=model_scope,
                 model_score=float(student.model_risk_score) if student.model_risk_score is not None else None,
                 dynamic_adjustment=adjustment,
-                features_snapshot=build_features_from_student(student),
+                features_snapshot=(
+                    {
+                        **build_features_from_student(student),
+                        "__data_quality__": assess_student_data_quality(student),
+                        "__feature_schema_version__": FEATURE_SCHEMA_VERSION,
+                    }
+                    if assess_student_data_quality(student)["can_score"]
+                    else {
+                        "__evaluation_status__": "engagement_adjustment_only",
+                        "__data_quality__": assess_student_data_quality(student),
+                        "__feature_schema_version__": FEATURE_SCHEMA_VERSION,
+                    }
+                ),
                 explanation={
                     "available": bool(snapshot.get("top_3")),
                     "top_factors": snapshot.get("top_3") or None,
                     "summary": snapshot.get("summary"),
-                    "note": "Fatores da avaliação base; o ajuste dinâmico foi atualizado por eventos de engajamento.",
+                    "note": (
+                        "Ajuste dinâmico de engajamento; dados preditivos incompletos, sem recalcular features."
+                        if not assess_student_data_quality(student)["can_score"]
+                        else "Fatores da avaliação base; o ajuste dinâmico foi atualizado por eventos de engajamento."
+                    ),
                 },
                 context={"source": "engagement_refresh", "events_considered": len(event_rows), "no_response_events_30d": len(no_response_logs)},
             ))
