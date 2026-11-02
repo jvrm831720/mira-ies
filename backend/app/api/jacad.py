@@ -28,7 +28,7 @@ router = APIRouter(prefix="/integrations/jacad", tags=["Integração JACAD"])
 
 class JacadConfigurePayload(BaseModel):
     base_url: str = Field(min_length=10, max_length=255)
-    api_token: str = Field(min_length=1, max_length=40)
+    api_token: str | None = Field(default=None, min_length=1, max_length=40)
     default_org_id: int | None = Field(default=None, ge=1)
 
     @field_validator("base_url")
@@ -79,19 +79,21 @@ async def configure_jacad_connection(
     db: AsyncSession = Depends(get_db),
 ):
     connection = await _get_connection(db, auth.tenant_id)
-    encrypted = encrypt_api_token(body.api_token)
     if connection:
         connection.base_url = body.base_url
-        connection.encrypted_api_token = encrypted
+        if body.api_token:
+            connection.encrypted_api_token = encrypt_api_token(body.api_token)
         connection.default_org_id = body.default_org_id
         connection.is_enabled = True
         connection.status = "configured"
         connection.last_error = None
     else:
+        if not body.api_token:
+            raise HTTPException(status_code=422, detail="Informe o token JACAD na primeira configuração.")
         connection = TenantJacadConnection(
             tenant_id=auth.tenant_id,
             base_url=body.base_url,
-            encrypted_api_token=encrypted,
+            encrypted_api_token=encrypt_api_token(body.api_token),
             default_org_id=body.default_org_id,
         )
         db.add(connection)
