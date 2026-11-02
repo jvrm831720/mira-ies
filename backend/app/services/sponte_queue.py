@@ -22,7 +22,7 @@ from app.services.connectors import get_connector, ingest_records
 from app.services.connectors.jacad_api import decrypt_api_token
 from app.services.connectors.sponte_api import SponteApiClient, SponteQuotaDeferred
 from app.services.connectors.sponte_mapping import (
-    aluno_id, build_student_payloads, compact_row, record_id,
+    aluno_id, build_student_payloads, compact_row, pick, record_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -185,7 +185,7 @@ async def _persist_page(
     direct_ids = {aluno_id(item) for item in items if aluno_id(item)}
     contract_ids = {
         str(value) for item in items
-        if (value := (item.get("ContratoID") or item.get("IdContrato"))) is not None
+        if (value := pick(item, "ContratoID", "IdContrato")) is not None
     }
     if not direct_ids and not contract_ids:
         return 0, []
@@ -218,7 +218,7 @@ async def _persist_page(
         resolved_ids = set(direct_ids)
         for item in items:
             if not aluno_id(item):
-                contract_id = item.get("ContratoID") or item.get("IdContrato")
+                contract_id = pick(item, "ContratoID", "IdContrato")
                 if contract_id is not None and str(contract_id) in contract_to_ra:
                     resolved_ids.add(contract_to_ra[str(contract_id)])
         students = list((await session.execute(select(Student).where(
