@@ -6,6 +6,7 @@ from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -108,6 +109,7 @@ class MfaLoginChallenge(Base):
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="CASCADE"), nullable=False)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     ticket_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    purpose: Mapped[str] = mapped_column(String(16), default="verify", nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     consumed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -137,3 +139,40 @@ class MfaAuditEvent(Base):
     event_type: Mapped[str] = mapped_column(String(48), nullable=False)
     details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class MfaTenantPolicy(Base):
+    """Política MFA da instituição. O backend é a fonte de verdade."""
+    __tablename__ = "mira_tenant_mfa_policies"
+
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True
+    )
+    require_mfa_all: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    required_roles: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    updated_by_user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class UserSession(Base):
+    """Sessão autenticada revogável no servidor e associada a um único usuário/tenant."""
+    __tablename__ = "mira_user_sessions"
+    __table_args__ = (
+        Index("ix_mira_user_sessions_user_active", "tenant_id", "user_id", "revoked_at"),
+        Index("ix_mira_user_sessions_expiry", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="CASCADE"), nullable=False)
+    aal: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    device_label: Mapped[str] = mapped_column(String(160), default="Dispositivo desconhecido", nullable=False)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by_user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True)
+    revoke_reason: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)

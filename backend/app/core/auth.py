@@ -12,7 +12,7 @@ from app.core.config import get_settings
 from app.core.mira_security import decode_access_token
 from app.core.security import hash_api_key
 from app.db.session import get_db
-from app.models.auth import User
+from app.models.auth import User, UserSession
 from app.models.tenant import Tenant
 
 # Hierarquia simples: admin > coordinator > operator > viewer
@@ -25,7 +25,10 @@ class AuthContext:
     tenant_id: str
     tenant_slug: str
     user_id: Optional[str] = None
-    role: Optional[str] = None  # None = API key legada (poder equivalente a admin em dev)
+    role: Optional[str] = None  # None = API key de integração
+    session_id: Optional[str] = None
+    aal: int = 1
+    authenticated_at: Optional[int] = None
 
 
 async def _set_tenant_rls_context(db: AsyncSession, tenant_id: str) -> None:
@@ -53,6 +56,20 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         raise _unauthorized()
     if claims.get("purpose", "session") != "session":
         raise _unauthorized()
+    session_id = claims.get("sid")
+    if not session_id:
+        raise _unauthorized("Sessão antiga ou inválida. Entre novamente.")
+    session = await db.get(UserSession, session_id)
+    now = int(__import__("time").time())
+    if (
+        not session
+        or session.user_id != user.id
+        or session.tenant_id != user.tenant_id
+        or session.revoked_at is not None
+        or session.expires_at.timestamp() <= now
+        or session.aal != int(claims.get("aal", 1))
+    ):
+        raise _unauthorized("Esta sessão foi encerrada ou expirou.")
     if user.mfa_enabled_at and int(claims.get("aal", 1)) < 2:
         raise _unauthorized("Autenticação multifator necessária.")
     tenant = await db.get(Tenant, user.tenant_id)
@@ -66,6 +83,9 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         tenant_slug=tenant.slug,
         user_id=user.id,
         role=role,
+        session_id=session.id,
+        aal=int(claims.get("aal", 1)),
+        authenticated_at=int(claims.get("iat", 0)),
     )
 
 
