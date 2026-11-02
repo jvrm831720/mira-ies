@@ -123,6 +123,27 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
+export type JacadSyncJob = {
+  job_id: string;
+  status: "queued" | "running" | "retrying" | "completed" | "failed" | string;
+  progress?: {
+    stage?: string; percent?: number; students?: number; enrollments?: number;
+    financial_summaries?: number; contracts_total?: number; contracts_done?: number;
+    discipline_enrollments_total?: number; discipline_enrollments_done?: number;
+    assessment_groups_total?: number; assessment_groups_done?: number;
+  } | null;
+  result?: {
+    source_records?: number; students_imported?: number; enrollments_received?: number;
+    financial_summaries_received?: number; students_with_financial_status?: number;
+    contracts_with_installments?: number; discipline_enrollments?: number;
+    assessment_groups?: number; scoring?: string;
+  } | null;
+  last_error?: string | null;
+  attempt?: number;
+  created_at?: number;
+  updated_at?: number;
+};
+
 export type OrgMeResponse = {
   role?: string;
   tenant_name?: string;
@@ -456,8 +477,19 @@ export const api = {
     ),
 
   syncJacad: () =>
-    request<{ status: string; source_records: number; students_imported: number; enrollments_received: number; financial_summaries_received: number; students_with_financial_status: number; scoring: string; quality?: unknown }>(
+    request<{ status: string; job_id: string; deduplicated?: boolean; progress?: Record<string, unknown> }>(
       "/api/v1/integrations/jacad/sync", { method: "POST" }
+    ),
+
+  jacadSyncCurrent: () =>
+    request<JacadSyncJob | null>("/api/v1/integrations/jacad/sync/current"),
+
+  jacadSyncStatus: (jobId: string) =>
+    request<JacadSyncJob>(`/api/v1/integrations/jacad/sync/${encodeURIComponent(jobId)}`),
+
+  retryJacadSync: (jobId: string) =>
+    request<{ job_id: string; status: string; progress?: Record<string, unknown> }>(
+      `/api/v1/integrations/jacad/sync/${encodeURIComponent(jobId)}/retry`, { method: "POST" }
     ),
 
   studentGroupsCatalog: () =>
