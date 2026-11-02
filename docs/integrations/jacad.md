@@ -27,9 +27,9 @@ A chave de acesso documentada tem limite de 40 caracteres. O JWT não é persist
 |---|---|---|
 | Autenticação | `POST /api/v1/auth/token` | Obter JWT |
 | Alunos | `GET /api/v2/academico/alunos` | Identidade, RA, nome, e-mail, organização e datas de cadastro/alteração |
-| Matrículas | `GET /api/v2/academico/matriculas` | Situação e vínculo acadêmico; próxima etapa de enriquecimento |
+| Matrículas | `GET /api/v2/academico/matriculas` | Situação, aluno, RA, curso, turma e período letivo; consulta paginada por cursor |
 | Notas | `GET /api/v1/academico/notas/consultar` | Notas por turma e disciplina do professor; exige identificadores de turma e disciplina |
-| Contratos de matrícula | `GET /api/v1/financeiro/contratos-matricula` | Contratos; não equivale a contas vencidas nem prova dias de atraso |
+| Resumo financeiro por matrícula | `GET /api/v2/financeiro/matriculas/resumo-financeiro` | Situação consolidada, contrato entregue, próxima parcela em aberto; exige `idOrg` |\n| Contratos de matrícula | `GET /api/v1/financeiro/contratos-matricula` | Relação de contratos por aluno/matrícula; paginação `currentPage` |\n| Parcelas do contrato | `GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas` | Detalhe de vencimento, valor, valor pago e situação de cada parcela |
 
 Documentação consultada:
 - Autenticação: https://auden-developer.jacad.com.br/docs/auth
@@ -42,9 +42,9 @@ A consulta v2 de alunos documenta `pageSize` até 5.000 e retorna um objeto `pag
 
 Outros recursos documentam paginação por `currentPage` e `pageSize`; os limites variam por endpoint (há endpoints v1 com máximo 500). Cada recurso deve respeitar o limite publicado em sua própria documentação. O endpoint v2 de alunos aceita `idCursor` (inicia em 0) e a resposta devolve `idCursorProximo`. A documentação também informa limite técnico de 10 requisições por segundo por IP e um filtro de negócio por token (padrão ilustrado de 1.000 requisições por hora, configurável pela instituição). A MIRA faz chamadas sequenciais, sem paralelismo nesta primeira versão.
 
-## 5. Mapeamento inicial de dados
+## 5. Mapeamento acadêmico e financeiro
 
-O primeiro fluxo sincroniza somente o cadastro de alunos:
+A sincronização agora consulta três conjuntos de dados em sequência: cadastro de alunos, matrículas e resumo financeiro por matrícula. O `idOrg` é obrigatório para a sincronização completa porque o endpoint financeiro exige esse filtro.
 
 | Campo JACAD | Campo canônico MIRA | Regra |
 |---|---|---|
@@ -52,13 +52,13 @@ O primeiro fluxo sincroniza somente o cadastro de alunos:
 | `idAluno` | `matricula` | Fallback técnico quando RA não existe |
 | `nome` | `nome` | Obrigatório para ingestão |
 | `email` | `email` | Opcional |
-| `dataAlteracao` | — | Data de alteração do registro, não é observação de cada atributo |
+| `dataAlteracao` | — | Data de alteração do registro, não é observação de cada atributo |\n| Matrículas: `idMatricula`, `idAluno`, `status`/`statusMatricula`, `curso`, `turma` | `status_aluno`, `curso`, `turma` | Junta por `idAluno` (fallback RA); prioriza matrícula `ATIVA` |\n| Resumo: `situacaoFinanceira` | `status_financeiro` | Apenas os estados documentados: `VENCIDO`, `EM_ABERTO`, `PAGO`, `SEM_FINANCEIRO` |\n| Resumo: `dataVencimentoParcela` | `dias_atraso_boleto` | Só calcula quando `situacaoFinanceira=VENCIDO`; diferença entre data atual da sincronização e vencimento da parcela aberta de menor vencimento |\n| Resumo: `valorParcela` | Metadado de origem | É o valor da parcela aberta de menor vencimento, não saldo devedor total; fica em `raw_data.jacad` e não alimenta `saldo_devedor` |
 
 O identificador interno JACAD deve ser preservado no payload bruto. Não substituir o RA por `idAluno` quando o RA existir.
 
 ## 6. Limites semânticos e confiabilidade preditiva
 
-A consulta de alunos não fornece, por si só, evidência suficiente para calcular os sete atributos preditivos obrigatórios da MIRA.
+O cadastro de alunos e o resumo financeiro enriquecem a cobertura, mas não fornecem, por si só, os sete atributos preditivos obrigatórios da MIRA.
 
 - `dataAlteracao` descreve alteração do registro; não prova quando cada campo foi observado.
 - `dataCriacao` não representa último acesso.
@@ -104,7 +104,7 @@ Para declarar a conexão validada em produção, é necessário testar com um am
 - campos reais e diferenças entre versões/instalações;
 - escopos/permissões do token;
 - limites de taxa e respostas 401/403/429;
-- matrícula, financeiro, notas e frequência;
+- matrículas e resumo financeiro com dados reais;\n- situação real de parcelas e regras de saldo/recorrência;\n- notas e frequência;
 - cadência e semântica dos timestamps por campo.
 
-**Conclusão:** a conexão nativa inicial de leitura de alunos pode ser configurada, testada e sincronizada pela MIRA. A cobertura acadêmica e financeira necessária à inteligência preditiva exige etapas específicas de homologação; não será simulada por mapeamentos presumidos.
+**Conclusão:** a conexão nativa sincroniza cadastro, matrículas e resumo financeiro por organização. A situação financeira e os dias de atraso têm mapeamento explícito; recorrência, saldo total, notas, frequência e acesso continuam desconhecidos até homologação das fontes correspondentes. O score automático permanece desabilitado.
