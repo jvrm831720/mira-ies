@@ -210,6 +210,10 @@ def compact_row(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
     if endpoint == "fatofrequenciaalunosativos":
         return {
             **common,
+            "curso_id": pick(row, "CursoID", "IdCurso"),
+            "estagio_id": pick(row, "EstagioID", "IdEstagio"),
+            "professor": pick(row, "Professor"),
+            "contrato_aula_livre": pick(row, "ContratoAulaLivre"),
             "aulas_dadas": pick(row, "AulasDadas"),
             "aulas_assistidas": pick(row, "AulasAssistidas"),
             "aulas_totais": pick(row, "AulasTotais"),
