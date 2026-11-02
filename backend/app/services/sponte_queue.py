@@ -417,7 +417,9 @@ async def _run_sync(job_id: str, redis: Redis):
                 endpoint, extraction_date=extraction_date, page_number=1, page_size=1000
             )
             total_pages = int(first.get("totalPages") or 1)
-            total_pages = max(1, min(total_pages, 10000))
+            if total_pages > 10000:
+                raise RuntimeError(f"Endpoint Sponte {endpoint} excedeu o limite seguro de 10.000 páginas.")
+            total_pages = max(1, total_pages)
             progress.update({
                 "stage": "extracting", "endpoint": endpoint,
                 "endpoint_index": endpoint_index + 1, "endpoint_count": len(endpoints),
