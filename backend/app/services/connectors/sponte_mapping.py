@@ -306,10 +306,11 @@ def build_student_payloads(
                 and str(row.get("contrato_id")) in active_contract_ids
             )
         ]
-        paid_statuses = {"pago", "paga", "quitado", "quitada"}
         pending = [row for row in receivables if str(row.get("situacao") or "").strip().casefold() == "pendente"]
+        # The public BI guide documents "Pendente" as an open installment.
+        # Other situation values remain unknown until the institution validates its enum.
         unknown_status = any(
-            str(row.get("situacao") or "").strip().casefold() not in (paid_statuses | {"pendente"})
+            str(row.get("situacao") or "").strip().casefold() != "pendente"
             for row in receivables
         )
         overdue = []
@@ -336,8 +337,6 @@ def build_student_payloads(
             financial_status = "EM_ABERTO"
         elif active_contract_ids and not receivables:
             financial_status = "SEM_FINANCEIRO"
-        elif receivables and all(str(row.get("situacao") or "").strip().casefold() in paid_statuses for row in receivables):
-            financial_status = "PAGO"
         else:
             financial_status = None
 
