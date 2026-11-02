@@ -26,6 +26,7 @@ class TenantSponteConnection(Base):
     client_code: Mapped[int] = mapped_column(Integer, nullable=False)
     initial_extraction_date: Mapped[date] = mapped_column(Date, nullable=False, default=date(2025, 1, 1))
     sync_watermarks: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    sync_catalogs: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     status: Mapped[str] = mapped_column(String(24), default="configured", nullable=False)
     last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
