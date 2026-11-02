@@ -137,3 +137,19 @@ def test_sponte_mapping_keeps_overdue_unknown_when_pending_due_date_is_missing()
     assert payload["StatusFinanceiro"] is None
     assert payload["DiasAtraso"] is None
     assert payload["QtdAtrasos"] is None
+
+
+def test_sponte_mapping_does_not_treat_unknown_receivable_status_as_paid():
+    student = SimpleNamespace(
+        matricula="104", nome="Davi", curso=None, turma=None, email=None, telefone=None,
+        raw_data={"sponte": {
+            "profile": {"nome": "Davi"},
+            "contasreceber": {
+                "a": {"aluno_id": "104", "situacao": "Em negociação", "valor_total": 100, "valor_pago": 0}
+            },
+        }},
+    )
+    [payload] = build_student_payloads([student], as_of=date(2026, 11, 2))
+    assert payload["StatusFinanceiro"] is None
+    assert payload["SaldoDevedor"] is None
+    assert payload["DiasAtraso"] is None
