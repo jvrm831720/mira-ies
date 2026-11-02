@@ -394,7 +394,7 @@ export default function DadosIntegracoesPage() {
                   <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
                     <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.students ?? activeJacadJob.result?.students_imported ?? "—"}</p><p className="text-muted-foreground">Alunos</p></div>
                     <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.contracts_done ?? 0}/{activeJacadJob.progress?.contracts_total ?? 0}</p><p className="text-muted-foreground">Contratos</p></div>
-                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.discipline_enrollments_done ?? 0}/{activeJacadJob.progress?.discipline_enrollments_total ?? 0}</p><p className="text-muted-foreground">Disciplinas/turmas</p></div>
+                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.discipline_pairs_done ?? 0}/{activeJacadJob.progress?.discipline_pairs_total ?? 0}</p><p className="text-muted-foreground">Disciplinas/turmas</p></div>
                     <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.assessment_groups_done ?? 0}/{activeJacadJob.progress?.assessment_groups_total ?? 0}</p><p className="text-muted-foreground">Grupos de avaliações</p></div>
                   </div>
                   {activeJacadJob.last_error && <p className="text-xs text-destructive">{activeJacadJob.last_error}</p>}
@@ -411,7 +411,7 @@ export default function DadosIntegracoesPage() {
                   )}
                   {activeJacadJob.status === "completed" && activeJacadJob.result && (
                     <p className="text-xs text-muted-foreground">
-                      {activeJacadJob.result.students_imported ?? 0} alunos · {activeJacadJob.result.contracts_with_installments ?? 0} contratos com parcelas · {activeJacadJob.result.discipline_enrollments ?? 0} matrículas-disciplina · {activeJacadJob.result.assessment_groups ?? 0} grupos de avaliações consultados.
+                      {activeJacadJob.result.students_imported ?? 0} alunos · {activeJacadJob.result.contracts_consulted ?? 0} contratos consultados · {activeJacadJob.result.discipline_pairs_consulted ?? 0} combinações turma/disciplina · {activeJacadJob.result.assessment_groups ?? 0} grupos de avaliações consultados.
                     </p>
                   )}
                 </div>
