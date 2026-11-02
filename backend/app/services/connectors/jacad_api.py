@@ -242,6 +242,18 @@ class JacadApiClient:
                 return records
         raise JacadConnectionError(f"Limite de páginas JACAD atingido em {path}; sync parcial não foi concluído.")
 
+    async def fetch_class_disciplines(self, class_id: int) -> list[dict]:
+        return await self.fetch_page_collection(
+            f"/api/v1/academico/turmas/{int(class_id)}/disciplinas",
+            params={}, page_size=500,
+        )
+
+    async def fetch_discipline_enrollments(self, discipline_teacher_id: int) -> list[dict]:
+        return await self.fetch_page_collection(
+            f"/api/v1/academico/disciplinas/{int(discipline_teacher_id)}/matriculas",
+            params={}, page_size=500,
+        )
+
     async def fetch_enrollment_disciplines(self, enrollment_id: int) -> list[dict]:
         return await self.fetch_page_collection(
             "/api/v1/academico/matricula-disciplina",
