@@ -213,3 +213,62 @@ def test_jacad_mapping_ignores_financial_debt_from_non_active_enrollment():
     assert enriched[0]["status_financeiro"] == "PAGO"
     assert enriched[0]["dias_atraso_boleto"] == 0
     assert metadata["RA-10"]["financial_summaries"][0]["id_matricula"] == 200
+
+
+@pytest.mark.asyncio
+async def test_jacad_academic_discipline_and_assessment_endpoints_are_paginated():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/api/v1/auth/token":
+            return httpx.Response(200, json={"token": "jwt-session"})
+        if request.url.path == "/api/v1/academico/matricula-disciplina":
+            assert request.url.params["idMatricula"] == "321"
+            assert request.url.params["pageSize"] == "500"
+            return httpx.Response(200, json={
+                "page": {"currentPage": 1, "totalPages": 1},
+                "elements": [{"idMatriculaDisciplina": 11, "mediaFinal": 8.5, "frequencia": 92}],
+            })
+        if request.url.path == "/api/v1/academico/notas/consultar":
+            assert request.url.params["codigoDaTurma"] == "77"
+            assert request.url.params["codigoDisciplinaProfessor"] == "88"
+            assert request.url.params["pageSize"] == "500"
+            return httpx.Response(200, json={
+                "page": {"currentPage": 1, "totalPages": 1},
+                "elements": [{
+                    "ra": "RA-321", "idMatricula": 321, "idMatriculaDisciplina": 11,
+                    "mediaMatriculaDisciplina": 8.5,
+                    "itensNotas": [{"identificacao": "N1", "notaAvaliacao": 8.5}],
+                }],
+            })
+        raise AssertionError(request.url.path)
+
+    client = JacadApiClient(
+        "https://ies-demo.jacad.com.br", "access-token",
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        disciplines = await client.fetch_enrollment_disciplines(321)
+        notes = await client.fetch_assessment_notes(77, 88)
+    finally:
+        await client.close()
+
+    assert disciplines[0]["frequencia"] == 92
+    assert notes[0]["itensNotas"][0]["identificacao"] == "N1"
+    assert len([r for r in seen if r.url.path == "/api/v1/auth/token"]) == 1
+
+
+def test_jacad_metadata_deep_merge_preserves_prior_checkpointed_contracts_and_disciplines():
+    from app.services.jacad_queue import _deep_merge
+
+    current = {
+        "installments_by_contract": {"100": [{"id_transacao": 1}]},
+        "academic_disciplines_by_enrollment": {"10": [{"disciplina": "Matemática"}]},
+    }
+    merged = _deep_merge(current, {
+        "installments_by_contract": {"200": [{"id_transacao": 2}]},
+        "academic_disciplines_by_enrollment": {"11": [{"disciplina": "História"}]},
+    })
+    assert set(merged["installments_by_contract"]) == {"100", "200"}
+    assert set(merged["academic_disciplines_by_enrollment"]) == {"10", "11"}
