@@ -126,7 +126,7 @@ export default function LoginPage() {
         setCode("");
         setMfaRecoveryMode(false);
         setMode("mfa");
-      } else {
+      } else if ("access_token" in response) {
         setAccessToken(response.access_token);
         router.replace("/");
       }
@@ -199,7 +199,7 @@ export default function LoginPage() {
           setCode("");
           setMfaRecoveryMode(false);
           setMode("mfa");
-        } else {
+        } else if ("access_token" in response) {
           setAccessToken(response.access_token);
           router.replace("/");
         }

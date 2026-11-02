@@ -99,7 +99,7 @@ export default function ConfigPage() {
   const [mfaMessage, setMfaMessage] = useState<string | null>(null);
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [requireMfaAll, setRequireMfaAll] = useState(false);
-  const [requiredMfaRoles, setRequiredMfaRoles] = useState<string[]>([]);
+  const [requiredMfaRoles, setRequiredMfaRoles] = useState<Array<"admin" | "coordinator" | "operator" | "viewer">>([]);
   const mfaStatus = useQuery({ queryKey: ["mfa-status"], queryFn: () => api.mfaStatus(), retry: false });
 
   const me = useQuery({

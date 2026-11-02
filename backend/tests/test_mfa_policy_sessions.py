@@ -1,7 +1,5 @@
 """Testes de integração da Wave 2: políticas institucionais e sessões MFA."""
-from datetime import datetime, timezone
-
-from app.core.mfa import encrypt_totp_secret, new_totp_secret, totp_at
+from app.core.mfa import totp_at
 from app.core.mira_security import hash_password
 from app.models.auth import MfaTenantPolicy, User
 
