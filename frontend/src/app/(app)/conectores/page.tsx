@@ -429,7 +429,7 @@ export default function DadosIntegracoesPage() {
                 </ul>
                 <p className="mt-2 text-xs text-muted-foreground">
                   A sincronização consulta a API JACAD diretamente em segundo plano. Não é necessário enviar planilha ou JSON; você pode sair desta tela e acompanhar o processamento ao voltar.
-                  Parcelas e notas detalhadas são buscadas em segundo plano, em lotes com limite de concorrência e checkpoints para retomada.
+                  Parcelas e notas detalhadas são buscadas em segundo plano, em lotes com limite de concorrência e checkpoints para retomada. Para evitar chamadas repetidas, os detalhes são reutilizados por até 24 horas; alterações no resumo financeiro invalidam o cache do contrato.
                   Os valores de frequência, notas e faltas são preservados por disciplina. A MIRA ainda não os converte em score ou média institucional sem homologar escala, pesos e regras acadêmicas.
                   Os dados são preservados por contrato, disciplina e avaliação. A MIRA não inventa médias, saldo total ou recorrência e mantém o score automático desativado até validar a cobertura preditiva.
                 </p>
