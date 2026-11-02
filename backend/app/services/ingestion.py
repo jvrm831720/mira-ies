@@ -626,12 +626,24 @@ async def create_batch_and_students(
             connector_metadata = connector_provenance.get(field, {})
             if not isinstance(connector_metadata, dict):
                 connector_metadata = {}
+            is_connector = raw_row.get("mira_source_type") == "connector_api"
             observation_column = f"{field}_observed_at"
+            # Conectores podem enviar snapshots parciais. Não apagar a proveniência
+            # de campos que não vieram no payload; se o valor veio sem timestamp,
+            # a atualidade desse campo passa a ser desconhecida.
+            if (
+                is_connector
+                and raw_data is not None
+                and raw_data.get(field) is None
+                and not connector_metadata
+                and raw_row.get(observation_column) is None
+            ):
+                continue
             observed_at = connector_metadata.get("observed_at")
             if observed_at is None:
                 observed_at = raw_row.get(observation_column)
             metadata = {
-                "source_type": connector_metadata.get("source_type") or "file_import",
+                "source_type": connector_metadata.get("source_type") or ("connector_api" if is_connector else "file_import"),
                 "source_filename": original_filename,
                 "source_batch_id": batch.id,
                 "imported_at": imported_at,
@@ -642,6 +654,8 @@ async def create_batch_and_students(
                     or (observation_column if safe_str(observed_at) else None)
                 ),
             }
+            if is_connector and raw_row.get("mira_source_system"):
+                metadata["source_system"] = safe_str(raw_row.get("mira_source_system"))
             for key in ("source_system", "source_field", "source_updated_at"):
                 value = connector_metadata.get(key)
                 if value is not None:
