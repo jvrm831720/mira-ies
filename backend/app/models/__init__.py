@@ -7,6 +7,7 @@ from app.models.institutional_training_authorization import InstitutionalTrainin
 from app.models.risk_assessment import RiskAssessment
 from app.models.work_activity import WorkActivity, WorkActivityEvent
 from app.models.jacad_connection import TenantJacadConnection
+from app.models.sponte_connection import TenantSponteConnection
 
 __all__ = [
     "UploadBatch",
@@ -29,4 +30,5 @@ __all__ = [
     "WorkActivity",
     "WorkActivityEvent",
     "TenantJacadConnection",
+    "TenantSponteConnection",
 ]
