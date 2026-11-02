@@ -51,9 +51,10 @@ def assess_field_freshness(source: Any, *, now: datetime | None = None) -> dict[
         metadata = provenance.get(field, {}) if isinstance(provenance, dict) else {}
         observed_at = _parse_timestamp(metadata.get("observed_at")) if isinstance(metadata, dict) else None
         imported_at = _parse_timestamp(metadata.get("imported_at")) if isinstance(metadata, dict) else None
-        age_days = max(0, (now_utc - observed_at).total_seconds() / 86400) if observed_at else None
+        future_observation = observed_at is not None and observed_at > now_utc
+        age_days = (now_utc - observed_at).total_seconds() / 86400 if observed_at and not future_observation else None
         receipt_age = max(0, (now_utc - imported_at).total_seconds() / 86400) if imported_at else None
-        if observed_at is None:
+        if observed_at is None or future_observation:
             status = "unknown"
         elif age_days > max_age:
             status = "stale"
@@ -69,7 +70,7 @@ def assess_field_freshness(source: Any, *, now: datetime | None = None) -> dict[
             "observation_age_days": round(age_days, 1) if age_days is not None else None,
             "import_age_days": round(receipt_age, 1) if receipt_age is not None else None,
             "max_age_days": max_age,
-            "freshness_basis": "source_observed_at" if observed_at else "unknown",
+            "freshness_basis": "future_timestamp_invalid" if future_observation else ("source_observed_at" if observed_at else "unknown"),
         }
     return {
         "status": "stale" if counts["stale"] else ("unknown" if counts["unknown"] else ("aging" if counts["aging"] else "fresh")),
