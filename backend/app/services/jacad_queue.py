@@ -70,6 +70,9 @@ async def _update(redis: Redis, job_id: str, **fields: Any):
         k: _json(v) if isinstance(v, (dict, list)) else str(v) for k, v in fields.items()
     })
     await redis.expire(_key(job_id), get_settings().jacad_job_ttl_seconds)
+    status = fields.get("status") or await redis.hget(_key(job_id), "status")
+    if status == "running":
+        await redis.expire(_key(job_id) + ":lock", 600)
 
 
 async def enqueue_jacad_sync(*, tenant_id: str, tenant_slug: str | None):
@@ -583,7 +586,7 @@ async def process_jacad_sync_job(job_id: str, redis: Redis) -> bool:
     if not job or job.get("status") in {"completed", "failed"}:
         return True
     lock_key = _key(job_id) + ":lock"
-    if not await redis.set(lock_key, "1", ex=3600, nx=True):
+    if not await redis.set(lock_key, "1", ex=600, nx=True):
         return False
     try:
         job = await get_jacad_job(job_id, redis=redis)
@@ -624,6 +627,49 @@ async def process_jacad_sync_job(job_id: str, redis: Redis) -> bool:
             return True
     finally:
         await redis.delete(lock_key)
+
+
+async def requeue_stale_jacad_jobs(redis: Redis, *, stale_after_seconds: int = 600) -> int:
+    """Recover jobs whose worker died after BLPOP, retaining their checkpoints."""
+    now = int(time.time())
+    recovered = 0
+    async for raw_key in redis.scan_iter(match=PREFIX + "*"):
+        key = str(raw_key)
+        suffix = key[len(PREFIX):]
+        if ":" in suffix:  # Ignore checkpoint, lock and class-catalog keys.
+            continue
+        job = await redis.hgetall(key)
+        if job.get("status") != "running":
+            continue
+        try:
+            updated_at = int(float(job.get("updated_at", 0)))
+        except (TypeError, ValueError):
+            continue
+        if now - updated_at < stale_after_seconds or await redis.exists(key + ":lock"):
+            continue
+        recovery_lock = key + ":recovery-lock"
+        if not await redis.set(recovery_lock, "1", ex=30, nx=True):
+            continue
+        try:
+            job = await redis.hgetall(key)
+            if job.get("status") != "running":
+                continue
+            try:
+                updated_at = int(float(job.get("updated_at", 0)))
+            except (TypeError, ValueError):
+                continue
+            if now - updated_at < stale_after_seconds or await redis.exists(key + ":lock"):
+                continue
+            job_id = suffix
+            await _update(
+                redis, job_id, status="queued",
+                last_error="Worker interrompido; job recuperado automaticamente do último checkpoint.",
+            )
+            await redis.rpush(get_settings().jacad_queue_name, job_id)
+            recovered += 1
+        finally:
+            await redis.delete(recovery_lock)
+    return recovered
 
 
 async def promote_due_jacad_retries(redis: Redis) -> int:
