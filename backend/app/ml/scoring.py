@@ -78,7 +78,10 @@ def score_student_dict(student_data: dict) -> dict[str, Any]:
         "risk_level": rules["risk_level"],
         "probability": round(proba, 4),
         "shap_top_factors": top_factors,
-        "shap_summary": format_top_factors_human(top_factors),
+        "shap_summary": (
+            format_top_factors_human(top_factors)
+            if top_factors else "Explicação SHAP indisponível nesta execução."
+        ),
         "features_used": features,
         "rule_flags": rules["rule_flags"],
         "rule_boost": rules["rule_boost"],
