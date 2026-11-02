@@ -230,3 +230,19 @@ def test_unknown_freshness_does_not_claim_data_is_recent_or_block_legacy_scoring
     assert quality["can_score"] is True
     assert quality["freshness"]["status"] == "unknown"
     assert quality["freshness"]["counts"]["unknown"] == 7
+
+
+def test_future_observation_timestamp_is_unknown_not_fresh():
+    from datetime import datetime, timezone
+    from app.ml.data_quality import assess_field_freshness
+
+    result = assess_field_freshness(
+        {"raw_data": {"_mira_provenance": {
+            "dias_sem_login": {"observed_at": "2026-11-03T00:00:00+00:00"}
+        }}},
+        now=datetime(2026, 11, 2, tzinfo=timezone.utc),
+    )
+    field = result["fields"]["dias_sem_login"]
+    assert field["status"] == "unknown"
+    assert field["observation_age_days"] is None
+    assert field["freshness_basis"] == "future_timestamp_invalid"
