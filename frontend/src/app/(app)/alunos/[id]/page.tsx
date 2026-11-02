@@ -301,6 +301,11 @@ export default function StudentDetailPage() {
                 <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
                   <h2 className="text-[15px] font-semibold text-[#111827]">Análise de risco</h2>
                   <p className="mt-1 text-[12px] text-[#667085]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
+                  {explanationMetadata?.available && (
+                    <p className="mt-2 text-[11px] text-[#98A2B3]">
+                      SHAP · modelo {explanationMetadata.model_scope || "não informado"} · versão {explanationMetadata.model_version || "não informada"}
+                    </p>
+                  )}
                   {summaryText ? (
                     <p className="mt-4 text-[13px] leading-relaxed text-[#344054]">{summaryText}</p>
                   ) : (
