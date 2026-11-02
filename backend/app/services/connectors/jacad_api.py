@@ -124,12 +124,34 @@ class JacadApiClient:
             return payload
         raise JacadConnectionError("Não foi possível renovar a sessão JACAD.")
 
-    async def test_connection(self) -> dict:
+    async def test_connection(self, *, org_id: int | None = None) -> dict:
         payload = await self.get("/api/v2/academico/alunos", {"pageSize": 1})
-        elements = payload.get("elements")
-        if not isinstance(elements, list):
+        if not isinstance(payload, dict) or not isinstance(payload.get("elements"), list):
             raise JacadConnectionError("A API respondeu, mas não retornou a lista de alunos esperada.")
-        return {"authenticated": True, "students_endpoint": True, "sample_records": len(elements)}
+        result = {
+            "authenticated": True,
+            "students_endpoint": True,
+            "sample_records": len(payload["elements"]),
+            "enrollments_endpoint": None,
+            "financial_endpoint": None,
+        }
+        if org_id is not None:
+            enrollments = await self.get(
+                "/api/v2/academico/matriculas", {"idOrg": org_id, "pageSize": 1, "idCursor": 0}
+            )
+            if not isinstance(enrollments, dict) or not isinstance(enrollments.get("elements"), list):
+                raise JacadConnectionError("A API de matrículas não retornou a lista esperada.")
+            financial = await self.get(
+                "/api/v2/financeiro/matriculas/resumo-financeiro",
+                {"idOrg": org_id, "pageSize": 1, "idCursor": 0},
+            )
+            if not isinstance(financial, dict) or not isinstance(financial.get("elements"), list):
+                raise JacadConnectionError("A API financeira não retornou a lista esperada.")
+            result["enrollments_endpoint"] = True
+            result["financial_endpoint"] = True
+            result["enrollment_sample_records"] = len(enrollments["elements"])
+            result["financial_sample_records"] = len(financial["elements"])
+        return result
 
     async def fetch_cursor_collection(
         self, path: str, *, params: dict | None = None, page_size: int = 5000, max_pages: int = 200
