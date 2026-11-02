@@ -191,6 +191,8 @@ async def _request_guard(redis: Redis, tenant_id: str):
 async def _persist_catalog_page(
     *, tenant_id: str, endpoint: str, items: list[dict[str, Any]],
 ) -> tuple[int, list[str]]:
+    if not items:
+        return 0, []
     bucket_name = endpoint
     id_field = {"cursos": "curso_id", "turmas": "turma_id", "estagios": "estagio_id"}[endpoint]
     async with AsyncSessionLocal() as session:
@@ -339,6 +341,10 @@ async def _derive_affected_students(tenant_id: str, affected_ids: list[str], job
             ):
                 if hasattr(student, field):
                     setattr(student, field, record.get(field))
+            student.risk_score = None
+            student.risk_level = None
+            student.model_risk_score = None
+            student.shap_top_factors = None
             raw = dict(student.raw_data or {})
             provenance = dict(raw.get("_mira_provenance") or {})
             for field in (
