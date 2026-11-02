@@ -177,13 +177,18 @@ async def _reserve_window(redis: Redis, key: str, *, limit: int, window_ms: int)
 
 
 async def _request_guard(redis: Redis, credential_scope: str):
+    settings = get_settings()
     while True:
-        wait_ms = await _reserve_window(redis, "beacon:sponte:rate:global", limit=15, window_ms=1000)
+        wait_ms = await _reserve_window(
+            redis, "beacon:sponte:rate:global",
+            limit=settings.sponte_global_requests_per_second, window_ms=1000,
+        )
         if wait_ms <= 0:
             break
         await asyncio.sleep(wait_ms / 1000 + 0.02)
     wait_ms = await _reserve_window(
-        redis, f"beacon:sponte:rate:key:{credential_scope}", limit=900, window_ms=60000
+        redis, f"beacon:sponte:rate:key:{credential_scope}",
+        limit=settings.sponte_requests_per_minute, window_ms=60000
     )
     if wait_ms > 0:
         raise SponteQuotaDeferred(wait_ms / 1000 + 2)
@@ -379,7 +384,7 @@ async def _run_sync(job_id: str, redis: Redis):
     settings = get_settings()
     progress = dict(job.get("progress") or {})
     result = dict(job.get("result") or {"endpoints": {}})
-    as_of = datetime.now(ZoneInfo("America/Sao_Paulo")).date() - timedelta(days=1)
+    as_of = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
 
     async with AsyncSessionLocal() as session:
         await _set_tenant_rls_context(session, tenant_id)
