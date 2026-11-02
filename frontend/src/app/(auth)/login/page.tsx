@@ -259,7 +259,7 @@ export default function LoginPage() {
                       maxLength={mfaRecoveryMode ? 24 : 6}
                       placeholder={mfaRecoveryMode ? "Código de recuperação" : "000000"}
                       value={code}
-                      onChange={(e) => setCode(mfaRecoveryMode ? e.target.value.toUpperCase() : e.target.value.replace(/\\D/g, ""))}
+                      onChange={(e) => setCode(mfaRecoveryMode ? e.target.value.toUpperCase() : e.target.value.replace(/\D/g, ""))}
                       required
                       className="h-12 rounded-full border-neutral-200 px-4 text-center text-lg tracking-[0.2em]"
                     />
