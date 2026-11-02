@@ -10,6 +10,9 @@ import httpx
 SPONTE_BASE_URL = "https://sponte-bi.sponteweb.com.br"
 SPONTE_ENDPOINTS = (
     "alunos",
+    "cursos",
+    "turmas",
+    "estagios",
     "contratos",
     "contratosturmasestagios",
     "contasreceber",
