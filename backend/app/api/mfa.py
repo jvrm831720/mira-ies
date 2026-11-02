@@ -318,19 +318,20 @@ async def confirm_required_mfa_enrollment(
     user, tenant = await _load_challenge_identity(db, challenge)
     if user.mfa_enabled_at or not user.mfa_totp_secret_encrypted:
         raise HTTPException(status_code=409, detail="Não existe uma configuração MFA pendente.")
+    _ensure_mfa_unlocked(user)
     if not await user_requires_mfa(db, user):
         raise HTTPException(status_code=409, detail="A política MFA não exige mais este cadastro.")
     step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code)
     if step is None:
         if challenge.attempts >= MAX_ATTEMPTS:
             challenge.consumed_at = _now()
-        _audit(db, tenant.id, user.id, "required_enrollment_verification_failed")
+        _record_mfa_failure(db, user, "required_enrollment_verification_failed")
         await db.commit()
         raise HTTPException(status_code=400, detail="Código inválido. Confira o aplicativo autenticador.")
     user.mfa_enabled_at = _now()
     user.mfa_last_verified_step = step
-    user.mfa_failed_attempts = 0
-    user.mfa_locked_until = None
+    _record_mfa_success(user)
+    await _revoke_user_sessions(db, tenant.id, user.id, "mfa_enabled_by_policy")
     user.auth_version += 1
     codes = generate_recovery_codes()
     for code in codes:
@@ -402,16 +403,17 @@ async def confirm_mfa(
     user = await db.get(User, user_id)
     if not user or not user.mfa_totp_secret_encrypted or user.mfa_enabled_at:
         raise HTTPException(status_code=409, detail="Não existe uma configuração MFA pendente.")
+    _ensure_mfa_unlocked(user)
     step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code)
     if step is None:
-        _audit(db, auth.tenant_id, user.id, "enrollment_verification_failed")
+        _record_mfa_failure(db, user, "enrollment_verification_failed")
         await db.commit()
         raise HTTPException(status_code=400, detail="Código inválido. Confira o aplicativo autenticador.")
     user.mfa_enabled_at = _now()
     user.mfa_last_verified_step = step
+    await _revoke_user_sessions(db, auth.tenant_id, user.id, "mfa_enabled")
     user.auth_version += 1
-    user.mfa_failed_attempts = 0
-    user.mfa_locked_until = None
+    _record_mfa_success(user)
     codes = generate_recovery_codes()
     for code in codes:
         db.add(MfaRecoveryCode(user_id=user.id, code_hash=recovery_code_hash(code)))
@@ -432,12 +434,14 @@ async def step_up_mfa(
     user = await db.get(User, user_id)
     if not user or not user.mfa_enabled_at or not user.mfa_totp_secret_encrypted:
         raise HTTPException(status_code=409, detail="Ative o MFA antes de confirmar novamente sua identidade.")
+    _ensure_mfa_unlocked(user)
     step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code, user.mfa_last_verified_step)
     if step is None:
-        _audit(db, auth.tenant_id, user.id, "step_up_failed")
+        _record_mfa_failure(db, user, "step_up_failed")
         await db.commit()
         raise HTTPException(status_code=401, detail="Código inválido.")
     user.mfa_last_verified_step = step
+    _record_mfa_success(user)
     _audit(db, auth.tenant_id, user.id, "step_up_succeeded")
     token, ttl = create_user_session(db, user, auth.tenant, request, aal=2)
     await db.commit()
@@ -454,9 +458,13 @@ async def regenerate_recovery_codes(
     user = await db.get(User, user_id)
     if not user or not user.mfa_enabled_at or not user.mfa_totp_secret_encrypted:
         raise HTTPException(status_code=409, detail="MFA não está ativo.")
+    _ensure_mfa_unlocked(user)
     step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code, user.mfa_last_verified_step)
     if step is None:
+        _record_mfa_failure(db, user, "recovery_codes_regeneration_failed")
+        await db.commit()
         raise HTTPException(status_code=401, detail="Código inválido.")
+    _record_mfa_success(user)
     user.mfa_last_verified_step = step
     await db.execute(
         update(MfaRecoveryCode)
@@ -482,13 +490,18 @@ async def disable_mfa(
     user = await db.get(User, user_id)
     if not user or not user.mfa_enabled_at or not user.mfa_totp_secret_encrypted:
         raise HTTPException(status_code=409, detail="MFA não está ativo.")
+    _ensure_mfa_unlocked(user)
     if await user_requires_mfa(db, user):
         policy = await get_tenant_mfa_policy(db, auth.tenant_id)
         if policy["require_mfa_all"] or user.role in policy["required_roles"]:
             raise HTTPException(status_code=409, detail="A política da instituição exige MFA para esta conta.")
     step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code, user.mfa_last_verified_step)
     if step is None:
+        _record_mfa_failure(db, user, "mfa_disable_failed")
+        await db.commit()
         raise HTTPException(status_code=401, detail="Código inválido.")
+    _record_mfa_success(user)
+    await _revoke_user_sessions(db, auth.tenant_id, user.id, "mfa_disabled")
     user.mfa_enabled_at = None
     user.mfa_totp_secret_encrypted = None
     user.mfa_last_verified_step = None
