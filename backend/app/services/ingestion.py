@@ -660,7 +660,18 @@ async def create_batch_and_students(
                 existing.model_risk_score = None
                 existing.shap_top_factors = None
             existing.batch_id = batch.id
-            existing.raw_data = {**(existing.raw_data or {}), **raw}
+            # Persist canonical predictive cells even when the incoming value is
+            # blank/invalid. The quality gate must see the latest source cell,
+            # not silently fall back to an older raw_data value.
+            canonical_predictive_refresh = {
+                field: data.get(field)
+                for field in predictive_source_fields.intersection(mapped_targets)
+            }
+            existing.raw_data = {
+                **(existing.raw_data or {}),
+                **raw,
+                **canonical_predictive_refresh,
+            }
             students.append(existing)
             rows_updated += 1
         else:
