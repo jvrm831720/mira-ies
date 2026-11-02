@@ -68,6 +68,45 @@ def _require_recent_auth(auth: AuthContext, *, minimum_aal: int = 1) -> None:
         )
 
 
+def _ensure_mfa_unlocked(user: User) -> None:
+    if user.mfa_locked_until and user.mfa_locked_until > _now():
+        raise HTTPException(status_code=429, detail="MFA temporariamente bloqueado. Tente novamente mais tarde.")
+
+
+def _record_mfa_failure(db: AsyncSession, user: User, event: str) -> None:
+    user.mfa_failed_attempts += 1
+    if user.mfa_failed_attempts >= MAX_ATTEMPTS:
+        user.mfa_locked_until = _now() + timedelta(minutes=LOCK_MINUTES)
+        user.mfa_failed_attempts = 0
+    _audit(db, user.tenant_id, user.id, event)
+
+
+def _record_mfa_success(user: User) -> None:
+    user.mfa_failed_attempts = 0
+    user.mfa_locked_until = None
+
+
+async def _revoke_user_sessions(
+    db: AsyncSession,
+    tenant_id: str,
+    user_id: str,
+    reason: str,
+) -> None:
+    await db.execute(
+        update(UserSession)
+        .where(
+            UserSession.tenant_id == tenant_id,
+            UserSession.user_id == user_id,
+            UserSession.revoked_at.is_(None),
+        )
+        .values(
+            revoked_at=_now(),
+            revoked_by_user_id=user_id,
+            revoke_reason=reason,
+        )
+    )
+
+
 def _require_admin(auth: AuthContext, *, recent: bool = True) -> str:
     user_id = _require_user(auth)
     if auth.role != "admin":
