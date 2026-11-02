@@ -36,7 +36,7 @@ def validate_jacad_base_url(value: str) -> str:
 
 def _fernet() -> Fernet:
     secret = get_settings().secret_key
-    if not secret or secret == "change-this-in-production":
+    if not secret:
         raise RuntimeError("SECRET_KEY segura é obrigatória para armazenar credenciais de integração.")
     digest = hashlib.sha256(("mira:jacad-credential:v1:" + secret).encode()).digest()
     return Fernet(base64.urlsafe_b64encode(digest))
@@ -54,7 +54,7 @@ def decrypt_api_token(value: str) -> str:
 
 
 class JacadApiClient:
-    def __init__(self, base_url: str, api_token: str, *, timeout: float = 25.0):
+    def __init__(self, base_url: str, api_token: str, *, timeout: float = 25.0, transport: httpx.AsyncBaseTransport | None = None):
         self.base_url = validate_jacad_base_url(base_url)
         if not api_token or len(api_token) > 40:
             raise ValueError("O token de acesso JACAD deve ter entre 1 e 40 caracteres.")
@@ -66,6 +66,7 @@ class JacadApiClient:
             timeout=httpx.Timeout(timeout),
             follow_redirects=False,
             headers={"Accept": "application/json"},
+            transport=transport,
         )
 
     async def close(self) -> None:
