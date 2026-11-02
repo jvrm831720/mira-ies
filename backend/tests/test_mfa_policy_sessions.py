@@ -1,7 +1,7 @@
 """Testes de integração da Wave 2: políticas institucionais e sessões MFA."""
 from datetime import datetime, timezone
 
-from app.core.mfa import encrypt_totp_secret, totp_at
+from app.core.mfa import encrypt_totp_secret, new_totp_secret, totp_at
 from app.core.mira_security import hash_password
 from app.models.auth import MfaTenantPolicy, User
 
@@ -157,7 +157,7 @@ async def test_session_listing_is_scoped_to_current_user_and_tenant(client, db_s
 
 async def test_policy_change_revokes_old_sessions_and_keeps_admin_session(client, db_session, tenant_factory):
     tenant, _key = await tenant_factory(slug="mfa-policy-change")
-    from app.core.mfa import new_totp_secret\n    secret = new_totp_secret()
+    secret = new_totp_secret()
     admin = User(
         tenant_id=tenant.id,
         display_name="Admin MFA",
