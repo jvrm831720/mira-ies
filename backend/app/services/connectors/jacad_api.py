@@ -133,15 +133,14 @@ class JacadApiClient:
 
     async def fetch_students(self, *, page_size: int = 5000, max_pages: int = 200, org_id: int | None = None) -> list[dict]:
         page_size = min(max(int(page_size), 1), 5000)
-        cursor: int | str | None = None
+        cursor: int | str = 0
         seen_cursors: set[str] = set()
         records: list[dict] = []
         for _ in range(max_pages):
             params: dict[str, int | str] = {"pageSize": page_size}
             if org_id is not None:
                 params["idOrg"] = org_id
-            if cursor is not None:
-                params["idCursor"] = cursor
+            params["idCursor"] = cursor
             payload = await self.get("/api/v2/academico/alunos", params)
             elements = payload.get("elements")
             if not isinstance(elements, list):
@@ -154,6 +153,6 @@ class JacadApiClient:
             marker = str(next_cursor)
             if marker in seen_cursors or marker == str(cursor):
                 raise JacadConnectionError("Cursor JACAD repetido; sincronização interrompida para evitar loop.")
-            seen_cursors.add(marker)
+            seen_cursors.add(str(cursor))
             cursor = next_cursor
         raise JacadConnectionError("Limite de páginas JACAD atingido; sync parcial não foi ingerido.")
