@@ -23,6 +23,29 @@ export type AuthResponse = {
 };
 
 export type AuthActionResponse = { message: string };
+export type MfaLoginChallenge = {
+  mfa_required: boolean;
+  mfa_enrollment_required: boolean;
+  challenge_token: string;
+  expires_in: number;
+};
+export type MfaStatus = { enabled: boolean; enabled_at: string | null; recovery_codes_remaining: number };
+export type MfaEnrollment = { secret: string; qr_code: string; otpauth_uri: string };
+export type MfaRecoveryCodes = { recovery_codes: string[] };
+export type MfaPolicy = { require_mfa_all: boolean; required_roles: Array<"admin" | "coordinator" | "operator" | "viewer">; updated_at?: string | null };
+export type MfaSession = {
+  id: string;
+  device_label: string;
+  user_agent?: string | null;
+  ip_address?: string | null;
+  aal: number;
+  created_at: string;
+  expires_at: string;
+  revoked_at?: string | null;
+  current: boolean;
+  active: boolean;
+};
+export type MfaSessionsResponse = { sessions: MfaSession[] };
 
 export type RetentionWorkSummary = {
   pending: number;

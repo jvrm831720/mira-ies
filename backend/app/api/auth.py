@@ -8,19 +8,22 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.channels.whatsapp import normalize_phone_br
 from app.agents.providers.whatsapp import send_whatsapp
 from app.agents.providers.resend_provider import send_email_resend
 from app.core.config import get_settings
-from app.core.mira_security import hash_password, issue_access_token, verify_password
+from app.core.mira_security import hash_password, verify_password
 from app.core.security import hash_api_key
 from app.db.session import get_db
-from app.models.auth import AuthChallenge, User
+from app.models.auth import AuthChallenge, User, UserSession
+from app.api.mfa import create_login_challenge
+from app.core.mfa_policy import user_requires_mfa
+from app.core.user_sessions import create_user_session
 from app.models.tenant import Tenant
 
 router = APIRouter(prefix="/auth", tags=["Autenticação Mira"])
@@ -57,8 +60,8 @@ def _reset_digest(token: str) -> str:
     return hash_api_key(f"mira:password-reset:{token}")
 
 
-def _token_response(user: User, tenant: Tenant) -> dict:
-    token, ttl = issue_access_token(user_id=user.id, tenant_id=user.tenant_id, auth_version=user.auth_version)
+def _token_response(user: User, tenant: Tenant, request: Request, db: AsyncSession) -> dict:
+    token, ttl = create_user_session(db, user, tenant, request, aal=1)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -121,7 +124,7 @@ class ProvisionUserPayload(EmailPayload):
 
 
 @router.post("/login/password")
-async def login_password(body: PasswordLoginPayload, db: AsyncSession = Depends(get_db)):
+async def login_password(body: PasswordLoginPayload, request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     now = _now()
@@ -141,8 +144,13 @@ async def login_password(body: PasswordLoginPayload, db: AsyncSession = Depends(
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
     user.failed_login_attempts = 0
     user.locked_until = None
+    if await user_requires_mfa(db, user):
+        return await create_login_challenge(
+            db, user, tenant, purpose="verify" if user.mfa_enabled_at else "enroll"
+        )
+    response = _token_response(user, tenant, request, db)
     await db.commit()
-    return _token_response(user, tenant)
+    return response
 
 
 @router.post("/whatsapp/request", status_code=status.HTTP_202_ACCEPTED)
@@ -192,7 +200,7 @@ async def request_whatsapp_code(body: WhatsAppRequestPayload, db: AsyncSession =
 
 
 @router.post("/whatsapp/verify")
-async def verify_whatsapp_code(body: WhatsAppVerifyPayload, db: AsyncSession = Depends(get_db)):
+async def verify_whatsapp_code(body: WhatsAppVerifyPayload, request: Request, db: AsyncSession = Depends(get_db)):
     phone = normalize_phone_br(body.phone)
     if not phone:
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
@@ -227,8 +235,13 @@ async def verify_whatsapp_code(body: WhatsAppVerifyPayload, db: AsyncSession = D
     if tenant is None:
         await db.commit()
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
+    if await user_requires_mfa(db, user):
+        return await create_login_challenge(
+            db, user, tenant, purpose="verify" if user.mfa_enabled_at else "enroll"
+        )
+    response = _token_response(user, tenant, request, db)
     await db.commit()
-    return _token_response(user, tenant)
+    return response
 
 
 @router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED)
@@ -299,6 +312,23 @@ async def reset_password(body: PasswordResetPayload, db: AsyncSession = Depends(
     challenge.consumed_at = now
     user.password_hash = hash_password(body.new_password)
     user.auth_version += 1
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": user.tenant_id},
+    )
+    await db.execute(
+        update(UserSession)
+        .where(
+            UserSession.tenant_id == user.tenant_id,
+            UserSession.user_id == user.id,
+            UserSession.revoked_at.is_(None),
+        )
+        .values(
+            revoked_at=now,
+            revoked_by_user_id=user.id,
+            revoke_reason="password_reset",
+        )
+    )
     user.failed_login_attempts = 0
     user.locked_until = None
     await db.execute(

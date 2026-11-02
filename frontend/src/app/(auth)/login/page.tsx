@@ -10,7 +10,7 @@ import { api, ApiError } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
-type LoginMode = "password" | "whatsapp" | "forgot";
+type LoginMode = "password" | "whatsapp" | "forgot" | "mfa" | "mfa-enroll";
 
 const COUNTRIES = [
   { iso: "br", code: "BR", name: "Brasil", dial: "+55" },
@@ -64,6 +64,10 @@ export default function LoginPage() {
   const [countryOpen, setCountryOpen] = useState(false);
   const countryRef = useRef<HTMLDivElement>(null);
   const [code, setCode] = useState("");
+  const [mfaTicket, setMfaTicket] = useState("");
+  const [mfaRecoveryMode, setMfaRecoveryMode] = useState(false);
+  const [mfaEnrollment, setMfaEnrollment] = useState<{secret:string; qr_code:string} | null>(null);
+  const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -110,8 +114,22 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const response = await api.loginPassword({ email: email.trim(), password });
-      setAccessToken(response.access_token);
-      router.replace("/");
+      if ("mfa_enrollment_required" in response && response.mfa_enrollment_required) {
+        setMfaTicket(response.challenge_token);
+        const enrollment = await api.beginRequiredMfaEnrollment(response.challenge_token);
+        setMfaEnrollment(enrollment);
+        setMfaRecoveryCodes(null);
+        setCode("");
+        setMode("mfa-enroll");
+      } else if ("mfa_required" in response && response.mfa_required) {
+        setMfaTicket(response.challenge_token);
+        setCode("");
+        setMfaRecoveryMode(false);
+        setMode("mfa");
+      } else if ("access_token" in response) {
+        setAccessToken(response.access_token);
+        router.replace("/");
+      }
     } catch (err) {
       setError(
         humanError(
@@ -119,6 +137,39 @@ export default function LoginPage() {
           "Não foi possível entrar com essas credenciais."
         )
       );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onRequiredMfaEnrollmentSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await api.confirmRequiredMfaEnrollment(mfaTicket, code.trim());
+      setAccessToken(response.access_token);
+      setMfaEnrollment(null);
+      setMfaRecoveryCodes(response.recovery_codes);
+      setCode("");
+      setNotice("Autenticação multifator ativada. Guarde os códigos de recuperação antes de continuar.");
+    } catch (err) {
+      setError(humanError(err, "Não foi possível concluir a configuração do MFA."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onMfaSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await api.verifyMfaLogin(mfaTicket, code.trim());
+      setAccessToken(response.access_token);
+      router.replace("/");
+    } catch (err) {
+      setError(humanError(err, "Código inválido ou expirado."));
     } finally {
       setLoading(false);
     }
@@ -136,8 +187,22 @@ export default function LoginPage() {
         setNotice("Se o número estiver cadastrado, enviaremos um código pelo WhatsApp.");
       } else {
         const response = await api.verifyWhatsappCode(fullPhone, code.trim());
-        setAccessToken(response.access_token);
-        router.replace("/");
+        if ("mfa_enrollment_required" in response && response.mfa_enrollment_required) {
+          setMfaTicket(response.challenge_token);
+          const enrollment = await api.beginRequiredMfaEnrollment(response.challenge_token);
+          setMfaEnrollment(enrollment);
+          setMfaRecoveryCodes(null);
+          setCode("");
+          setMode("mfa-enroll");
+        } else if ("mfa_required" in response && response.mfa_required) {
+          setMfaTicket(response.challenge_token);
+          setCode("");
+          setMfaRecoveryMode(false);
+          setMode("mfa");
+        } else if ("access_token" in response) {
+          setAccessToken(response.access_token);
+          router.replace("/");
+        }
       }
     } catch (err) {
       setError(
@@ -190,6 +255,10 @@ export default function LoginPage() {
             <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-neutral-900">
               {mode === "forgot"
                 ? "Recuperar senha"
+                : mode === "mfa-enroll"
+                  ? "Configure seu autenticador"
+                : mode === "mfa"
+                  ? "Verificação em duas etapas"
                 : mode === "whatsapp"
                   ? whatsappStep === "code"
                     ? "Confirme o código"
@@ -199,6 +268,10 @@ export default function LoginPage() {
             <p className="mt-1.5 text-sm leading-6 text-neutral-500">
               {mode === "forgot"
                 ? "Enviaremos um link para o e-mail da conta."
+                : mode === "mfa-enroll"
+                  ? "A segurança da MIRA exige autenticação multifator para todas as contas humanas."
+                : mode === "mfa"
+                  ? "Informe o código do aplicativo autenticador ou um código de recuperação."
                 : mode === "whatsapp"
                   ? whatsappStep === "code"
                     ? `Código enviado para ${fullPhone}`
@@ -216,6 +289,69 @@ export default function LoginPage() {
                 <p role="status" aria-live="polite" className="rounded-xl bg-emerald-50 px-3 py-2 text-sm leading-5 text-emerald-800">
                   {notice}
                 </p>
+              )}
+
+              {mode === "mfa-enroll" && (
+                <div className="space-y-4">
+                  {mfaRecoveryCodes ? (
+                    <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-semibold text-amber-900">Guarde seus códigos de recuperação</p>
+                      <p className="text-xs text-amber-800">Cada código é válido uma única vez. Eles não serão exibidos novamente.</p>
+                      <div className="grid grid-cols-2 gap-2">{mfaRecoveryCodes.map((item) => <code key={item} className="rounded bg-white p-2 text-center text-xs">{item}</code>)}</div>
+                      <Button type="button" variant="outline" onClick={() => navigator.clipboard.writeText(mfaRecoveryCodes.join("\\n"))}>Copiar códigos</Button>
+                      <Button type="button" className="w-full" onClick={() => router.replace("/")}>Já guardei — entrar</Button>
+                    </div>
+                  ) : (
+                    <form onSubmit={onRequiredMfaEnrollmentSubmit} className="space-y-4">
+                      {mfaEnrollment && (
+                        <div className="space-y-3 rounded-xl border border-neutral-200 p-4">
+                          <p className="text-sm font-medium">1. Escaneie o QR Code no aplicativo autenticador</p>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={mfaEnrollment.qr_code} alt="QR Code para configurar MIRA no aplicativo autenticador" className="mx-auto h-48 w-48" />
+                          <p className="break-all rounded-lg bg-neutral-50 p-2 font-mono text-xs">{mfaEnrollment.secret}</p>
+                          <p className="text-xs text-neutral-500">2. Digite o código de 6 dígitos gerado pelo aplicativo.</p>
+                        </div>
+                      )}
+                      <Input value={code} onChange={(e) => setCode(e.target.value.replace(/\\D/g, "").slice(0,6))} inputMode="numeric" placeholder="Código de 6 dígitos" maxLength={6} required />
+                      <Button type="submit" className="h-11 w-full rounded-full bg-neutral-950 text-white hover:bg-neutral-800" disabled={loading || code.length !== 6}>
+                        {loading ? "Confirmando…" : "Ativar MFA e entrar"}
+                      </Button>
+                      <button type="button" onClick={() => changeMode("password")} className="flex w-full items-center justify-center gap-2 text-sm text-neutral-500 hover:text-neutral-900">
+                        <ArrowLeft className="h-4 w-4" /> Voltar ao login
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {mode === "mfa" && (
+                <form onSubmit={onMfaSubmit} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium text-neutral-700" htmlFor="mfa-code">
+                      {mfaRecoveryMode ? "Código de recuperação" : "Código de 6 dígitos"}
+                    </label>
+                    <Input
+                      id="mfa-code"
+                      inputMode={mfaRecoveryMode ? "text" : "numeric"}
+                      autoComplete="one-time-code"
+                      maxLength={mfaRecoveryMode ? 24 : 6}
+                      placeholder={mfaRecoveryMode ? "Código de recuperação" : "000000"}
+                      value={code}
+                      onChange={(e) => setCode(mfaRecoveryMode ? e.target.value.toUpperCase() : e.target.value.replace(/\D/g, ""))}
+                      required
+                      className="h-12 rounded-full border-neutral-200 px-4 text-center text-lg tracking-[0.2em]"
+                    />
+                  </div>
+                  <Button type="submit" disabled={loading || (!mfaRecoveryMode && code.length !== 6)} className="h-11 w-full rounded-full bg-neutral-950 text-white hover:bg-neutral-800">
+                    {loading ? "Verificando…" : "Confirmar e entrar"}
+                  </Button>
+                  <button type="button" onClick={() => { setMfaRecoveryMode((v) => !v); setCode(""); setError(null); }} className="w-full text-sm text-neutral-500 hover:text-neutral-900">
+                    {mfaRecoveryMode ? "Usar código do autenticador" : "Usar código de recuperação"}
+                  </button>
+                  <button type="button" onClick={() => { setMode("password"); setPassword(""); setCode(""); setMfaTicket(""); }} className="flex w-full items-center justify-center gap-2 text-sm text-neutral-500 hover:text-neutral-900">
+                    <ArrowLeft className="h-4 w-4" /> Voltar ao login
+                  </button>
+                </form>
               )}
 
               {mode === "password" && (

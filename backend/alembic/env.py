@@ -20,6 +20,7 @@ import app.models.control_center  # noqa: F401
 import app.models.data_governance  # noqa: F401
 import app.models.institutional_training_authorization  # noqa: F401
 import app.models.work_activity  # noqa: F401
+import app.models.auth  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

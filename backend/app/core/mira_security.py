@@ -13,7 +13,8 @@ from app.core.config import get_settings
 _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
-_TOKEN_TTL_SECONDS = 60 * 60
+TOKEN_TTL_SECONDS = 60 * 60
+_TOKEN_TTL_SECONDS = TOKEN_TTL_SECONDS
 
 
 def _b64url(data: bytes) -> str:
@@ -44,13 +45,16 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
 
 
-def issue_access_token(*, user_id: str, tenant_id: str, auth_version: int) -> tuple[str, int]:
+def issue_access_token(*, user_id: str, tenant_id: str, auth_version: int, session_id: str, aal: int = 1) -> tuple[str, int]:
     now = int(time.time())
     claims = {
         "iss": "mira",
         "sub": user_id,
         "tid": tenant_id,
         "ver": auth_version,
+        "aal": aal,
+        "sid": session_id,
+        "purpose": "session",
         "iat": now,
         "exp": now + _TOKEN_TTL_SECONDS,
     }

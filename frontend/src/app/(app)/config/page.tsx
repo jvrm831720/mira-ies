@@ -21,11 +21,12 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
-import { clearAuth } from "@/lib/auth";
+import { clearAuth, setAccessToken } from "@/lib/auth";
 import { copy } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +93,11 @@ function stateBadgeClass(kind: ChannelState["kind"]) {
 export default function ConfigPage() {
   const router = useRouter();
   const [section, setSection] = useState<SectionId>("instituicao");
+  const [mfaCode, setMfaCode] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+  const [mfaMessage, setMfaMessage] = useState<string | null>(null);
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const mfaStatus = useQuery({ queryKey: ["mfa-status"], queryFn: () => api.mfaStatus(), retry: false });
 
   const me = useQuery({
     queryKey: ["org-me"],
@@ -111,6 +117,41 @@ export default function ConfigPage() {
     queryFn: () => api.modelInfo(),
     retry: false,
   });
+
+  const mfaSessions = useQuery({
+    queryKey: ["mfa-sessions"],
+    queryFn: () => api.mfaSessions(),
+    enabled: Boolean(me.data?.user_id),
+    retry: false,
+  });
+
+  async function revokeSession(sessionId: string) {
+    setMfaError(null);
+    try {
+      await api.revokeMfaSession(sessionId);
+      await mfaSessions.refetch();
+      setMfaMessage("Sessão encerrada.");
+    } catch (error) {
+      setMfaError(error instanceof Error ? error.message : "Não foi possível encerrar a sessão.");
+    }
+  }
+
+  async function revokeOtherSessions() {
+    setMfaError(null);
+    try {
+      const result = await api.revokeOtherMfaSessions();
+      await mfaSessions.refetch();
+      setMfaMessage(`${result.revoked_count} outra(s) sessão(ões) encerrada(s).`);
+    } catch (error) {
+      setMfaError(error instanceof Error ? error.message : "Não foi possível encerrar as outras sessões.");
+    }
+  }
+
+  async function regenerateRecoveryCodes() {
+    setMfaError(null); setMfaMessage(null);
+    try { const result = await api.regenerateMfaRecoveryCodes(mfaCode); setRecoveryCodes(result.recovery_codes); setMfaCode(""); await mfaStatus.refetch(); }
+    catch (error) { setMfaError(error instanceof Error ? error.message : "Não foi possível gerar novos códigos."); }
+  }
 
   function logout() {
     clearAuth();
@@ -432,9 +473,104 @@ export default function ConfigPage() {
               </Button>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Autenticação multifator (TOTP)</CardTitle>
+              <CardDescription>
+                Sua conta é protegida por um aplicativo autenticador. O TOTP é obrigatório para todas as contas humanas da MIRA.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {mfaStatus.isLoading && <Skeleton className="h-16 w-full" />}
+              {mfaStatus.isError && <ErrorBanner message="Não foi possível consultar o estado do MFA." />}
+              {mfaStatus.data && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/35 p-3">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {mfaStatus.data.enabled ? "TOTP ativado" : "Cadastro TOTP pendente"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {mfaStatus.data.enabled
+                        ? `${mfaStatus.data.recovery_codes_remaining} códigos de recuperação disponíveis`
+                        : "Saia e entre novamente para concluir o cadastro obrigatório antes de continuar."}
+                    </p>
+                  </div>
+                  <span className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-semibold",
+                    mfaStatus.data.enabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
+                  )}>
+                    {mfaStatus.data.enabled ? "Protegida" : "Ação necessária"}
+                  </span>
+                </div>
+              )}
+              {mfaError && <ErrorBanner message={mfaError} />}
+              {mfaMessage && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{mfaMessage}</p>}
+              {recoveryCodes && (
+                <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-semibold text-amber-900">Guarde estes códigos agora</p>
+                  <p className="text-xs text-amber-800">Cada código pode ser usado uma única vez. Eles não serão exibidos novamente.</p>
+                  <div className="grid grid-cols-2 gap-2">{recoveryCodes.map((code) => <code key={code} className="rounded bg-white p-2 text-center text-xs">{code}</code>)}</div>
+                  <Button variant="outline" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n"))}>Copiar códigos</Button>
+                  <Button variant="ghost" onClick={() => setRecoveryCodes(null)}>Já guardei</Button>
+                </div>
+              )}
+              {mfaStatus.data?.enabled && (
+                <div className="space-y-3">
+                  <label className="text-xs font-medium" htmlFor="mfa-management-code">Confirme sua identidade para gerar novos códigos</label>
+                  <Input id="mfa-management-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0,6))} inputMode="numeric" placeholder="Código de 6 dígitos" maxLength={6} />
+                  <Button variant="outline" onClick={regenerateRecoveryCodes} disabled={mfaCode.length !== 6}>Gerar novos códigos de recuperação</Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                O autenticador não pode ser desativado pela instituição nem pelo usuário. Para recuperar o acesso, use um código de recuperação ou o processo de suporte da MIRA.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Política global de segurança</CardTitle>
+              <CardDescription>
+                A mesma regra vale para todas as instituições e todos os perfis de acesso.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-emerald-900">TOTP obrigatório para todas as contas humanas</p>
+                  <p className="text-xs text-emerald-800">Administradores, coordenadores, operadores e visualizadores, em todos os tenants.</p>
+                </div>
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800">Ativo</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Esta exigência é aplicada pelo backend e não pode ser enfraquecida por configurações de uma instituição. Chaves de integração/API são identidades técnicas e seguem controles próprios, sem login interativo por TOTP.
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Dispositivos e sessões</CardTitle>
+              <CardDescription>Consulte os acessos desta conta e encerre sessões que não reconhece.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {mfaSessions.isLoading && <Skeleton className="h-20 w-full" />}
+              {mfaSessions.isError && <ErrorBanner message="Não foi possível carregar as sessões desta conta." />}
+              {mfaSessions.data?.sessions.map((session) => (
+                <div key={session.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{session.device_label}{session.current ? " · Este dispositivo" : ""}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Criada em {new Date(session.created_at).toLocaleString("pt-BR")} · {session.ip_address || "IP indisponível"} · AAL{session.aal}</p>
+                    <p className="text-[11px] text-muted-foreground">{session.active ? `Expira em ${new Date(session.expires_at).toLocaleString("pt-BR")}` : session.revoked_at ? "Encerrada" : "Expirada"}</p>
+                  </div>
+                  {session.active && !session.current && <Button size="sm" variant="outline" onClick={() => revokeSession(session.id)}>Encerrar</Button>}
+                  {session.current && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Atual</span>}
+                </div>
+              ))}
+              {mfaSessions.data?.sessions.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma sessão registrada.</p>}
+              <Button type="button" variant="outline" onClick={revokeOtherSessions}>Encerrar todas as outras sessões</Button>
+            </CardContent>
+          </Card>
           <p className="text-xs text-muted-foreground">
-            Permissões de API são aplicadas no backend (RBAC + tenant_id). A interface não substitui
-            essa validação.
+            Permissões de API são aplicadas no backend (RBAC + tenant_id). A interface não substitui essa validação.
           </p>
         </TabPanel>
       </main>
