@@ -105,3 +105,84 @@ async def test_jacad_api_client_stops_on_repeated_cursor():
             await client.fetch_students(page_size=1)
     finally:
         await client.close()
+
+
+
+def test_jacad_mapping_enriches_enrollment_and_financial_status_without_guessing_history():
+    from datetime import date
+    from app.services.connectors.jacad_mapping import enrich_jacad_students
+
+    students = [{"idAluno": 10, "ra": "RA-10", "nome": "Ana"}]
+    enrollments = [{
+        "idMatricula": 100, "idAluno": 10, "ra": "RA-10",
+        "status": "ATIVA", "curso": "Administração", "turma": "ADM-2026",
+    }]
+    summaries = [{
+        "idMatricula": 100, "idAluno": 10, "ra": "RA-10",
+        "situacaoFinanceira": "VENCIDO",
+        "dataVencimentoParcela": "2026-10-20T00:00:00",
+        "valorParcela": 850.0,
+    }]
+    enriched, metadata = enrich_jacad_students(
+        students, enrollments, summaries, today=date(2026, 10, 30)
+    )
+
+    assert enriched[0]["status_aluno"] == "ATIVA"
+    assert enriched[0]["curso"] == "Administração"
+    assert enriched[0]["turma"] == "ADM-2026"
+    assert enriched[0]["status_financeiro"] == "VENCIDO"
+    assert enriched[0]["dias_atraso_boleto"] == 10
+    assert "recorrencia_atrasos" not in enriched[0]
+    assert "saldo_devedor" not in enriched[0]
+    assert metadata["RA-10"]["id_aluno"] == "10"
+    assert metadata["RA-10"]["financial_summaries"][0]["valor_parcela_aberta"] == 850.0
+
+
+def test_jacad_mapping_marks_non_overdue_and_no_finance_statuses_without_fabricating_balance():
+    from datetime import date
+    from app.services.connectors.jacad_mapping import enrich_jacad_students
+
+    students = [
+        {"idAluno": 10, "ra": "RA-10", "nome": "Ana"},
+        {"idAluno": 11, "ra": "RA-11", "nome": "Bia"},
+    ]
+    summaries = [
+        {"idAluno": 10, "situacaoFinanceira": "EM_ABERTO"},
+        {"idAluno": 11, "situacaoFinanceira": "SEM_FINANCEIRO"},
+    ]
+    enriched, _ = enrich_jacad_students(students, [], summaries, today=date(2026, 10, 30))
+    by_ra = {row["ra"]: row for row in enriched}
+    assert by_ra["RA-10"]["dias_atraso_boleto"] == 0
+    assert by_ra["RA-10"]["recorrencia_atrasos"] == 0
+    assert "saldo_devedor" not in by_ra["RA-10"]
+    assert by_ra["RA-11"]["dias_atraso_boleto"] == 0
+    assert by_ra["RA-11"]["recorrencia_atrasos"] == 0
+    assert by_ra["RA-11"]["saldo_devedor"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_jacad_api_client_fetches_enrollment_and_financial_summary_pages():
+    seen = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/api/v1/auth/token":
+            return httpx.Response(200, json={"token": "jwt-session"})
+        if request.url.path == "/api/v2/academico/matriculas":
+            assert request.url.params["idOrg"] == "7"
+            return httpx.Response(200, json={"page": {"idCursorProximo": 0}, "elements": [{"idMatricula": 1}]})
+        if request.url.path == "/api/v2/financeiro/matriculas/resumo-financeiro":
+            assert request.url.params["idOrg"] == "7"
+            return httpx.Response(200, json={"page": {"idCursorProximo": 0}, "elements": [{"idMatricula": 1, "situacaoFinanceira": "PAGO"}]})
+        raise AssertionError(request.url.path)
+
+    client = JacadApiClient("https://ies-demo.jacad.com.br", "access-token", transport=httpx.MockTransport(handler))
+    try:
+        enrollments = await client.fetch_enrollments(org_id=7)
+        summaries = await client.fetch_financial_summaries(org_id=7)
+    finally:
+        await client.close()
+
+    assert enrollments == [{"idMatricula": 1}]
+    assert summaries[0]["situacaoFinanceira"] == "PAGO"
+    assert len([request for request in seen if request.url.path == "/api/v1/auth/token"]) == 1
