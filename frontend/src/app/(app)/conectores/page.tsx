@@ -393,9 +393,9 @@ export default function DadosIntegracoesPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
                     <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.students ?? activeJacadJob.result?.students_imported ?? "—"}</p><p className="text-muted-foreground">Alunos</p></div>
-                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.contracts_done ?? 0}/{activeJacadJob.progress?.contracts_total ?? 0}</p><p className="text-muted-foreground">Contratos</p></div>
-                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.discipline_pairs_done ?? 0}/{activeJacadJob.progress?.discipline_pairs_total ?? 0}</p><p className="text-muted-foreground">Disciplinas/turmas</p></div>
-                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.assessment_groups_done ?? 0}/{activeJacadJob.progress?.assessment_groups_total ?? 0}</p><p className="text-muted-foreground">Grupos de avaliações</p></div>
+                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.contracts_done ?? 0}/{activeJacadJob.progress?.contracts_total ?? 0}</p><p className="text-muted-foreground">Contratos cobertos</p></div>
+                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.discipline_pairs_done ?? 0}/{activeJacadJob.progress?.discipline_pairs_total ?? 0}</p><p className="text-muted-foreground">Disciplinas/turmas cobertas</p></div>
+                    <div><p className="text-lg font-semibold tabular-nums">{activeJacadJob.progress?.assessment_groups_done ?? 0}/{activeJacadJob.progress?.assessment_groups_total ?? 0}</p><p className="text-muted-foreground">Avaliações cobertas</p></div>
                   </div>
                   {activeJacadJob.last_error && <p className="text-xs text-destructive">{activeJacadJob.last_error}</p>}
                   {activeJacadJob.status === "failed" && (
