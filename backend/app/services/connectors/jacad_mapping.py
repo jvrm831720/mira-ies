@@ -121,8 +121,7 @@ def enrich_jacad_students(
                 if item.get("idMatricula") is not None
                 and str(item.get("idMatricula")) in active_enrollment_ids
             ]
-            if active_summaries:
-                summaries = active_summaries
+            summaries = active_summaries
         selected_finance = None
         if summaries:
             selected_finance = min(
