@@ -188,10 +188,38 @@ async def _request_guard(redis: Redis, tenant_id: str):
         raise SponteQuotaDeferred(wait_ms / 1000 + 2)
 
 
+async def _persist_catalog_page(
+    *, tenant_id: str, endpoint: str, items: list[dict[str, Any]],
+) -> tuple[int, list[str]]:
+    bucket_name = endpoint
+    id_field = {"cursos": "curso_id", "turmas": "turma_id", "estagios": "estagio_id"}[endpoint]
+    async with AsyncSessionLocal() as session:
+        await _set_tenant_rls_context(session, tenant_id)
+        connection = (await session.execute(select(TenantSponteConnection).where(
+            TenantSponteConnection.tenant_id == tenant_id
+        ))).scalar_one()
+        catalogs = dict(connection.sync_catalogs or {})
+        bucket = dict(catalogs.get(bucket_name) or {})
+        for item in items:
+            compact = compact_row(endpoint, item)
+            provider_id = compact.get(id_field)
+            if provider_id is not None:
+                bucket[str(provider_id)] = compact
+        catalogs[bucket_name] = bucket
+        connection.sync_catalogs = catalogs
+        students = list((await session.execute(
+            select(Student.matricula).where(Student.tenant_id == tenant_id)
+        )).scalars().all())
+        await session.commit()
+    return len(items), students
+
+
 async def _persist_page(
     *, tenant_id: str, tenant_slug: str | None, endpoint: str,
     items: list[dict[str, Any]], page_number: int, job_id: str,
 ) -> tuple[int, list[str]]:
+    if endpoint in {"cursos", "turmas", "estagios"}:
+        return await _persist_catalog_page(tenant_id=tenant_id, endpoint=endpoint, items=items)
     direct_ids = {aluno_id(item) for item in items if aluno_id(item)}
     contract_ids = {
         str(value) for item in items
@@ -288,10 +316,14 @@ async def _derive_affected_students(tenant_id: str, affected_ids: list[str], job
     as_of = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
     async with AsyncSessionLocal() as session:
         await _set_tenant_rls_context(session, tenant_id)
+        connection = (await session.execute(select(TenantSponteConnection).where(
+            TenantSponteConnection.tenant_id == tenant_id
+        ))).scalar_one_or_none()
+        catalogs = dict(connection.sync_catalogs or {}) if connection else {}
         students = list((await session.execute(select(Student).where(
             Student.tenant_id == tenant_id, Student.matricula.in_(affected_ids)
         ))).scalars().all())
-        payloads = build_student_payloads(students, as_of=as_of)
+        payloads = build_student_payloads(students, as_of=as_of, catalogs=catalogs)
         records = get_connector("sponte").transform(payloads)
         by_id = {record["matricula"]: record for record in records}
         imported_at = datetime.now(timezone.utc).isoformat()
@@ -363,8 +395,9 @@ async def _run_sync(job_id: str, redis: Redis):
     semaphore = asyncio.Semaphore(settings.sponte_sync_concurrency)
     try:
         endpoints = (
-            "alunos", "contratos", "contratosturmasestagios", "contasreceber",
-            "notas", "fatofrequenciaalunosativos", "fatoalunosativos", "followups",
+            "alunos", "cursos", "turmas", "estagios", "contratos",
+            "contratosturmasestagios", "contasreceber", "notas",
+            "fatofrequenciaalunosativos", "fatoalunosativos", "followups",
         )
         for endpoint_index, endpoint in enumerate(endpoints):
             if await _endpoint_done(redis, job_id, endpoint):
