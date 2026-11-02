@@ -104,3 +104,16 @@ def test_rules_reject_missing_features_without_favorable_defaults():
 
     with pytest.raises(ValueError, match="features ausentes"):
         apply_business_rules({"dias_atraso_boleto": 0}, 10.0)
+
+
+def test_invalid_imported_raw_value_is_not_reported_as_merely_missing():
+    student = {
+        **COMPLETE_STUDENT,
+        "nota_media": None,
+        "raw_data": {"nota_media": "nota não publicada"},
+    }
+    quality = assess_student_data_quality(student)
+    assert "nota_media" in quality["invalid_fields"]
+    assert "nota_media" not in quality["missing_fields"]
+    issue = next(item for item in quality["issues"] if item["field"] == "nota_media")
+    assert issue["reason"] == "invalid_number"
