@@ -94,6 +94,7 @@ async def configure_jacad_connection(
         )
         db.add(connection)
     await db.commit()
+    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(connection)
     return _connection_response(connection)
 
