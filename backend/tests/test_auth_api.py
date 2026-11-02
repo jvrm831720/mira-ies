@@ -78,3 +78,42 @@ async def test_create_tenant_in_non_development_requires_admin_secret(client, mo
 async def test_create_tenant_rejects_invalid_slug(client):
     resp = await client.post("/api/v1/tenants", json={"slug": "../../etc", "name": "Bad"})
     assert resp.status_code == 422
+
+
+async def test_totp_mfa_login_requires_second_factor(client, db_session, tenant_factory):
+    from app.core.mfa import encrypt_totp_secret, new_totp_secret, totp_at
+    from app.core.mira_security import hash_password
+    from app.models.auth import User
+    from datetime import datetime, timezone
+    import app.api.auth as auth_api
+
+    t, _key = await tenant_factory(slug="mfa-tenant")
+    secret = new_totp_secret()
+    user = User(
+        tenant_id=t.id, display_name="MFA User", email="mfa@example.test",
+        password_hash=hash_password("StrongPassword#2026"), role="admin",
+        is_active=True, mfa_totp_secret_encrypted=encrypt_totp_secret(secret),
+        mfa_enabled_at=datetime.now(timezone.utc),
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    login = await client.post("/api/v1/auth/login/password", json={
+        "email": "mfa@example.test", "password": "StrongPassword#2026"
+    })
+    assert login.status_code == 200
+    challenge = login.json()
+    assert challenge["mfa_required"] is True
+    assert "access_token" not in challenge
+
+    code, _step = totp_at(secret)
+    verified = await client.post("/api/v1/auth/mfa/login/verify", json={
+        "challenge_token": challenge["challenge_token"], "code": code
+    })
+    assert verified.status_code == 200
+    assert verified.json()["access_token"]
+
+    protected = await client.get("/api/v1/org/me", headers={
+        "Authorization": f"Bearer {verified.json()['access_token']}"
+    })
+    assert protected.status_code == 200

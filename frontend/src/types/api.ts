@@ -23,6 +23,10 @@ export type AuthResponse = {
 };
 
 export type AuthActionResponse = { message: string };
+export type MfaLoginChallenge = { mfa_required: true; challenge_token: string; expires_in: number };
+export type MfaStatus = { enabled: boolean; enabled_at: string | null; recovery_codes_remaining: number };
+export type MfaEnrollment = { secret: string; qr_code: string; otpauth_uri: string };
+export type MfaRecoveryCodes = { recovery_codes: string[] };
 
 export type RetentionWorkSummary = {
   pending: number;

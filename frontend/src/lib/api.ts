@@ -135,10 +135,22 @@ export const api = {
   baseUrl: BASE,
 
   loginPassword: (body: { email: string; password: string }) =>
-    request<AuthResponse>("/api/v1/auth/login/password", {
+    request<AuthResponse | import("@/types/api").MfaLoginChallenge>("/api/v1/auth/login/password", {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  verifyMfaLogin: (challenge_token: string, code: string) =>
+    request<AuthResponse>("/api/v1/auth/mfa/login/verify", {
+      method: "POST",
+      body: JSON.stringify({ challenge_token, code }),
+    }),
+
+  mfaStatus: () => request<import("@/types/api").MfaStatus>("/api/v1/auth/mfa/status"),
+  enrollMfa: () => request<import("@/types/api").MfaEnrollment>("/api/v1/auth/mfa/enroll", { method: "POST" }),
+  confirmMfa: (code: string) => request<AuthResponse & { enabled: boolean; recovery_codes: string[] }>("/api/v1/auth/mfa/confirm", { method: "POST", body: JSON.stringify({ code }) }),
+  regenerateMfaRecoveryCodes: (code: string) => request<import("@/types/api").MfaRecoveryCodes>("/api/v1/auth/mfa/recovery-codes/regenerate", { method: "POST", body: JSON.stringify({ code }) }),
+  disableMfa: (code: string) => request<AuthResponse & { enabled: boolean }>("/api/v1/auth/mfa/disable", { method: "POST", body: JSON.stringify({ code }) }),
 
   requestWhatsappCode: (phone: string) =>
     request<AuthActionResponse>("/api/v1/auth/whatsapp/request", {

@@ -142,9 +142,6 @@ async def mfa_status(
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=401, detail="Sessão inválida.")
-    remaining = await db.scalar(
-        select(MfaRecoveryCode.id).where(MfaRecoveryCode.user_id == user_id, MfaRecoveryCode.used_at.is_(None))
-    )
     count_result = await db.execute(
         select(MfaRecoveryCode.id).where(MfaRecoveryCode.user_id == user_id, MfaRecoveryCode.used_at.is_(None))
     )
