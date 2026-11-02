@@ -16,6 +16,22 @@ def pick(row: dict[str, Any], *names: str) -> Any:
     return None
 
 
+def canonical_student_status(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().casefold().replace("_", " ").replace("-", " ")
+    aliases = {
+        "ativo": "Ativo", "active": "Ativo", "matriculado": "Ativo",
+        "trancado": "Trancado", "trancada": "Trancado", "suspended": "Trancado",
+        "evadido": "Evadido", "evasao": "Evadido", "abandono": "Evadido", "dropout": "Evadido",
+        "cancelado": "Cancelado", "cancelada": "Cancelado", "canceled": "Cancelado", "cancelled": "Cancelado",
+        "formado": "Formado", "formada": "Formado", "concluido": "Formado", "concluida": "Formado",
+        "graduado": "Formado", "graduada": "Formado",
+        "transferido": "Transferido", "transferida": "Transferido",
+    }
+    return aliases.get(normalized)
+
+
 def as_number(value: Any) -> float | None:
     if value is None or value == "":
         return None
@@ -403,7 +419,7 @@ def build_student_payloads(
             "QtdAtrasos": None,
             "SaldoDevedor": balance if balance_complete else None,
             "StatusFinanceiro": financial_status,
-            "SituacaoAluno": profile.get("situacao_aluno") or latest_fact.get("situacao"),
+            "SituacaoAluno": canonical_student_status(profile.get("situacao_aluno") or latest_fact.get("situacao")),
             "Frequencia": presence,
             "raw_sponte": sponte,
             "finance_observed_at": None,
