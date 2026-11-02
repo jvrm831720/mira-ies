@@ -95,11 +95,11 @@ def enrich_jacad_students(
             active_first = sorted(
                 enrollment_rows,
                 key=lambda item: (
-                    0 if _status(item) == "ATIVA" else 1,
+                    1 if _status(item) == "ATIVA" else 0,
                     _text(item.get("dataAlteracao")) or "",
                     _text(item.get("idMatricula")) or "",
                 ),
-                reverse=False,
+                reverse=True,
             )
             selected = active_first[0]
             enrollment_status = _status(selected)
