@@ -105,7 +105,7 @@ async def test_admin_user_provisioning_rejects_wrong_secret(client, tenant_facto
 
 async def test_invalid_password_validation_does_not_echo_password(client, tenant_factory):
     await tenant_factory(slug="default", name="Demo")
-    attempted_password = "short"
+    attempted_password = "badpass"
     response = await client.post(
         "/api/v1/auth/admin/users",
         headers={"X-Admin-Secret": get_settings().secret_key},
