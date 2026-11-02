@@ -38,9 +38,9 @@ class JacadConnector:
         category="erp",
         description="Conector nativo de leitura REST; cadastro de alunos disponível, expansão acadêmica/financeira em homologação.",
         has_api=True,
-        endpoints=["GET /api/v2/academico/alunos", "POST /api/v1/integrations/jacad/test", "POST /api/v1/integrations/jacad/sync"],
+        endpoints=["GET /api/v2/academico/alunos", "GET /api/v2/academico/matriculas", "GET /api/v2/financeiro/matriculas/resumo-financeiro", "GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas"],
         docs_url="https://auden-developer.jacad.com.br/docs/academico",
-        sample_fields=["codigoAluno", "nomeAluno", "curso", "turma", "periodo", "diasAtraso", "frequencia", "mediaGeral"],
+        sample_fields=["idAluno", "ra", "nome", "statusMatricula", "situacaoFinanceira", "dataVencimentoParcela", "valorParcela"],
     )
 
     def transform(self, payload: Any) -> list[dict[str, Any]]:
