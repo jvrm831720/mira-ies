@@ -13,7 +13,7 @@ async def test_predict_returns_risk_score(client, auth_headers):
         json={
             "matricula": "1", "nome": "Risco Alto",
             "dias_atraso_boleto": 45, "recorrencia_atrasos": 3, "dias_sem_login": 30,
-            "presenca_percentual": 40.0, "nota_media": 3.0, "reprovacoes": 2, "semestre": 1,
+            "presenca_percentual": 40.0, "nota_media": 3.0, "reprovacoes": 2, "semestre": 1, "semestre": 1,
         },
     )
     assert resp.status_code == 200
@@ -82,8 +82,8 @@ async def test_model_train_blocked_until_global_lifecycle_exists(client, auth_he
 
 async def test_risk_summary_and_critical_list_scoped_to_tenant(client, auth_headers):
     csv_content = (
-        b"matricula,nome,dias_atraso_boleto,dias_sem_login,presenca_percentual,nota_media\n"
-        b"ST010,Critico,50,40,30.0,2.0\n"
+        b"matricula,nome,dias_atraso_boleto,recorrencia_atrasos,dias_sem_login,presenca_percentual,nota_media,reprovacoes,semestre\n"
+        b"ST010,Critico,50,3,40,30.0,2.0,2,1\n"
     )
     await client.post(
         "/api/v1/upload", headers=auth_headers,
