@@ -271,3 +271,27 @@ async def test_sponte_api_client_honors_retry_after_for_http_429():
         await client.close()
 
     assert exc.value.wait_seconds == 12
+
+
+def test_sponte_frequency_keeps_professor_facts_distinct_and_avoids_ambiguous_average():
+    first = {
+        "AlunoID": 110, "ContratoID": 80, "CursoID": 1, "EstagioID": 2,
+        "Professor": "Professor A", "DataExtracao": "2026-11-01",
+    }
+    second = {**first, "Professor": "Professor B"}
+    assert record_id("fatofrequenciaalunosativos", first) != record_id("fatofrequenciaalunosativos", second)
+
+    student = SimpleNamespace(
+        matricula="110", nome="Rui", curso=None, turma=None, email=None, telefone=None,
+        raw_data={"sponte": {
+            "fatoalunosativos": {
+                "active": {"aluno_id": "110", "contrato_id": 80, "data_extracao": "2026-11-01"}
+            },
+            "fatofrequenciaalunosativos": {
+                "a": {"aluno_id": "110", "contrato_id": 80, "data_extracao": "2026-11-01", "aulas_assistidas": 8, "aulas_totais": 10, "professor": "Professor A"},
+                "b": {"aluno_id": "110", "contrato_id": 80, "data_extracao": "2026-11-01", "aulas_assistidas": 5, "aulas_totais": 10, "professor": "Professor B"},
+            },
+        }},
+    )
+    [payload] = build_student_payloads([student], as_of=date(2026, 11, 2))
+    assert payload["Frequencia"] is None
