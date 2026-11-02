@@ -88,6 +88,7 @@ async def test_jacad_api_client_authenticates_and_follows_cursor_pages():
     student_requests = [request for request in seen if request.url.path.endswith("/alunos")]
     assert len(student_requests) == 2
     assert student_requests[0].url.params["pageSize"] == "100"
+    assert student_requests[0].url.params["idCursor"] == "0"
     assert student_requests[1].url.params["idCursor"] == "200"
 
 
