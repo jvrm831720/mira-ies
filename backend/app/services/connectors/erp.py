@@ -76,10 +76,10 @@ class SponteConnector:
         id="sponte",
         name="Sponte",
         category="erp",
-        description="API REST/BI (FatoAlunosAtivos, ContasAReceber, matriculas).",
+        description="API oficial Sponte BI (alunos, contratos, financeiro, notas e frequência).",
         has_api=True,
-        endpoints=["POST /api/v1/connectors/sponte/students", "POST /api/v1/connectors/sponte/sync"],
-        sample_fields=["AlunoID", "Nome", "Curso", "Turma", "DiasAtraso", "Faltas", "Media"],
+        endpoints=["GET /api/v1/extracoes/alunos", "GET /api/v1/extracoes/contratos", "GET /api/v1/extracoes/contasreceber", "GET /api/v1/extracoes/notas", "GET /api/v1/extracoes/fatofrequenciaalunosativos"],
+        sample_fields=["AlunoID", "Nome", "ContratoID", "contaReceberID", "notaDetalheID", "aulasAssistidas", "aulasTotais"],
     )
 
     def transform(self, payload: Any) -> list[dict[str, Any]]:
@@ -110,6 +110,9 @@ class SponteConnector:
                 "presenca_percentual": presenca,
                 "nota_media": to_float(pick(item, "Media", "MediaGeral", "Nota")),
                 "reprovacoes": to_int(pick(item, "Reprovacoes", "QtdReprovacoes")),
+                "saldo_devedor": to_float(pick(item, "SaldoDevedor", "saldo_devedor")),
+                "status_financeiro": to_str(pick(item, "StatusFinanceiro", "status_financeiro")),
+                "status_aluno": to_str(pick(item, "SituacaoAluno", "StatusAluno", "status_aluno")),
                 "source_id": "sponte",
                 "raw": item,
             })
