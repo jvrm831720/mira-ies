@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { setAccessToken } from "@/lib/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, ApiError } from "@/lib/api";
 import type { MemberRole, OrgMember, OrgInvite } from "@/types/api";
@@ -30,6 +31,8 @@ export default function MembersPage() {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<MemberRole>("coordinator");
+  const [stepUpCode, setStepUpCode] = useState("");
+  const me = useQuery({ queryKey: ["org-me"], queryFn: () => api.me(), retry: false });
 
   const members = useQuery({
     queryKey: ["org-members"],
@@ -77,6 +80,22 @@ export default function MembersPage() {
     () => inviteList.filter((i) => i.status === "pending").length,
     [inviteList]
   );
+
+  async function revokeMemberSessions(userId: string) {
+    if (stepUpCode.length !== 6) {
+      toast.error("Informe o código atual do aplicativo autenticador.");
+      return;
+    }
+    try {
+      const elevated = await api.stepUpMfa(stepUpCode);
+      setAccessToken(elevated.access_token);
+      const result = await api.adminRevokeMemberSessions(userId);
+      setStepUpCode("");
+      toast.success(`${result.revoked_count} sessão(ões) encerrada(s) para o membro.`);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Não foi possível encerrar as sessões deste membro.");
+    }
+  }
 
   function onInvite(e: FormEvent) {
     e.preventDefault();
@@ -201,6 +220,14 @@ export default function MembersPage() {
               <CardTitle>Membros da organização</CardTitle>
             </div>
             <CardDescription>Pessoas com acesso ativo a esta instituição.</CardDescription>
+            {me.data?.role === "admin" && (
+              <div className="flex flex-wrap items-end gap-2 pt-2">
+                <div className="min-w-[220px] flex-1 space-y-1">
+                  <label className="text-xs font-medium" htmlFor="member-session-stepup">Código do autenticador para ações administrativas</label>
+                  <Input id="member-session-stepup" value={stepUpCode} onChange={(e) => setStepUpCode(e.target.value.replace(/\D/g, "").slice(0,6))} inputMode="numeric" maxLength={6} placeholder="000000" />
+                </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -210,13 +237,14 @@ export default function MembersPage() {
                     <th className="px-4 py-3 font-medium">Nome / e-mail</th>
                     <th className="px-4 py-3 font-medium">Acesso</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    {me.data?.role === "admin" && <th className="px-4 py-3 font-medium">Segurança</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {members.isLoading &&
                     Array.from({ length: 3 }).map((_, i) => (
                       <tr key={i}>
-                        <td className="px-4 py-3" colSpan={3}>
+                        <td className="px-4 py-3" colSpan={me.data?.role === "admin" ? 4 : 3}>
                           <Skeleton className="h-5 w-full" />
                         </td>
                       </tr>
@@ -242,6 +270,13 @@ export default function MembersPage() {
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {m.status === "active" ? "Ativo" : m.status}
                       </td>
+                      {me.data?.role === "admin" && (
+                        <td className="px-4 py-3">
+                          <Button size="sm" variant="outline" disabled={stepUpCode.length !== 6} onClick={() => revokeMemberSessions(m.id)}>
+                            Encerrar sessões
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
