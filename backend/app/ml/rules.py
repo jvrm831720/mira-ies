@@ -21,10 +21,22 @@ THRESHOLDS = {
 
 
 def apply_business_rules(features: dict[str, float], model_score: float) -> dict[str, Any]:
+    # These two values are deterministic derivatives of required source fields.
+    # Derive them here for callers that pass the base feature vector directly;
+    # never invent or default any raw source value.
+    features = dict(features)
+    if "is_early_semester" not in features and features.get("semestre") is not None:
+        features["is_early_semester"] = float(features["semestre"] <= 2)
+    if "combo_critico" not in features and all(
+        features.get(key) is not None for key in ("dias_atraso_boleto", "dias_sem_login")
+    ):
+        features["combo_critico"] = float(
+            features["dias_atraso_boleto"] > 15 and features["dias_sem_login"] > 14
+        )
     required = (
         "dias_atraso_boleto", "dias_sem_login", "presenca_percentual",
-        "nota_media", "recorrencia_atrasos", "is_early_semester",
-        "combo_critico", "reprovacoes",
+        "nota_media", "recorrencia_atrasos", "semestre",
+        "is_early_semester", "combo_critico", "reprovacoes",
     )
     missing = [key for key in required if key not in features or features[key] is None]
     if missing:
