@@ -605,6 +605,10 @@ async def create_batch_and_students(
         "email", "communication_opt_out", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro",
         "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes",
     )
+    predictive_source_fields = {
+        "semestre", "dias_atraso_boleto", "recorrencia_atrasos",
+        "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes",
+    }
 
     for item in cleaned_rows:
         data = item["data"]
@@ -622,6 +626,7 @@ async def create_batch_and_students(
                 )
             # Células vazias/ausentes e valores inválidos nunca apagam dados existentes;
             # opt-out explícito é respeitado.
+            predictive_source_refreshed = bool(predictive_source_fields.intersection(mapped_targets))
             for field in mutable_fields:
                 if field not in mapped_targets:
                     continue
@@ -646,6 +651,14 @@ async def create_batch_and_students(
                 # Um valor preenchido mas inválido não deve apagar informação já conhecida.
                 if value is not None:
                     setattr(existing, field, value)
+            if predictive_source_refreshed:
+                # The prior score describes an older source snapshot. Keep its
+                # RiskAssessment history, but invalidate the current projection
+                # so the new batch must be re-evaluated against current inputs.
+                existing.risk_score = None
+                existing.risk_level = None
+                existing.model_risk_score = None
+                existing.shap_top_factors = None
             existing.batch_id = batch.id
             existing.raw_data = {**(existing.raw_data or {}), **raw}
             students.append(existing)
