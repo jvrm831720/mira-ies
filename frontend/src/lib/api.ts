@@ -445,7 +445,7 @@ export const api = {
       last_sync_records?: number; last_error?: string | null; credential_configured?: boolean;
     }>("/api/v1/integrations/jacad"),
 
-  configureJacad: (body: { base_url: string; api_token: string; default_org_id?: number | null }) =>
+  configureJacad: (body: { base_url: string; api_token?: string; default_org_id?: number | null }) =>
     request<Record<string, unknown>>("/api/v1/integrations/jacad", {
       method: "PUT", body: JSON.stringify(body),
     }),
