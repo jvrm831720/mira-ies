@@ -27,6 +27,59 @@ CANONICAL_FIELDS = [
 ]
 
 
+PREDICTIVE_SOURCE_FIELDS = {
+    "semestre",
+    "dias_atraso_boleto",
+    "recorrencia_atrasos",
+    "dias_sem_login",
+    "presenca_percentual",
+    "nota_media",
+    "reprovacoes",
+}
+
+
+def extract_field_provenance(item: dict[str, Any], source: str) -> dict[str, dict[str, Any]]:
+    """Extrai somente timestamps explicitamente declarados pela origem.
+
+    Contrato aceito:
+    - field_observations.<campo>.observed_at
+    - field_observations.<campo>.source_updated_at
+    - <campo>_observed_at (compatibilidade com o contrato de importação)
+
+    Nunca usa updated_at, created_at, lastaccess ou o horário de recebimento
+    como substituto de uma observação do campo.
+    """
+    observations = item.get("field_observations")
+    if not isinstance(observations, dict):
+        observations = {}
+    result: dict[str, dict[str, Any]] = {}
+    for field in PREDICTIVE_SOURCE_FIELDS:
+        entry = observations.get(field)
+        if not isinstance(entry, dict):
+            entry = {}
+        observed_at = entry.get("observed_at")
+        if observed_at is None:
+            observed_at = item.get(f"{field}_observed_at")
+        source_updated_at = entry.get("source_updated_at")
+        if observed_at is None and source_updated_at is None:
+            continue
+        metadata: dict[str, Any] = {
+            "source_type": "connector_api",
+            "source_system": source,
+            "source_field": entry.get("source_field") or field,
+        }
+        if observed_at is not None:
+            metadata["observed_at"] = observed_at
+            metadata["observed_at_source"] = (
+                "field_observations" if entry.get("observed_at") is not None
+                else f"{field}_observed_at"
+            )
+        if source_updated_at is not None:
+            metadata["source_updated_at"] = source_updated_at
+        result[field] = metadata
+    return result
+
+
 class CanonicalStudent(BaseModel):
     matricula: str
     nome: str
