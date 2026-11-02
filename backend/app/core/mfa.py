@@ -8,7 +8,6 @@ import io
 import secrets
 import struct
 import time
-from datetime import datetime, timezone
 
 from cryptography.fernet import Fernet
 from app.core.config import get_settings

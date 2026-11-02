@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -11,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, get_current_tenant, require_roles
+from app.core.auth import AuthContext, get_current_tenant
 from app.core.mira_security import issue_access_token
 from app.core.mfa import (
     decrypt_totp_secret, encrypt_totp_secret, generate_recovery_codes,

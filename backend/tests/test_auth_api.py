@@ -85,7 +85,6 @@ async def test_totp_mfa_login_requires_second_factor(client, db_session, tenant_
     from app.core.mira_security import hash_password
     from app.models.auth import User
     from datetime import datetime, timezone
-    import app.api.auth as auth_api
 
     t, _key = await tenant_factory(slug="mfa-tenant")
     secret = new_totp_secret()
