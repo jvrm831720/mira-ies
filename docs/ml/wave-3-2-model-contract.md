@@ -99,3 +99,24 @@ O estimador base é um `XGBClassifier` com: `n_estimators=200`, `max_depth=5`, `
 O conjunto sintético é construído a partir de três perfis (baixo, médio e alto) e recebe rótulo por uma função logística heurística. Os coeficientes da função sintética são: atraso financeiro 0,30; recorrência 0,15; dias sem login 0,22; ausência de presença 0,12; nota baixa 0,18; reprovações 0,12; início de semestre 0,10; atraso grave 0,12; engajamento crítico 0,12; combo crítico 0,10; risco financeiro 0,08; risco de engajamento 0,08; risco acadêmico 0,08. Ruído normal com desvio 0,07 é adicionado antes da função logística; rótulo positivo quando a probabilidade sintética excede 0,42.
 
 Esses coeficientes definem a geração dos rótulos sintéticos. **Não são pesos do XGBoost**, nem efeitos causais, nem estimativas de impacto sobre evasão real. A importância do XGBoost é calculada separadamente pelo estimador treinado.
+
+
+## Wave 3.3 — Proveniência e atualidade temporal
+
+Cada campo preditivo mantém metadados em `students.raw_data._mira_provenance`:
+- `source_type`: origem da atualização;
+- `source_filename`: arquivo recebido;
+- `source_batch_id`: lote de importação;
+- `imported_at`: instante em que a MIRA recebeu o dado;
+- `observed_at`: instante em que o sistema de origem mediu o dado, quando fornecido.
+
+**Importante:** `imported_at` não é evidência de quando a informação foi observada. Quando a origem não fornece `observed_at`, a atualidade é `unknown`; a MIRA não declara o dado recente. Esse estado desconhecido, isoladamente, não bloqueia o legado. Uma observação explicitamente vencida bloqueia o scoring.
+
+Limites máximos atuais para observação:
+- Financeiro (dias de atraso e recorrência): 30 dias.
+- Login/AVA: 7 dias.
+- Presença: 30 dias.
+- Nota e reprovações: 90 dias.
+- Semestre: 180 dias.
+
+A faixa `aging` começa após 75% do limite. Os limites são política inicial e devem ser calibrados com a frequência real de atualização de cada IES. A importação aceita timestamps por campo em colunas com o padrão `<campo>_observed_at` (por exemplo, `dias_sem_login_observed_at`). Datas futuras ou inválidas não são tratadas como recentes. Quando a origem não envia a coluna ou o valor, a atualidade permanece desconhecida. Os limites são política inicial e devem ser calibrados com a frequência real de atualização de cada IES.

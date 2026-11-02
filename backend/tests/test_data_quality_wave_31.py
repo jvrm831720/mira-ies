@@ -141,3 +141,108 @@ def test_brazilian_decimal_comma_is_valid_in_raw_import_cells():
     }
     quality = assess_student_data_quality(student)
     assert quality["can_score"] is True
+
+
+def test_freshness_is_unknown_when_source_observation_timestamp_is_absent():
+    from app.ml.data_quality import assess_field_freshness
+
+    freshness = assess_field_freshness({"raw_data": {}})
+    assert freshness["status"] == "unknown"
+    assert freshness["counts"]["unknown"] == 7
+    assert all(item["status"] == "unknown" for item in freshness["fields"].values())
+
+
+def test_freshness_uses_observation_time_not_recent_import_time():
+    from datetime import datetime, timezone
+    from app.ml.data_quality import assess_field_freshness
+
+    now = datetime(2026, 11, 2, tzinfo=timezone.utc)
+    raw_data = {
+        "_mira_provenance": {
+            "dias_sem_login": {
+                "source_type": "file_import",
+                "imported_at": "2026-11-01T12:00:00+00:00",
+                "observed_at": "2026-10-20T00:00:00+00:00",
+            }
+        }
+    }
+    result = assess_field_freshness({"raw_data": raw_data}, now=now)
+    field = result["fields"]["dias_sem_login"]
+    assert field["import_age_days"] == 0.5
+    assert field["observation_age_days"] == 13.0
+    assert field["status"] == "stale"
+    assert field["freshness_basis"] == "source_observed_at"
+
+
+def test_freshness_marks_recent_observation_fresh_and_reports_threshold():
+    from datetime import datetime, timezone
+    from app.ml.data_quality import assess_field_freshness
+
+    now = datetime(2026, 11, 2, tzinfo=timezone.utc)
+    raw_data = {
+        "_mira_provenance": {
+            "dias_sem_login": {
+                "imported_at": "2026-11-01T12:00:00+00:00",
+                "observed_at": "2026-11-01T00:00:00+00:00",
+            }
+        }
+    }
+    result = assess_field_freshness({"raw_data": raw_data}, now=now)
+    assert result["fields"]["dias_sem_login"]["status"] == "fresh"
+    assert result["fields"]["dias_sem_login"]["max_age_days"] == 7
+
+
+def test_invalid_observation_timestamp_is_unknown_not_fresh():
+    from app.ml.data_quality import assess_field_freshness
+
+    result = assess_field_freshness({
+        "raw_data": {"_mira_provenance": {
+            "nota_media": {"observed_at": "ontem"}
+        }}
+    })
+    assert result["fields"]["nota_media"]["status"] == "unknown"
+
+
+def test_explicitly_stale_source_observation_blocks_scoring():
+    from app.ml.data_quality import assess_student_data_quality
+
+    student = {
+        **COMPLETE_STUDENT,
+        "raw_data": {
+            "_mira_provenance": {
+                "dias_sem_login": {
+                    "imported_at": "2026-11-01T12:00:00+00:00",
+                    "observed_at": "2026-10-01T00:00:00+00:00",
+                }
+            }
+        },
+    }
+    quality = assess_student_data_quality(student)
+    assert quality["can_score"] is False
+    assert "dias_sem_login" in quality["stale_fields"]
+    assert any(issue["reason"] == "stale_observation" for issue in quality["issues"])
+
+
+def test_unknown_freshness_does_not_claim_data_is_recent_or_block_legacy_scoring():
+    from app.ml.data_quality import assess_student_data_quality
+
+    quality = assess_student_data_quality(COMPLETE_STUDENT)
+    assert quality["can_score"] is True
+    assert quality["freshness"]["status"] == "unknown"
+    assert quality["freshness"]["counts"]["unknown"] == 7
+
+
+def test_future_observation_timestamp_is_unknown_not_fresh():
+    from datetime import datetime, timezone
+    from app.ml.data_quality import assess_field_freshness
+
+    result = assess_field_freshness(
+        {"raw_data": {"_mira_provenance": {
+            "dias_sem_login": {"observed_at": "2026-11-03T00:00:00+00:00"}
+        }}},
+        now=datetime(2026, 11, 2, tzinfo=timezone.utc),
+    )
+    field = result["fields"]["dias_sem_login"]
+    assert field["status"] == "unknown"
+    assert field["observation_age_days"] is None
+    assert field["freshness_basis"] == "future_timestamp_invalid"

@@ -610,6 +610,30 @@ async def create_batch_and_students(
         "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes",
     }
 
+    imported_at = datetime.now(timezone.utc).isoformat()
+
+    def update_provenance(raw_data: dict[str, Any] | None, raw_row: dict[str, Any], fields: set[str]) -> dict[str, Any]:
+        # O snapshot canônico calculado para a atualização prevalece sobre a célula bruta.
+        merged = {**raw_row, **(raw_data or {})}
+        previous = merged.get("_mira_provenance", {})
+        provenance = dict(previous) if isinstance(previous, dict) else {}
+        for field in fields:
+            # Convenção de origem: coluna <campo>_observed_at. A coluna é
+            # mantida no raw_data mesmo sem mapeamento manual para um campo do aluno.
+            observation_column = f"{field}_observed_at"
+            observed_at = raw_row.get(observation_column)
+            provenance[field] = {
+                "source_type": "file_import",
+                "source_filename": original_filename,
+                "source_batch_id": batch.id,
+                "imported_at": imported_at,
+                # Sem timestamp de observação da origem, a atualidade é desconhecida.
+                "observed_at": safe_str(observed_at),
+                "observed_at_source_column": observation_column if safe_str(observed_at) else None,
+            }
+        merged["_mira_provenance"] = provenance
+        return merged
+
     for item in cleaned_rows:
         data = item["data"]
         raw = item["raw"]
@@ -667,11 +691,11 @@ async def create_batch_and_students(
                 field: data.get(field)
                 for field in predictive_source_fields.intersection(mapped_targets)
             }
-            existing.raw_data = {
-                **(existing.raw_data or {}),
-                **raw,
-                **canonical_predictive_refresh,
-            }
+            existing.raw_data = update_provenance(
+                {**(existing.raw_data or {}), **canonical_predictive_refresh},
+                raw,
+                predictive_source_fields.intersection(mapped_targets),
+            )
             students.append(existing)
             rows_updated += 1
         else:
@@ -702,7 +726,9 @@ async def create_batch_and_students(
                 presenca_percentual=data.get("presenca_percentual"),
                 nota_media=data.get("nota_media"),
                 reprovacoes=data.get("reprovacoes"),
-                raw_data=raw,
+                raw_data=update_provenance(
+                    {}, raw, predictive_source_fields.intersection(mapped_targets)
+                ),
             )
             explicit_opt_out = safe_bool(raw.get("communication_opt_out"))
             if explicit_opt_out is True:
