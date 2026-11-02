@@ -101,7 +101,7 @@ class JacadApiClient:
         }
         return messages.get(status_code, f"JACAD retornou HTTP {status_code}.")
 
-    async def get(self, path: str, params: dict | None = None) -> dict:
+    async def get(self, path: str, params: dict | None = None) -> dict | list:
         for attempt in range(2):
             jwt = await self.authenticate(force=attempt == 1)
             try:
@@ -119,7 +119,7 @@ class JacadApiClient:
                 payload = response.json()
             except ValueError as exc:
                 raise JacadConnectionError("Resposta JACAD não é JSON válido.") from exc
-            if not isinstance(payload, dict):
+            if not isinstance(payload, (dict, list)):
                 raise JacadConnectionError("Formato inesperado na resposta JACAD.")
             return payload
         raise JacadConnectionError("Não foi possível renovar a sessão JACAD.")
@@ -131,20 +131,20 @@ class JacadApiClient:
             raise JacadConnectionError("A API respondeu, mas não retornou a lista de alunos esperada.")
         return {"authenticated": True, "students_endpoint": True, "sample_records": len(elements)}
 
-    async def fetch_students(self, *, page_size: int = 5000, max_pages: int = 200, org_id: int | None = None) -> list[dict]:
+    async def fetch_cursor_collection(
+        self, path: str, *, params: dict | None = None, page_size: int = 5000, max_pages: int = 200
+    ) -> list[dict]:
+        base_params = dict(params or {})
         page_size = min(max(int(page_size), 1), 5000)
         cursor: int | str = 0
         seen_cursors: set[str] = set()
         records: list[dict] = []
         for _ in range(max_pages):
-            params: dict[str, int | str] = {"pageSize": page_size}
-            if org_id is not None:
-                params["idOrg"] = org_id
-            params["idCursor"] = cursor
-            payload = await self.get("/api/v2/academico/alunos", params)
-            elements = payload.get("elements")
-            if not isinstance(elements, list):
-                raise JacadConnectionError("Resposta de alunos sem a lista 'elements'.")
+            query = {**base_params, "pageSize": page_size, "idCursor": cursor}
+            payload = await self.get(path, query)
+            if not isinstance(payload, dict) or not isinstance(payload.get("elements"), list):
+                raise JacadConnectionError(f"Resposta JACAD sem lista elements em {path}.")
+            elements = payload["elements"]
             records.extend(item for item in elements if isinstance(item, dict))
             page = payload.get("page") if isinstance(payload.get("page"), dict) else {}
             next_cursor = page.get("idCursorProximo")
@@ -152,7 +152,51 @@ class JacadApiClient:
                 return records
             marker = str(next_cursor)
             if marker in seen_cursors or marker == str(cursor):
-                raise JacadConnectionError("Cursor JACAD repetido; sincronização interrompida para evitar loop.")
+                raise JacadConnectionError(f"Cursor JACAD repetido em {path}; sincronização interrompida.")
             seen_cursors.add(str(cursor))
             cursor = next_cursor
-        raise JacadConnectionError("Limite de páginas JACAD atingido; sync parcial não foi ingerido.")
+        raise JacadConnectionError(f"Limite de páginas JACAD atingido em {path}; sync parcial não foi ingerido.")
+
+    async def fetch_students(self, *, page_size: int = 5000, max_pages: int = 200, org_id: int | None = None) -> list[dict]:
+        params = {"idOrg": org_id} if org_id is not None else {}
+        return await self.fetch_cursor_collection(
+            "/api/v2/academico/alunos", params=params, page_size=page_size, max_pages=max_pages
+        )
+
+    async def fetch_enrollments(self, *, org_id: int | None = None) -> list[dict]:
+        params = {"idOrg": org_id} if org_id is not None else {}
+        return await self.fetch_cursor_collection(
+            "/api/v2/academico/matriculas", params=params, page_size=5000
+        )
+
+    async def fetch_financial_summaries(self, *, org_id: int) -> list[dict]:
+        return await self.fetch_cursor_collection(
+            "/api/v2/financeiro/matriculas/resumo-financeiro",
+            params={"idOrg": org_id}, page_size=5000,
+        )
+
+    async def fetch_contracts(self, *, org_id: int, page_size: int = 500, max_pages: int = 200) -> list[dict]:
+        records: list[dict] = []
+        for current_page in range(1, max_pages + 1):
+            payload = await self.get(
+                "/api/v1/financeiro/contratos-matricula",
+                {"idOrg": org_id, "pageSize": min(max(page_size, 1), 500),
+                 "currentPage": current_page, "vinculoContrato": "COM_MATRICULA"},
+            )
+            if not isinstance(payload, dict) or not isinstance(payload.get("elements"), list):
+                raise JacadConnectionError("Resposta de contratos JACAD sem lista elements.")
+            elements = payload["elements"]
+            records.extend(item for item in elements if isinstance(item, dict))
+            page = payload.get("page") if isinstance(payload.get("page"), dict) else {}
+            total_pages = page.get("totalPages")
+            if total_pages is not None and current_page >= int(total_pages):
+                return records
+            if not elements or (total_pages is None and len(elements) < min(max(page_size, 1), 500)):
+                return records
+        raise JacadConnectionError("Limite de páginas de contratos JACAD atingido.")
+
+    async def fetch_contract_installments(self, contract_id: int) -> list[dict]:
+        payload = await self.get(f"/api/v1/financeiro/contratos-matricula/{int(contract_id)}/parcelas")
+        if not isinstance(payload, list):
+            raise JacadConnectionError("Resposta de parcelas do contrato JACAD não é uma lista.")
+        return [item for item in payload if isinstance(item, dict)]
