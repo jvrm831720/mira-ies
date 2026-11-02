@@ -1,97 +1,60 @@
 """
-Feature Engineering para o Motor de Risco de Evasao.
+Feature Engineering para o Motor de Risco de Evasão.
 
-17 features: originais + flags + interacoes.
+17 features derivadas de 7 campos de origem. Ausência e valores inválidos
+são bloqueados pelo contrato de qualidade; nunca recebem defaults favoráveis.
 """
-
 from __future__ import annotations
 
 from typing import Any
 import numpy as np
 import pandas as pd
 
+from app.ml.data_quality import assess_student_data_quality, require_scoreable_student
+
 FEATURE_COLUMNS = [
-    "dias_atraso_boleto",
-    "recorrencia_atrasos",
-    "dias_sem_login",
-    "presenca_percentual",
-    "nota_media",
-    "reprovacoes",
-    "semestre",
-    "is_early_semester",
-    "atraso_grave",
-    "engajamento_critico",
-    "desempenho_baixo",
-    "presenca_baixa",
-    "risco_financeiro",
-    "risco_engajamento",
-    "risco_academico",
-    "combo_critico",
-    "pressao_inicial",
+    "dias_atraso_boleto", "recorrencia_atrasos", "dias_sem_login",
+    "presenca_percentual", "nota_media", "reprovacoes", "semestre",
+    "is_early_semester", "atraso_grave", "engajamento_critico",
+    "desempenho_baixo", "presenca_baixa", "risco_financeiro",
+    "risco_engajamento", "risco_academico", "combo_critico", "pressao_inicial",
 ]
 
 FEATURE_LABELS_PT = {
     "dias_atraso_boleto": "Dias de atraso no boleto",
-    "recorrencia_atrasos": "Recorrencia de atrasos financeiros",
+    "recorrencia_atrasos": "Recorrência de atrasos financeiros",
     "dias_sem_login": "Dias sem acesso ao AVA/LMS",
-    "presenca_percentual": "Percentual de presenca",
-    "nota_media": "Nota media",
-    "reprovacoes": "Quantidade de reprovacoes",
+    "presenca_percentual": "Percentual de presença",
+    "nota_media": "Nota média",
+    "reprovacoes": "Quantidade de reprovações",
     "semestre": "Semestre atual",
-    "is_early_semester": "Esta no 1o ou 2o semestre",
+    "is_early_semester": "Está no 1º ou 2º semestre",
     "atraso_grave": "Atraso financeiro grave (>15 dias)",
-    "engajamento_critico": "Engajamento critico (>14 dias sem login)",
-    "desempenho_baixo": "Desempenho academico baixo (nota < 6)",
-    "presenca_baixa": "Presenca baixa (<70%)",
-    "risco_financeiro": "Pressao financeira combinada",
+    "engajamento_critico": "Engajamento crítico (>14 dias sem login)",
+    "desempenho_baixo": "Desempenho acadêmico baixo (nota < 6)",
+    "presenca_baixa": "Presença baixa (<70%)",
+    "risco_financeiro": "Pressão financeira combinada",
     "risco_engajamento": "Desengajamento digital combinado",
-    "risco_academico": "Dificuldade academica combinada",
-    "combo_critico": "Atraso grave + engajamento critico",
-    "pressao_inicial": "Pressao no inicio do curso",
+    "risco_academico": "Dificuldade acadêmica combinada",
+    "combo_critico": "Atraso grave + engajamento crítico",
+    "pressao_inicial": "Pressão no início do curso",
 }
-
-FEATURE_DEFAULTS = {
-    "dias_atraso_boleto": 0,
-    "recorrencia_atrasos": 0,
-    "dias_sem_login": 0,
-    "presenca_percentual": 100.0,
-    "nota_media": 7.0,
-    "reprovacoes": 0,
-    "semestre": 3,
-}
-
-
-def _safe_float(v: Any, default: float = 0.0) -> float:
-    if v is None or (isinstance(v, float) and np.isnan(v)):
-        return default
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_int(v: Any, default: int = 0) -> int:
-    if v is None or (isinstance(v, float) and np.isnan(v)):
-        return default
-    try:
-        return int(float(v))
-    except (TypeError, ValueError):
-        return default
 
 
 def build_features_from_student(student: dict | Any) -> dict[str, float]:
-    def get(key: str, default=None):
-        if isinstance(student, dict):
-            return student.get(key, default)
-        return getattr(student, key, default)
+    require_scoreable_student(student)
 
-    dias_atraso = max(0, _safe_int(get("dias_atraso_boleto"), FEATURE_DEFAULTS["dias_atraso_boleto"]))
-    recorrencia = max(0, _safe_int(get("recorrencia_atrasos"), FEATURE_DEFAULTS["recorrencia_atrasos"]))
-    dias_login = max(0, _safe_int(get("dias_sem_login"), FEATURE_DEFAULTS["dias_sem_login"]))
-    presenca = max(0.0, min(100.0, _safe_float(get("presenca_percentual"), FEATURE_DEFAULTS["presenca_percentual"])))
-    nota = max(0.0, min(10.0, _safe_float(get("nota_media"), FEATURE_DEFAULTS["nota_media"])))
-    reprovacoes = max(0, _safe_int(get("reprovacoes"), FEATURE_DEFAULTS["reprovacoes"]))
-    semestre = max(1, _safe_int(get("semestre"), FEATURE_DEFAULTS["semestre"]))
+    def get(key: str) -> float:
+        value = student.get(key) if isinstance(student, dict) else getattr(student, key)
+        return float(value)
+
+    dias_atraso = get("dias_atraso_boleto")
+    recorrencia = get("recorrencia_atrasos")
+    dias_login = get("dias_sem_login")
+    presenca = get("presenca_percentual")
+    nota = get("nota_media")
+    reprovacoes = get("reprovacoes")
+    semestre = get("semestre")
 
     is_early = 1.0 if semestre <= 2 else 0.0
     atraso_grave = 1.0 if dias_atraso > 15 else 0.0
@@ -102,17 +65,17 @@ def build_features_from_student(student: dict | Any) -> dict[str, float]:
     risco_financeiro = min(1.0, (dias_atraso / 60.0) * (1.0 + recorrencia / 3.0) / 2.0)
     risco_engajamento = min(1.0, (dias_login / 45.0) * (1.0 - presenca / 100.0) * 2.0)
     risco_academico = min(1.0, ((10.0 - nota) / 10.0) * (1.0 + reprovacoes / 2.0) / 2.0)
-    combo_critico = 1.0 if (atraso_grave and engajamento_critico) else 0.0
+    combo_critico = 1.0 if atraso_grave and engajamento_critico else 0.0
     pressao_inicial = is_early * max(atraso_grave, engajamento_critico, desempenho_baixo)
 
     return {
-        "dias_atraso_boleto": float(dias_atraso),
-        "recorrencia_atrasos": float(recorrencia),
-        "dias_sem_login": float(dias_login),
-        "presenca_percentual": float(presenca),
-        "nota_media": float(nota),
-        "reprovacoes": float(reprovacoes),
-        "semestre": float(semestre),
+        "dias_atraso_boleto": dias_atraso,
+        "recorrencia_atrasos": recorrencia,
+        "dias_sem_login": dias_login,
+        "presenca_percentual": presenca,
+        "nota_media": nota,
+        "reprovacoes": reprovacoes,
+        "semestre": semestre,
         "is_early_semester": is_early,
         "atraso_grave": atraso_grave,
         "engajamento_critico": engajamento_critico,
@@ -128,10 +91,13 @@ def build_features_from_student(student: dict | Any) -> dict[str, float]:
 
 def features_to_dataframe(features_list: list[dict]) -> pd.DataFrame:
     df = pd.DataFrame(features_list)
-    for col in FEATURE_COLUMNS:
-        if col not in df.columns:
-            df[col] = 0.0
-    return df[FEATURE_COLUMNS]
+    missing = [col for col in FEATURE_COLUMNS if col not in df.columns]
+    if missing:
+        raise ValueError(f"Feature matrix incompleta: {', '.join(missing)}")
+    df = df[FEATURE_COLUMNS]
+    if df.isna().any().any() or not np.isfinite(df.to_numpy(dtype=float)).all():
+        raise ValueError("Feature matrix contém valores ausentes ou não finitos.")
+    return df
 
 
 def students_to_feature_matrix(students: list[Any]) -> tuple[pd.DataFrame, list[dict]]:
@@ -140,10 +106,5 @@ def students_to_feature_matrix(students: list[Any]) -> tuple[pd.DataFrame, list[
 
 
 def missing_feature_flags(student: dict | Any) -> list[str]:
-    important = ["dias_atraso_boleto", "dias_sem_login", "presenca_percentual", "nota_media", "semestre"]
-    missing = []
-    for key in important:
-        val = student.get(key) if isinstance(student, dict) else getattr(student, key, None)
-        if val is None:
-            missing.append(key)
-    return missing
+    quality = assess_student_data_quality(student)
+    return quality["missing_fields"] + quality["invalid_fields"]
