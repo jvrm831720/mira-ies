@@ -151,7 +151,7 @@ def _deep_merge(target: dict, patch: dict) -> dict:
     return target
 
 
-async def _save_metadata(tenant_id: str, updates: dict[str, dict[str, Any]]):
+async def _save_metadata(tenant_id: str, updates: dict[str, dict[str, Any]], job_id: str):
     if not updates:
         return
     async with AsyncSessionLocal() as session:
@@ -162,6 +162,19 @@ async def _save_metadata(tenant_id: str, updates: dict[str, dict[str, Any]]):
         for student in rows:
             raw = dict(student.raw_data or {})
             raw["jacad"] = _deep_merge(dict(raw.get("jacad") or {}), updates[student.matricula])
+            provenance = dict(raw.get("_mira_provenance") or {})
+            imported_at = datetime.now(timezone.utc).isoformat()
+            for field in updates[student.matricula]:
+                provenance[f"jacad.{field}"] = {
+                    "source_type": "jacad_api",
+                    "source_filename": "jacad_sync_details",
+                    "source_batch_id": job_id,
+                    "imported_at": imported_at,
+                    "observed_at": None,
+                    "observed_at_source_column": None,
+                    "freshness_basis": "source_observation_timestamp_unavailable",
+                }
+            raw["_mira_provenance"] = provenance
             student.raw_data = raw
         await session.commit()
 
@@ -328,7 +341,7 @@ async def _run_sync(job_id: str, redis: Redis):
                     "data_pagamento": x.get("dataPagamento"),
                 } for x in rows]
                 updates.setdefault(ra, {}).setdefault("installments_by_contract", {})[cid] = normalized
-            await _save_metadata(tenant_id, updates)
+            await _save_metadata(tenant_id, updates, job_id)
             await _mark(redis, job_id, "contracts", successful_contracts)
             progress["contracts_done"] += len(successful_contracts)
             progress["percent"] = 30 + int(20 * progress["contracts_done"] / max(1, len(contracts)))
@@ -438,7 +451,7 @@ async def _run_sync(job_id: str, redis: Redis):
                         "nota_exame": item.get("notaExame"),
                         "data_modificacao": item.get("dataModificacao"),
                     } for item in rows if str(item.get("ra") or "").strip() == ra]
-            await _save_metadata(tenant_id, updates)
+            await _save_metadata(tenant_id, updates, job_id)
             await _mark(redis, job_id, "disciplines", successful_pairs)
             progress["discipline_pairs_done"] += len(successful_pairs)
             progress["percent"] = 55 + int(20 * progress["discipline_pairs_done"] / max(1, len(pair_items)))
@@ -486,7 +499,7 @@ async def _run_sync(job_id: str, redis: Redis):
                         "media_disciplina": x.get("mediaMatriculaDisciplina"),
                         "itens_notas": x.get("itensNotas") or [],
                     } for x in rows if str(x.get("ra") or "").strip() == ra]
-            await _save_metadata(tenant_id, updates)
+            await _save_metadata(tenant_id, updates, job_id)
             await _mark(redis, job_id, "assessment", successful_pairs)
             progress["assessment_groups_done"] += len(successful_pairs)
             progress["percent"] = 78 + int(17 * progress["assessment_groups_done"] / max(1, len(pair_items)))
