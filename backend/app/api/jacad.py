@@ -134,7 +134,7 @@ async def sync_jacad_students(
         raise HTTPException(status_code=404, detail="Configure a conexão JACAD antes de sincronizar.")
     client = JacadApiClient(connection.base_url, decrypt_api_token(connection.encrypted_api_token))
     try:
-        source_students = await client.fetch_students()
+        source_students = await client.fetch_students(org_id=connection.default_org_id)
         connector = get_connector("jacad")
         records = connector.transform({"elements": source_students})
         if not records:
