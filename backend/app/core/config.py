@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     retention_max_attempts: int = 3
     retention_retry_backoff_seconds: int = 5
     retention_dead_letter_queue_name: str = "beacon:retention:dead-letter"
+    jacad_queue_name: str = "beacon:jacad:jobs"
+    jacad_job_ttl_seconds: int = Field(default=604800, ge=3600, le=2592000)
+    jacad_max_attempts: int = Field(default=3, ge=1, le=8)
+    jacad_retry_backoff_seconds: int = Field(default=15, ge=1, le=3600)
+    jacad_sync_concurrency: int = Field(default=5, ge=1, le=12)
+
 
     max_upload_size_mb: int = 50
     allowed_extensions: str = "csv,xlsx,xls"
