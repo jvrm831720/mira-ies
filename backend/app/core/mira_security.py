@@ -13,7 +13,8 @@ from app.core.config import get_settings
 _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
-_TOKEN_TTL_SECONDS = 60 * 60
+TOKEN_TTL_SECONDS = 60 * 60
+_TOKEN_TTL_SECONDS = TOKEN_TTL_SECONDS
 
 
 def _b64url(data: bytes) -> str:

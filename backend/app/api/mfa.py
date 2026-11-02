@@ -68,11 +68,12 @@ def _require_recent_auth(auth: AuthContext, *, minimum_aal: int = 1) -> None:
         )
 
 
-def _require_admin(auth: AuthContext) -> str:
+def _require_admin(auth: AuthContext, *, recent: bool = True) -> str:
     user_id = _require_user(auth)
     if auth.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas administradores da instituição podem alterar esta política.")
-    _require_recent_auth(auth, minimum_aal=2)
+    if recent:
+        _require_recent_auth(auth, minimum_aal=2)
     return user_id
 
 
@@ -457,7 +458,7 @@ async def read_mfa_policy(
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(auth)
+    _require_admin(auth, recent=False)
     return await get_tenant_mfa_policy(db, auth.tenant_id)
 
 

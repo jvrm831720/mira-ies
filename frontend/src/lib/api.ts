@@ -411,7 +411,7 @@ export const api = {
     }),
 
   acceptInvite: (body: AcceptInviteRequest) =>
-    request<AuthResponse>("/api/v1/org/invites/accept", {
+    request<AuthResponse | import("@/types/api").MfaLoginChallenge>("/api/v1/org/invites/accept", {
       method: "POST",
       body: JSON.stringify(body),
     }),
