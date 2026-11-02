@@ -182,8 +182,12 @@ async def _persist_page(
     *, tenant_id: str, tenant_slug: str | None, endpoint: str,
     items: list[dict[str, Any]], page_number: int, job_id: str,
 ) -> tuple[int, list[str]]:
-    ids = sorted({aluno_id(item) for item in items if aluno_id(item)})
-    if not ids:
+    direct_ids = {aluno_id(item) for item in items if aluno_id(item)}
+    contract_ids = {
+        str(value) for item in items
+        if (value := (item.get("ContratoID") or item.get("IdContrato"))) is not None
+    }
+    if not direct_ids and not contract_ids:
         return 0, []
     imported = 0
     if endpoint == "alunos":
@@ -200,16 +204,38 @@ async def _persist_page(
 
     async with AsyncSessionLocal() as session:
         await _set_tenant_rls_context(session, tenant_id)
+        contract_to_ra: dict[str, str] = {}
+        if contract_ids:
+            all_students = list((await session.execute(
+                select(Student).where(Student.tenant_id == tenant_id)
+            )).scalars().all())
+            for existing in all_students:
+                contracts = ((existing.raw_data or {}).get("sponte") or {}).get("contratos") or {}
+                for contract in contracts.values():
+                    contract_id = contract.get("contrato_id")
+                    if contract_id is not None:
+                        contract_to_ra[str(contract_id)] = existing.matricula
+        resolved_ids = set(direct_ids)
+        for item in items:
+            if not aluno_id(item):
+                contract_id = item.get("ContratoID") or item.get("IdContrato")
+                if contract_id is not None and str(contract_id) in contract_to_ra:
+                    resolved_ids.add(contract_to_ra[str(contract_id)])
         students = list((await session.execute(select(Student).where(
-            Student.tenant_id == tenant_id, Student.matricula.in_(ids)
+            Student.tenant_id == tenant_id, Student.matricula.in_(list(resolved_ids))
         ))).scalars().all())
         by_id = {student.matricula: student for student in students}
         imported_at = datetime.now(timezone.utc).isoformat()
+        affected_ids = set()
         for item in items:
             sid = aluno_id(item)
+            if not sid:
+                contract_id = item.get("ContratoID") or item.get("IdContrato")
+                sid = contract_to_ra.get(str(contract_id)) if contract_id is not None else None
             student = by_id.get(sid or "")
             if not student:
                 continue
+            affected_ids.add(student.matricula)
             raw = dict(student.raw_data or {})
             sponte = dict(raw.get("sponte") or {})
             if endpoint == "alunos":
@@ -232,8 +258,7 @@ async def _persist_page(
             raw["_mira_provenance"] = provenance
             student.raw_data = raw
         await session.commit()
-    return imported, ids
-
+    return imported, sorted(affected_ids)
 
 async def _update_watermark(tenant_id: str, endpoint: str, as_of: date):
     async with AsyncSessionLocal() as session:
@@ -284,8 +309,7 @@ async def _derive_affected_students(tenant_id: str, affected_ids: list[str], job
                     "source_batch_id": job_id,
                     "imported_at": imported_at,
                     "observed_at": (
-                        (raw.get("sponte") or {}).get("fatofrequenciaalunosativos", {})
-                        and next(iter((raw.get("sponte") or {}).get("fatofrequenciaalunosativos", {}).values()), {}).get("data_extracao")
+                        (record.get("raw") or {}).get("attendance_observed_at")
                         if field == "presenca_percentual" else None
                     ),
                     "observed_at_source_column": "DataExtracao" if field == "presenca_percentual" else None,
@@ -334,8 +358,6 @@ async def _run_sync(job_id: str, redis: Redis):
         )
         for endpoint_index, endpoint in enumerate(endpoints):
             watermark = watermarks.get(endpoint)
-            if watermark and date.fromisoformat(watermark) >= as_of:
-                continue
             extraction_date = (
                 max(initial_date, date.fromisoformat(watermark) - timedelta(days=1))
                 if watermark else initial_date
