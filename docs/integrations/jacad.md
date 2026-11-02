@@ -91,8 +91,8 @@ Portanto, o primeiro sync não inventa valores preditivos nem gera score automá
 - Descoberta das disciplinas por turma e consulta em lote das matrículas-disciplina por código de disciplina do professor. Isso evita uma chamada por matrícula.
 - Consulta das notas por avaliação uma vez por combinação única de turma e disciplina do professor.
 - Persistência incremental por lote. O checkpoint só é marcado depois do commit no banco; se uma chamada falhar, a retomada pula os itens já persistidos.
-- Checkpoints de contratos, disciplinas e avaliações ficam no Redis por até sete dias. O job também expõe etapa, percentual, contadores, erro e resultado.
-- Retry automático com backoff para falhas transitórias e retomada manual do último checkpoint após falha definitiva.
+- Checkpoints de contratos, turmas, disciplinas e avaliações ficam no Redis por até sete dias. Um cache entre jobs evita repetir consultas de detalhes por 24 horas; nos contratos, a chave do cache inclui um fingerprint do resumo financeiro, então uma mudança no status, vencimento ou valor força nova consulta. O job expõe etapa, percentual, contadores, erro e resultado.
+- Retry automático com backoff para falhas transitórias e retomada manual do último checkpoint após falha definitiva. A janela de cache pode ser ajustada por `JACAD_DETAIL_REFRESH_HOURS` (padrão: 24 horas).
 - Limitador distribuído no Redis respeita a quota por IP e aplica margem conservadora à quota horária por token.
 - Preservação seletiva dos campos financeiros e acadêmicos em `students.raw_data.jacad`; não armazena payload integral.
 - Proveniência registra `source_type=jacad_api` e horário de importação. Como `dataAlteracao` não é timestamp de observação por campo, `observed_at` permanece desconhecido.
