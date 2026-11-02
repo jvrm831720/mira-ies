@@ -83,7 +83,8 @@ class SponteConnector:
                 "GET /api/v1/extracoes/turmas", "GET /api/v1/extracoes/estagios",
                 "GET /api/v1/extracoes/contratos", "GET /api/v1/extracoes/contratosturmasestagios",
                 "GET /api/v1/extracoes/contasreceber", "GET /api/v1/extracoes/notas",
-                "GET /api/v1/extracoes/fatofrequenciaalunosativos",
+                "GET /api/v1/extracoes/fatofrequenciaalunosativos", "GET /api/v1/extracoes/fatoalunosativos",
+                "GET /api/v1/extracoes/followups",
             ],
         sample_fields=["AlunoID", "Nome", "ContratoID", "contaReceberID", "notaDetalheID", "aulasAssistidas", "aulasTotais"],
     )
