@@ -610,18 +610,9 @@ async def create_batch_and_students(
         "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes",
     }
 
-    source_by_target = {target: source for source, target in rename_map.items()}
-
     for item in cleaned_rows:
         data = item["data"]
         raw = item["raw"]
-        # Preserve the latest source cell under its canonical field name too.
-        # This makes aliases (e.g. "Average Grade" -> "nota_media") obey the
-        # same freshness/blank-value rules as canonical headers.
-        canonical_raw = {
-            target: raw.get(source)
-            for source, target in rename_map.items()
-        }
         existing = existing_by_matricula.get(data["matricula"])
         if existing is not None:
             # Matrícula identifica uma pessoa. Não permitir que uma importação troque
@@ -639,7 +630,7 @@ async def create_batch_and_students(
             for field in mutable_fields:
                 if field not in mapped_targets:
                     continue
-                raw_value = raw.get(source_by_target.get(field, field))
+                raw_value = raw.get(field)
                 if field == "communication_opt_out":
                     parsed_bool = safe_bool(raw_value)
                     if safe_str(raw_value) is not None and parsed_bool is not None and tenant_id:
@@ -669,7 +660,7 @@ async def create_batch_and_students(
                 existing.model_risk_score = None
                 existing.shap_top_factors = None
             existing.batch_id = batch.id
-            existing.raw_data = {**(existing.raw_data or {}), **raw, **canonical_raw}
+            existing.raw_data = {**(existing.raw_data or {}), **raw}
             students.append(existing)
             rows_updated += 1
         else:
@@ -700,7 +691,7 @@ async def create_batch_and_students(
                 presenca_percentual=data.get("presenca_percentual"),
                 nota_media=data.get("nota_media"),
                 reprovacoes=data.get("reprovacoes"),
-                raw_data={**raw, **canonical_raw},
+                raw_data=raw,
             )
             explicit_opt_out = safe_bool(raw.get("communication_opt_out"))
             if explicit_opt_out is True:
