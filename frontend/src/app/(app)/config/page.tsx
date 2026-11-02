@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -93,13 +93,10 @@ function stateBadgeClass(kind: ChannelState["kind"]) {
 export default function ConfigPage() {
   const router = useRouter();
   const [section, setSection] = useState<SectionId>("instituicao");
-  const [mfaEnrollment, setMfaEnrollment] = useState<{secret:string; qr_code:string} | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [mfaMessage, setMfaMessage] = useState<string | null>(null);
   const [mfaError, setMfaError] = useState<string | null>(null);
-  const [requireMfaAll, setRequireMfaAll] = useState(false);
-  const [requiredMfaRoles, setRequiredMfaRoles] = useState<Array<"admin" | "coordinator" | "operator" | "viewer">>([]);
   const mfaStatus = useQuery({ queryKey: ["mfa-status"], queryFn: () => api.mfaStatus(), retry: false });
 
   const me = useQuery({
@@ -121,43 +118,12 @@ export default function ConfigPage() {
     retry: false,
   });
 
-  const mfaPolicy = useQuery({
-    queryKey: ["mfa-policy"],
-    queryFn: () => api.mfaPolicy(),
-    enabled: me.data?.role === "admin",
-    retry: false,
-  });
-
   const mfaSessions = useQuery({
     queryKey: ["mfa-sessions"],
     queryFn: () => api.mfaSessions(),
     enabled: Boolean(me.data?.user_id),
     retry: false,
   });
-
-  useEffect(() => {
-    if (!mfaPolicy.data) return;
-    setRequireMfaAll(mfaPolicy.data.require_mfa_all);
-    setRequiredMfaRoles(mfaPolicy.data.required_roles || []);
-  }, [mfaPolicy.data]);
-
-  async function saveMfaPolicy() {
-    setMfaError(null); setMfaMessage(null);
-    try {
-      const stepUp = await api.stepUpMfa(mfaCode);
-      setAccessToken(stepUp.access_token);
-      const result = await api.updateMfaPolicy({
-        require_mfa_all: requireMfaAll,
-        required_roles: requireMfaAll ? [] : requiredMfaRoles,
-      });
-      setAccessToken(result.access_token);
-      setMfaCode("");
-      await Promise.all([mfaPolicy.refetch(), mfaSessions.refetch()]);
-      setMfaMessage("Política institucional salva. As sessões anteriores foram encerradas e todos precisarão autenticar novamente.");
-    } catch (error) {
-      setMfaError(error instanceof Error ? error.message : "Não foi possível atualizar a política institucional.");
-    }
-  }
 
   async function revokeSession(sessionId: string) {
     setMfaError(null);
@@ -181,32 +147,6 @@ export default function ConfigPage() {
     }
   }
 
-  async function startMfaEnrollment() {
-    setMfaError(null); setMfaMessage(null);
-    try { const result = await api.enrollMfa(); setMfaEnrollment(result); }
-    catch (error) { setMfaError(error instanceof Error ? error.message : "Não foi possível iniciar a configuração."); }
-  }
-  async function confirmMfaEnrollment() {
-    setMfaError(null); setMfaMessage(null);
-    try {
-      const result = await api.confirmMfa(mfaCode);
-      setAccessToken(result.access_token);
-      setRecoveryCodes(result.recovery_codes);
-      setMfaEnrollment(null); setMfaCode("");
-      await mfaStatus.refetch();
-      setMfaMessage("Autenticação multifator ativada. Guarde os códigos de recuperação.");
-    } catch (error) { setMfaError(error instanceof Error ? error.message : "Código inválido."); }
-  }
-  async function disableMfa() {
-    setMfaError(null); setMfaMessage(null);
-    try {
-      const result = await api.disableMfa(mfaCode);
-      setAccessToken(result.access_token);
-      setMfaCode(""); setRecoveryCodes(null);
-      await mfaStatus.refetch();
-      setMfaMessage("Autenticação multifator desativada.");
-    } catch (error) { setMfaError(error instanceof Error ? error.message : "Não foi possível desativar o MFA."); }
-  }
   async function regenerateRecoveryCodes() {
     setMfaError(null); setMfaMessage(null);
     try { const result = await api.regenerateMfaRecoveryCodes(mfaCode); setRecoveryCodes(result.recovery_codes); setMfaCode(""); await mfaStatus.refetch(); }
@@ -535,31 +475,36 @@ export default function ConfigPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Autenticação multifator (MFA)</CardTitle>
-              <CardDescription>Proteja sua conta com um aplicativo autenticador compatível com TOTP.</CardDescription>
+              <CardTitle className="text-base">Autenticação multifator (TOTP)</CardTitle>
+              <CardDescription>
+                Sua conta é protegida por um aplicativo autenticador. O TOTP é obrigatório para todas as contas humanas da MIRA.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {mfaStatus.isLoading && <Skeleton className="h-16 w-full" />}
               {mfaStatus.isError && <ErrorBanner message="Não foi possível consultar o estado do MFA." />}
               {mfaStatus.data && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/35 p-3">
-                  <div><p className="text-sm font-semibold">{mfaStatus.data.enabled ? "MFA ativado" : "MFA desativado"}</p><p className="text-xs text-muted-foreground">{mfaStatus.data.enabled ? `${mfaStatus.data.recovery_codes_remaining} códigos de recuperação disponíveis` : "Adicione uma camada extra de proteção à sua conta."}</p></div>
-                  <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", mfaStatus.data.enabled ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground")}>{mfaStatus.data.enabled ? "Protegida" : "Não configurado"}</span>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {mfaStatus.data.enabled ? "TOTP ativado" : "Cadastro TOTP pendente"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {mfaStatus.data.enabled
+                        ? `${mfaStatus.data.recovery_codes_remaining} códigos de recuperação disponíveis`
+                        : "Saia e entre novamente para concluir o cadastro obrigatório antes de continuar."}
+                    </p>
+                  </div>
+                  <span className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-semibold",
+                    mfaStatus.data.enabled ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
+                  )}>
+                    {mfaStatus.data.enabled ? "Protegida" : "Ação necessária"}
+                  </span>
                 </div>
               )}
               {mfaError && <ErrorBanner message={mfaError} />}
               {mfaMessage && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{mfaMessage}</p>}
-              {mfaEnrollment && (
-                <div className="space-y-3 rounded-xl border p-4">
-                  <p className="text-sm font-medium">1. Escaneie o QR Code no aplicativo autenticador</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={mfaEnrollment.qr_code} alt="QR Code para configurar MIRA no aplicativo autenticador" className="mx-auto h-48 w-48" />
-                  <p className="break-all rounded-lg bg-muted p-2 font-mono text-xs">{mfaEnrollment.secret}</p>
-                  <p className="text-xs text-muted-foreground">2. Digite o código de 6 dígitos gerado pelo aplicativo para confirmar.</p>
-                  <Input value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0,6))} inputMode="numeric" placeholder="000000" maxLength={6} />
-                  <Button onClick={confirmMfaEnrollment} disabled={mfaCode.length !== 6}>Confirmar e ativar MFA</Button>
-                </div>
-              )}
               {recoveryCodes && (
                 <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-semibold text-amber-900">Guarde estes códigos agora</p>
@@ -569,62 +514,36 @@ export default function ConfigPage() {
                   <Button variant="ghost" onClick={() => setRecoveryCodes(null)}>Já guardei</Button>
                 </div>
               )}
-              {!mfaEnrollment && !recoveryCodes && !mfaStatus.data?.enabled && <Button onClick={startMfaEnrollment}>Configurar aplicativo autenticador</Button>}
               {mfaStatus.data?.enabled && (
                 <div className="space-y-3">
-                  <label className="text-xs font-medium" htmlFor="mfa-management-code">Confirme sua identidade com o código atual</label>
+                  <label className="text-xs font-medium" htmlFor="mfa-management-code">Confirme sua identidade para gerar novos códigos</label>
                   <Input id="mfa-management-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0,6))} inputMode="numeric" placeholder="Código de 6 dígitos" maxLength={6} />
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={regenerateRecoveryCodes} disabled={mfaCode.length !== 6}>Gerar novos códigos</Button>
-                    <Button variant="destructive" onClick={disableMfa} disabled={mfaCode.length !== 6}>Desativar MFA</Button>
-                  </div>
+                  <Button variant="outline" onClick={regenerateRecoveryCodes} disabled={mfaCode.length !== 6}>Gerar novos códigos de recuperação</Button>
                 </div>
               )}
+              <p className="text-xs text-muted-foreground">
+                O autenticador não pode ser desativado pela instituição nem pelo usuário. Para recuperar o acesso, use um código de recuperação ou o processo de suporte da MIRA.
+              </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Política institucional de MFA</CardTitle>
+              <CardTitle className="text-base">Política global de segurança</CardTitle>
               <CardDescription>
-                Defina se o segundo fator será obrigatório para toda a instituição ou apenas para perfis específicos.
-                A regra é aplicada pelo backend também a novos convites e novos acessos.
+                A mesma regra vale para todas as instituições e todos os perfis de acesso.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {me.data?.role !== "admin" ? (
-                <p className="text-sm text-muted-foreground">Somente administradores podem consultar e alterar a política institucional.</p>
-              ) : (
-                <>
-                  {mfaPolicy.isLoading && <Skeleton className="h-16 w-full" />}
-                  {mfaPolicy.isError && <ErrorBanner message="Não foi possível consultar a política de MFA." />}
-                  {mfaPolicy.data && (
-                    <>
-                      <label className="flex items-start gap-3 rounded-xl border p-3">
-                        <input type="checkbox" checked={requireMfaAll} onChange={(e) => { setRequireMfaAll(e.target.checked); if (e.target.checked) setRequiredMfaRoles([]); }} className="mt-1 h-4 w-4" />
-                        <span><span className="block text-sm font-medium">Exigir MFA para todos os membros</span><span className="block text-xs text-muted-foreground">Todos os usuários atuais e futuros deverão configurar um autenticador para acessar a instituição.</span></span>
-                      </label>
-                      <div className="space-y-2 rounded-xl border p-3">
-                        <p className="text-sm font-medium">Ou exigir MFA por perfil</p>
-                        {(["admin", "coordinator", "operator", "viewer"] as const).map((role) => (
-                          <label key={role} className="flex items-center gap-3 py-1.5 text-sm">
-                            <input type="checkbox" disabled={requireMfaAll} checked={requiredMfaRoles.includes(role)} onChange={(e) => setRequiredMfaRoles((current) => e.target.checked ? [...current, role] : current.filter((item) => item !== role))} className="h-4 w-4" />
-                            <span>{{admin:"Administrador",coordinator:"Coordenador",operator:"Operador",viewer:"Visualizador"}[role]}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="space-y-2 rounded-xl bg-muted/35 p-3">
-                        <label className="text-xs font-medium" htmlFor="mfa-policy-code">Confirme sua identidade com o código atual do autenticador</label>
-                        <Input id="mfa-policy-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0,6))} inputMode="numeric" placeholder="Código de 6 dígitos" maxLength={6} />
-                        <Button onClick={saveMfaPolicy} disabled={mfaCode.length !== 6}>Salvar política institucional</Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Política atual: {mfaPolicy.data.require_mfa_all ? "MFA obrigatório para todos" : mfaPolicy.data.required_roles.length ? `MFA obrigatório para: ${mfaPolicy.data.required_roles.join(", ")}` : "MFA opcional"}.
-                        Ao alterar a regra, as sessões existentes da instituição são encerradas.
-                      </p>
-                    </>
-                  )}
-                </>
-              )}
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-emerald-900">TOTP obrigatório para todas as contas humanas</p>
+                  <p className="text-xs text-emerald-800">Administradores, coordenadores, operadores e visualizadores, em todos os tenants.</p>
+                </div>
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800">Ativo</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Esta exigência é aplicada pelo backend e não pode ser enfraquecida por configurações de uma instituição. Chaves de integração/API são identidades técnicas e seguem controles próprios, sem login interativo por TOTP.
+              </p>
             </CardContent>
           </Card>
           <Card>

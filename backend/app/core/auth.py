@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, status
@@ -71,8 +72,16 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         or session.aal != int(claims.get("aal", 1))
     ):
         raise _unauthorized("Esta sessão foi encerrada ou expirou.")
-    if user.mfa_enabled_at and int(claims.get("aal", 1)) < 2:
-        raise _unauthorized("Autenticação multifator necessária.")
+    # MFA é obrigatório para todas as contas humanas em todos os tenants.
+    # Revogue tokens antigos ou sessões emitidas sem nível AAL2.
+    if not user.mfa_enabled_at or int(claims.get("aal", 1)) < 2:
+        session.revoked_at = datetime.now(timezone.utc)
+        session.revoked_by_user_id = user.id
+        session.revoke_reason = "global_mfa_required"
+        await db.commit()
+        raise _unauthorized(
+            "TOTP obrigatório para todas as contas. Entre novamente e configure seu autenticador."
+        )
     tenant = await db.get(Tenant, user.tenant_id)
     if not tenant or not tenant.is_active:
         raise _unauthorized()

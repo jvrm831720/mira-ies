@@ -1,4 +1,4 @@
-"""Resolução das políticas institucionais de MFA."""
+"""Política global de MFA: TOTP obrigatório para todas as contas humanas."""
 from __future__ import annotations
 
 from sqlalchemy import text
@@ -9,27 +9,26 @@ from app.models.auth import MfaTenantPolicy, User
 VALID_MFA_ROLES = {"admin", "coordinator", "operator", "viewer"}
 
 
-async def user_requires_mfa(db: AsyncSession, user: User) -> bool:
-    await db.execute(
-        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
-        {"tenant_id": user.tenant_id},
-    )
-    if user.mfa_enabled_at is not None:
-        return True
-    policy = await db.get(MfaTenantPolicy, user.tenant_id)
-    if not policy:
-        return False
-    return bool(policy.require_mfa_all or user.role in (policy.required_roles or []))
+async def user_requires_mfa(_db: AsyncSession, _user: User) -> bool:
+    """Nenhuma conta humana pode criar uma sessão sem concluir TOTP."""
+    return True
 
 
 async def get_tenant_mfa_policy(db: AsyncSession, tenant_id: str) -> dict:
+    """Expõe a política global como somente leitura no contexto de cada tenant."""
     await db.execute(
         text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
         {"tenant_id": tenant_id},
     )
-    policy = await db.get(MfaTenantPolicy, tenant_id)
+    stored_policy = await db.get(MfaTenantPolicy, tenant_id)
     return {
-        "require_mfa_all": bool(policy.require_mfa_all) if policy else False,
-        "required_roles": list(policy.required_roles or []) if policy else [],
-        "updated_at": policy.updated_at.isoformat() if policy and policy.updated_at else None,
+        "require_mfa_all": True,
+        "required_roles": [],
+        "updated_at": (
+            stored_policy.updated_at.isoformat()
+            if stored_policy and stored_policy.updated_at
+            else None
+        ),
+        "enforcement_scope": "global",
+        "mutable": False,
     }

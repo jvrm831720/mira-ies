@@ -269,7 +269,7 @@ export default function LoginPage() {
               {mode === "forgot"
                 ? "Enviaremos um link para o e-mail da conta."
                 : mode === "mfa-enroll"
-                  ? "Sua instituição exige autenticação multifator para esta conta."
+                  ? "A segurança da MIRA exige autenticação multifator para todas as contas humanas."
                 : mode === "mfa"
                   ? "Informe o código do aplicativo autenticador ou um código de recuperação."
                 : mode === "whatsapp"

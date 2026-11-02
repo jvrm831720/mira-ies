@@ -28,7 +28,6 @@ from app.models.auth import (
     MfaAuditEvent,
     MfaLoginChallenge,
     MfaRecoveryCode,
-    MfaTenantPolicy,
     User,
     UserSession,
 )
@@ -481,40 +480,13 @@ async def regenerate_recovery_codes(
 
 @router.post("/disable")
 async def disable_mfa(
-    body: MfaCodePayload,
-    request: Request,
     auth: AuthContext = Depends(get_current_tenant),
-    db: AsyncSession = Depends(get_db),
 ):
-    user_id = _require_user(auth)
-    user = await db.get(User, user_id)
-    if not user or not user.mfa_enabled_at or not user.mfa_totp_secret_encrypted:
-        raise HTTPException(status_code=409, detail="MFA não está ativo.")
-    _ensure_mfa_unlocked(user)
-    if await user_requires_mfa(db, user):
-        policy = await get_tenant_mfa_policy(db, auth.tenant_id)
-        if policy["require_mfa_all"] or user.role in policy["required_roles"]:
-            raise HTTPException(status_code=409, detail="A política da instituição exige MFA para esta conta.")
-    step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code, user.mfa_last_verified_step)
-    if step is None:
-        _record_mfa_failure(db, user, "mfa_disable_failed")
-        await db.commit()
-        raise HTTPException(status_code=401, detail="Código inválido.")
-    _record_mfa_success(user)
-    await _revoke_user_sessions(db, auth.tenant_id, user.id, "mfa_disabled")
-    user.mfa_enabled_at = None
-    user.mfa_totp_secret_encrypted = None
-    user.mfa_last_verified_step = None
-    user.auth_version += 1
-    await db.execute(
-        update(MfaRecoveryCode)
-        .where(MfaRecoveryCode.user_id == user_id, MfaRecoveryCode.used_at.is_(None))
-        .values(used_at=_now())
+    _require_user(auth)
+    raise HTTPException(
+        status_code=409,
+        detail="TOTP é obrigatório para todas as contas da MIRA e não pode ser desativado.",
     )
-    _audit(db, auth.tenant_id, user.id, "mfa_disabled")
-    token, ttl = create_user_session(db, user, auth.tenant, request, aal=1)
-    await db.commit()
-    return {"enabled": False, "access_token": token, "token_type": "bearer", "expires_in": ttl}
 
 
 @router.get("/policy")
@@ -529,43 +501,16 @@ async def read_mfa_policy(
 @router.put("/policy")
 async def update_mfa_policy(
     body: MfaPolicyPayload,
-    request: Request,
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = _require_admin(auth)
-    policy = await db.get(MfaTenantPolicy, auth.tenant_id)
-    if policy is None:
-        policy = MfaTenantPolicy(tenant_id=auth.tenant_id)
-        db.add(policy)
-    policy.require_mfa_all = body.require_mfa_all
-    policy.required_roles = body.required_roles
-    policy.updated_by_user_id = user_id
-    policy.updated_at = _now()
-
-    users_result = await db.execute(
-        select(User).where(User.tenant_id == auth.tenant_id, User.is_active.is_(True)).with_for_update()
-    )
-    users = users_result.scalars().all()
-    for member in users:
-        member.auth_version += 1
-    await db.execute(
-        update(UserSession)
-        .where(UserSession.tenant_id == auth.tenant_id, UserSession.revoked_at.is_(None))
-        .values(revoked_at=_now(), revoke_reason="institution_policy_changed")
-    )
-    _audit(
-        db,
-        auth.tenant_id,
-        user_id,
-        "mfa_policy_updated",
-        f"require_all={body.require_mfa_all};required_roles={','.join(body.required_roles)}",
-    )
-    response = await get_tenant_mfa_policy(db, auth.tenant_id)
-    token, ttl = create_user_session(db, await db.get(User, user_id), auth.tenant, request, aal=2)
-    response.update({"access_token": token, "token_type": "bearer", "expires_in": ttl})
-    await db.commit()
-    return response
+    _require_admin(auth)
+    if not body.require_mfa_all or body.required_roles:
+        raise HTTPException(
+            status_code=409,
+            detail="A exigência global de TOTP não pode ser desativada nem limitada por perfil ou instituição.",
+        )
+    return await get_tenant_mfa_policy(db, auth.tenant_id)
 
 
 @router.get("/sessions")
