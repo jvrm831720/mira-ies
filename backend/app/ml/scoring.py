@@ -16,7 +16,6 @@ from app.models.tenant import TrainingEvent, Tenant
 from app.services.tenant import ensure_base_model_registered
 from app.ml.data_quality import (
     FEATURE_SCHEMA_VERSION,
-    InsufficientDataError,
     assess_student_data_quality,
     require_scoreable_student,
 )
