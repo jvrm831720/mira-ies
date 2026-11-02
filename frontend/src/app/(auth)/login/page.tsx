@@ -112,7 +112,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const response = await api.loginPassword({ email: email.trim(), password });
-      if ("mfa_required" in response && response.mfa_required) {
+      if ("mfa_required" in response) {
         setMfaTicket(response.challenge_token);
         setCode("");
         setMfaRecoveryMode(false);
