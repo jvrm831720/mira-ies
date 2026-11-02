@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthContext, get_current_tenant
@@ -87,6 +87,10 @@ async def create_login_challenge(
     if purpose not in {"verify", "enroll"}:
         raise ValueError("Finalidade de desafio MFA inválida.")
     ticket = secrets.token_urlsafe(32)
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant.id},
+    )
     db.add(MfaLoginChallenge(
         user_id=user.id,
         tenant_id=tenant.id,
@@ -131,6 +135,10 @@ class MfaPolicyPayload(BaseModel):
 
 
 async def _load_challenge(db: AsyncSession, token: str, expected_purpose: str) -> MfaLoginChallenge:
+    await db.execute(
+        text("SELECT set_config('app.mfa_challenge_hash', :ticket_hash, true)"),
+        {"ticket_hash": _ticket_hash(token)},
+    )
     result = await db.execute(
         select(MfaLoginChallenge)
         .where(MfaLoginChallenge.ticket_hash == _ticket_hash(token))
@@ -151,6 +159,10 @@ async def _load_challenge(db: AsyncSession, token: str, expected_purpose: str) -
 
 
 async def _load_challenge_identity(db: AsyncSession, challenge: MfaLoginChallenge) -> tuple[User, Tenant]:
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": challenge.tenant_id},
+    )
     user_result = await db.execute(select(User).where(User.id == challenge.user_id).with_for_update())
     user = user_result.scalar_one_or_none()
     tenant = await db.get(Tenant, challenge.tenant_id)
@@ -589,6 +601,10 @@ async def admin_revoke_user_sessions(
     db: AsyncSession = Depends(get_db),
 ):
     actor_id = _require_admin(auth)
+    try:
+        UUID(target_user_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado nesta instituição.")
     target = await db.get(User, target_user_id)
     if not target or target.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Usuário não encontrado nesta instituição.")

@@ -56,6 +56,7 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         raise _unauthorized()
     if claims.get("purpose", "session") != "session":
         raise _unauthorized()
+    await _set_tenant_rls_context(db, user.tenant_id)
     session_id = claims.get("sid")
     if not session_id:
         raise _unauthorized("Sessão antiga ou inválida. Entre novamente.")
