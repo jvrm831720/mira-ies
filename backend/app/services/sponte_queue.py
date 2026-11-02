@@ -402,8 +402,10 @@ async def _run_sync(job_id: str, redis: Redis):
             for offset in range(2, total_pages + 1, settings.sponte_sync_concurrency):
                 page_numbers = list(range(offset, min(total_pages + 1, offset + settings.sponte_sync_concurrency)))
                 pending = [n for n in page_numbers if not await _checkpoint_done(redis, job_id, endpoint, n)]
+                already_done = len(page_numbers) - len(pending)
+                progress["pages_done"] += already_done
                 if not pending:
-                    progress["pages_done"] += len(page_numbers)
+                    await _update(redis, job_id, progress=progress)
                     continue
                 async def fetch_page(number: int):
                     async with semaphore:
