@@ -398,6 +398,10 @@ def get_model_info() -> dict[str, Any]:
             ),
             "shap_on_batch_default": False,
             "feature_schema_version": FEATURE_SCHEMA_VERSION,
+            "feature_columns": list(__import__("app.ml.features", fromlist=["FEATURE_COLUMNS"]).FEATURE_COLUMNS),
+            "feature_labels_pt": dict(__import__("app.ml.features", fromlist=["FEATURE_LABELS_PT"]).FEATURE_LABELS_PT),
+            "risk_score_semantics_version": RISK_SCORE_SEMANTICS_VERSION,
+            "risk_score_bands": {"baixo": {"min": 0, "max_exclusive": 40}, "medio": {"min": 40, "max_exclusive": 70}, "critico": {"min": 70, "max": 100}},
             "required_source_fields": list(__import__("app.ml.data_quality", fromlist=["REQUIRED_SOURCE_FIELDS"]).REQUIRED_SOURCE_FIELDS),
         }
     except Exception as exc:
