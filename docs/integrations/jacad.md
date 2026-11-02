@@ -1,7 +1,7 @@
 # Dossier técnico — integração nativa JACAD
 
 **Status:** primeira implementação da conexão de leitura (pull), pendente de homologação com credenciais reais de uma instituição.  
-**Referência consultada:** documentação pública SWA.JACAD, API REST, versão exibida 3.1.61.060.  
+**Referência consultada:** documentação pública SWA.JACAD, API REST (documentação geral 3.1.61.060; a página acadêmica pode exibir versão de módulo diferente).  
 **Base de documentação:** https://auden-developer.jacad.com.br/docs
 
 ## 1. Visão geral
@@ -40,7 +40,7 @@ Documentação consultada:
 
 A consulta v2 de alunos documenta `pageSize` até 5.000 e retorna um objeto `page` com `idCursor` e `idCursorProximo`. A implementação usa o cursor retornado para continuar a leitura, com limite defensivo de páginas e registros para evitar loops ou sincronizações ilimitadas.
 
-Outros recursos documentam paginação por `currentPage` e `pageSize`; os limites variam por endpoint (há endpoints v1 com máximo 500). Cada recurso deve respeitar o limite publicado em sua própria documentação.
+Outros recursos documentam paginação por `currentPage` e `pageSize`; os limites variam por endpoint (há endpoints v1 com máximo 500). Cada recurso deve respeitar o limite publicado em sua própria documentação. O endpoint v2 de alunos aceita `idCursor` (inicia em 0) e a resposta devolve `idCursorProximo`. A documentação também informa limite técnico de 10 requisições por segundo por IP e um filtro de negócio por token (padrão ilustrado de 1.000 requisições por hora, configurável pela instituição). A MIRA faz chamadas sequenciais, sem paralelismo nesta primeira versão.
 
 ## 5. Mapeamento inicial de dados
 
@@ -63,7 +63,7 @@ A consulta de alunos não fornece, por si só, evidência suficiente para calcul
 - `dataAlteracao` descreve alteração do registro; não prova quando cada campo foi observado.
 - `dataCriacao` não representa último acesso.
 - A lista de alunos não prova dias sem login, frequência, média, reprovações, recorrência de atraso ou dias de atraso.
-- Contrato de matrícula não é sinônimo de parcela vencida.
+- O resumo financeiro por matrícula é uma evidência explícita de situação (`VENCIDO`, `EM_ABERTO`, `PAGO`, `SEM_FINANCEIRO`), mas ainda precisa ser relacionado à matrícula e homologado na instituição. O detalhe de parcelas expõe vencimento, valor, valor pago e situação.\n- Não inferir recorrência de atraso a partir de um resumo consolidado: a contagem histórica precisa ser derivada de parcelas/transações com regras de cancelamento, renegociação e baixa confirmadas.
 - Notas são retornadas por turma/disciplina e precisam de regra documentada para agregação por aluno e período.
 - Frequência e acesso exigem endpoints e semântica específicos, ainda a homologar.
 
@@ -78,7 +78,7 @@ Portanto, o primeiro sync não inventa valores preditivos nem gera score automá
 - Score automático desabilitado nesta primeira fase.
 
 ### Incremental
-A API documenta filtros de alteração em alguns recursos. A implementação inicial ainda faz leitura paginada completa. O incremental será habilitado somente depois de homologar o comportamento do cursor e dos filtros de alteração no ambiente real da IES.
+A API documenta filtros de alteração em alguns recursos, como `dataAlteracaoInicio`/`dataAlteracaoFim` em alunos e matrículas. A implementação inicial ainda faz leitura paginada completa. O incremental será habilitado somente depois de homologar o comportamento do cursor e dos filtros de alteração no ambiente real da IES.
 
 ### Reconciliação e exclusões
 A primeira versão não desativa alunos ausentes de uma resposta nem interpreta ausência como exclusão. Exclusões, transferências e status de matrícula precisam ser reconciliados com endpoint e regra específicos.
