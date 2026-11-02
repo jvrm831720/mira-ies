@@ -613,7 +613,8 @@ async def create_batch_and_students(
     imported_at = datetime.now(timezone.utc).isoformat()
 
     def update_provenance(raw_data: dict[str, Any] | None, raw_row: dict[str, Any], fields: set[str]) -> dict[str, Any]:
-        merged = {**(raw_data or {}), **raw_row}
+        # O snapshot canônico calculado para a atualização prevalece sobre a célula bruta.
+        merged = {**raw_row, **(raw_data or {})}
         previous = merged.get("_mira_provenance", {})
         provenance = dict(previous) if isinstance(previous, dict) else {}
         for field in fields:
