@@ -462,7 +462,7 @@ export default function DadosIntegracoesPage() {
                   <li>• Histórico de follow-ups</li>
                 </ul>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  A primeira extração começa na data configurada. Depois, cada endpoint usa seu próprio watermark com sobreposição de um dia para evitar lacunas. A documentação pública não define SLA de defasagem; a MIRA usa sobreposição de um dia para reduzir lacunas. Os dados são deduplicados por identificadores do fornecedor.
+                  A primeira extração começa na data configurada. Depois, cada endpoint usa seu próprio watermark com sobreposição de um dia para evitar lacunas. A API tem defasagem D-1; a MIRA usa sobreposição de um dia para reduzir lacunas. O limite interno é 900 requisições/minuto por API Key, abaixo do teto documentado de 1.000. Os dados são deduplicados por identificadores do fornecedor.
                   O score permanece desativado até homologar escala de notas e situações didáticas. A MIRA não infere último login nem reprovações.
                 </p>
               </div>
