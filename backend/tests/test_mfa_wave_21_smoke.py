@@ -1,5 +1,6 @@
 """Wave 2.1 HTTP smoke tests for MFA enrollment, login and session lifecycle."""
 from datetime import datetime, timedelta, timezone
+from time import time
 
 from sqlalchemy import select
 
@@ -142,11 +143,28 @@ async def test_smoke_required_enrollment_totp_login_and_recovery_code_once(
     assert next_login.json()["mfa_required"] is True
     assert "access_token" not in next_login.json()
 
+    next_totp_timestamp = (int(time()) // 30 + 1) * 30
+    next_totp_code, _next_step = totp_at(secret, timestamp=next_totp_timestamp)
+    totp_login = await client.post(
+        "/api/v1/auth/mfa/login/verify",
+        json={
+            "challenge_token": next_login.json()["challenge_token"],
+            "code": next_totp_code,
+        },
+    )
+    assert totp_login.status_code == 200
+    assert totp_login.json()["access_token"]
+
+    recovery_login = await client.post(
+        "/api/v1/auth/login/password",
+        json={"email": user.email, "password": "StrongPassword#2026"},
+    )
+    assert recovery_login.status_code == 200
     recovery_code = confirmation["recovery_codes"][0]
     recovered = await client.post(
         "/api/v1/auth/mfa/login/verify",
         json={
-            "challenge_token": next_login.json()["challenge_token"],
+            "challenge_token": recovery_login.json()["challenge_token"],
             "code": recovery_code,
         },
     )
