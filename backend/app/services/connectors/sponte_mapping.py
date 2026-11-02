@@ -95,7 +95,16 @@ def record_id(endpoint: str, row: dict[str, Any]) -> str:
         "fatoalunosativos": ("FatoAlunoAtivoID", "AlunoID", "ContratoID", "DataExtracao"),
         "followups": ("FollowUpID", "IdFollowUp", "FollowupID"),
     }.get(endpoint, ())
-    values = [str(pick(row, field)) for field in fields if pick(row, field) is not None]
+    values: list[str] = []
+    seen_fields: set[str] = set()
+    for field in fields:
+        normalized_field = field.casefold().replace("_", "")
+        if normalized_field in seen_fields:
+            continue
+        seen_fields.add(normalized_field)
+        value = pick(row, field)
+        if value is not None:
+            values.append(str(value))
     if values:
         return ":".join(values)
     encoded = json.dumps(row, sort_keys=True, ensure_ascii=False, default=str)
