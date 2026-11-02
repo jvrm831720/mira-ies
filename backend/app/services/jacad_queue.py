@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -143,6 +144,23 @@ async def _mark(redis: Redis, job_id: str, stage: str, items: list[str]):
         await redis.expire(key, get_settings().jacad_job_ttl_seconds)
 
 
+def _cache_key(tenant_id: str, stage: str, item: str, fingerprint: str = "") -> str:
+    digest = hashlib.sha256(f"{item}:{fingerprint}".encode()).hexdigest()[:24]
+    return f"beacon:jacad:cache:{tenant_id}:{stage}:{digest}"
+
+
+async def _cache_hit(redis: Redis, tenant_id: str, stage: str, item: str, fingerprint: str = "") -> bool:
+    return bool(await redis.exists(_cache_key(tenant_id, stage, item, fingerprint)))
+
+
+async def _cache_mark(
+    redis: Redis, tenant_id: str, stage: str, items: list[tuple[str, str]]
+) -> None:
+    ttl = get_settings().jacad_detail_refresh_hours * 3600
+    for item, fingerprint in items:
+        await redis.set(_cache_key(tenant_id, stage, item, fingerprint), "1", ex=ttl)
+
+
 def _deep_merge(target: dict, patch: dict) -> dict:
     for key, value in patch.items():
         if isinstance(value, dict) and isinstance(target.get(key), dict):
@@ -266,7 +284,7 @@ async def _run_sync(job_id: str, redis: Redis):
                           "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor")
                 for student in imported:
                     raw = dict(student.raw_data or {})
-                    raw["jacad"] = metadata.get(student.matricula, {})
+                    raw["jacad"] = _deep_merge(dict(raw.get("jacad") or {}), metadata.get(student.matricula, {}))
                     provenance = dict(raw.get("_mira_provenance") or {})
                     for field in fields:
                         if getattr(student, field, None) is not None or field in {
@@ -304,18 +322,30 @@ async def _run_sync(job_id: str, redis: Redis):
             ))).scalars().all())
 
         contract_to_ra: dict[str, str] = {}
-        enrollment_to_ra: dict[str, str] = {}
+        contract_fingerprints: dict[str, str] = {}
         for student in students:
             jacad = (student.raw_data or {}).get("jacad") or {}
+            summaries = {
+                str(item.get("id_matricula")): item
+                for item in jacad.get("financial_summaries", [])
+                if item.get("id_matricula") is not None
+            }
             for enrollment in jacad.get("matriculas", []):
-                if enrollment.get("id_contrato") is not None:
-                    contract_to_ra[str(enrollment["id_contrato"])] = student.matricula
-                if enrollment.get("id_matricula") is not None:
-                    enrollment_to_ra[str(enrollment["id_matricula"])] = student.matricula
+                contract_id = enrollment.get("id_contrato")
+                enrollment_id = enrollment.get("id_matricula")
+                if contract_id is not None:
+                    cid = str(contract_id)
+                    contract_to_ra[cid] = student.matricula
+                    summary = summaries.get(str(enrollment_id), {})
+                    contract_fingerprints[cid] = hashlib.sha256(_json(summary).encode()).hexdigest()
 
-        # Stage 2: detailed installments, with bounded concurrency and DB-before-checkpoint.
+        # Stage 2: detail cache avoids repeating unchanged contract reads on every sync.
         contracts = sorted(contract_to_ra.items())
-        pending = [(cid, ra) for cid, ra in contracts if not await _done(redis, job_id, "contracts", cid)]
+        pending = [
+            (cid, ra) for cid, ra in contracts
+            if not await _done(redis, job_id, "contracts", cid)
+            and not await _cache_hit(redis, tenant_id, "contracts", cid, contract_fingerprints.get(cid, ""))
+        ]
         progress.update({"stage": "financial_details", "contracts_total": len(contracts),
                          "contracts_done": len(contracts)-len(pending), "percent": 30})
         await _update(redis, job_id, progress=progress)
@@ -344,6 +374,9 @@ async def _run_sync(job_id: str, redis: Redis):
                 updates.setdefault(ra, {}).setdefault("installments_by_contract", {})[cid] = normalized
             await _save_metadata(tenant_id, updates, job_id)
             await _mark(redis, job_id, "contracts", successful_contracts)
+            await _cache_mark(redis, tenant_id, "contracts", [
+                (cid, contract_fingerprints.get(cid, "")) for cid in successful_contracts
+            ])
             progress["contracts_done"] += len(successful_contracts)
             progress["percent"] = 30 + int(20 * progress["contracts_done"] / max(1, len(contracts)))
             await _update(redis, job_id, progress=progress)
@@ -403,7 +436,11 @@ async def _run_sync(job_id: str, redis: Redis):
                 class_disciplines[key] = (class_id, int(discipline_id))
 
         pair_items = sorted(class_disciplines.items())
-        pending = [(key, pair) for key, pair in pair_items if not await _done(redis, job_id, "disciplines", key)]
+        pending = [
+            (key, pair) for key, pair in pair_items
+            if not await _done(redis, job_id, "disciplines", key)
+            and not await _cache_hit(redis, tenant_id, "disciplines", key)
+        ]
         progress.update({
             "stage": "academic_disciplines",
             "discipline_pairs_total": len(pair_items),
@@ -454,6 +491,7 @@ async def _run_sync(job_id: str, redis: Redis):
                     } for item in rows if str(item.get("ra") or "").strip() == ra]
             await _save_metadata(tenant_id, updates, job_id)
             await _mark(redis, job_id, "disciplines", successful_pairs)
+            await _cache_mark(redis, tenant_id, "disciplines", [(key, "") for key in successful_pairs])
             progress["discipline_pairs_done"] += len(successful_pairs)
             progress["percent"] = 55 + int(20 * progress["discipline_pairs_done"] / max(1, len(pair_items)))
             await _update(redis, job_id, progress=progress)
@@ -468,7 +506,11 @@ async def _run_sync(job_id: str, redis: Redis):
             ))).scalars().all())
         pairs: dict[str, tuple[int, int]] = dict(class_disciplines)
         pair_items = sorted(pairs.items())
-        pending = [(key, pair) for key, pair in pair_items if not await _done(redis, job_id, "assessment", key)]
+        pending = [
+            (key, pair) for key, pair in pair_items
+            if not await _done(redis, job_id, "assessment", key)
+            and not await _cache_hit(redis, tenant_id, "assessment", key)
+        ]
         progress.update({"stage": "assessment_details", "assessment_groups_total": len(pair_items),
                          "assessment_groups_done": len(pair_items)-len(pending), "percent": 78})
         await _update(redis, job_id, progress=progress)
@@ -502,6 +544,7 @@ async def _run_sync(job_id: str, redis: Redis):
                     } for x in rows if str(x.get("ra") or "").strip() == ra]
             await _save_metadata(tenant_id, updates, job_id)
             await _mark(redis, job_id, "assessment", successful_pairs)
+            await _cache_mark(redis, tenant_id, "assessment", [(key, "") for key in successful_pairs])
             progress["assessment_groups_done"] += len(successful_pairs)
             progress["percent"] = 78 + int(17 * progress["assessment_groups_done"] / max(1, len(pair_items)))
             await _update(redis, job_id, progress=progress)
