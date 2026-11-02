@@ -12,6 +12,7 @@ from app.api import (
     health,
     scoring,
     connectors,
+    jacad,
     outcomes,
     agents,
     auth,
@@ -178,6 +179,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(upload.router, prefix="/api/v1", tags=["Upload & Students"])
 app.include_router(scoring.router, prefix="/api/v1", tags=["Motor Preditivo (Risk + SHAP)"])
 app.include_router(connectors.router, prefix="/api/v1", tags=["Conectores ERP/LMS"])
+app.include_router(jacad.router, prefix="/api/v1")
 app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outcomes)"])
 app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
 app.include_router(retention_campaigns.router, prefix="/api/v1")
