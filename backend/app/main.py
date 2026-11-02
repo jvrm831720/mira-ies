@@ -15,6 +15,7 @@ from app.api import (
     outcomes,
     agents,
     auth,
+    mfa,
     delivery_webhooks,
     org,
     billing,
@@ -183,6 +184,7 @@ app.include_router(retention_campaigns.router, prefix="/api/v1")
 app.include_router(retention_campaign_execution.router, prefix="/api/v1")
 app.include_router(delivery_webhooks.router, prefix="/api/v1", tags=["Webhooks de entrega"])
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(mfa.router, prefix="/api/v1")
 app.include_router(org.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
 app.include_router(work_activities.router, prefix="/api/v1")

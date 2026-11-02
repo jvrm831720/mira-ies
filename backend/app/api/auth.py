@@ -21,6 +21,7 @@ from app.core.mira_security import hash_password, issue_access_token, verify_pas
 from app.core.security import hash_api_key
 from app.db.session import get_db
 from app.models.auth import AuthChallenge, User
+from app.api.mfa import create_login_challenge
 from app.models.tenant import Tenant
 
 router = APIRouter(prefix="/auth", tags=["Autenticação Mira"])
@@ -141,6 +142,9 @@ async def login_password(body: PasswordLoginPayload, db: AsyncSession = Depends(
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
     user.failed_login_attempts = 0
     user.locked_until = None
+    if user.mfa_enabled_at:
+        result = await create_login_challenge(db, user, tenant)
+        return result
     await db.commit()
     return _token_response(user, tenant)
 
@@ -227,6 +231,9 @@ async def verify_whatsapp_code(body: WhatsAppVerifyPayload, db: AsyncSession = D
     if tenant is None:
         await db.commit()
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
+    if user.mfa_enabled_at:
+        result = await create_login_challenge(db, user, tenant)
+        return result
     await db.commit()
     return _token_response(user, tenant)
 

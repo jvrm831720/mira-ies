@@ -51,6 +51,10 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     user = result.scalar_one_or_none()
     if not user or not user.is_active or user.auth_version != int(claims.get("ver", -1)):
         raise _unauthorized()
+    if claims.get("purpose", "session") != "session":
+        raise _unauthorized()
+    if user.mfa_enabled_at and int(claims.get("aal", 1)) < 2:
+        raise _unauthorized("Autenticação multifator necessária.")
     tenant = await db.get(Tenant, user.tenant_id)
     if not tenant or not tenant.is_active:
         raise _unauthorized()

@@ -44,13 +44,15 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
 
 
-def issue_access_token(*, user_id: str, tenant_id: str, auth_version: int) -> tuple[str, int]:
+def issue_access_token(*, user_id: str, tenant_id: str, auth_version: int, aal: int = 1) -> tuple[str, int]:
     now = int(time.time())
     claims = {
         "iss": "mira",
         "sub": user_id,
         "tid": tenant_id,
         "ver": auth_version,
+        "aal": aal,
+        "purpose": "session",
         "iat": now,
         "exp": now + _TOKEN_TTL_SECONDS,
     }
