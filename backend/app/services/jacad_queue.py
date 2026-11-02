@@ -104,6 +104,15 @@ async def enqueue_jacad_sync(*, tenant_id: str, tenant_slug: str | None):
         await redis.aclose()
 
 
+async def get_active_jacad_job(*, tenant_id: str):
+    redis = redis_client()
+    try:
+        job_id = await redis.get(ACTIVE + tenant_id)
+        return await get_jacad_job(job_id, tenant_id=tenant_id, redis=redis) if job_id else None
+    finally:
+        await redis.aclose()
+
+
 async def retry_jacad_sync(job_id: str, *, tenant_id: str):
     settings = get_settings()
     redis = redis_client()
