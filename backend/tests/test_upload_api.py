@@ -265,3 +265,22 @@ async def test_upload_preserves_existing_fields_when_incoming_values_are_invalid
     saved = next(s for s in students.json()["students"] if s["matricula"] == "SAFE002")
     assert saved["nome"] == "Camila Alves"
     assert saved["semestre"] == 3
+
+
+async def test_upload_uses_source_observation_timestamp_for_freshness_gate(client, auth_headers):
+    csv_content = (
+        b"matricula,nome,dias_atraso_boleto,recorrencia_atrasos,dias_sem_login,"
+        b"presenca_percentual,nota_media,reprovacoes,semestre,dias_sem_login_observed_at\\n"
+        b"STALE001,Aluno Antigo,5,0,2,95.0,8.0,0,3,2026-10-01T00:00:00Z\\n"
+    )
+    response = await client.post(
+        "/api/v1/upload",
+        headers=auth_headers,
+        files={"file": ("freshness.csv", csv_content, "text/csv")},
+        params={"auto_score": "true"},
+    )
+    assert response.status_code == 201
+    scoring = response.json()["scoring"]
+    assert scoring["scored"] == 0
+    assert scoring["indeterminate_count"] == 1
+    assert scoring["evaluation_status"] == "indeterminate"
