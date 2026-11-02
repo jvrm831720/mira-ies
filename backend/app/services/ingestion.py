@@ -610,6 +610,25 @@ async def create_batch_and_students(
         "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes",
     }
 
+    imported_at = datetime.now(timezone.utc).isoformat()
+
+    def update_provenance(raw_data: dict[str, Any] | None, raw_row: dict[str, Any], fields: set[str]) -> dict[str, Any]:
+        merged = {**(raw_data or {}), **raw_row}
+        previous = merged.get("_mira_provenance", {})
+        provenance = dict(previous) if isinstance(previous, dict) else {}
+        for field in fields:
+            provenance[field] = {
+                "source_type": "file_import",
+                "source_filename": original_filename,
+                "source_batch_id": batch.id,
+                "imported_at": imported_at,
+                # Sem data de observação fornecida pela origem, a atualidade
+                # do conteúdo permanece desconhecida, mesmo após importar.
+                "observed_at": None,
+            }
+        merged["_mira_provenance"] = provenance
+        return merged
+
     for item in cleaned_rows:
         data = item["data"]
         raw = item["raw"]
@@ -667,11 +686,11 @@ async def create_batch_and_students(
                 field: data.get(field)
                 for field in predictive_source_fields.intersection(mapped_targets)
             }
-            existing.raw_data = {
-                **(existing.raw_data or {}),
-                **raw,
-                **canonical_predictive_refresh,
-            }
+            existing.raw_data = update_provenance(
+                {**(existing.raw_data or {}), **canonical_predictive_refresh},
+                raw,
+                predictive_source_fields.intersection(mapped_targets),
+            )
             students.append(existing)
             rows_updated += 1
         else:
@@ -702,7 +721,9 @@ async def create_batch_and_students(
                 presenca_percentual=data.get("presenca_percentual"),
                 nota_media=data.get("nota_media"),
                 reprovacoes=data.get("reprovacoes"),
-                raw_data=raw,
+                raw_data=update_provenance(
+                    {}, raw, predictive_source_fields.intersection(mapped_targets)
+                ),
             )
             explicit_opt_out = safe_bool(raw.get("communication_opt_out"))
             if explicit_opt_out is True:
