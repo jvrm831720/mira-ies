@@ -63,7 +63,10 @@ def record_id(endpoint: str, row: dict[str, Any]) -> str:
     fields = {
         "alunos": ("AlunoID", "CodigoAluno", "IdAluno"),
         "contratos": ("ContratoID", "IdContrato"),
-        "contratosturmasestagios": ("ContratoTurmaEstagioID", "ContratoID", "TurmaID", "EstagioID"),
+        "contratosturmasestagios": ("ContratoTurmaID", "ContratoID", "TurmaID", "EstagioID"),
+        "cursos": ("CursoID", "IdCurso"),
+        "turmas": ("TurmaID", "IdTurma"),
+        "estagios": ("EstagioID", "IdEstagio"),
         "contasreceber": ("contaReceberID", "ContaReceberID", "IdContaReceber"),
         "notas": ("notaDetalheID", "NotaDetalheID", "IdNotaDetalhe"),
         "fatofrequenciaalunosativos": ("FatoFrequenciaAlunoAtivoID", "AlunoID", "ContratoID", "DataExtracao"),
@@ -90,8 +93,10 @@ def compact_row(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
             "nome": pick(row, "Nome", "NomeAluno"),
             "situacao_aluno": pick(row, "SituacaoAluno", "StatusAluno"),
             "email": pick(row, "Email", "EmailAluno"),
-            "telefone": pick(row, "Telefone", "Celular", "TelefoneAluno"),
+            "telefone": pick(row, "FoneCelular", "FoneResidencial", "Telefone", "Celular", "TelefoneAluno"),
             "data_cadastro": pick(row, "DataCadastro"),
+            "numero_matricula": pick(row, "NumeroMatricula"),
+            "funcionario_id": pick(row, "FuncionarioID"),
             "responsavel_id": pick(row, "ResponsavelID", "ResponsavelId"),
         }
     if endpoint in {"contratos", "contratosturmasestagios", "fatoalunosativos"}:
@@ -101,11 +106,15 @@ def compact_row(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
             "curso": pick(row, "NomeCurso", "Curso"),
             "turma_id": pick(row, "TurmaID", "IdTurma"),
             "turma": pick(row, "NomeTurma", "Turma"),
+            "estagio_id": pick(row, "EstagioID", "IdEstagio"),
             "estagio": pick(row, "NomeEstagio", "Estagio"),
-            "situacao": pick(row, "SituacaoAluno", "SituacaoContrato", "Situacao", "Status"),
+            "situacao": pick(row, "SituacaoAluno", "SituacaoContrato", "SituacaoEstagio", "Situacao", "Status"),
             "data_contrato": pick(row, "DataContrato"),
             "data_inicio": pick(row, "DataInicio"),
+            "data_matricula": pick(row, "DataMatricula"),
+            "inicio_atividades": pick(row, "InicioAtividades"),
             "data_fim": pick(row, "DataFim"),
+            "contrato_aula_livre": pick(row, "ContratoAulaLivre"),
             "semestre": pick(row, "Semestre", "Periodo"),
             "ano": pick(row, "Ano"),
         }
@@ -121,6 +130,9 @@ def compact_row(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
             "valor_total": pick(row, "ValorTotalParcela", "ValorParcela"),
             "valor_pago": pick(row, "ValorPagoParcela", "ValorPago"),
             "tipo_recebimento": pick(row, "TipoRecebimentoParcela", "TipoRecebimento"),
+            "situacao_id": pick(row, "SituacaoID"),
+            "valor_desconto": pick(row, "ValorDescontoParcela"),
+            "valor_total_desconto": pick(row, "ValorTotalDescontoParcela"),
         }
     if endpoint == "notas":
         return {
@@ -134,9 +146,44 @@ def compact_row(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
             "avaliacao": pick(row, "Avaliacao", "NomeAvaliacao"),
             "nota": pick(row, "Nota", "ValorNota"),
             "media": pick(row, "Media", "MediaFinal"),
+            "conceito": pick(row, "Conceito"),
+            "conceito_media": pick(row, "ConceitoMedia"),
+            "prova": pick(row, "Prova"),
+            "aulas_repostas": pick(row, "AulasRepostas"),
+            "sistema_avaliacao": pick(row, "SistemaAvaliacao"),
+            "data": pick(row, "Data"),
             "situacao_didatica": pick(row, "SituacaoDidatica"),
             "semestre": pick(row, "Semestre", "Periodo"),
             "ano": pick(row, "Ano"),
+        }
+    if endpoint == "cursos":
+        return {
+            "curso_id": pick(row, "CursoID", "IdCurso"),
+            "nome": pick(row, "Nome", "Curso", "NomeCurso"),
+            "sigla": pick(row, "Sigla"),
+            "ativo": pick(row, "Ativo"),
+            "excluido": is_excluded(row),
+        }
+    if endpoint == "turmas":
+        return {
+            "turma_id": pick(row, "TurmaID", "IdTurma"),
+            "nome": pick(row, "Nome", "Turma", "NomeTurma"),
+            "curso_id": pick(row, "CursoID", "IdCurso"),
+            "estagio_id": pick(row, "EstagioID", "IdEstagio"),
+            "semestre": pick(row, "Semestre"),
+            "ano": pick(row, "Ano"),
+            "data_inicio": pick(row, "DataInicio"),
+            "data_termino": pick(row, "DataTermino"),
+            "situacao": pick(row, "SituacaoTurma"),
+            "excluido": is_excluded(row),
+        }
+    if endpoint == "estagios":
+        return {
+            "estagio_id": pick(row, "EstagioID", "IdEstagio"),
+            "nome": pick(row, "Nome", "Estagio", "NomeEstagio"),
+            "curso_id": pick(row, "CursoID", "IdCurso"),
+            "idioma": pick(row, "Idioma"),
+            "excluido": is_excluded(row),
         }
     if endpoint == "fatofrequenciaalunosativos":
         return {
@@ -151,17 +198,20 @@ def compact_row(endpoint: str, row: dict[str, Any]) -> dict[str, Any]:
             **common,
             "followup_id": pick(row, "FollowUpID", "IdFollowUp", "FollowupID"),
             "data_followup": pick(row, "DataFollowUp", "Data"),
-            "tipo": pick(row, "Tipo", "TipoFollowUp"),
+            "tipo": pick(row, "TipoContato", "Tipo", "TipoFollowUp"),
             "canal": pick(row, "Canal"),
-            "resultado": pick(row, "Resultado", "Status"),
+            "resultado": pick(row, "ResultadoVisita", "Resultado", "Status"),
+            "atendente_id": pick(row, "AtendenteID"),
+            "motivo_nao_fechamento_id": pick(row, "MotivoNaoFechamentoID"),
         }
     return common
 
 
 def build_student_payloads(
-    students: list[dict[str, Any]], *, as_of: date
+    students: list[dict[str, Any]], *, as_of: date, catalogs: dict[str, Any] | None = None
 ) -> list[dict[str, Any]]:
     enriched: list[dict[str, Any]] = []
+    catalogs = catalogs or {}
     for student in students:
         raw = student.raw_data or {}
         sponte = raw.get("sponte") or {}
@@ -177,8 +227,13 @@ def build_student_payloads(
         ]
         if class_links:
             contracts.extend(class_links)
-        contracts.sort(key=lambda row: as_date(row.get("data_contrato") or row.get("data_inicio")) or date.min)
+        contracts.sort(key=lambda row: as_date(
+            row.get("data_contrato") or row.get("data_inicio") or row.get("data_matricula") or row.get("inicio_atividades")
+        ) or date.min)
         current_contract = contracts[-1] if contracts else {}
+        course = catalogs.get("cursos", {}).get(str(current_contract.get("curso_id")), {})
+        turma = catalogs.get("turmas", {}).get(str(current_contract.get("turma_id")), {})
+        estagio = catalogs.get("estagios", {}).get(str(current_contract.get("estagio_id")), {})
 
         receivables = [
             row for row in (sponte.get("contasreceber") or {}).values()
@@ -240,9 +295,9 @@ def build_student_payloads(
         enriched.append({
             "AlunoID": aluno,
             "Nome": profile.get("nome") or student.nome,
-            "Curso": current_contract.get("curso") or latest_note.get("curso") or student.curso,
-            "Turma": current_contract.get("turma") or latest_note.get("turma") or student.turma,
-            "Semestre": latest_note.get("semestre") or current_contract.get("semestre"),
+            "Curso": current_contract.get("curso") or course.get("nome") or latest_note.get("curso") or student.curso,
+            "Turma": current_contract.get("turma") or turma.get("nome") or latest_note.get("turma") or student.turma,
+            "Semestre": latest_note.get("semestre") or current_contract.get("semestre") or turma.get("semestre"),
             "Email": profile.get("email") or student.email,
             "Telefone": profile.get("telefone") or student.telefone,
             "DiasAtraso": max(overdue) if overdue else 0,
