@@ -510,7 +510,8 @@ async def _run_sync(job_id: str, redis: Redis):
         progress.update({"stage": "completed", "percent": 100})
         result.update({
             "contracts_consulted": len(contracts),
-            "discipline_pairs_consulted": len(pair_items),\n            "classes_consulted": len(class_ids),
+            "discipline_pairs_consulted": len(pair_items),
+            "classes_consulted": len(class_ids),
             "assessment_groups": len(pair_items),
             "scoring": "disabled_until_predictive_coverage_is_complete",
         })
