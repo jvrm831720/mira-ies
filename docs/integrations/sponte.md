@@ -17,6 +17,9 @@ Fonte: https://sponte-bi.sponteweb.com.br/docs
 | Endpoint | Conteúdo | Uso |
 |---|---|---|
 | `/api/v1/extracoes/alunos` | Cadastro, situação, contato, responsável, funcionário e exclusão | Identidade do aluno e atualização cadastral |
+| `/api/v1/extracoes/cursos` | Catálogo de cursos | Resolver IDs acadêmicos para nomes |
+| `/api/v1/extracoes/turmas` | Catálogo de turmas, curso, estágio e período | Resolver IDs acadêmicos para nomes e período |
+| `/api/v1/extracoes/estagios` | Catálogo de estágios | Resolver IDs acadêmicos para nomes |
 | `/api/v1/extracoes/contratos` | Matrícula, contrato, aluno, curso/turma, datas e situação | Vínculo aluno-curso e estado da matrícula |
 | `/api/v1/extracoes/contratosturmasestagios` | Relação contrato/turma/estágio/curso | Complemento de contexto acadêmico |
 | `/api/v1/extracoes/contasreceber` | Parcelas, vencimento, pagamento, valores, situação e contrato | Inadimplência, recorrência e saldo |
