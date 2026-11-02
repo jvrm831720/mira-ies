@@ -14,6 +14,7 @@ from app.core.auth import AuthContext, get_current_tenant
 from app.models.student import Student
 from app.services.consent import effective_preferences
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT
+from app.ml.data_quality import InsufficientDataError, assess_student_data_quality
 from app.ml.scoring import score_batch, score_student_dict, score_all_pending, get_model_info
 from app.api.risk_history_impl import _change_type as _history_change_type
 
@@ -24,13 +25,14 @@ logger = logging.getLogger(__name__)
 class StudentFeaturesInput(BaseModel):
     matricula: Optional[str] = Field(default=None, max_length=50)
     nome: Optional[str] = Field(default=None, max_length=255)
-    dias_atraso_boleto: int = Field(default=0, ge=0, le=3650)
-    recorrencia_atrasos: int = Field(default=0, ge=0, le=100)
-    dias_sem_login: int = Field(default=0, ge=0, le=3650)
-    presenca_percentual: float = Field(default=100.0, ge=0, le=100)
-    nota_media: float = Field(default=7.0, ge=0, le=10)
-    reprovacoes: int = Field(default=0, ge=0, le=100)
-    semestre: int = Field(default=1, ge=1, le=30)
+    # Sem defaults: omissão é ausência de evidência, não condição favorável.
+    dias_atraso_boleto: Optional[int] = Field(default=None, ge=0, le=3650)
+    recorrencia_atrasos: Optional[int] = Field(default=None, ge=0, le=100)
+    dias_sem_login: Optional[int] = Field(default=None, ge=0, le=3650)
+    presenca_percentual: Optional[float] = Field(default=None, ge=0, le=100)
+    nota_media: Optional[float] = Field(default=None, ge=0, le=10)
+    reprovacoes: Optional[int] = Field(default=None, ge=0, le=100)
+    semestre: Optional[int] = Field(default=None, ge=1, le=30)
     forma_ingresso: Optional[str] = Field(default=None, max_length=100)
     curso: Optional[str] = Field(default=None, max_length=150)
 
@@ -81,7 +83,13 @@ async def predict_single(payload: StudentFeaturesInput, auth: AuthContext = Depe
     model_version = info.get("version")
     if not model_version:
         raise HTTPException(status_code=503, detail="Versão do modelo base indisponível.")
-    result = score_student_dict(payload.model_dump())
+    try:
+        result = score_student_dict(payload.model_dump())
+    except InsufficientDataError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "insufficient_predictive_data", "message": str(exc), "data_quality": exc.quality},
+        ) from exc
     result["model_scope"] = "base"
     result["model_version"] = str(model_version)
     return PredictResponse(**result)
@@ -93,7 +101,13 @@ async def predict_what_if(payload: StudentFeaturesInput, auth: AuthContext = Dep
     model_version = info.get("version")
     if not model_version:
         raise HTTPException(status_code=503, detail="Versão do modelo base indisponível.")
-    base = score_student_dict(payload.model_dump())
+    try:
+        base = score_student_dict(payload.model_dump())
+    except InsufficientDataError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "insufficient_predictive_data", "message": str(exc), "data_quality": exc.quality},
+        ) from exc
     scenarios = []
     if payload.dias_atraso_boleto and payload.dias_atraso_boleto > 0:
         scenario_payload = payload.model_dump()
