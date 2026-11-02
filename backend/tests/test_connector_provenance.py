@@ -86,3 +86,18 @@ def test_legacy_updated_at_is_not_used_as_field_observation():
     )
 
     assert result == {}
+
+
+def test_naive_observation_timestamp_is_unknown_without_timezone():
+    from app.ml.data_quality import assess_field_freshness
+
+    result = assess_field_freshness({
+        "raw_data": {
+            "_mira_provenance": {
+                "dias_sem_login": {"observed_at": "2026-11-01T12:00:00"}
+            }
+        }
+    })
+
+    assert result["fields"]["dias_sem_login"]["status"] == "unknown"
+    assert result["fields"]["dias_sem_login"]["observation_age_days"] is None
