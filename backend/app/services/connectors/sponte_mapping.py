@@ -217,6 +217,26 @@ def build_student_payloads(
         sponte = raw.get("sponte") or {}
         profile = sponte.get("profile") or {}
         aluno = student.matricula
+        if profile.get("excluido"):
+            enriched.append({
+                "AlunoID": aluno,
+                "Nome": profile.get("nome") or student.nome,
+                "Curso": None,
+                "Turma": None,
+                "Semestre": None,
+                "Email": profile.get("email") or student.email,
+                "Telefone": profile.get("telefone") or student.telefone,
+                "DiasAtraso": None,
+                "QtdAtrasos": None,
+                "SaldoDevedor": None,
+                "StatusFinanceiro": None,
+                "SituacaoAluno": "EXCLUIDO",
+                "Frequencia": None,
+                "raw_sponte": sponte,
+                "finance_observed_at": None,
+                "attendance_observed_at": None,
+            })
+            continue
         contracts = [
             row for row in (sponte.get("contratos") or {}).values()
             if not row.get("excluido") and row.get("aluno_id") == aluno
