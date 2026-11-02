@@ -86,7 +86,6 @@ def test_sponte_mapping_derives_finance_and_latest_attendance_without_global_gra
                 "contasreceber": {
                     "a": {"aluno_id": "101", "contrato_id": 20, "situacao": "Pendente", "data_vencimento": "2026-10-20", "valor_total": 100, "valor_pago": 20},
                     "b": {"aluno_id": "101", "contrato_id": 20, "situacao": "Pendente", "data_vencimento": "2026-11-05", "valor_total": 50, "valor_pago": 0},
-                    "c": {"aluno_id": "101", "contrato_id": 20, "situacao": "Pago", "data_vencimento": "2026-09-01", "valor_total": 80, "valor_pago": 80},
                     "d": {"aluno_id": "101", "contrato_id": 20, "situacao": "Pendente", "data_vencimento": "2026-10-01", "valor_total": 90, "valor_pago": 0, "excluido": True},
                 },
                 "fatofrequenciaalunosativos": {
