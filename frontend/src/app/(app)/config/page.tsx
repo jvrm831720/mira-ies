@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
@@ -489,6 +490,7 @@ export default function ConfigPage() {
               {mfaEnrollment && (
                 <div className="space-y-3 rounded-xl border p-4">
                   <p className="text-sm font-medium">1. Escaneie o QR Code no aplicativo autenticador</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={mfaEnrollment.qr_code} alt="QR Code para configurar MIRA no aplicativo autenticador" className="mx-auto h-48 w-48" />
                   <p className="break-all rounded-lg bg-muted p-2 font-mono text-xs">{mfaEnrollment.secret}</p>
                   <p className="text-xs text-muted-foreground">2. Digite o código de 6 dígitos gerado pelo aplicativo para confirmar.</p>
