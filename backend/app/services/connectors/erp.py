@@ -25,7 +25,7 @@ def _as_list(payload: Any) -> list[dict]:
     if isinstance(payload, list):
         return [x for x in payload if isinstance(x, dict)]
     if isinstance(payload, dict):
-        for key in ("data", "alunos", "students", "items", "results", "records", "value"):
+        for key in ("data", "alunos", "students", "items", "elements", "results", "records", "value"):
             if key in payload and isinstance(payload[key], list):
                 return [x for x in payload[key] if isinstance(x, dict)]
         return [payload]
@@ -46,8 +46,8 @@ class JacadConnector:
     def transform(self, payload: Any) -> list[dict[str, Any]]:
         records = []
         for item in _as_list(payload):
-            matricula = to_str(pick(item, "codigoAluno", "codAluno", "matricula", "ra", "id"))
-            nome = to_str(pick(item, "nomeAluno", "nome", "nomeCompleto"))
+            matricula = to_str(pick(item, "ra", "codigoAluno", "codAluno", "matricula", "idAluno", "id"))
+            nome = to_str(pick(item, "nome", "nomeAluno", "nomeCompleto"))
             if not matricula or not nome:
                 continue
             records.append({
