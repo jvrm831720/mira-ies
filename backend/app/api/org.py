@@ -7,7 +7,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +20,9 @@ from app.core.mira_security import hash_password, issue_access_token
 from app.core.security import hash_api_key
 from app.db.session import get_db
 from app.models.auth import OrganizationInvite, User
+from app.api.mfa import create_login_challenge
+from app.core.mfa_policy import user_requires_mfa
+from app.core.user_sessions import create_user_session
 from app.models.tenant import Tenant
 
 router = APIRouter(prefix="/org", tags=["Organização / Membros"])
@@ -196,6 +199,7 @@ async def create_invite(
 @router.post("/invites/accept")
 async def accept_invite(
     body: AcceptInvitePayload,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     token_hash = _invite_token_hash(body.token.strip())
@@ -252,9 +256,10 @@ async def accept_invite(
         raise HTTPException(status_code=409, detail="Não foi possível ativar o acesso.")
     await db.refresh(user)
 
-    token, ttl = issue_access_token(
-        user_id=user.id, tenant_id=user.tenant_id, auth_version=user.auth_version
-    )
+    if await user_requires_mfa(db, user):
+        return await create_login_challenge(db, user, tenant, purpose="enroll")
+    token, ttl = create_user_session(db, user, tenant, request, aal=1)
+    await db.commit()
     return {
         "access_token": token,
         "token_type": "bearer",

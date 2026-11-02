@@ -8,7 +8,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,8 @@ from app.core.security import hash_api_key
 from app.db.session import get_db
 from app.models.auth import AuthChallenge, User
 from app.api.mfa import create_login_challenge
+from app.core.mfa_policy import user_requires_mfa
+from app.core.user_sessions import create_user_session
 from app.models.tenant import Tenant
 
 router = APIRouter(prefix="/auth", tags=["Autenticação Mira"])
@@ -58,8 +60,8 @@ def _reset_digest(token: str) -> str:
     return hash_api_key(f"mira:password-reset:{token}")
 
 
-def _token_response(user: User, tenant: Tenant) -> dict:
-    token, ttl = issue_access_token(user_id=user.id, tenant_id=user.tenant_id, auth_version=user.auth_version)
+def _token_response(user: User, tenant: Tenant, request: Request, db: AsyncSession) -> dict:
+    token, ttl = create_user_session(db, user, tenant, request, aal=1)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -122,7 +124,7 @@ class ProvisionUserPayload(EmailPayload):
 
 
 @router.post("/login/password")
-async def login_password(body: PasswordLoginPayload, db: AsyncSession = Depends(get_db)):
+async def login_password(body: PasswordLoginPayload, request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     now = _now()
@@ -142,11 +144,13 @@ async def login_password(body: PasswordLoginPayload, db: AsyncSession = Depends(
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
     user.failed_login_attempts = 0
     user.locked_until = None
-    if user.mfa_enabled_at:
-        result = await create_login_challenge(db, user, tenant)
-        return result
+    if await user_requires_mfa(db, user):
+        return await create_login_challenge(
+            db, user, tenant, purpose="verify" if user.mfa_enabled_at else "enroll"
+        )
+    response = _token_response(user, tenant, request, db)
     await db.commit()
-    return _token_response(user, tenant)
+    return response
 
 
 @router.post("/whatsapp/request", status_code=status.HTTP_202_ACCEPTED)
@@ -196,7 +200,7 @@ async def request_whatsapp_code(body: WhatsAppRequestPayload, db: AsyncSession =
 
 
 @router.post("/whatsapp/verify")
-async def verify_whatsapp_code(body: WhatsAppVerifyPayload, db: AsyncSession = Depends(get_db)):
+async def verify_whatsapp_code(body: WhatsAppVerifyPayload, request: Request, db: AsyncSession = Depends(get_db)):
     phone = normalize_phone_br(body.phone)
     if not phone:
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
@@ -231,11 +235,13 @@ async def verify_whatsapp_code(body: WhatsAppVerifyPayload, db: AsyncSession = D
     if tenant is None:
         await db.commit()
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
-    if user.mfa_enabled_at:
-        result = await create_login_challenge(db, user, tenant)
-        return result
+    if await user_requires_mfa(db, user):
+        return await create_login_challenge(
+            db, user, tenant, purpose="verify" if user.mfa_enabled_at else "enroll"
+        )
+    response = _token_response(user, tenant, request, db)
     await db.commit()
-    return _token_response(user, tenant)
+    return response
 
 
 @router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED)
