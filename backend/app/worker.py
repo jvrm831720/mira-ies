@@ -16,6 +16,7 @@ from app.services.retention_queue import (
     promote_due_retries,
     redis_client,
 )
+from app.services.jacad_queue import process_jacad_sync_job, promote_due_jacad_retries
 
 
 async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
@@ -26,6 +27,7 @@ async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
     try:
         while True:
             await promote_due_retries(redis)
+            await promote_due_jacad_retries(redis)
             now_monotonic = time.monotonic()
             if now_monotonic - last_engagement_sweep >= settings.engagement_sweep_interval_seconds:
                 try:
@@ -40,9 +42,13 @@ async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
                     # Keep processing the message queue if the periodic refresh fails.
                     print(f"Aviso: engagement sweep falhou ({type(exc).__name__}).")
                 last_engagement_sweep = now_monotonic
-            item = await redis.blpop(settings.retention_queue_name, timeout=poll_seconds)
+            item = await redis.blpop([settings.retention_queue_name, settings.jacad_queue_name], timeout=poll_seconds)
             if item:
-                await process_retention_job(item[1], redis)
+                queue_name, job_id = item
+                if queue_name == settings.jacad_queue_name:
+                    await process_jacad_sync_job(job_id, redis)
+                else:
+                    await process_retention_job(job_id, redis)
             if once:
                 break
     finally:
@@ -50,7 +56,7 @@ async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Worker Redis da régua de retenção")
+    parser = argparse.ArgumentParser(description="Worker Redis da régua de retenção e integrações")
     parser.add_argument("--once", action="store_true", help="processa no máximo um job e encerra")
     parser.add_argument("--poll-seconds", type=int, default=2)
     args = parser.parse_args()
