@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, require_min_role
+from app.core.auth import AuthContext, require_min_role, _set_tenant_rls_context
 from app.db.session import get_db
 from app.models.jacad_connection import TenantJacadConnection
 from app.services.connectors import get_connector, ingest_records
@@ -150,6 +150,7 @@ async def sync_jacad_students(
             tenant_id=auth.tenant_id,
             tenant_slug=auth.tenant_slug,
         )
+        await _set_tenant_rls_context(db, auth.tenant_id)
         connection.status = "connected"
         connection.last_sync_at = datetime.now(timezone.utc)
         connection.last_sync_status = "success"
