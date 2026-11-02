@@ -69,8 +69,10 @@ def score_student_dict(student_data: dict) -> dict[str, Any]:
         "rule_adjustments": rules["rule_adjustments"],
         "score_breakdown": {
             "model_score": rules["model_score"],
-            "business_rule_adjustment": rules["rule_boost"],
-            "dynamic_adjustment": 0.0,
+            "business_rule_adjustment_requested": rules["rule_boost"],
+            "business_rule_adjustment_applied": round(rules["adjusted_score"] - rules["model_score"], 1),
+            "dynamic_adjustment_requested": 0.0,
+            "dynamic_adjustment_applied": 0.0,
             "final_score": rules["adjusted_score"],
         },
     }
@@ -217,8 +219,10 @@ async def score_batch(
                 "rule_adjustments": rules["rule_adjustments"],
                 "score_breakdown": {
                     "model_score": rules["model_score"],
-                    "business_rule_adjustment": rules["rule_boost"],
-                    "dynamic_adjustment": dynamic_adjustment,
+                    "business_rule_adjustment_requested": rules["rule_boost"],
+                    "business_rule_adjustment_applied": round(rules["adjusted_score"] - rules["model_score"], 1),
+                    "dynamic_adjustment_requested": dynamic_adjustment,
+                    "dynamic_adjustment_applied": round(final_score - rules["adjusted_score"], 1),
                     "final_score": final_score,
                 },
                 "explanation_metadata": {
@@ -298,8 +302,10 @@ async def score_batch(
                 "rule_adjustments": rules["rule_adjustments"],
                 "score_breakdown": {
                     "model_score": rules["model_score"],
-                    "business_rule_adjustment": rules["rule_boost"],
-                    "dynamic_adjustment": dynamic_adjustment,
+                    "business_rule_adjustment_requested": rules["rule_boost"],
+                    "business_rule_adjustment_applied": round(rules["adjusted_score"] - rules["model_score"], 1),
+                    "dynamic_adjustment_requested": dynamic_adjustment,
+                    "dynamic_adjustment_applied": round(final_score - rules["adjusted_score"], 1),
                     "final_score": final_score,
                 },
                 "dynamic_risk_adjustment": dynamic_adjustment,
