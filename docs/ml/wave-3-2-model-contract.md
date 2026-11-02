@@ -119,4 +119,4 @@ Limites máximos atuais para observação:
 - Nota e reprovações: 90 dias.
 - Semestre: 180 dias.
 
-A faixa `aging` começa após 75% do limite. Os limites são política inicial e devem ser calibrados com a frequência real de atualização de cada IES. A importação comum não fornece data de observação por campo; por isso, para habilitar a avaliação temporal efetiva, a integração de origem deverá enviar timestamps confiáveis.
+A faixa `aging` começa após 75% do limite. Os limites são política inicial e devem ser calibrados com a frequência real de atualização de cada IES. A importação aceita timestamps por campo em colunas com o padrão `<campo>_observed_at` (por exemplo, `dias_sem_login_observed_at`). Datas futuras ou inválidas não são tratadas como recentes. Quando a origem não envia a coluna ou o valor, a atualidade permanece desconhecida. Os limites são política inicial e devem ser calibrados com a frequência real de atualização de cada IES.
