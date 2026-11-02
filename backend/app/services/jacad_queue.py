@@ -68,6 +68,7 @@ async def _update(redis: Redis, job_id: str, **fields: Any):
     await redis.hset(_key(job_id), mapping={
         k: _json(v) if isinstance(v, (dict, list)) else str(v) for k, v in fields.items()
     })
+    await redis.expire(_key(job_id), get_settings().jacad_job_ttl_seconds)
 
 
 async def enqueue_jacad_sync(*, tenant_id: str, tenant_slug: str | None):
