@@ -88,7 +88,7 @@ async def enqueue_jacad_sync(*, tenant_id: str, tenant_slug: str | None):
         progress = {
             "stage": "queued", "percent": 0, "students": 0, "enrollments": 0,
             "financial_summaries": 0, "contracts_total": 0, "contracts_done": 0,
-            "discipline_enrollments_total": 0, "discipline_enrollments_done": 0,
+            "discipline_pairs_total": 0, "discipline_pairs_done": 0,
             "assessment_groups_total": 0, "assessment_groups_done": 0,
         }
         await redis.hset(_key(job_id), mapping={
@@ -392,8 +392,8 @@ async def _run_sync(job_id: str, redis: Redis):
         pending = [(key, pair) for key, pair in pair_items if not await _done(redis, job_id, "disciplines", key)]
         progress.update({
             "stage": "academic_disciplines",
-            "discipline_enrollments_total": len(pair_items),
-            "discipline_enrollments_done": len(pair_items)-len(pending),
+            "discipline_pairs_total": len(pair_items),
+            "discipline_pairs_done": len(pair_items)-len(pending),
             "percent": 55,
         })
         await _update(redis, job_id, progress=progress)
@@ -440,8 +440,8 @@ async def _run_sync(job_id: str, redis: Redis):
                     } for item in rows if str(item.get("ra") or "").strip() == ra]
             await _save_metadata(tenant_id, updates)
             await _mark(redis, job_id, "disciplines", successful_pairs)
-            progress["discipline_enrollments_done"] += len(successful_pairs)
-            progress["percent"] = 55 + int(20 * progress["discipline_enrollments_done"] / max(1, len(pair_items)))
+            progress["discipline_pairs_done"] += len(successful_pairs)
+            progress["percent"] = 55 + int(20 * progress["discipline_pairs_done"] / max(1, len(pair_items)))
             await _update(redis, job_id, progress=progress)
             if failures:
                 raise failures[0]
@@ -496,8 +496,8 @@ async def _run_sync(job_id: str, redis: Redis):
 
         progress.update({"stage": "completed", "percent": 100})
         result.update({
-            "contracts_with_installments": len(contracts),
-            "discipline_enrollments": len(pair_items),\n            "classes_consulted": len(class_ids),
+            "contracts_consulted": len(contracts),
+            "discipline_pairs_consulted": len(pair_items),\n            "classes_consulted": len(class_ids),
             "assessment_groups": len(pair_items),
             "scoring": "disabled_until_predictive_coverage_is_complete",
         })
