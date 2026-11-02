@@ -88,7 +88,10 @@ def record_id(endpoint: str, row: dict[str, Any]) -> str:
         "estagios": ("EstagioID", "IdEstagio"),
         "contasreceber": ("contaReceberID", "ContaReceberID", "IdContaReceber"),
         "notas": ("notaDetalheID", "NotaDetalheID", "IdNotaDetalhe"),
-        "fatofrequenciaalunosativos": ("FatoFrequenciaAlunoAtivoID", "AlunoID", "ContratoID", "DataExtracao"),
+        "fatofrequenciaalunosativos": (
+            "FatoFrequenciaAlunoAtivoID", "AlunoID", "ContratoID",
+            "CursoID", "EstagioID", "Professor", "DataExtracao",
+        ),
         "fatoalunosativos": ("FatoAlunoAtivoID", "AlunoID", "ContratoID", "DataExtracao"),
         "followups": ("FollowUpID", "IdFollowUp", "FollowupID"),
     }.get(endpoint, ())
@@ -369,22 +372,29 @@ def build_student_payloads(
                 and str(row.get("contrato_id")) in active_contract_ids
             )
         ]
-        latest_attendance_by_contract: dict[str, dict[str, Any]] = {}
+        attendance_by_contract: dict[str, list[dict[str, Any]]] = {}
         for row in attendance:
-            contract_id = str(row.get("contrato_id"))
-            previous = latest_attendance_by_contract.get(contract_id)
-            row_date = as_date(row.get("data_extracao")) or date.min
-            previous_date = as_date(previous.get("data_extracao")) or date.min if previous else date.min
-            if previous is None or row_date > previous_date:
-                latest_attendance_by_contract[contract_id] = row
-        latest_attendance_rows = list(latest_attendance_by_contract.values())
+            attendance_by_contract.setdefault(str(row.get("contrato_id")), []).append(row)
+        latest_attendance_rows: list[dict[str, Any]] = []
+        attendance_unambiguous = True
+        for contract_id, rows in attendance_by_contract.items():
+            latest_date = max(as_date(row.get("data_extracao")) or date.min for row in rows)
+            latest_rows = [
+                row for row in rows
+                if (as_date(row.get("data_extracao")) or date.min) == latest_date
+            ]
+            if len(latest_rows) != 1:
+                # Multiple course/stage/professor facts may overlap; do not sum them without a provider rule.
+                attendance_unambiguous = False
+            latest_attendance_rows.extend(latest_rows)
         attendance_values = [
             (as_number(row.get("aulas_assistidas")), as_number(row.get("aulas_totais")))
             for row in latest_attendance_rows
         ]
         attendance_complete = (
             bool(active_contract_ids)
-            and set(latest_attendance_by_contract) == active_contract_ids
+            and set(attendance_by_contract) == active_contract_ids
+            and attendance_unambiguous
             and bool(attendance_values)
             and all(
                 attended is not None and total is not None
