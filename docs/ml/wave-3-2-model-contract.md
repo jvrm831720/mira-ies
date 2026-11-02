@@ -70,9 +70,10 @@ Os deltas são aditivos e o score ajustado pelas regras é limitado ao intervalo
 ## Composição do score final
 
 1. `model_score`: probabilidade do modelo/calibrador * 100.
-2. `business_rule_adjustment`: soma dos deltas das regras, com limite aplicado ao score ajustado.
-3. `dynamic_adjustment`: ajuste operacional já existente.
-4. `final_score`: score exibido após os ajustes, limitado a 0–100.
+2. `business_rule_adjustment_requested`: soma dos deltas disparados pelas regras.
+3. `business_rule_adjustment_applied`: diferença efetiva entre o score após regras e o score do modelo, após o limite 0–100.
+4. `dynamic_adjustment_requested` e `dynamic_adjustment_applied`: valor solicitado pelo ajuste operacional e diferença efetiva depois do limite.
+5. `final_score`: score exibido após os ajustes, limitado a 0–100.
 
 Faixas: baixo < 40; médio >= 40 e < 70; crítico >= 70. A regra de classificação por combinação de sinais críticos também pode elevar a faixa para crítico. O campo legado `confidence` representa concordância heurística entre faixas do modelo e das regras; não é probabilidade, intervalo de confiança ou calibração estatística.
 
