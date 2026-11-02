@@ -14,7 +14,7 @@ from app.core.auth import AuthContext, get_current_tenant
 from app.models.student import Student
 from app.services.consent import effective_preferences
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT
-from app.ml.data_quality import InsufficientDataError, assess_student_data_quality
+from app.ml.data_quality import InsufficientDataError
 from app.ml.scoring import score_batch, score_student_dict, score_all_pending, get_model_info
 from app.api.risk_history_impl import _change_type as _history_change_type
 
@@ -57,6 +57,7 @@ class PredictResponse(BaseModel):
     recommended_actions: list[str] = []
     confidence: str = "media"
     missing_features: list[str] = []
+    data_quality: dict[str, Any] = {}
     model_scope: str
     model_version: str
 
