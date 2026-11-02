@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 import logging
 
-from sqlalchemy import select, text
+from sqlalchemy import and_, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.student import Student, UploadBatch
@@ -105,7 +105,15 @@ async def score_batch(
 
     query = select(Student).where(Student.batch_id == batch_id, Student.tenant_id == tenant_id)
     if not force:
-        query = query.where(Student.risk_score.is_(None))
+        legacy_schema = Student.shap_top_factors["feature_schema_version"].astext.is_(None) | (
+            Student.shap_top_factors["feature_schema_version"].astext != FEATURE_SCHEMA_VERSION
+        )
+        if batch.status == "processed":
+            query = query.where(Student.risk_score.is_(None))
+        else:
+            # One-time migration-by-reassessment: legacy scores without the new
+            # schema marker are rechecked, even if they previously had a score.
+            query = query.where(legacy_schema)
     students = list((await session.execute(query)).scalars().all())
     if not students:
         return {
@@ -127,6 +135,7 @@ async def score_batch(
             student.model_risk_score = None
             student.shap_top_factors = {
                 "evaluation_status": "indeterminate",
+                "feature_schema_version": FEATURE_SCHEMA_VERSION,
                 "evaluated_at": evaluated_at.isoformat(),
                 "source_batch_id": batch_id,
                 "data_quality": quality,
@@ -270,10 +279,18 @@ async def score_all_pending(session: AsyncSession, *, tenant_id: str, tenant_slu
         select(Student.batch_id)
         .join(UploadBatch, UploadBatch.id == Student.batch_id)
         .where(
-            Student.risk_score.is_(None),
             Student.tenant_id == tenant_id,
             UploadBatch.tenant_id == tenant_id,
-            UploadBatch.status == "processed",
+            or_(
+                and_(UploadBatch.status == "processed", Student.risk_score.is_(None)),
+                and_(
+                    UploadBatch.status == "scored",
+                    or_(
+                        Student.shap_top_factors["feature_schema_version"].astext.is_(None),
+                        Student.shap_top_factors["feature_schema_version"].astext != FEATURE_SCHEMA_VERSION,
+                    ),
+                ),
+            ),
         )
         .distinct()
     )
