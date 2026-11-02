@@ -99,9 +99,9 @@ class SponteConnector:
             presenca = to_float(pick(item, "Frequencia", "PercentualPresenca", "Presenca"))
             if presenca is None:
                 faltas = to_float(pick(item, "Faltas", "QtdFaltas"))
-                total = to_float(pick(item, "TotalAulas", "AulasDadas"), 100)
-                if faltas is not None and total:
-                    presenca = max(0.0, 100.0 - (faltas / total * 100))
+                total = to_float(pick(item, "TotalAulas", "AulasDadas"))
+                if faltas is not None and total is not None and total > 0 and 0 <= faltas <= total:
+                    presenca = 100.0 - (faltas / total * 100)
             records.append({
                 "matricula": matricula,
                 "nome": nome,
