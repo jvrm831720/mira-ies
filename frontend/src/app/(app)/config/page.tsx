@@ -131,6 +131,7 @@ export default function ConfigPage() {
   const mfaSessions = useQuery({
     queryKey: ["mfa-sessions"],
     queryFn: () => api.mfaSessions(),
+    enabled: Boolean(me.data?.user_id),
     retry: false,
   });
 

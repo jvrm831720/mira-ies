@@ -16,7 +16,7 @@ from app.agents.channels.whatsapp import normalize_phone_br
 from app.agents.providers.resend_provider import send_email_resend
 from app.core.auth import AuthContext, get_current_tenant, require_min_role
 from app.core.config import get_settings
-from app.core.mira_security import hash_password, issue_access_token
+from app.core.mira_security import hash_password
 from app.core.security import hash_api_key
 from app.db.session import get_db
 from app.models.auth import OrganizationInvite, User

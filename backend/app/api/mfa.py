@@ -112,6 +112,10 @@ class MfaCodePayload(BaseModel):
     code: str = Field(min_length=6, max_length=32)
 
 
+class LoginEnrollmentPayload(BaseModel):
+    challenge_token: str = Field(min_length=32, max_length=128)
+
+
 class MfaPolicyPayload(BaseModel):
     require_mfa_all: bool = False
     required_roles: list[str] = Field(default_factory=list)
@@ -229,10 +233,10 @@ async def verify_login_mfa(
 
 @router.post("/login/enroll")
 async def begin_required_mfa_enrollment(
-    body: MfaCodePayload,
+    body: LoginEnrollmentPayload,
     db: AsyncSession = Depends(get_db),
 ):
-    challenge = await _load_challenge(db, body.code, "enroll")
+    challenge = await _load_challenge(db, body.challenge_token, "enroll")
     user, tenant = await _load_challenge_identity(db, challenge)
     if not await user_requires_mfa(db, user) or user.mfa_enabled_at:
         challenge.consumed_at = _now()

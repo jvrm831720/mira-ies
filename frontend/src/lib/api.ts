@@ -147,7 +147,7 @@ export const api = {
   beginRequiredMfaEnrollment: (challenge_token: string) =>
     request<import("@/types/api").MfaEnrollment>("/api/v1/auth/mfa/login/enroll", {
       method: "POST",
-      body: JSON.stringify({ code: challenge_token }),
+      body: JSON.stringify({ challenge_token }),
     }),
   confirmRequiredMfaEnrollment: (challenge_token: string, code: string) =>
     request<AuthResponse & { enabled: boolean; recovery_codes: string[] }>("/api/v1/auth/mfa/login/enroll/confirm", {
