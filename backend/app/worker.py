@@ -1,4 +1,4 @@
-"""Worker da fila de retenção.
+"""Worker das filas de retenção e integrações.
 
 Execute com: ``PYTHONPATH=. python -m app.worker`` a partir de ``backend``.
 """
@@ -16,17 +16,28 @@ from app.services.retention_queue import (
     promote_due_retries,
     redis_client,
 )
+from app.services.jacad_queue import (
+    process_jacad_sync_job,
+    promote_due_jacad_retries,
+    requeue_stale_jacad_jobs,
+)
 
 
 async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
     settings = get_settings()
     redis = redis_client()
-    print(f"Retention worker ouvindo {settings.retention_queue_name}")
+    print(f"Worker Redis ouvindo {settings.retention_queue_name} e {settings.jacad_queue_name}")
+    prefer_jacad = True
     last_engagement_sweep = 0.0
+    last_jacad_recovery_sweep = 0.0
     try:
         while True:
             await promote_due_retries(redis)
+            await promote_due_jacad_retries(redis)
             now_monotonic = time.monotonic()
+            if now_monotonic - last_jacad_recovery_sweep >= 30:
+                await requeue_stale_jacad_jobs(redis)
+                last_jacad_recovery_sweep = now_monotonic
             if now_monotonic - last_engagement_sweep >= settings.engagement_sweep_interval_seconds:
                 try:
                     async with AsyncSessionLocal() as session:
@@ -40,9 +51,18 @@ async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
                     # Keep processing the message queue if the periodic refresh fails.
                     print(f"Aviso: engagement sweep falhou ({type(exc).__name__}).")
                 last_engagement_sweep = now_monotonic
-            item = await redis.blpop(settings.retention_queue_name, timeout=poll_seconds)
+            queue_order = (
+                [settings.jacad_queue_name, settings.retention_queue_name]
+                if prefer_jacad else [settings.retention_queue_name, settings.jacad_queue_name]
+            )
+            item = await redis.blpop(queue_order, timeout=poll_seconds)
+            prefer_jacad = not prefer_jacad
             if item:
-                await process_retention_job(item[1], redis)
+                queue_name, job_id = item
+                if queue_name == settings.jacad_queue_name:
+                    await process_jacad_sync_job(job_id, redis)
+                else:
+                    await process_retention_job(job_id, redis)
             if once:
                 break
     finally:
@@ -50,7 +70,7 @@ async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Worker Redis da régua de retenção")
+    parser = argparse.ArgumentParser(description="Worker Redis da régua de retenção e integrações")
     parser.add_argument("--once", action="store_true", help="processa no máximo um job e encerra")
     parser.add_argument("--poll-seconds", type=int, default=2)
     args = parser.parse_args()

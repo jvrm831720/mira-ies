@@ -123,6 +123,27 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
+export type JacadSyncJob = {
+  job_id: string;
+  status: "queued" | "running" | "retrying" | "completed" | "failed" | string;
+  progress?: {
+    stage?: string; percent?: number; students?: number; enrollments?: number;
+    financial_summaries?: number; contracts_total?: number; contracts_done?: number;
+    discipline_pairs_total?: number; discipline_pairs_done?: number;
+    assessment_groups_total?: number; assessment_groups_done?: number;
+  } | null;
+  result?: {
+    source_records?: number; students_imported?: number; enrollments_received?: number;
+    financial_summaries_received?: number; students_with_financial_status?: number;
+    contracts_consulted?: number; discipline_pairs_consulted?: number; classes_consulted?: number;
+    assessment_groups?: number; scoring?: string;
+  } | null;
+  last_error?: string | null;
+  attempt?: number;
+  created_at?: number;
+  updated_at?: number;
+};
+
 export type OrgMeResponse = {
   role?: string;
   tenant_name?: string;
@@ -434,6 +455,41 @@ export const api = {
     request<Record<string, unknown>>(
       `/api/v1/connectors/${encodeURIComponent(connectorId)}/students?auto_score=${autoScore}`,
       { method: "POST", body: JSON.stringify(payload) }
+    ),
+
+
+  jacadConnection: () =>
+    request<{
+      provider: string; configured: boolean; enabled?: boolean; base_url?: string;
+      default_org_id?: number | null; status?: string; last_tested_at?: string | null;
+      last_sync_at?: string | null; last_sync_status?: string | null;
+      last_sync_records?: number; last_error?: string | null; credential_configured?: boolean;
+    }>("/api/v1/integrations/jacad"),
+
+  configureJacad: (body: { base_url: string; api_token?: string; default_org_id?: number | null }) =>
+    request<Record<string, unknown>>("/api/v1/integrations/jacad", {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  testJacad: () =>
+    request<{ status: string; authenticated: boolean; students_endpoint: boolean; sample_records: number }>(
+      "/api/v1/integrations/jacad/test", { method: "POST" }
+    ),
+
+  syncJacad: () =>
+    request<{ status: string; job_id: string; deduplicated?: boolean; progress?: Record<string, unknown> }>(
+      "/api/v1/integrations/jacad/sync", { method: "POST" }
+    ),
+
+  jacadSyncCurrent: () =>
+    request<JacadSyncJob | null>("/api/v1/integrations/jacad/sync/current"),
+
+  jacadSyncStatus: (jobId: string) =>
+    request<JacadSyncJob>(`/api/v1/integrations/jacad/sync/${encodeURIComponent(jobId)}`),
+
+  retryJacadSync: (jobId: string) =>
+    request<{ job_id: string; status: string; progress?: Record<string, unknown> }>(
+      `/api/v1/integrations/jacad/sync/${encodeURIComponent(jobId)}/retry`, { method: "POST" }
     ),
 
   studentGroupsCatalog: () =>

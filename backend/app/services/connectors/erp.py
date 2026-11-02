@@ -24,7 +24,7 @@ def _as_list(payload: Any) -> list[dict]:
     if isinstance(payload, list):
         return [x for x in payload if isinstance(x, dict)]
     if isinstance(payload, dict):
-        for key in ("data", "alunos", "students", "items", "results", "records", "value"):
+        for key in ("data", "alunos", "students", "items", "elements", "results", "records", "value"):
             if key in payload and isinstance(payload[key], list):
                 return [x for x in payload[key] if isinstance(x, dict)]
         return [payload]
@@ -36,17 +36,18 @@ class JacadConnector:
         id="jacad",
         name="JACAD",
         category="erp",
-        description="API REST estruturada (Academico, Financeiro, Acesso, Queries).",
+        description="Conector nativo de leitura REST; cadastro de alunos disponível, expansão acadêmica/financeira em homologação.",
         has_api=True,
-        endpoints=["POST /api/v1/connectors/jacad/students", "POST /api/v1/connectors/jacad/sync"],
-        sample_fields=["codigoAluno", "nomeAluno", "curso", "turma", "periodo", "diasAtraso", "frequencia", "mediaGeral"],
+        endpoints=["GET /api/v2/academico/alunos", "GET /api/v2/academico/matriculas", "GET /api/v2/financeiro/matriculas/resumo-financeiro", "GET /api/v1/financeiro/contratos-matricula/{idContrato}/parcelas"],
+        docs_url="https://auden-developer.jacad.com.br/docs/academico",
+        sample_fields=["idAluno", "ra", "nome", "statusMatricula", "situacaoFinanceira", "dataVencimentoParcela", "valorParcela"],
     )
 
     def transform(self, payload: Any) -> list[dict[str, Any]]:
         records = []
         for item in _as_list(payload):
-            matricula = to_str(pick(item, "codigoAluno", "codAluno", "matricula", "ra", "id"))
-            nome = to_str(pick(item, "nomeAluno", "nome", "nomeCompleto"))
+            matricula = to_str(pick(item, "ra", "codigoAluno", "codAluno", "matricula", "idAluno", "id"))
+            nome = to_str(pick(item, "nome", "nomeAluno", "nomeCompleto"))
             if not matricula or not nome:
                 continue
             records.append({
