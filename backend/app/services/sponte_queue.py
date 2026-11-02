@@ -18,8 +18,8 @@ from app.core.auth import _set_tenant_rls_context
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.sponte_connection import TenantSponteConnection
-from app.models.student import Student
-from app.services.connectors import get_connector, ingest_records
+from app.models.student import Student, UploadBatch
+from app.services.connectors import get_connector
 from app.services.connectors.jacad_api import decrypt_api_token
 from app.services.connectors.sponte_api import SponteApiClient, SponteQuotaDeferred
 from app.services.connectors.sponte_mapping import (
@@ -241,12 +241,55 @@ async def _persist_page(
         if records:
             async with AsyncSessionLocal() as session:
                 await _set_tenant_rls_context(session, tenant_id)
-                await ingest_records(
-                    session, records=records, source="sponte",
-                    filename=f"sponte_alunos_page_{page_number}.json",
-                    auto_score=False, tenant_id=tenant_id, tenant_slug=tenant_slug,
+                now = datetime.now(timezone.utc)
+                batch = UploadBatch(
+                    filename=f"api_sponte_alunos_page_{page_number}.json",
+                    original_filename=f"sponte_alunos_page_{page_number}.json",
+                    status="completed",
+                    total_rows=len(items),
+                    processed_rows=len(records),
+                    columns=list(records[0].keys()),
+                    tenant_id=tenant_id,
+                    processed_at=now,
                 )
-                imported = len(records)
+                session.add(batch)
+                await session.flush()
+                record_ids = [record["matricula"] for record in records]
+                existing_students = list((await session.execute(
+                    select(Student).where(
+                        Student.tenant_id == tenant_id,
+                        Student.matricula.in_(record_ids),
+                    )
+                )).scalars().all())
+                by_matricula = {student.matricula: student for student in existing_students}
+                for record in records:
+                    matricula = record["matricula"]
+                    student = by_matricula.get(matricula)
+                    if student:
+                        if (student.nome or "").strip().casefold() != (record["nome"] or "").strip().casefold():
+                            raise ValueError(
+                                f"AlunoID {matricula}: o nome recebido difere do cadastro MIRA; "
+                                "a identidade precisa ser revisada antes da atualização."
+                            )
+                        if record.get("email"):
+                            student.email = record["email"]
+                        if record.get("telefone"):
+                            student.telefone = record["telefone"]
+                        student.batch_id = batch.id
+                    else:
+                        student = Student(
+                            batch_id=batch.id,
+                            tenant_id=tenant_id,
+                            matricula=matricula,
+                            nome=record["nome"],
+                            email=record.get("email"),
+                            telefone=record.get("telefone"),
+                            raw_data={},
+                        )
+                        session.add(student)
+                        by_matricula[matricula] = student
+                await session.commit()
+            imported = len(records)
 
     async with AsyncSessionLocal() as session:
         await _set_tenant_rls_context(session, tenant_id)
@@ -339,24 +382,23 @@ async def _derive_affected_students(tenant_id: str, affected_ids: list[str], job
             record = by_id.get(student.matricula)
             if not record:
                 continue
-            for field in (
-                "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email",
-                "dias_atraso_boleto", "recorrencia_atrasos", "dias_sem_login",
-                "presenca_percentual", "nota_media", "reprovacoes",
-                "saldo_devedor", "status_financeiro", "status_aluno",
-            ):
-                if hasattr(student, field):
-                    setattr(student, field, record.get(field))
-            student.risk_score = None
-            student.risk_level = None
-            student.model_risk_score = None
-            student.shap_top_factors = None
             raw = dict(student.raw_data or {})
             provenance = dict(raw.get("_mira_provenance") or {})
-            for field in (
+            managed_fields = (
+                "nome", "curso", "turma", "semestre", "telefone", "email",
                 "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor",
                 "status_financeiro", "presenca_percentual", "status_aluno",
-            ):
+            )
+            for field in managed_fields:
+                value = record.get(field)
+                previous_source = (provenance.get(field) or {}).get("source_type")
+                if value is not None:
+                    setattr(student, field, value)
+                elif previous_source == "sponte_bi_api":
+                    # Clear only values previously owned by Sponte; preserve data from other sources.
+                    setattr(student, field, None)
+                else:
+                    continue
                 provenance[field] = {
                     "source_type": "sponte_bi_api",
                     "source_filename": "sponte_incremental_sync",
@@ -369,6 +411,10 @@ async def _derive_affected_students(tenant_id: str, affected_ids: list[str], job
                     "observed_at_source_column": "DataExtracao" if field == "presenca_percentual" else None,
                     "freshness_basis": "source_snapshot" if field == "presenca_percentual" else "source_observation_timestamp_unavailable",
                 }
+            student.risk_score = None
+            student.risk_level = None
+            student.model_risk_score = None
+            student.shap_top_factors = None
             raw["_mira_provenance"] = provenance
             student.raw_data = raw
         await session.commit()
