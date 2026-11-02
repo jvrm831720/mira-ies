@@ -456,7 +456,7 @@ export const api = {
     ),
 
   syncJacad: () =>
-    request<{ status: string; source_records: number; students_imported: number; scoring: string; quality?: unknown }>(
+    request<{ status: string; source_records: number; students_imported: number; enrollments_received: number; financial_summaries_received: number; students_with_financial_status: number; scoring: string; quality?: unknown }>(
       "/api/v1/integrations/jacad/sync", { method: "POST" }
     ),
 
