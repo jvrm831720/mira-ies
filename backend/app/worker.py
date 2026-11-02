@@ -1,4 +1,4 @@
-"""Worker da fila de retenção.
+"""Worker das filas de retenção e integrações.
 
 Execute com: ``PYTHONPATH=. python -m app.worker`` a partir de ``backend``.
 """
@@ -22,7 +22,8 @@ from app.services.jacad_queue import process_jacad_sync_job, promote_due_jacad_r
 async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
     settings = get_settings()
     redis = redis_client()
-    print(f"Retention worker ouvindo {settings.retention_queue_name}")
+    print(f"Worker Redis ouvindo {settings.retention_queue_name} e {settings.jacad_queue_name}")
+    prefer_jacad = True
     last_engagement_sweep = 0.0
     try:
         while True:
@@ -42,7 +43,12 @@ async def run_worker(*, once: bool = False, poll_seconds: int = 2) -> None:
                     # Keep processing the message queue if the periodic refresh fails.
                     print(f"Aviso: engagement sweep falhou ({type(exc).__name__}).")
                 last_engagement_sweep = now_monotonic
-            item = await redis.blpop([settings.retention_queue_name, settings.jacad_queue_name], timeout=poll_seconds)
+            queue_order = (
+                [settings.jacad_queue_name, settings.retention_queue_name]
+                if prefer_jacad else [settings.retention_queue_name, settings.jacad_queue_name]
+            )
+            item = await redis.blpop(queue_order, timeout=poll_seconds)
+            prefer_jacad = not prefer_jacad
             if item:
                 queue_name, job_id = item
                 if queue_name == settings.jacad_queue_name:
