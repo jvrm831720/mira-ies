@@ -234,6 +234,12 @@ def build_student_payloads(
         course = catalogs.get("cursos", {}).get(str(current_contract.get("curso_id")), {})
         turma = catalogs.get("turmas", {}).get(str(current_contract.get("turma_id")), {})
         estagio = catalogs.get("estagios", {}).get(str(current_contract.get("estagio_id")), {})
+        if course.get("excluido"):
+            course = {}
+        if turma.get("excluido"):
+            turma = {}
+        if estagio.get("excluido"):
+            estagio = {}
 
         receivables = [
             row for row in (sponte.get("contasreceber") or {}).values()
