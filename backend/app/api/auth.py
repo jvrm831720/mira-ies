@@ -10,7 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.channels.whatsapp import normalize_phone_br
@@ -20,7 +20,7 @@ from app.core.config import get_settings
 from app.core.mira_security import hash_password, verify_password
 from app.core.security import hash_api_key
 from app.db.session import get_db
-from app.models.auth import AuthChallenge, User
+from app.models.auth import AuthChallenge, User, UserSession
 from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
@@ -312,6 +312,23 @@ async def reset_password(body: PasswordResetPayload, db: AsyncSession = Depends(
     challenge.consumed_at = now
     user.password_hash = hash_password(body.new_password)
     user.auth_version += 1
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": user.tenant_id},
+    )
+    await db.execute(
+        update(UserSession)
+        .where(
+            UserSession.tenant_id == user.tenant_id,
+            UserSession.user_id == user.id,
+            UserSession.revoked_at.is_(None),
+        )
+        .values(
+            revoked_at=now,
+            revoked_by_user_id=user.id,
+            revoke_reason="password_reset",
+        )
+    )
     user.failed_login_attempts = 0
     user.locked_until = None
     await db.execute(
