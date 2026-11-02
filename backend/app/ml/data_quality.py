@@ -7,7 +7,6 @@ is blocked until every raw input used to derive its 17 features is available.
 from __future__ import annotations
 
 import math
-from dataclasses import asdict, dataclass
 from typing import Any
 
 FEATURE_SCHEMA_VERSION = "student-risk-features-v2"
@@ -35,13 +34,6 @@ class InsufficientDataError(ValueError):
             "Avaliação indeterminada: dados preditivos ausentes ou inválidos"
             + (f" ({labels})." if labels else ".")
         )
-
-
-@dataclass(frozen=True)
-class FieldIssue:
-    field: str
-    label: str
-    reason: str
 
 
 def _read(source: Any, field: str) -> Any:
