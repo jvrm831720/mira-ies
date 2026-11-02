@@ -159,8 +159,9 @@ def assess_student_data_quality(source: Any) -> dict[str, Any]:
             })
 
     total = len(REQUIRED_SOURCE_FIELDS)
-    complete = not missing and not invalid
     freshness = assess_field_freshness(source)
+    stale_fields = [field for field, item in freshness["fields"].items() if item["status"] == "stale"]
+    complete = not missing and not invalid and not stale_fields
     return {
         "status": "ready" if complete else "indeterminate",
         "feature_schema_version": FEATURE_SCHEMA_VERSION,
@@ -170,7 +171,11 @@ def assess_student_data_quality(source: Any) -> dict[str, Any]:
         "coverage_pct": round(observed / total * 100, 1),
         "missing_fields": missing,
         "invalid_fields": invalid,
-        "issues": issues,
+        "stale_fields": stale_fields,
+        "issues": issues + [
+            {"field": field, "label": REQUIRED_SOURCE_FIELDS[field]["label"], "reason": "stale_observation"}
+            for field in stale_fields
+        ],
         "can_score": complete,
         "freshness": freshness,
         "message": (
