@@ -436,6 +436,30 @@ export const api = {
       { method: "POST", body: JSON.stringify(payload) }
     ),
 
+
+  jacadConnection: () =>
+    request<{
+      provider: string; configured: boolean; enabled?: boolean; base_url?: string;
+      default_org_id?: number | null; status?: string; last_tested_at?: string | null;
+      last_sync_at?: string | null; last_sync_status?: string | null;
+      last_sync_records?: number; last_error?: string | null; credential_configured?: boolean;
+    }>("/api/v1/integrations/jacad"),
+
+  configureJacad: (body: { base_url: string; api_token: string; default_org_id?: number | null }) =>
+    request<Record<string, unknown>>("/api/v1/integrations/jacad", {
+      method: "PUT", body: JSON.stringify(body),
+    }),
+
+  testJacad: () =>
+    request<{ status: string; authenticated: boolean; students_endpoint: boolean; sample_records: number }>(
+      "/api/v1/integrations/jacad/test", { method: "POST" }
+    ),
+
+  syncJacad: () =>
+    request<{ status: string; source_records: number; students_imported: number; scoring: string; quality?: unknown }>(
+      "/api/v1/integrations/jacad/sync", { method: "POST" }
+    ),
+
   studentGroupsCatalog: () =>
     request<StudentGroupsCatalogResponse>("/api/v1/student-groups/catalog"),
 
