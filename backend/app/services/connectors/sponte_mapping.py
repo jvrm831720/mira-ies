@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
 from datetime import date, datetime
 from typing import Any
 
@@ -19,7 +20,9 @@ def pick(row: dict[str, Any], *names: str) -> Any:
 def canonical_student_status(value: Any) -> str | None:
     if value is None:
         return None
-    normalized = str(value).strip().casefold().replace("_", " ").replace("-", " ")
+    text = unicodedata.normalize("NFKD", str(value).strip().casefold())
+    normalized = "".join(char for char in text if not unicodedata.combining(char))
+    normalized = normalized.replace("_", " ").replace("-", " ")
     aliases = {
         "ativo": "Ativo", "active": "Ativo", "matriculado": "Ativo",
         "trancado": "Trancado", "trancada": "Trancado", "suspended": "Trancado",
