@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import pytest
 
 from app.ml import explain
@@ -97,3 +96,43 @@ def test_confidence_is_explicitly_heuristic_not_probability():
     result = apply_business_rules(features, model_score=10)
 
     assert result["confidence_basis"] == "heuristic_model_rule_band_agreement"
+
+
+def test_single_score_passes_the_scoring_estimator_to_shap(monkeypatch):
+    from app.ml import scoring
+
+    estimator = object()
+    captured = {}
+
+    monkeypatch.setattr(scoring, "load_model", lambda: estimator)
+    monkeypatch.setattr(scoring, "load_meta", lambda: {"version": "base-v-test"})
+    monkeypatch.setattr(scoring, "predict_proba", lambda model, frame: np.array([0.25]))
+
+    def fake_explain(features, top_k, *, model, model_scope, model_version):
+        captured.update(model=model, scope=model_scope, version=model_version)
+        return [{
+            "feature": "dias_atraso_boleto",
+            "label": "Dias de atraso",
+            "value": 10.0,
+            "shap_value": 0.2,
+            "contribution": "aumenta_saida_modelo",
+            "impact_pct": 100.0,
+            "model_scope": model_scope,
+            "model_version": model_version,
+        }]
+
+    monkeypatch.setattr(scoring, "explain_instance", fake_explain)
+    result = scoring.score_student_dict({
+        "dias_atraso_boleto": 10,
+        "recorrencia_atrasos": 1,
+        "dias_sem_login": 5,
+        "presenca_percentual": 90,
+        "nota_media": 8,
+        "reprovacoes": 0,
+        "semestre": 3,
+    })
+
+    assert captured == {"model": estimator, "scope": "base", "version": "base-v-test"}
+    assert result["explanation_metadata"]["model_version"] == "base-v-test"
+    assert result["explanation_metadata"]["calibration_included"] is False
+    assert result["score_breakdown"]["final_score"] == result["risk_score"]
