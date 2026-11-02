@@ -28,16 +28,16 @@ def _totp_code(secret: str) -> str:
     return code
 
 
-async def test_smoke_optional_mfa_keeps_password_login_available(
+async def test_smoke_global_mfa_forces_enrollment_without_tenant_policy(
     client, db_session, tenant_factory
 ):
-    tenant, _key = await tenant_factory(slug="mfa-smoke-optional")
+    tenant, _key = await tenant_factory(slug="mfa-smoke-global")
     user = User(
         tenant_id=tenant.id,
-        display_name="Optional MFA",
-        email="optional-mfa-smoke@example.test",
+        display_name="Global MFA",
+        email="global-mfa-smoke@example.test",
         password_hash=hash_password("StrongPassword#2026"),
-        role="operator",
+        role="viewer",
         is_active=True,
     )
     db_session.add(user)
@@ -47,19 +47,29 @@ async def test_smoke_optional_mfa_keeps_password_login_available(
         "/api/v1/auth/login/password",
         json={"email": user.email, "password": "StrongPassword#2026"},
     )
-
     assert login.status_code == 200
-    assert login.json().get("access_token")
-    assert "challenge_token" not in login.json()
+    assert login.json()["mfa_enrollment_required"] is True
+    assert "access_token" not in login.json()
 
-    token = login.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
-    profile = await client.get("/api/v1/org/me", headers=headers)
-    status = await client.get("/api/v1/auth/mfa/status", headers=headers)
+    enrollment = await client.post(
+        "/api/v1/auth/mfa/login/enroll",
+        json={"challenge_token": login.json()["challenge_token"]},
+    )
+    assert enrollment.status_code == 200
+    secret = enrollment.json()["secret"]
+    code, _step = totp_at(secret)
+    confirmed = await client.post(
+        "/api/v1/auth/mfa/login/enroll/confirm",
+        json={"challenge_token": login.json()["challenge_token"], "code": code},
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["enabled"] is True
 
-    assert profile.status_code == 200
-    assert status.status_code == 200
-    assert status.json()["enabled"] is False
+    protected = await client.get(
+        "/api/v1/org/me",
+        headers={"Authorization": f"Bearer {confirmed.json()['access_token']}"},
+    )
+    assert protected.status_code == 200
 
 
 async def test_smoke_required_enrollment_totp_login_and_recovery_code_once(
@@ -287,6 +297,7 @@ async def test_smoke_admin_can_revoke_member_sessions_after_totp_step_up(
         mfa_totp_secret_encrypted=encrypt_totp_secret(secret),
         mfa_enabled_at=datetime.now(timezone.utc),
     )
+    member_secret = new_totp_secret()
     member = User(
         tenant_id=tenant.id,
         display_name="Member",
@@ -294,6 +305,8 @@ async def test_smoke_admin_can_revoke_member_sessions_after_totp_step_up(
         password_hash=hash_password("StrongPassword#2026"),
         role="operator",
         is_active=True,
+        mfa_totp_secret_encrypted=encrypt_totp_secret(member_secret),
+        mfa_enabled_at=datetime.now(timezone.utc),
     )
     db_session.add_all([admin, member])
     await db_session.commit()
@@ -320,7 +333,14 @@ async def test_smoke_admin_can_revoke_member_sessions_after_totp_step_up(
         json={"email": member.email, "password": "StrongPassword#2026"},
     )
     assert member_login.status_code == 200
-    member_token = member_login.json()["access_token"]
+    assert member_login.json()["mfa_required"] is True
+    member_code, _member_step = totp_at(member_secret)
+    member_verified = await client.post(
+        "/api/v1/auth/mfa/login/verify",
+        json={"challenge_token": member_login.json()["challenge_token"], "code": member_code},
+    )
+    assert member_verified.status_code == 200
+    member_token = member_verified.json()["access_token"]
 
     revoked = await client.post(
         f"/api/v1/auth/mfa/admin/users/{member.id}/revoke-sessions",
