@@ -58,6 +58,10 @@ class PredictResponse(BaseModel):
     confidence: str = "media"
     missing_features: list[str] = []
     data_quality: dict[str, Any] = {}
+    rule_adjustments: list[dict[str, Any]] = []
+    score_breakdown: dict[str, Any] = {}
+    explanation_metadata: dict[str, Any] = {}
+    confidence_basis: str = "heuristic_model_rule_band_agreement"
     model_scope: str
     model_version: str
 

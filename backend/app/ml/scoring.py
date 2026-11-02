@@ -27,6 +27,38 @@ from app.ml.tenant_train import resolve_scoring_model, predict_proba_with_model
 from app.ml.risk_semantics import RISK_SCORE_SEMANTICS_VERSION, classify_risk_score
 
 
+def _safe_explain_instance(features, *, model, model_scope: str, model_version: str):
+    """Falha de SHAP não invalida um score; a indisponibilidade fica explícita."""
+    try:
+        factors = explain_instance(
+            features, top_k=3, model=model,
+            model_scope=model_scope, model_version=str(model_version),
+        )
+        metadata = {
+            "available": True, "status": "available",
+            "method": "SHAP TreeExplainer",
+            "explained_output": "raw_estimator_output",
+            "calibration_included": False, "rules_included": False,
+            "dynamic_adjustment_included": False,
+            "model_scope": model_scope, "model_version": str(model_version),
+        }
+        return factors, metadata
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "risk_explanation_unavailable",
+            extra={"model_scope": model_scope, "model_version": str(model_version), "error_type": type(exc).__name__},
+            exc_info=True,
+        )
+        return [], {
+            "available": False, "status": "unavailable",
+            "method": "SHAP TreeExplainer", "reason_code": "shap_calculation_failed",
+            "explained_output": "raw_estimator_output",
+            "calibration_included": False, "rules_included": False,
+            "dynamic_adjustment_included": False,
+            "model_scope": model_scope, "model_version": str(model_version),
+        }
+
+
 def score_student_dict(student_data: dict) -> dict[str, Any]:
     quality = require_scoreable_student(student_data)
     features = build_features_from_student(student_data)
@@ -35,21 +67,41 @@ def score_student_dict(student_data: dict) -> dict[str, Any]:
     proba = float(predict_proba(model, X)[0])
     model_score = probability_to_risk_score(proba)
     rules = apply_business_rules(features, model_score)
-    top_factors = explain_instance(features, top_k=3)
+    meta = load_meta()
+    model_version = str(meta.get("version", "unknown"))
+    top_factors, explanation_metadata = _safe_explain_instance(
+        features, model=model, model_scope="base", model_version=model_version
+    )
     return {
         "risk_score": rules["adjusted_score"],
         "model_score": rules["model_score"],
         "risk_level": rules["risk_level"],
         "probability": round(proba, 4),
         "shap_top_factors": top_factors,
-        "shap_summary": format_top_factors_human(top_factors),
+        "shap_summary": (
+            format_top_factors_human(top_factors)
+            if top_factors else "Explicação SHAP indisponível nesta execução."
+        ),
         "features_used": features,
         "rule_flags": rules["rule_flags"],
         "rule_boost": rules["rule_boost"],
         "recommended_actions": rules["recommended_actions"],
         "confidence": rules["confidence"],
+        "confidence_basis": rules["confidence_basis"],
         "missing_features": [],
         "data_quality": quality,
+        "model_scope": "base",
+        "model_version": model_version,
+        "explanation_metadata": explanation_metadata,
+        "rule_adjustments": rules["rule_adjustments"],
+        "score_breakdown": {
+            "model_score": rules["model_score"],
+            "business_rule_adjustment_requested": rules["rule_boost"],
+            "business_rule_adjustment_applied": round(rules["adjusted_score"] - rules["model_score"], 1),
+            "dynamic_adjustment_requested": 0.0,
+            "dynamic_adjustment_applied": 0.0,
+            "final_score": rules["adjusted_score"],
+        },
     }
 
 
@@ -168,9 +220,22 @@ async def score_batch(
             proba = float(probas[index])
             model_score = probability_to_risk_score(proba)
             rules = apply_business_rules(features, model_score)
-            top_factors = explain_instance(features, top_k=3) if explain else []
+            if explain:
+                top_factors, explanation_metadata = _safe_explain_instance(
+                    features, model=model, model_scope=model_scope,
+                    model_version=str(model_version),
+                )
+            else:
+                top_factors = []
+                explanation_metadata = {
+                    "available": False, "status": "not_requested",
+                    "method": "SHAP TreeExplainer", "reason_code": "explanation_not_requested",
+                    "calibration_included": False, "rules_included": False,
+                    "dynamic_adjustment_included": False,
+                    "model_scope": model_scope, "model_version": str(model_version),
+                }
             dynamic_adjustment = float(student.dynamic_risk_adjustment or 0.0)
-            final_score = round(min(100.0, rules["adjusted_score"] + dynamic_adjustment), 1)
+            final_score = round(min(100.0, max(0.0, rules["adjusted_score"] + dynamic_adjustment)), 1)
             final_level = classify_risk_score(final_score)
 
             student.model_risk_score = rules["adjusted_score"]
@@ -187,6 +252,17 @@ async def score_batch(
                 "rule_boost": rules["rule_boost"],
                 "recommended_actions": rules["recommended_actions"],
                 "confidence": rules["confidence"],
+                "confidence_basis": rules["confidence_basis"],
+                "rule_adjustments": rules["rule_adjustments"],
+                "score_breakdown": {
+                    "model_score": rules["model_score"],
+                    "business_rule_adjustment_requested": rules["rule_boost"],
+                    "business_rule_adjustment_applied": round(rules["adjusted_score"] - rules["model_score"], 1),
+                    "dynamic_adjustment_requested": dynamic_adjustment,
+                    "dynamic_adjustment_applied": round(final_score - rules["adjusted_score"], 1),
+                    "final_score": final_score,
+                },
+                "explanation_metadata": explanation_metadata,
                 "model_scope": model_scope,
                 "model_version": str(model_version) if model_version is not None else None,
                 "data_quality": quality,
@@ -215,8 +291,19 @@ async def score_batch(
                     "probability": round(proba, 4),
                     "rule_flags": rules["rule_flags"],
                     "rule_boost": rules["rule_boost"],
+                    "rule_adjustments": rules["rule_adjustments"],
                     "recommended_actions": rules["recommended_actions"],
                     "confidence": rules["confidence"],
+                    "confidence_basis": rules["confidence_basis"],
+                    "score_breakdown": {
+                        "model_score": rules["model_score"],
+                        "business_rule_adjustment_requested": rules["rule_boost"],
+                        "business_rule_adjustment_applied": round(rules["adjusted_score"] - rules["model_score"], 1),
+                        "dynamic_adjustment_requested": dynamic_adjustment,
+                        "dynamic_adjustment_applied": round(final_score - rules["adjusted_score"], 1),
+                        "final_score": final_score,
+                    },
+                    "explanation_metadata": explanation_metadata,
                     "data_quality": quality,
                 },
                 context={"batch_id": batch_id, "source": "score_batch", "feature_schema_version": FEATURE_SCHEMA_VERSION},
@@ -233,6 +320,15 @@ async def score_batch(
                 "matricula": student.matricula, "nome": student.nome,
                 "risk_score": final_score, "risk_level": final_level,
                 "confidence": rules["confidence"],
+                "rule_adjustments": rules["rule_adjustments"],
+                "score_breakdown": {
+                    "model_score": rules["model_score"],
+                    "business_rule_adjustment_requested": rules["rule_boost"],
+                    "business_rule_adjustment_applied": round(rules["adjusted_score"] - rules["model_score"], 1),
+                    "dynamic_adjustment_requested": dynamic_adjustment,
+                    "dynamic_adjustment_applied": round(final_score - rules["adjusted_score"], 1),
+                    "final_score": final_score,
+                },
                 "dynamic_risk_adjustment": dynamic_adjustment,
                 "recommended_actions": rules["recommended_actions"][:2],
             })
@@ -323,6 +419,10 @@ def get_model_info() -> dict[str, Any]:
             ),
             "shap_on_batch_default": False,
             "feature_schema_version": FEATURE_SCHEMA_VERSION,
+            "feature_columns": list(__import__("app.ml.features", fromlist=["FEATURE_COLUMNS"]).FEATURE_COLUMNS),
+            "feature_labels_pt": dict(__import__("app.ml.features", fromlist=["FEATURE_LABELS_PT"]).FEATURE_LABELS_PT),
+            "risk_score_semantics_version": RISK_SCORE_SEMANTICS_VERSION,
+            "risk_score_bands": {"baixo": {"min": 0, "max_exclusive": 40}, "medio": {"min": 40, "max_exclusive": 70}, "critico": {"min": 70, "max": 100}},
             "required_source_fields": list(__import__("app.ml.data_quality", fromlist=["REQUIRED_SOURCE_FIELDS"]).REQUIRED_SOURCE_FIELDS),
         }
     except Exception as exc:

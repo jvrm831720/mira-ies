@@ -1,8 +1,6 @@
 """
 Camada de regras de negócio híbrida.
-
-A camada recebe somente features completas. Defaults são proibidos: a validação
-de cobertura ocorre antes do modelo e das regras.
+Cada ajuste é retornado como evento explicável, com evidência e delta explícitos.
 """
 from __future__ import annotations
 
@@ -21,9 +19,7 @@ THRESHOLDS = {
 
 
 def apply_business_rules(features: dict[str, float], model_score: float) -> dict[str, Any]:
-    # These two values are deterministic derivatives of required source fields.
-    # Derive them here for callers that pass the base feature vector directly;
-    # never invent or default any raw source value.
+    # Deriva somente variáveis determinísticas de campos-base presentes.
     features = dict(features)
     if "is_early_semester" not in features and features.get("semestre") is not None:
         features["is_early_semester"] = float(features["semestre"] <= 2)
@@ -44,66 +40,84 @@ def apply_business_rules(features: dict[str, float], model_score: float) -> dict
 
     flags: list[str] = []
     actions: list[str] = []
+    adjustments: list[dict[str, Any]] = []
     boost = 0.0
-    dias_atraso = features["dias_atraso_boleto"]
-    dias_login = features["dias_sem_login"]
+
+    def add(flag: str, description: str, delta: float, evidence: dict[str, Any], action: str | None = None):
+        nonlocal boost
+        flags.append(flag)
+        boost += delta
+        adjustments.append({
+            "flag": flag,
+            "description": description,
+            "delta_points": delta,
+            "evidence": evidence,
+            "recommendation": action,
+            "source": "business_rule",
+        })
+        if action:
+            actions.append(action)
+
+    atraso = features["dias_atraso_boleto"]
+    login = features["dias_sem_login"]
     presenca = features["presenca_percentual"]
     nota = features["nota_media"]
     recorrencia = features["recorrencia_atrasos"]
-    is_early = features["is_early_semester"]
-    combo = features["combo_critico"]
     reprovacoes = features["reprovacoes"]
+    early = bool(features["is_early_semester"])
+    combo = bool(features["combo_critico"])
 
-    if dias_atraso >= THRESHOLDS["atraso_critico_dias"]:
-        flags.append("atraso_financeiro_critico")
-        actions.append("Acionar setor financeiro + oferta de renegociação")
-        boost += 15
-    elif dias_atraso >= THRESHOLDS["atraso_grave_dias"]:
-        flags.append("atraso_financeiro_grave")
-        actions.append("Contato financeiro preventivo (boleto em aberto)")
-        boost += 8
+    if atraso >= THRESHOLDS["atraso_critico_dias"]:
+        add("atraso_financeiro_critico", "Atraso financeiro crítico", 15,
+            {"field": "dias_atraso_boleto", "observed": atraso, "threshold": THRESHOLDS["atraso_critico_dias"], "operator": ">="},
+            "Acionar setor financeiro e avaliar oferta de renegociação")
+    elif atraso >= THRESHOLDS["atraso_grave_dias"]:
+        add("atraso_financeiro_grave", "Atraso financeiro grave", 8,
+            {"field": "dias_atraso_boleto", "observed": atraso, "threshold": THRESHOLDS["atraso_grave_dias"], "operator": ">="},
+            "Contato financeiro preventivo sobre o boleto em aberto")
     if recorrencia >= 3:
-        flags.append("reincidencia_atrasos")
-        actions.append("Avaliar perfil de inadimplência recorrente")
-        boost += 5
-    if dias_login >= THRESHOLDS["login_critico_dias"]:
-        flags.append("abandono_digital")
-        actions.append("Disparo WhatsApp de reengajamento + checagem de acesso ao AVA")
-        boost += 12
-    elif dias_login >= THRESHOLDS["login_alerta_dias"]:
-        flags.append("engajamento_baixo")
-        actions.append("Lembrete de atividades pendentes no AVA")
-        boost += 5
+        add("reincidencia_atrasos", "Recorrência de atrasos", 5,
+            {"field": "recorrencia_atrasos", "observed": recorrencia, "threshold": 3, "operator": ">="},
+            "Avaliar perfil de inadimplência recorrente")
+    if login >= THRESHOLDS["login_critico_dias"]:
+        add("abandono_digital", "Ausência prolongada de acesso ao AVA", 12,
+            {"field": "dias_sem_login", "observed": login, "threshold": THRESHOLDS["login_critico_dias"], "operator": ">="},
+            "Verificar acesso ao AVA e realizar contato de reengajamento")
+    elif login >= THRESHOLDS["login_alerta_dias"]:
+        add("engajamento_baixo", "Tempo sem acesso acima do limite de alerta", 5,
+            {"field": "dias_sem_login", "observed": login, "threshold": THRESHOLDS["login_alerta_dias"], "operator": ">="},
+            "Lembrar o aluno das atividades pendentes no AVA")
     if nota < THRESHOLDS["nota_critica"]:
-        flags.append("desempenho_critico")
-        actions.append("Encaminhar para tutoria / plantão de dúvidas")
-        boost += 12
+        add("desempenho_critico", "Nota média em faixa crítica", 12,
+            {"field": "nota_media", "observed": nota, "threshold": THRESHOLDS["nota_critica"], "operator": "<"},
+            "Encaminhar para tutoria ou plantão de dúvidas")
     elif nota < THRESHOLDS["nota_baixa"]:
-        flags.append("desempenho_baixo")
-        actions.append("Acompanhamento pedagógico preventivo")
-        boost += 5
+        add("desempenho_baixo", "Nota média abaixo da faixa esperada", 5,
+            {"field": "nota_media", "observed": nota, "threshold": THRESHOLDS["nota_baixa"], "operator": "<"},
+            "Iniciar acompanhamento pedagógico preventivo")
     if presenca < THRESHOLDS["presenca_critica"]:
-        flags.append("frequencia_critica")
-        actions.append("Verificar faltas e risco de dependência")
-        boost += 10
+        add("frequencia_critica", "Presença em faixa crítica", 10,
+            {"field": "presenca_percentual", "observed": presenca, "threshold": THRESHOLDS["presenca_critica"], "operator": "<"},
+            "Verificar faltas e risco de dependência")
     elif presenca < THRESHOLDS["presenca_baixa"]:
-        flags.append("frequencia_baixa")
-        boost += 4
+        add("frequencia_baixa", "Presença abaixo da faixa de alerta", 4,
+            {"field": "presenca_percentual", "observed": presenca, "threshold": THRESHOLDS["presenca_baixa"], "operator": "<"})
     if reprovacoes >= 2:
-        flags.append("multiplas_reprovacoes")
-        actions.append("Plano de estudos e acompanhamento de dependências")
-        boost += 6
-    if combo >= 1:
-        flags.append("combo_financeiro_engajamento")
-        actions.append("Prioridade máxima na fila do coordenador")
-        boost += 10
-    if is_early and (dias_atraso > 15 or dias_login > 14 or nota < 6):
-        flags.append("risco_inicio_curso")
-        actions.append("Intervenção precoce (1º/2º semestre)")
-        boost += 6
+        add("multiplas_reprovacoes", "Duas ou mais reprovações", 6,
+            {"field": "reprovacoes", "observed": reprovacoes, "threshold": 2, "operator": ">="},
+            "Criar plano de estudos e acompanhar dependências")
+    if combo:
+        add("combo_financeiro_engajamento", "Atraso financeiro grave combinado com desengajamento", 10,
+            {"fields": ["dias_atraso_boleto", "dias_sem_login"], "observed": {"dias_atraso_boleto": atraso, "dias_sem_login": login}, "thresholds": {"dias_atraso_boleto": 15, "dias_sem_login": 14}},
+            "Priorizar análise pela coordenação")
+    if early and (atraso > 15 or login > 14 or nota < 6):
+        add("risco_inicio_curso", "Sinal de risco no início do curso", 6,
+            {"field": "semestre", "observed": features["semestre"], "condition": "semestre <= 2 e pelo menos um sinal de risco"},
+            "Avaliar intervenção precoce no 1º ou 2º semestre")
 
     adjusted = min(100.0, max(0.0, model_score + boost))
-    if adjusted >= 70 or len([f for f in flags if "critico" in f or "abandono" in f or "combo" in f]) >= 2:
+    critical_flags = [f for f in flags if "critico" in f or "abandono" in f or "combo" in f]
+    if adjusted >= 70 or len(critical_flags) >= 2:
         level = "critico"
     elif adjusted >= 40:
         level = "medio"
@@ -129,6 +143,10 @@ def apply_business_rules(features: dict[str, float], model_score: float) -> dict
         "risk_level": level,
         "rule_flags": flags,
         "rule_boost": round(boost, 1),
+        "rule_adjustments": adjustments,
         "recommended_actions": unique_actions[:5],
+        # Compatibilidade: confiança é apenas concordância heurística entre faixas,
+        # não probabilidade calibrada nem medida estatística de certeza.
         "confidence": confidence,
+        "confidence_basis": "heuristic_model_rule_band_agreement",
     }

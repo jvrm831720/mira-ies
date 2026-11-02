@@ -115,8 +115,38 @@ export type StudentRisk = {
   shap_summary?: string | null;
   shap_top_factors?: {
     summary?: string;
-    top_3?: Array<{ feature?: string; label?: string }>;
+    top_3?: Array<{
+      feature?: string;
+      label?: string;
+      value?: number;
+      shap_value?: number;
+      contribution?: string;
+      impact_pct?: number;
+      model_scope?: string;
+      model_version?: string;
+    }>;
     recommended_actions?: string[];
+    rule_adjustments?: Array<{
+      flag?: string;
+      description?: string;
+      delta_points?: number;
+      evidence?: Record<string, unknown>;
+      recommendation?: string | null;
+      source?: string;
+    }>;
+    score_breakdown?: Record<string, number>;
+    explanation_metadata?: {
+      available?: boolean;
+      status?: string;
+      method?: string;
+      reason_code?: string;
+      explained_output?: string;
+      calibration_included?: boolean;
+      rules_included?: boolean;
+      dynamic_adjustment_included?: boolean;
+      model_scope?: string;
+      model_version?: string;
+    };
   } | null;
   recommended_actions?: string[] | null;
 };
