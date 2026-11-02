@@ -269,7 +269,7 @@ def build_student_payloads(
                 balance += max(0.0, total - paid)
         if overdue:
             financial_status = "VENCIDO"
-        elif pending and due_date_unknown:
+        elif pending and (due_date_unknown or unknown_status):
             financial_status = None
         elif pending:
             financial_status = "EM_ABERTO"
