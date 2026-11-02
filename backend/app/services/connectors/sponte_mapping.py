@@ -241,9 +241,32 @@ def build_student_payloads(
         if estagio.get("excluido"):
             estagio = {}
 
+        fact_students = [
+            row for row in (sponte.get("fatoalunosativos") or {}).values()
+            if not row.get("excluido") and row.get("aluno_id") == aluno
+        ]
+        fact_students.sort(key=lambda row: as_date(row.get("data_extracao")) or date.min)
+        latest_fact_date = as_date(fact_students[-1].get("data_extracao")) if fact_students else None
+        latest_facts = [
+            row for row in fact_students
+            if latest_fact_date and as_date(row.get("data_extracao")) == latest_fact_date
+        ]
+        active_contract_ids = {
+            str(row.get("contrato_id")) for row in latest_facts
+            if row.get("contrato_id") is not None
+        }
+
+        # Financial facts are scoped to contracts present in the latest active-contract snapshot.
+        # Without that snapshot, historical receivables are not safe to classify as current debt.
         receivables = [
             row for row in (sponte.get("contasreceber") or {}).values()
-            if not row.get("excluido") and row.get("aluno_id") == aluno
+            if (
+                active_contract_ids
+                and not row.get("excluido")
+                and row.get("aluno_id") == aluno
+                and row.get("contrato_id") is not None
+                and str(row.get("contrato_id")) in active_contract_ids
+            )
         ]
         paid_statuses = {"pago", "paga", "quitado", "quitada"}
         pending = [row for row in receivables if str(row.get("situacao") or "").strip().casefold() == "pendente"]
@@ -273,7 +296,7 @@ def build_student_payloads(
             financial_status = None
         elif pending:
             financial_status = "EM_ABERTO"
-        elif not receivables:
+        elif active_contract_ids and not receivables:
             financial_status = "SEM_FINANCEIRO"
         elif all(str(row.get("situacao") or "").strip().casefold() in paid_statuses for row in receivables):
             financial_status = "PAGO"
@@ -282,16 +305,44 @@ def build_student_payloads(
 
         attendance = [
             row for row in (sponte.get("fatofrequenciaalunosativos") or {}).values()
-            if not row.get("excluido") and row.get("aluno_id") == aluno
+            if (
+                active_contract_ids
+                and not row.get("excluido")
+                and row.get("aluno_id") == aluno
+                and row.get("contrato_id") is not None
+                and str(row.get("contrato_id")) in active_contract_ids
+            )
         ]
-        attendance.sort(key=lambda row: as_date(row.get("data_extracao")) or date.min)
-        latest_attendance = attendance[-1] if attendance else {}
-        attended = as_number(latest_attendance.get("aulas_assistidas"))
-        total_classes = as_number(latest_attendance.get("aulas_totais"))
-        presence = (
-            attended / total_classes * 100
-            if attended is not None and total_classes and 0 <= attended <= total_classes
-            else None
+        latest_attendance_by_contract: dict[str, dict[str, Any]] = {}
+        for row in attendance:
+            contract_id = str(row.get("contrato_id"))
+            previous = latest_attendance_by_contract.get(contract_id)
+            row_date = as_date(row.get("data_extracao")) or date.min
+            previous_date = as_date(previous.get("data_extracao")) or date.min if previous else date.min
+            if previous is None or row_date > previous_date:
+                latest_attendance_by_contract[contract_id] = row
+        latest_attendance_rows = list(latest_attendance_by_contract.values())
+        attendance_values = [
+            (as_number(row.get("aulas_assistidas")), as_number(row.get("aulas_totais")))
+            for row in latest_attendance_rows
+        ]
+        attendance_complete = (
+            bool(active_contract_ids)
+            and set(latest_attendance_by_contract) == active_contract_ids
+            and bool(attendance_values)
+            and all(
+                attended is not None and total is not None
+                and total > 0 and 0 <= attended <= total
+                for attended, total in attendance_values
+            )
+        )
+        attended_total = sum(attended for attended, _ in attendance_values if attended is not None)
+        classes_total = sum(total for _, total in attendance_values if total is not None)
+        presence = attended_total / classes_total * 100 if attendance_complete and classes_total > 0 else None
+        latest_attendance = max(
+            latest_attendance_rows,
+            key=lambda row: as_date(row.get("data_extracao")) or date.min,
+            default={},
         )
 
         notes = [
@@ -300,12 +351,7 @@ def build_student_payloads(
         ]
         notes.sort(key=lambda row: (int(as_number(row.get("ano")) or 0), int(as_number(row.get("semestre")) or 0)))
         latest_note = notes[-1] if notes else {}
-        fact_students = [
-            row for row in (sponte.get("fatoalunosativos") or {}).values()
-            if not row.get("excluido") and row.get("aluno_id") == aluno
-        ]
-        fact_students.sort(key=lambda row: as_date(row.get("data_extracao")) or date.min)
-        latest_fact = fact_students[-1] if fact_students else {}
+        latest_fact = latest_facts[-1] if latest_facts else {}
 
         enriched.append({
             "AlunoID": aluno,
@@ -316,7 +362,8 @@ def build_student_payloads(
             "Email": profile.get("email") or student.email,
             "Telefone": profile.get("telefone") or student.telefone,
             "DiasAtraso": None if (due_date_unknown or unknown_status) else (max(overdue) if overdue else 0),
-            "QtdAtrasos": None if (due_date_unknown or unknown_status) else len(overdue),
+            # Current overdue installments are not historical delinquency recurrence.
+            "QtdAtrasos": None,
             "SaldoDevedor": balance if balance_complete else None,
             "StatusFinanceiro": financial_status,
             "SituacaoAluno": profile.get("situacao_aluno") or latest_fact.get("situacao"),
