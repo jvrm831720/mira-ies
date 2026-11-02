@@ -424,7 +424,8 @@ export default function DadosIntegracoesPage() {
                   <li>• Período letivo, matriz, turma e campus</li>
                   <li>• Identificador e entrega do contrato</li>
                   <li>• Situação financeira por matrícula</li>
-                  <li>• Histórico de parcelas, pagamentos e vencimentos por contrato</li>\n                  <li>• Disciplinas, médias, notas finais e frequência reportada</li>\n                  <li>• Notas individuais por avaliação, quando disponíveis</li>
+                  <li>• Histórico de parcelas, pagamentos e vencimentos por contrato</li>
+                  <li>• Disciplinas, médias, notas finais e frequência reportada</li>\n                  <li>• Notas individuais por avaliação, quando disponíveis</li>
                 </ul>
                 <p className="mt-2 text-xs text-muted-foreground">
                   A sincronização consulta a API JACAD diretamente em segundo plano. Não é necessário enviar planilha ou JSON; você pode sair desta tela e acompanhar o processamento ao voltar.
