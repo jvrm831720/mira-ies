@@ -25,7 +25,13 @@ async def ingest_records(
     if not tenant_id:
         raise ValueError("tenant_id e obrigatorio para ingestao multi-tenant")
 
-    rows = [{k: r.get(k) for k in CANONICAL_FIELDS} for r in records]
+    rows = [
+        {
+            **{k: r.get(k) for k in CANONICAL_FIELDS},
+            "__mira_provenance": r.get("__mira_provenance") or {},
+        }
+        for r in records
+    ]
     df = pd.DataFrame(rows)
     original_filename = filename or f"{source}_api_ingest.json"
     safe_filename = f"api_{source}_{original_filename}"
