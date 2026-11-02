@@ -69,8 +69,22 @@ async def configure_sponte_connection(
     auth: AuthContext = Depends(require_min_role("coordinator")),
     db: AsyncSession = Depends(get_db),
 ):
+    if body.initial_extraction_date > date.today():
+        raise HTTPException(status_code=422, detail="A data inicial não pode estar no futuro.")
+    active_job = await get_current_sponte_job(tenant_id=auth.tenant_id)
+    if active_job and active_job.get("status") in {"queued", "running", "retrying"}:
+        raise HTTPException(status_code=409, detail="Aguarde a sincronização Sponte terminar antes de alterar a conexão.")
     connection = await _get_connection(db, auth.tenant_id)
     if connection:
+        client_changed = connection.client_code != body.client_code
+        initial_date_changed = connection.initial_extraction_date != body.initial_extraction_date
+        if client_changed and not body.api_key:
+            raise HTTPException(status_code=422, detail="Informe a API Key ao alterar o código do cliente Sponte.")
+        if client_changed:
+            connection.sync_watermarks = {}
+            connection.sync_catalogs = {}
+        elif initial_date_changed:
+            connection.sync_watermarks = {}
         connection.client_code = body.client_code
         connection.initial_extraction_date = body.initial_extraction_date
         if body.api_key:
