@@ -13,9 +13,10 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "mira_mfa_login_challenges",
-        sa.Column("purpose", sa.String(length=16), nullable=False, server_default="verify"),
+    # 004_mira_auth may already have created the current model column.
+    op.execute(
+        "ALTER TABLE mira_mfa_login_challenges "
+        "ADD COLUMN IF NOT EXISTS purpose VARCHAR(16) NOT NULL DEFAULT 'verify'"
     )
     from app.db.session import Base
     import app.models  # noqa: F401
