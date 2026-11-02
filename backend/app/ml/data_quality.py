@@ -50,6 +50,13 @@ def assess_student_data_quality(source: Any) -> dict[str, Any]:
 
     for field, spec in REQUIRED_SOURCE_FIELDS.items():
         value = _read(source, field)
+        # New imports keep the original cell in raw_data when parsing fails.
+        # Use it to distinguish an invalid source value from a truly blank cell.
+        if value is None:
+            raw_data = _read(source, "raw_data") or {}
+            raw_value = raw_data.get(field) if isinstance(raw_data, dict) else None
+            if raw_value is not None and str(raw_value).strip():
+                value = raw_value
         reason = None
         if value is None or (isinstance(value, str) and not value.strip()):
             missing.append(field)
