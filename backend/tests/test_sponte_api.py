@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
+from app.services.connectors.erp import SponteConnector
 from app.services.connectors.sponte_api import SponteApiClient
 from app.services.connectors.sponte_mapping import build_student_payloads, compact_row, record_id
 
@@ -234,3 +235,15 @@ def test_sponte_mapping_excludes_provider_deleted_students_from_indicators():
     assert payload["SaldoDevedor"] is None
     assert payload["StatusFinanceiro"] is None
     assert payload["Frequencia"] is None
+
+
+def test_sponte_connector_does_not_infer_presence_without_total_classes():
+    connector = SponteConnector()
+    [missing_total] = connector.transform({
+        "items": [{"AlunoID": 108, "Nome": "Nina", "Faltas": 2}]
+    })
+    [valid_total] = connector.transform({
+        "items": [{"AlunoID": 109, "Nome": "Otávio", "Faltas": 5, "TotalAulas": 20}]
+    })
+    assert missing_total["presenca_percentual"] is None
+    assert valid_total["presenca_percentual"] == 75
