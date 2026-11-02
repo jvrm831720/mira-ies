@@ -29,6 +29,8 @@ async def ingest_records(
         {
             **{k: r.get(k) for k in CANONICAL_FIELDS},
             "mira_provenance": r.get("__mira_provenance") or {},
+            "mira_source_type": "connector_api",
+            "mira_source_system": source,
         }
         for r in records
     ]
