@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -175,14 +176,14 @@ async def _reserve_window(redis: Redis, key: str, *, limit: int, window_ms: int)
     return int(await redis.eval(script, 1, key, now_ms, window_ms, limit, f"{now_ms}:{uuid4()}"))
 
 
-async def _request_guard(redis: Redis, tenant_id: str):
+async def _request_guard(redis: Redis, credential_scope: str):
     while True:
         wait_ms = await _reserve_window(redis, "beacon:sponte:rate:global", limit=15, window_ms=1000)
         if wait_ms <= 0:
             break
         await asyncio.sleep(wait_ms / 1000 + 0.02)
     wait_ms = await _reserve_window(
-        redis, f"beacon:sponte:rate:tenant:{tenant_id}", limit=900, window_ms=60000
+        redis, f"beacon:sponte:rate:key:{credential_scope}", limit=900, window_ms=60000
     )
     if wait_ms > 0:
         raise SponteQuotaDeferred(wait_ms / 1000 + 2)
@@ -393,9 +394,10 @@ async def _run_sync(job_id: str, redis: Redis):
         initial_date = connection.initial_extraction_date
         watermarks = dict(connection.sync_watermarks or {})
 
+    credential_scope = hashlib.sha256(api_key.encode()).hexdigest()[:20]
     client = SponteApiClient(
         api_key, client_code,
-        request_guard=lambda: _request_guard(redis, tenant_id),
+        request_guard=lambda: _request_guard(redis, credential_scope),
     )
     affected_key = f"{_key(job_id)}:affected"
     semaphore = asyncio.Semaphore(settings.sponte_sync_concurrency)
