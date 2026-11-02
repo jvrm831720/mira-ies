@@ -288,48 +288,80 @@ async def _run_sync(job_id: str, redis: Redis):
             progress["percent"] = 30 + int(20 * progress["contracts_done"] / max(1, len(contracts)))
             await _update(redis, job_id, progress=progress)
 
-        # Stage 3: discipline results per enrollment. Preserve raw scale and counts.
+        # Stage 3: bulk class -> discipline -> enrolled students.
+        # One class catalog request discovers discipline-teacher IDs; one bulk request
+        # per unique pair returns all students. This avoids one request per enrollment.
         async with AsyncSessionLocal() as session:
             await _set_tenant_rls_context(session, tenant_id)
             students = list((await session.execute(select(Student).where(
                 Student.tenant_id == tenant_id, Student.is_active.is_(True)
             ))).scalars().all())
-        enrollment_to_ra = {}
-        for student in students:
-            for enrollment in ((student.raw_data or {}).get("jacad") or {}).get("matriculas", []):
-                if enrollment.get("id_matricula") is not None:
-                    enrollment_to_ra[str(enrollment["id_matricula"])] = student.matricula
-        enrollments = sorted(enrollment_to_ra.items())
-        pending = [(eid, ra) for eid, ra in enrollments if not await _done(redis, job_id, "disciplines", eid)]
-        progress.update({"stage": "academic_disciplines", "discipline_enrollments_total": len(enrollments),
-                         "discipline_enrollments_done": len(enrollments)-len(pending), "percent": 55})
-        await _update(redis, job_id, progress=progress)
-        for offset in range(0, len(pending), settings.jacad_sync_concurrency * 4):
-            chunk = pending[offset:offset + settings.jacad_sync_concurrency * 4]
-            async def fetch_disciplines(eid: str):
+        class_ids = sorted({
+            int(enrollment["id_turma"])
+            for student in students
+            for enrollment in ((student.raw_data or {}).get("jacad") or {}).get("matriculas", [])
+            if enrollment.get("id_turma") is not None
+        })
+        class_disciplines: dict[str, tuple[int, int]] = {}
+        for offset in range(0, len(class_ids), settings.jacad_sync_concurrency * 4):
+            class_chunk = class_ids[offset:offset + settings.jacad_sync_concurrency * 4]
+            async def fetch_class(class_id: int):
                 async with semaphore:
-                    return await client.fetch_enrollment_disciplines(int(eid))
-            fetched = await asyncio.gather(*(fetch_disciplines(eid) for eid, _ in chunk))
-            updates = {}
-            for (eid, ra), rows in zip(chunk, fetched):
-                updates.setdefault(ra, {}).setdefault("academic_disciplines_by_enrollment", {})[eid] = [{
-                    "id_matricula_disciplina": x.get("idMatriculaDisciplina"),
-                    "id_disciplina_professor": x.get("idDisciplinaProfessor"),
-                    "id_turma_disciplina": x.get("idTurmaDisciplina"),
-                    "id_turma_matricula": x.get("idTurmaMatricula"),
-                    "id_aluno": x.get("idAluno"), "status": x.get("statusMatriculaDisciplina"),
-                    "disciplina": x.get("disciplina"), "professor": x.get("professor"),
-                    "periodo_letivo": x.get("periodoLetivo"), "turma": x.get("turma"),
-                    "quantidade_aulas": x.get("quantAulas"), "quantidade_faltas": x.get("quantFaltas"),
-                    "quantidade_faltas_transferencia": x.get("quantFaltasTransferencia"),
-                    "frequencia": x.get("frequencia"), "media_final": x.get("mediaFinal"),
-                    "nota_final": x.get("notaFinal"), "nota_exame": x.get("notaExame"),
-                    "data_modificacao": x.get("dataModificacao"),
-                } for x in rows]
+                    return await client.fetch_class_disciplines(class_id)
+            catalogs = await asyncio.gather(*(fetch_class(cid) for cid in class_chunk))
+            for class_id, rows in zip(class_chunk, catalogs):
+                for row in rows:
+                    discipline_id = row.get("idDisciplinaProfessor")
+                    if discipline_id is not None:
+                        key = f"{class_id}:{int(discipline_id)}"
+                        class_disciplines[key] = (class_id, int(discipline_id))
+
+        pair_items = sorted(class_disciplines.items())
+        pending = [(key, pair) for key, pair in pair_items if not await _done(redis, job_id, "disciplines", key)]
+        progress.update({
+            "stage": "academic_disciplines",
+            "discipline_enrollments_total": len(pair_items),
+            "discipline_enrollments_done": len(pair_items)-len(pending),
+            "percent": 55,
+        })
+        await _update(redis, job_id, progress=progress)
+        for offset in range(0, len(pending), settings.jacad_sync_concurrency * 2):
+            chunk = pending[offset:offset + settings.jacad_sync_concurrency * 2]
+            async def fetch_discipline(pair: tuple[int, int]):
+                async with semaphore:
+                    return await client.fetch_discipline_enrollments(pair[1])
+            fetched = await asyncio.gather(*(fetch_discipline(pair) for _, pair in chunk))
+            updates: dict[str, dict[str, Any]] = {}
+            for (key, _pair), rows in zip(chunk, fetched):
+                for row in rows:
+                    ra = str(row.get("ra") or "").strip()
+                    if not ra:
+                        continue
+                    updates.setdefault(ra, {}).setdefault("academic_disciplines_by_class_discipline", {})[key] = [{
+                        "id_matricula": item.get("idMatricula"),
+                        "id_matricula_disciplina": item.get("idMatriculaDisciplina"),
+                        "id_disciplina_professor": item.get("idDisciplinaProfessor"),
+                        "id_turma_disciplina": item.get("idTurmaDisciplina"),
+                        "id_aluno": item.get("idAluno"),
+                        "status_matricula": item.get("statusMatricula"),
+                        "status_disciplina": item.get("statusMatriculaDisciplina"),
+                        "disciplina": item.get("disciplina"),
+                        "professor": item.get("professor"),
+                        "periodo_letivo": item.get("periodoLetivo"),
+                        "turma": item.get("turma"),
+                        "quantidade_aulas": item.get("quantAulas"),
+                        "quantidade_faltas": item.get("quantFaltas"),
+                        "quantidade_faltas_transferencia": item.get("quantFaltasTransferencia"),
+                        "frequencia": item.get("frequencia"),
+                        "media_final": item.get("mediaFinal"),
+                        "nota_final": item.get("notaFinal"),
+                        "nota_exame": item.get("notaExame"),
+                        "data_modificacao": item.get("dataModificacao"),
+                    } for item in rows if str(item.get("ra") or "").strip() == ra]
             await _save_metadata(tenant_id, updates)
-            await _mark(redis, job_id, "disciplines", [eid for eid, _ in chunk])
+            await _mark(redis, job_id, "disciplines", [key for key, _ in chunk])
             progress["discipline_enrollments_done"] += len(chunk)
-            progress["percent"] = 55 + int(20 * progress["discipline_enrollments_done"] / max(1, len(enrollments)))
+            progress["percent"] = 55 + int(20 * progress["discipline_enrollments_done"] / max(1, len(pair_items)))
             await _update(redis, job_id, progress=progress)
 
         # Stage 4: itemized assessment notes, one request per unique class/discipline pair.
@@ -338,15 +370,7 @@ async def _run_sync(job_id: str, redis: Redis):
             students = list((await session.execute(select(Student).where(
                 Student.tenant_id == tenant_id, Student.is_active.is_(True)
             ))).scalars().all())
-        pairs: dict[str, tuple[int, int]] = {}
-        for student in students:
-            jacad = (student.raw_data or {}).get("jacad") or {}
-            for rows in jacad.get("academic_disciplines_by_enrollment", {}).values():
-                for row in rows:
-                    class_id, discipline_id = row.get("id_turma_disciplina"), row.get("id_disciplina_professor")
-                    if class_id is not None and discipline_id is not None:
-                        key = f"{int(class_id)}:{int(discipline_id)}"
-                        pairs[key] = (int(class_id), int(discipline_id))
+        pairs: dict[str, tuple[int, int]] = dict(class_disciplines)
         pair_items = sorted(pairs.items())
         pending = [(key, pair) for key, pair in pair_items if not await _done(redis, job_id, "assessment", key)]
         progress.update({"stage": "assessment_details", "assessment_groups_total": len(pair_items),
@@ -381,7 +405,7 @@ async def _run_sync(job_id: str, redis: Redis):
         progress.update({"stage": "completed", "percent": 100})
         result.update({
             "contracts_with_installments": len(contracts),
-            "discipline_enrollments": len(enrollments),
+            "discipline_enrollments": len(pair_items),\n            "classes_consulted": len(class_ids),
             "assessment_groups": len(pair_items),
             "scoring": "disabled_until_predictive_coverage_is_complete",
         })
