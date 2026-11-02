@@ -161,6 +161,11 @@ export default function StudentDetailPage() {
   )
     .map((a) => businessText(a))
     .filter(Boolean) as string[];
+  const scoreBreakdown = data?.shap_top_factors?.score_breakdown;
+  const ruleAdjustments = Array.isArray(data?.shap_top_factors?.rule_adjustments)
+    ? data.shap_top_factors.rule_adjustments
+    : [];
+  const explanationMetadata = data?.shap_top_factors?.explanation_metadata;
 
   return (
     <>
@@ -310,6 +315,64 @@ export default function StudentDetailPage() {
                     !summaryText && <p className="mt-3 text-[12px] text-[#98A2B3]">Nenhum fator de negócio disponível nesta avaliação.</p>
                   )}
                 </section>
+
+                {scoreBreakdown && (
+                  <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                    <h2 className="text-[15px] font-semibold text-[#111827]">Composição do score</h2>
+                    <p className="mt-1 text-[12px] text-[#667085]">
+                      Componentes apresentados separadamente. Os pontos das regras e os ajustes dinâmicos não são contribuições SHAP.
+                    </p>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      <InfoCard label="Score do modelo" value={displayValue(scoreBreakdown.model_score)} />
+                      <InfoCard label="Regras aplicadas" value={scoreBreakdown.business_rule_adjustment_applied != null ? `${Number(scoreBreakdown.business_rule_adjustment_applied) > 0 ? "+" : ""}${scoreBreakdown.business_rule_adjustment_applied} pts` : "Não informado"} />
+                      <InfoCard label="Ajuste dinâmico" value={scoreBreakdown.dynamic_adjustment_applied != null ? `${Number(scoreBreakdown.dynamic_adjustment_applied) > 0 ? "+" : ""}${scoreBreakdown.dynamic_adjustment_applied} pts` : "Não informado"} />
+                      <InfoCard label="Score final" value={displayValue(scoreBreakdown.final_score)} />
+                    </div>
+                  </section>
+                )}
+
+                {ruleAdjustments.length > 0 && (
+                  <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                    <h2 className="text-[15px] font-semibold text-[#111827]">Regras acionadas</h2>
+                    <p className="mt-1 text-[12px] text-[#667085]">
+                      Cada item mostra a condição observada e o ajuste solicitado pela regra.
+                    </p>
+                    <ul className="mt-4 space-y-2">
+                      {ruleAdjustments.map((rule: Record<string, unknown>, index: number) => {
+                        const evidence = rule.evidence && typeof rule.evidence === "object"
+                          ? rule.evidence as Record<string, unknown>
+                          : {};
+                        const observed = evidence.observed;
+                        const threshold = evidence.threshold;
+                        const field = typeof evidence.field === "string" ? evidence.field : null;
+                        const recommendation = businessText(typeof rule.recommendation === "string" ? rule.recommendation : null);
+                        return (
+                          <li key={String(rule.flag || index)} className="rounded-lg border border-[#E5E7EB] px-3.5 py-3">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <p className="text-[13px] font-semibold text-[#111827]">{businessText(String(rule.description || rule.flag || "Regra aplicada"))}</p>
+                              <span className="shrink-0 rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-semibold tabular-nums text-[#9A3412]">
+                                +{displayValue(typeof rule.delta_points === "number" ? rule.delta_points : null)} pts
+                              </span>
+                            </div>
+                            {field && observed != null && (
+                              <p className="mt-1.5 text-[12px] text-[#667085]">
+                                Evidência: {field} = {String(observed)}
+                                {threshold != null ? ` · limite ${String(evidence.operator || "")} ${String(threshold)}` : ""}
+                              </p>
+                            )}
+                            {recommendation && <p className="mt-2 text-[12px] leading-relaxed text-[#344054]">Próxima ação sugerida: {recommendation}</p>}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                )}
+
+                {explanationMetadata?.status === "unavailable" && (
+                  <p className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-[12px] text-[#92400E]">
+                    O score foi calculado, mas a explicação SHAP não ficou disponível nesta avaliação.
+                  </p>
+                )}
 
                 <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
                   <h2 className="text-[15px] font-semibold text-[#111827]">Sugestões operacionais</h2>
