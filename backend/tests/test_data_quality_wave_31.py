@@ -201,3 +201,32 @@ def test_invalid_observation_timestamp_is_unknown_not_fresh():
         }}
     })
     assert result["fields"]["nota_media"]["status"] == "unknown"
+
+
+def test_explicitly_stale_source_observation_blocks_scoring():
+    from app.ml.data_quality import assess_student_data_quality
+
+    student = {
+        **COMPLETE_STUDENT,
+        "raw_data": {
+            "_mira_provenance": {
+                "dias_sem_login": {
+                    "imported_at": "2026-11-01T12:00:00+00:00",
+                    "observed_at": "2026-10-01T00:00:00+00:00",
+                }
+            }
+        },
+    }
+    quality = assess_student_data_quality(student)
+    assert quality["can_score"] is False
+    assert "dias_sem_login" in quality["stale_fields"]
+    assert any(issue["reason"] == "stale_observation" for issue in quality["issues"])
+
+
+def test_unknown_freshness_does_not_claim_data_is_recent_or_block_legacy_scoring():
+    from app.ml.data_quality import assess_student_data_quality
+
+    quality = assess_student_data_quality(COMPLETE_STUDENT)
+    assert quality["can_score"] is True
+    assert quality["freshness"]["status"] == "unknown"
+    assert quality["freshness"]["counts"]["unknown"] == 7
