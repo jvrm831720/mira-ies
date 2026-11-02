@@ -90,3 +90,11 @@ Faixas: baixo < 40; médio >= 40 e < 70; crítico >= 70. A regra de classificaç
 - Métricas por curso, modalidade e período, com análise de viés e estabilidade.
 - Proveniência e frescor por campo de origem.
 - Explicação SHAP do pipeline calibrado completo (se houver método tecnicamente apropriado); nesta wave, a saída explicada é explicitamente a do estimador bruto.
+
+## Parâmetros e geração do modelo base atual
+
+O estimador base é um `XGBClassifier` com: `n_estimators=200`, `max_depth=5`, `learning_rate=0.06`, `subsample=0.85`, `colsample_bytree=0.8`, `reg_lambda=1.2`, `reg_alpha=0.3`, `min_child_weight=4`, `gamma=0.1`, objetivo `binary:logistic` e `random_state=42` no treino padrão.
+
+O conjunto sintético é construído a partir de três perfis (baixo, médio e alto) e recebe rótulo por uma função logística heurística. Os coeficientes da função sintética são: atraso financeiro 0,30; recorrência 0,15; dias sem login 0,22; ausência de presença 0,12; nota baixa 0,18; reprovações 0,12; início de semestre 0,10; atraso grave 0,12; engajamento crítico 0,12; combo crítico 0,10; risco financeiro 0,08; risco de engajamento 0,08; risco acadêmico 0,08. Ruído normal com desvio 0,07 é adicionado antes da função logística; rótulo positivo quando a probabilidade sintética excede 0,42.
+
+Esses coeficientes definem a geração dos rótulos sintéticos. **Não são pesos do XGBoost**, nem efeitos causais, nem estimativas de impacto sobre evasão real. A importância do XGBoost é calculada separadamente pelo estimador treinado.
