@@ -13,7 +13,7 @@ async def test_predict_returns_risk_score(client, auth_headers):
         json={
             "matricula": "1", "nome": "Risco Alto",
             "dias_atraso_boleto": 45, "recorrencia_atrasos": 3, "dias_sem_login": 30,
-            "presenca_percentual": 40.0, "nota_media": 3.0, "reprovacoes": 2, "semestre": 1, "semestre": 1,
+            "presenca_percentual": 40.0, "nota_media": 3.0, "reprovacoes": 2, "semestre": 1,
         },
     )
     assert resp.status_code == 200
