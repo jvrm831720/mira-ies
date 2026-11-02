@@ -19,7 +19,7 @@ from app.models.jacad_connection import TenantJacadConnection
 from app.models.student import Student
 from app.services.connectors import get_connector, ingest_records
 from app.services.connectors.jacad_mapping import enrich_jacad_students
-from app.services.connectors.jacad_api import JacadApiClient, decrypt_api_token
+from app.services.connectors.jacad_api import JacadApiClient, JacadQuotaDeferred, decrypt_api_token
 
 logger = logging.getLogger(__name__)
 PREFIX = "beacon:jacad:job:"
@@ -166,6 +166,44 @@ async def _save_metadata(tenant_id: str, updates: dict[str, dict[str, Any]]):
         await session.commit()
 
 
+async def _reserve_rate_window(redis: Redis, key: str, *, limit: int, window_ms: int) -> int:
+    script = """
+    local now = tonumber(ARGV[1])
+    local window = tonumber(ARGV[2])
+    local limit = tonumber(ARGV[3])
+    redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
+    local count = redis.call('ZCARD', KEYS[1])
+    if count >= limit then
+      local first = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+      return tonumber(first[2]) + window - now
+    end
+    redis.call('ZADD', KEYS[1], now, ARGV[4])
+    redis.call('PEXPIRE', KEYS[1], window + 60000)
+    return 0
+    """
+    now_ms = int(time.time() * 1000)
+    return int(await redis.eval(
+        script, 1, key, now_ms, window_ms, limit, f"{now_ms}:{uuid4()}"
+    ))
+
+
+async def _jacad_request_guard(redis: Redis, tenant_id: str) -> None:
+    # Official docs describe a 10 req/s IP limit and a default hourly token quota.
+    # Keep headroom: at most 9 requests/s globally and 900 requests/token/hour.
+    while True:
+        wait_ms = await _reserve_rate_window(
+            redis, "beacon:jacad:rate:global", limit=9, window_ms=1000
+        )
+        if wait_ms <= 0:
+            break
+        await asyncio.sleep(wait_ms / 1000 + 0.02)
+    wait_ms = await _reserve_rate_window(
+        redis, f"beacon:jacad:rate:tenant:{tenant_id}", limit=900, window_ms=3600000
+    )
+    if wait_ms > 0:
+        raise JacadQuotaDeferred(wait_ms / 1000 + 2)
+
+
 async def _run_sync(job_id: str, redis: Redis):
     job = await get_jacad_job(job_id, redis=redis)
     if not job:
@@ -185,7 +223,7 @@ async def _run_sync(job_id: str, redis: Redis):
             raise RuntimeError("Configure uma conexão JACAD ativa com ID da organização.")
         base_url, token, org_id = connection.base_url, decrypt_api_token(connection.encrypted_api_token), connection.default_org_id
 
-    client = JacadApiClient(base_url, token)
+    client = JacadApiClient(base_url, token, request_guard=lambda: _jacad_request_guard(redis, tenant_id))
     semaphore = asyncio.Semaphore(settings.jacad_sync_concurrency)
     try:
         # Stage 1: canonical base data. Re-ingestion is idempotent by tenant + RA.
@@ -442,6 +480,14 @@ async def process_jacad_sync_job(job_id: str, redis: Redis) -> bool:
         try:
             await _run_sync(job_id, redis)
             return True
+        except JacadQuotaDeferred as exc:
+            delay = max(60, int(exc.wait_seconds))
+            await _update(
+                redis, job_id, status="retrying", attempt=max(0, attempt - 1),
+                last_error=str(exc), next_retry_at=int(time.time()) + delay,
+            )
+            await redis.zadd(settings.jacad_queue_name + ":delayed", {job_id: time.time() + delay})
+            return False
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"[:1200]
             if attempt < int(job.get("max_attempts", settings.jacad_max_attempts)):
