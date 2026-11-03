@@ -144,3 +144,56 @@ def test_context_rejects_header_injection():
 def test_http_requires_explicit_opt_in_for_private_network_deployments():
     client = ReadOnlyRestClient(base_url="http://127.0.0.1:8051", allow_insecure_http=True)
     assert client is not None
+
+
+@pytest.mark.asyncio
+async def test_offset_pagination_supports_fixed_query_params_and_raw_list_response():
+    requests = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        offset = int(request.url.params["start"])
+        records = [{"RA": "000001"}, {"RA": "000002"}] if offset == 0 else []
+        return httpx.Response(200, json=records)
+
+    client = ReadOnlyRestClient(
+        base_url="https://rm.example.test/rmsrestdataserver/rest",
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        pages = [
+            page
+            async for page in client.iter_offset_pages(
+                "EduAlunoData",
+                items_key="",
+                page_size=2,
+                query_params={"filter": '["CODCOLIGADA =:CODCOLIGADA","3"]'},
+            )
+        ]
+    finally:
+        await client.aclose()
+
+    assert len(pages) == 1
+    assert [row["RA"] for row in pages[0]] == ["000001", "000002"]
+    assert dict(requests[0].url.params) == {
+        "start": "0",
+        "limit": "2",
+        "filter": '["CODCOLIGADA =:CODCOLIGADA","3"]',
+    }
+
+
+@pytest.mark.asyncio
+async def test_offset_pagination_rejects_reserved_query_params():
+    client = ReadOnlyRestClient(base_url="https://rm.example.test")
+    try:
+        with pytest.raises(ConnectorConfigurationError, match="reservados"):
+            _ = [
+                page
+                async for page in client.iter_offset_pages(
+                    "EduAlunoData",
+                    items_key="",
+                    query_params={"start": 999},
+                )
+            ]
+    finally:
+        await client.aclose()

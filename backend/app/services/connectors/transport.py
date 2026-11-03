@@ -136,18 +136,20 @@ class ReadOnlyRestClient:
         page_size: int = 100,
         start: int = 0,
         max_pages: int = 1000,
+        query_params: Mapping[str, str | int | float] | None = None,
     ) -> AsyncIterator[list[Any]]:
         """Percorre páginas por offset sem descartar silenciosamente resultados."""
-        if not items_key.strip():
-            raise ConnectorConfigurationError("Informe a chave da lista na resposta.")
         if page_size < 1 or max_pages < 1 or start < 0:
             raise ConnectorConfigurationError("Parâmetros de paginação inválidos.")
+        extra_params = dict(query_params or {})
+        if any(key in {"start", "limit"} for key in extra_params):
+            raise ConnectorConfigurationError("Parâmetros start e limit são reservados à paginação.")
 
         offset = start
         for _ in range(max_pages):
             payload = await self.get_json(
                 path,
-                params={"start": offset, "limit": page_size},
+                params={"start": offset, "limit": page_size, **extra_params},
             )
             if isinstance(payload, list):
                 items = payload
