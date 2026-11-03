@@ -8,6 +8,7 @@ from app.models.risk_assessment import RiskAssessment
 from app.models.work_activity import WorkActivity, WorkActivityEvent
 from app.models.jacad_connection import TenantJacadConnection
 from app.models.sponte_connection import TenantSponteConnection
+from app.models.rm_sync import RmSyncScope, RmSyncRun, RmSyncPage, RmSyncRecord
 
 __all__ = [
     "UploadBatch",
@@ -31,4 +32,8 @@ __all__ = [
     "WorkActivityEvent",
     "TenantJacadConnection",
     "TenantSponteConnection",
+    "RmSyncScope",
+    "RmSyncRun",
+    "RmSyncPage",
+    "RmSyncRecord",
 ]
