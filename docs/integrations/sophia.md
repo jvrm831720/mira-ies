@@ -33,6 +33,38 @@ Não há documentação pública oficial consultada que permita afirmar, para a 
 
 **Não implementar chamadas com endpoints presumidos.** A documentação pública encontrada para SophiA Biblioteca Web/Philos pertence a outro produto e não deve ser reutilizada como contrato da API do ERP.
 
+
+## 2A. Descoberta adicional: guia público da API Web v1
+
+Foi localizado um documento intitulado **“API Web de Integração do SophiA — Versão 1.0”**, publicado em uma plataforma de terceiros (Scribd), não no domínio oficial da Prima. Ele descreve especificamente SophiA Gestão Escolar Web e exige que o módulo Web API esteja habilitado. É uma evidência técnica útil para discovery, mas não deve ser tratado como documentação oficial atual nem como prova de compatibilidade com a instalação de qualquer cliente.
+
+### O que o guia v1 descreve
+
+- API REST, com payloads e respostas em JSON ou XML.
+- Cabeçalhos `User-Agent`, `Host`, `Content-Type`, `Accept` e `Token`.
+- Autenticação `POST /Autenticacao/PostAutenticacao`, com usuário e senha de integração.
+- Token atrelado ao endereço IP do equipamento que o solicitou; o token é renovado a cada requisição e expira após 20 minutos sem uso.
+- Recursos documentados incluem:
+  - `GET /Unidade/GetUnidades`
+  - `GET /Curso/GetCursos`
+  - `GET /FichaFinanceira/GetFichaFinanceira?codigo={codigo}`
+  - `GET /Nota/ListarNotasRecentes?codigo={codigo}`
+  - `GET /Boletim/GetFiltroBoletim?codigo={codigo}`
+  - `GET /Aviso/GetAvisos`
+  - além de recursos de boleto, calendário, campanhas, prospectivos e autenticação de pessoa.
+- A ficha financeira retorna itens com `IdTitulo`, `DataPagamento`, `DataVcto`, `Pago`, `ValorPago` e `ValorPrevisto`; datas usam o formato legado Microsoft JSON Date.
+- Notas recentes incluem disciplina, etapa, turma, descrição e nota; o exemplo contém valores sentinela como `-1` e notas em string com vírgula decimal, que exigem parsing e semântica validados.
+
+### Limitação decisiva para a MIRA
+
+O guia v1 encontrado **não documenta um endpoint de listagem/exportação de todos os alunos nem de matrículas**. As chamadas de boletim, notas e ficha financeira dependem de um `codigo` interno do aluno. O documento também não descreve paginação ou sincronização incremental.
+
+Portanto, não é correto implementar uma carga institucional em massa com base apenas nesse guia. A autenticação IP-bound também exige que autenticação e chamadas subsequentes saiam pelo mesmo IP público estável; não podemos compartilhar tokens entre workers com egressos diferentes.
+
+**Conclusão técnica:** o guia v1 permite projetar um adaptador read-only para consultas pontuais por código interno, mas não comprova que a API seja suficiente para o caso de uso de sincronização institucional da MIRA. Precisamos confirmar se existe API de integração/extração mais recente ou endpoints adicionais habilitados no produto/versão da instituição.
+
+Fonte secundária localizada: https://pt.scribd.com/document/592604325/Integracao-API-Web (50 páginas; “API Web de Integração do SophiA”, versão 1.0). Não reproduzir nem incorporar o documento integral ao repositório.
+
 ## 3. Fontes consultadas
 
 1. SophiA — Parcerias e Integrações (site oficial): https://sophia.com.br/integracoes/
@@ -43,7 +75,9 @@ Não há documentação pública oficial consultada que permita afirmar, para a 
 3. Agenda Edu — Como solicitar a integração:
    https://atendimento.agendaedu.com/hc/pt-br/articles/12935986823067-Como-solicitar-a-integra%C3%A7%C3%A3o-do-sistema-de-gest%C3%A3o-SophiA-com-a-Agenda-Edu
    - Confirma dependência do módulo API, credenciais e parametrização com a instituição.
-4. Repositório MIRA — `backend/app/services/connectors/erp.py`
+4. Guia “API Web de Integração do SophiA”, versão 1.0, cópia em plataforma de terceiros: https://pt.scribd.com/document/592604325/Integracao-API-Web
+   - Evidência secundária de uma API REST v1, autenticação IP-bound e recursos pontuais. Não comprova compatibilidade atual nem cobertura de exportação em massa.
+5. Repositório MIRA — `backend/app/services/connectors/erp.py`
    - Transformer legado; não representa documentação oficial do fornecedor.
 
 ## 4. Pacote necessário para homologação
