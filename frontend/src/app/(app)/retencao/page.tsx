@@ -1,23 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Activity,
   Check,
   CircleAlert,
+  Layers,
   Mail,
   MessageCircle,
   Play,
   ShieldCheck,
   Smartphone,
 } from "lucide-react";
+import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { loadGroupMemberIds } from "@/lib/retention-audience";
 import type { RiskLevel, RetentionRunResult } from "@/types/api";
 
 const levelOptions: { value: RiskLevel; title: string; detail: string; color: string }[] = [
@@ -31,20 +36,67 @@ const channelItems = [
   { key: "sms", label: "SMS", icon: Smartphone },
 ] as const;
 
-export default function RetencaoPage() {
+function RetencaoContent() {
+  const searchParams = useSearchParams();
+  const groupFromUrl = searchParams.get("group")?.trim() || "";
+  const dryRunFromUrl = searchParams.get("dry_run") === "1" || searchParams.get("dry_run") === "true";
+  const campaignFromUrl = searchParams.get("campaign")?.trim() || "";
+
   const queryClient = useQueryClient();
   const [limit, setLimit] = useState(50);
   const [levels, setLevels] = useState<RiskLevel[]>(["critico"]);
-  const [campaign, setCampaign] = useState("");
+  const [campaign, setCampaign] = useState(campaignFromUrl);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RetentionRunResult | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [dryRun, setDryRun] = useState(true);
+  const [groupAudienceApplied, setGroupAudienceApplied] = useState(false);
 
   const status = useQuery({ queryKey: ["agents-status"], queryFn: () => api.agentsStatus() });
   const critical = useQuery({
     queryKey: ["risk-critical-retention"],
     queryFn: () => api.riskCritical(30),
   });
+  const groupDetail = useQuery({
+    queryKey: ["student-groups", "detail", groupFromUrl],
+    queryFn: () => api.studentGroupDetail(groupFromUrl),
+    enabled: Boolean(groupFromUrl),
+    retry: false,
+  });
+  const groupMembers = useQuery({
+    queryKey: ["retention-audience", "group", groupFromUrl],
+    queryFn: () => loadGroupMemberIds(groupFromUrl),
+    enabled: Boolean(groupFromUrl),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (dryRunFromUrl || groupFromUrl) setDryRun(true);
+  }, [dryRunFromUrl, groupFromUrl]);
+
+  useEffect(() => {
+    if (!groupFromUrl || !groupMembers.data || groupAudienceApplied) return;
+    const ids = groupMembers.data.ids;
+    setSelectedIds(ids);
+    setLimit(Math.min(500, Math.max(1, ids.length || 50)));
+    if (!campaign.trim() && groupDetail.data?.name) {
+      setCampaign(`Grupo · ${groupDetail.data.name}`);
+    } else if (!campaign.trim() && campaignFromUrl) {
+      setCampaign(campaignFromUrl);
+    }
+    setGroupAudienceApplied(true);
+    if (groupMembers.data.truncated) {
+      toast.message("Público do grupo carregado parcialmente (limite de páginas)."
+      );
+    }
+  }, [
+    groupFromUrl,
+    groupMembers.data,
+    groupDetail.data,
+    groupAudienceApplied,
+    campaign,
+    campaignFromUrl,
+  ]);
 
   const students = critical.data?.students ?? [];
 
@@ -59,14 +111,23 @@ export default function RetencaoPage() {
   }
 
   async function run() {
-    if (levels.length === 0) {
-      toast.error("Selecione ao menos um nível de risco.");
+    if (!selectedIds.length && levels.length === 0) {
+      toast.error("Selecione níveis de risco ou alunos do público.");
       return;
     }
-    const ok = window.confirm(
-      "A régua será executada para os alunos elegíveis, respeitando anti-spam e opt-out. Continuar?"
-    );
-    if (!ok) return;
+    if (groupFromUrl && !dryRun) {
+      const okConfirm = window.confirm(
+        "Este público veio de um grupo. A primeira execução recomendada é dry-run. Deseja enviar de verdade mesmo assim?"
+      );
+      if (!okConfirm) return;
+    } else {
+      const ok = window.confirm(
+        dryRun
+          ? "Simular a régua (dry-run) para o público selecionado? Nenhuma mensagem real será enviada."
+          : "A régua será executada para os alunos elegíveis, respeitando anti-spam e opt-out. Continuar?"
+      );
+      if (!ok) return;
+    }
 
     setLoading(true);
     try {
@@ -75,16 +136,19 @@ export default function RetencaoPage() {
         `campanha-${new Date().toISOString().slice(0, 10)}-${Math.random().toString(36).slice(2, 7)}`;
       const response = await api.retentionRun(
         {
-          risk_levels: levels,
+          risk_levels: selectedIds.length ? undefined : levels,
           limit,
           campaign_id: campaignId,
-          dry_run: false,
+          campaign_name: campaign.trim() || undefined,
+          dry_run: dryRun,
           student_ids: selectedIds.length ? selectedIds : undefined,
         },
         crypto.randomUUID()
       );
       setResult(response);
-      toast.success(response.message || "Régua concluída.");
+      toast.success(
+        response.message || (dryRun ? "Simulação concluída." : "Régua concluída.")
+      );
       void queryClient.invalidateQueries({ queryKey: ["retention-logs"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível executar a régua.");
@@ -117,6 +181,34 @@ export default function RetencaoPage() {
         subtitle="Defina o público, nomeie a campanha e execute a régua de contato."
       />
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pb-10 pt-5 md:px-9 md:pt-7">
+        {groupFromUrl ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-[13px] text-[#1D4ED8]">
+            <Layers className="h-4 w-4 shrink-0" />
+            <span className="font-semibold">
+              Público originado do grupo{" "}
+              {groupDetail.data?.name || groupFromUrl}
+            </span>
+            {groupMembers.isLoading ? (
+              <span className="text-[#667085]">Carregando integrantes…</span>
+            ) : null}
+            {groupMembers.isError ? (
+              <span className="text-[#B42318]">Falha ao carregar membros do grupo.</span>
+            ) : null}
+            {groupMembers.data ? (
+              <span className="text-[#344054]">
+                {groupMembers.data.ids.length.toLocaleString("pt-BR")} alunos pré-selecionados
+                {groupMembers.data.truncated ? " (carga parcial)" : ""}
+              </span>
+            ) : null}
+            <Link
+              href={"/alunos/grupos/" + encodeURIComponent(groupFromUrl)}
+              className="ml-auto font-semibold underline underline-offset-2"
+            >
+              Voltar ao grupo
+            </Link>
+          </div>
+        ) : null}
+
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
           <Card>
             <CardHeader>
@@ -126,7 +218,9 @@ export default function RetencaoPage() {
               </div>
               <CardTitle className="text-lg">Quem deve receber atenção?</CardTitle>
               <CardDescription>
-                Escolha níveis de risco, limite e, se quiser, alunos específicos da lista prioritária.
+                {groupFromUrl
+                  ? "Integrantes do grupo (resultado TRUE) foram pré-selecionados. Você pode ajustar antes de executar."
+                  : "Escolha níveis de risco, limite e, se quiser, alunos específicos da lista prioritária."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -152,12 +246,13 @@ export default function RetencaoPage() {
                         key={option.value}
                         type="button"
                         aria-pressed={selected}
+                        disabled={selectedIds.length > 0}
                         onClick={() => toggleLevel(option.value)}
                         className={`relative flex min-h-[82px] items-start gap-3 rounded-xl border p-3.5 text-left transition ${
                           selected
                             ? "border-primary/35 bg-secondary/70 shadow-[0_0_0_2px_rgba(64,80,205,0.08)]"
                             : "border-border bg-white hover:bg-muted/40"
-                        }`}
+                        } ${selectedIds.length > 0 ? "opacity-50" : ""}`}
                       >
                         <span
                           className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border"
@@ -172,7 +267,9 @@ export default function RetencaoPage() {
                         <span>
                           <span className="block text-xs font-semibold">{option.title}</span>
                           <span className="mt-1 block text-[10px] leading-relaxed text-muted-foreground">
-                            {option.detail}
+                            {selectedIds.length > 0
+                              ? "Ignorado enquanto houver alunos selecionados"
+                              : option.detail}
                           </span>
                         </span>
                       </button>
@@ -195,13 +292,66 @@ export default function RetencaoPage() {
                     className="h-11 w-full rounded-xl border border-input bg-white px-3.5 text-sm tabular-nums outline-none focus:ring-2 focus:ring-primary/25"
                   />
                 </label>
-                <p className="flex items-start gap-2 rounded-xl bg-muted/35 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  Anti-spam e opt-out permanecem ativos em toda execução.
-                </p>
+                <label className="flex cursor-pointer items-start gap-2 rounded-xl bg-muted/35 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={dryRun}
+                    onChange={(e) => setDryRun(e.target.checked)}
+                  />
+                  <span>
+                    <span className="font-semibold text-foreground">Dry-run (simulação)</span>
+                    <br />
+                    Recomendado quando o público veio de um grupo. Nenhuma mensagem real é enviada.
+                  </span>
+                </label>
               </div>
 
-              {students.length > 0 && (
+              <p className="flex items-start gap-2 rounded-xl bg-muted/35 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                Anti-spam e opt-out permanecem ativos em toda execução.
+              </p>
+
+              {selectedIds.length > 0 && (
+                <div className="border-t border-border pt-5">
+                  <p className="mb-2 text-xs font-semibold">
+                    Alunos no público ({selectedIds.length.toLocaleString("pt-BR")})
+                  </p>
+                  <p className="mb-3 text-[11px] text-muted-foreground">
+                    Origem: {groupFromUrl ? "grupo virtual" : "seleção manual"}. Desmarque para
+                    remover do público desta execução.
+                  </p>
+                  <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                    {selectedIds.slice(0, 80).map((id) => {
+                      const fromCritical = students.find((s) => s.id === id);
+                      return (
+                        <li key={id}>
+                          <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-muted/40">
+                            <input
+                              type="checkbox"
+                              checked
+                              onChange={() => toggleStudent(id)}
+                            />
+                            <span className="font-medium">
+                              {fromCritical?.nome || id.slice(0, 8) + "…"}
+                            </span>
+                            {fromCritical?.matricula ? (
+                              <span className="text-muted-foreground">{fromCritical.matricula}</span>
+                            ) : null}
+                          </label>
+                        </li>
+                      );
+                    })}
+                    {selectedIds.length > 80 ? (
+                      <li className="px-2 py-1 text-[11px] text-muted-foreground">
+                        + {(selectedIds.length - 80).toLocaleString("pt-BR")} não listados na prévia
+                      </li>
+                    ) : null}
+                  </ul>
+                </div>
+              )}
+
+              {!groupFromUrl && students.length > 0 && (
                 <div className="border-t border-border pt-5">
                   <p className="mb-2 text-xs font-semibold">
                     Selecionar alunos prioritários (opcional)
@@ -241,7 +391,9 @@ export default function RetencaoPage() {
                   </span>
                   Canais
                 </div>
-                <CardTitle className="text-base text-white">Executar régua</CardTitle>
+                <CardTitle className="text-base text-white">
+                  {dryRun ? "Simular régua" : "Executar régua"}
+                </CardTitle>
                 <CardDescription className="text-white/60">
                   WhatsApp, e-mail e SMS conforme a configuração da instituição.
                 </CardDescription>
@@ -265,18 +417,22 @@ export default function RetencaoPage() {
                 </div>
                 <Button
                   onClick={run}
-                  disabled={loading || levels.length === 0}
+                  disabled={loading || (!selectedIds.length && levels.length === 0)}
                   className="w-full bg-[var(--brand-coral)] text-[var(--brand-midnight)] hover:bg-[#ff8a7c]"
                 >
                   {loading ? <Activity className="h-4 w-4 animate-pulse" /> : <Play className="h-4 w-4" />}
-                  {loading ? "Executando…" : "Executar régua agora"}
+                  {loading
+                    ? "Executando…"
+                    : dryRun
+                      ? "Simular agora (dry-run)"
+                      : "Executar régua agora"}
                 </Button>
               </CardContent>
             </Card>
             <div className="flex items-start gap-2.5 rounded-xl border border-[#f4d4ce] bg-[#fff4f1] p-3.5 text-xs leading-relaxed text-[#963b32]">
               <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
-                Confira níveis e alunos antes de executar. A régua respeita opt-out e intervalos de
+                Confira o público antes de executar. A régua respeita opt-out e intervalos de
                 contato.
               </span>
             </div>
@@ -313,27 +469,25 @@ export default function RetencaoPage() {
                   </div>
                 ))}
               </div>
-              {result.by_channel && (
-                <div className="border-t border-border pt-4">
-                  <h3 className="mb-3 text-xs font-semibold">Por canal</h3>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {Object.entries(result.by_channel).map(([channel, stats]) => (
-                      <div key={channel} className="rounded-xl bg-muted/35 px-3.5 py-3">
-                        <p className="text-xs font-semibold capitalize">{channel}</p>
-                        <p className="mt-1 text-[10px] text-muted-foreground">
-                          {Object.entries(stats)
-                            .map(([label, value]) => `${label}: ${value}`)
-                            .join(" · ")}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
       </main>
     </>
+  );
+}
+
+export default function RetencaoPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-10">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </main>
+      }
+    >
+      <RetencaoContent />
+    </Suspense>
   );
 }
