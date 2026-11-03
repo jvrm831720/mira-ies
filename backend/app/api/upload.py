@@ -809,7 +809,7 @@ async def confirm_multiple_students_files(
         allowed = role_fields[role]
         recognized = {field for field in mapped.values() if field in allowed}
         missing = {"matricula"} - recognized
-        if role == "cadastro":
+        if role in {"cadastro", "alunos"}:
             missing |= {"nome"} - recognized
         if missing:
             errors.append(f"{filename}: colunas obrigatórias ausentes: {', '.join(sorted(missing))}.")
