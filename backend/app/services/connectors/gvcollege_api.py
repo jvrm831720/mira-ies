@@ -39,6 +39,7 @@ class GvcollegeViewContract:
 
     view_name: str
     source_fields: tuple[str, ...]
+    pagination_key: str
     field_mapping: Mapping[str, str] = field(default_factory=dict)
     default_order_by: str | None = None
 
@@ -51,12 +52,14 @@ class GvcollegeViewContract:
             )
         if not self.source_fields:
             raise GvcollegeConfigurationError("A view precisa declarar campos")
+        if self.pagination_key not in self.source_fields:
+            raise GvcollegeConfigurationError("pagination_key deve ser campo contratado")
         if any(not _IDENTIFIER.fullmatch(name) for name in self.source_fields):
             raise GvcollegeConfigurationError("Campo de origem inválido")
         if len(set(self.source_fields)) != len(self.source_fields):
             raise GvcollegeConfigurationError("Campos de origem duplicados")
-        if self.default_order_by and self.default_order_by not in self.source_fields:
-            raise GvcollegeConfigurationError("Ordenação fora do contrato da view")
+        if self.default_order_by and self.default_order_by != self.pagination_key:
+            raise GvcollegeConfigurationError("default_order_by deve ser a chave única de paginação")
         if any(
             target not in self.source_fields
             for target in self.field_mapping.values()
@@ -189,9 +192,9 @@ class GvcollegeWebAPIClient:
     ) -> list[dict[str, Any]]:
         contract = self._contract(view_key)
         ordering = order_by or contract.default_order_by
-        if not ordering or ordering not in contract.source_fields:
+        if ordering != contract.pagination_key:
             raise GvcollegeConfigurationError(
-                "$orderby é obrigatório e deve usar campo contratado"
+                "$orderby deve usar a chave única de paginação homologada"
             )
         if skip < 0:
             raise GvcollegeConfigurationError("$skip não pode ser negativo")
@@ -259,9 +262,9 @@ class GvcollegeWebAPIClient:
             raise GvcollegeConfigurationError("max_pages deve ser positivo")
         contract = self._contract(view_key)
         ordering = order_by or contract.default_order_by
-        if not ordering:
+        if ordering != contract.pagination_key:
             raise GvcollegeConfigurationError(
-                "Paginação exige $orderby estável configurado"
+                "Paginação exige $orderby pela chave única homologada"
             )
         skip = 0
         for _ in range(max_pages):
