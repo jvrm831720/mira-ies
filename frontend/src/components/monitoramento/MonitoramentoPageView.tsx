@@ -9,7 +9,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
-  Info,
   RefreshCw,
   TrendingUp,
   Users,
@@ -65,12 +64,6 @@ export function MonitoramentoPageView() {
     retry: false,
   });
 
-  const workQuery = useQuery({
-    queryKey: ["retention-work-summary-monitor"],
-    queryFn: () => api.retentionWorkSummary(),
-    retry: false,
-  });
-
   const selectedHistoryQuery = useQuery({
     queryKey: ["student-risk-history", selectedStudentId, from, to],
     queryFn: () =>
@@ -100,8 +93,8 @@ export function MonitoramentoPageView() {
               Monitoramento de risco
             </h1>
             <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
-              Distribuição atual, evolução entre avaliações reais, analytics de intervenções e fatores
-              preservados — sem inferir causalidade.
+              Evolução temporal das avaliações de risco persistidas: scores, movimentações entre níveis
+              e trajetória por aluno. A fila operacional fica na Visão geral e na Central de Trabalho.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -176,60 +169,56 @@ export function MonitoramentoPageView() {
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
-          <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-            <div className="mb-4">
+        <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
               <h2 className="text-[14px] font-semibold text-[#101828]">Distribuição atual de risco</h2>
-              <p className="mt-1 text-[11px] text-[#667085]">Snapshot da base — independente do período histórico.</p>
-            </div>
-            {summaryQuery.isLoading && <Skeleton className="h-36 rounded-lg" />}
-            {summaryQuery.isError && (
-              <p className="rounded-lg border border-[#FECDCA] bg-[#FEF3F2] p-3 text-[12px] text-[#B42318]">
-                Não foi possível carregar o resumo de risco atual.
+              <p className="mt-1 text-[11px] text-[#667085]">
+                Snapshot da base — independente do período histórico abaixo. Sem score não é baixo risco.
               </p>
-            )}
-            {summary && (
-              <CurrentRiskDistribution
-                summary={summary}
-                totalStudents={summaryQuery.data?.total_students}
-                totalScored={summaryQuery.data?.total_scored}
-              />
-            )}
-          </div>
-          <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-            <div className="mb-4">
-              <h2 className="text-[14px] font-semibold text-[#101828]">Fila operacional</h2>
-              <p className="mt-1 text-[11px] text-[#667085]">Pendências de retenção — não desfechos de evasão.</p>
             </div>
-            {workQuery.isLoading && <Skeleton className="h-28 rounded-lg" />}
-            {workQuery.isError && (
-              <p className="text-[12px] text-[#B42318]">Resumo operacional indisponível.</p>
-            )}
-            {workQuery.data && (
-              <div className="space-y-3">
-                <Metric label="Pendentes" value={workQuery.data.pending} hint="Ainda não concluídos" icon={<Users className="h-4 w-4" />} />
-                <Metric
-                  label={"Atrasados (>" + workQuery.data.overdue_policy_hours + "h)"}
-                  value={workQuery.data.overdue_48h}
-                  hint="Política de atraso da instituição"
-                  icon={<ArrowUpRight className="h-4 w-4" />}
-                  tone="danger"
-                />
-                <Metric label="Falhas" value={workQuery.data.failed} hint="Execuções com erro" icon={<Info className="h-4 w-4" />} />
-                <Link href="/trabalho" className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#175CD3]">
-                  Central de Trabalho <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/trabalho"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#344054] hover:bg-white"
+              >
+                Central de Trabalho
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+              <Link
+                href="/alunos?tab=dados_insuficientes"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#344054] hover:bg-white"
+              >
+                Sem score / cobertura
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
           </div>
+          {summaryQuery.isLoading && <Skeleton className="h-36 rounded-lg" />}
+          {summaryQuery.isError && (
+            <p className="rounded-lg border border-[#FECDCA] bg-[#FEF3F2] p-3 text-[12px] text-[#B42318]">
+              Não foi possível carregar o resumo de risco atual.
+            </p>
+          )}
+          {summary && (
+            <CurrentRiskDistribution
+              summary={summary}
+              totalStudents={summaryQuery.data?.total_students}
+              totalScored={summaryQuery.data?.total_scored}
+            />
+          )}
         </section>
-
-        <RetentionAnalyticsPanel days={Number(period)} />
 
         {historyQuery.isError && (
           <div role="alert" className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-5">
-            <p className="text-[13px] font-semibold text-[#B42318]">Não foi possível carregar o histórico de risco.</p>
-            <button onClick={refresh} className="mt-3 text-[12px] font-semibold text-[#B42318] underline">
+            <p className="text-[13px] font-semibold text-[#B42318]">
+              Não foi possível carregar o histórico de risco.
+            </p>
+            <button
+              type="button"
+              onClick={refresh}
+              className="mt-3 text-[12px] font-semibold text-[#B42318] underline"
+            >
               Tentar novamente
             </button>
           </div>
@@ -245,10 +234,32 @@ export function MonitoramentoPageView() {
           data && (
             <>
               <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                <Metric label="Avaliações registradas" value={data.total_assessments} hint="Eventos no período" icon={<Activity className="h-4 w-4" />} />
-                <Metric label="Risco aumentou" value={counts?.increased ?? 0} hint="Mesma versão e escopo" icon={<ArrowUpRight className="h-4 w-4" />} tone="danger" />
-                <Metric label="Risco diminuiu" value={counts?.decreased ?? 0} hint="Mesma versão e escopo" icon={<ArrowDownRight className="h-4 w-4" />} tone="success" />
-                <Metric label="Mudança de classificação" value={counts?.classification_changed ?? 0} hint="Transição confirmada" icon={<TrendingUp className="h-4 w-4" />} />
+                <Metric
+                  label="Avaliações registradas"
+                  value={data.total_assessments}
+                  hint="Eventos no período"
+                  icon={<Activity className="h-4 w-4" />}
+                />
+                <Metric
+                  label="Risco aumentou"
+                  value={counts?.increased ?? 0}
+                  hint="Mesma versão e escopo"
+                  icon={<ArrowUpRight className="h-4 w-4" />}
+                  tone="danger"
+                />
+                <Metric
+                  label="Risco diminuiu"
+                  value={counts?.decreased ?? 0}
+                  hint="Mesma versão e escopo"
+                  icon={<ArrowDownRight className="h-4 w-4" />}
+                  tone="success"
+                />
+                <Metric
+                  label="Mudança de classificação"
+                  value={counts?.classification_changed ?? 0}
+                  hint="Transição confirmada"
+                  icon={<TrendingUp className="h-4 w-4" />}
+                />
                 <Metric
                   label="Sem histórico comparável"
                   value={(counts?.no_comparable_history ?? 0) + (counts?.model_changed ?? 0)}
@@ -257,11 +268,11 @@ export function MonitoramentoPageView() {
                 />
               </section>
 
-              {data.temporal_data_truncated && (
+              {data.temporal_data_truncated ? (
                 <p className="rounded-lg border border-[#FEDF89] bg-[#FFFAEB] p-3 text-[12px] text-[#B54708]">
                   Série temporal limitada aos registros mais recentes; totais podem estar parciais.
                 </p>
-              )}
+              ) : null}
 
               <section className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
                 <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
@@ -274,7 +285,9 @@ export function MonitoramentoPageView() {
                 <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
                   <div className="mb-4">
                     <h2 className="text-[14px] font-semibold text-[#101828]">Distribuição histórica</h2>
-                    <p className="mt-1 text-[11px] text-[#667085]">Avaliação representativa por aluno/semana</p>
+                    <p className="mt-1 text-[11px] text-[#667085]">
+                      Avaliação representativa por aluno/semana
+                    </p>
                   </div>
                   <DistributionTimeline data={data.timeline} />
                 </div>
@@ -324,16 +337,26 @@ export function MonitoramentoPageView() {
                               </div>
                             </td>
                             <td className="px-3 py-3.5 text-[12px] font-semibold">
-                              {m.delta == null ? "—" : (m.delta > 0 ? "+" : "") + scoreLabel(m.delta)}
+                              {m.delta == null
+                                ? "—"
+                                : (m.delta > 0 ? "+" : "") + scoreLabel(m.delta)}
                             </td>
                             <td className="px-3 py-3.5">
-                              <span className={cn("inline-flex rounded-full px-2 py-1 text-[10px] font-medium", movementTone(m.change_type))}>
+                              <span
+                                className={cn(
+                                  "inline-flex rounded-full px-2 py-1 text-[10px] font-medium",
+                                  movementTone(m.change_type)
+                                )}
+                              >
                                 {CHANGE_LABEL[m.change_type]}
                               </span>
                             </td>
                             <td className="px-5 py-3.5 text-[11px] text-[#667085]">
                               {dateTimeLabel(m.current_evaluated_at)}
-                              <Link href={"/alunos/" + m.student_id} className="mt-1 block text-[10px] font-semibold text-[#175CD3]">
+                              <Link
+                                href={"/alunos/" + m.student_id}
+                                className="mt-1 block text-[10px] font-semibold text-[#175CD3]"
+                              >
                                 Ficha
                               </Link>
                             </td>
@@ -345,7 +368,7 @@ export function MonitoramentoPageView() {
                 )}
               </section>
 
-              {selectedStudentId && (
+              {selectedStudentId ? (
                 <section className="rounded-xl border border-[#B2CCFF] bg-white p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -354,67 +377,73 @@ export function MonitoramentoPageView() {
                         {selectedHistoryQuery.data?.student.name || "Carregando…"}
                       </p>
                     </div>
-                    <button type="button" onClick={() => setSelectedStudentId(null)} className="text-[11px] text-[#667085]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStudentId(null)}
+                      className="text-[11px] text-[#667085]"
+                    >
                       Fechar
                     </button>
                   </div>
-                  {selectedHistoryQuery.isLoading && <Skeleton className="mt-4 h-20 rounded-lg" />}
-                  {selectedHistoryQuery.isError && (
+                  {selectedHistoryQuery.isLoading ? (
+                    <Skeleton className="mt-4 h-20 rounded-lg" />
+                  ) : null}
+                  {selectedHistoryQuery.isError ? (
                     <p className="mt-4 text-[12px] text-[#B42318]">Falha ao carregar trajetória.</p>
-                  )}
-                  {selectedHistoryQuery.data && (
+                  ) : null}
+                  {selectedHistoryQuery.data ? (
                     <>
-                      <StudentAssessmentTimeline assessments={selectedHistoryQuery.data.assessments} />
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                          <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Avaliações e fatores</h3>
-                          {selectedHistoryQuery.data.assessments.length === 0 && (
-                            <p className="text-[12px] text-[#667085]">Sem avaliações no período.</p>
-                          )}
-                          {selectedHistoryQuery.data.assessments.map((a) => (
-                            <div key={a.id} className="mb-2 rounded-lg border border-[#EAECF0] p-3">
-                              <div className="flex justify-between gap-2">
-                                <span className="text-[12px] font-semibold">Score {scoreLabel(a.score)}</span>
-                                <RiskBadge level={a.risk_level} />
-                              </div>
-                              <p className="mt-1 text-[10px] text-[#667085]">{dateTimeLabel(a.evaluated_at)}</p>
-                              {a.explanation_available && a.explanation?.top_factors?.length ? (
-                                <ul className="mt-2 list-disc pl-4 text-[11px] text-[#475467]">
-                                  {a.explanation.top_factors.map((f, i) => (
-                                    <li key={a.id + "-" + i}>{f.label || f.feature || "Fator"}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="mt-2 text-[10px] text-[#667085]">Fatores não preservados nesta avaliação.</p>
-                              )}
+                      <StudentAssessmentTimeline
+                        assessments={selectedHistoryQuery.data.assessments}
+                      />
+                      <div className="mt-4 space-y-2">
+                        {selectedHistoryQuery.data.assessments.map((a) => (
+                          <div key={a.id} className="rounded-lg border border-[#EAECF0] p-3">
+                            <div className="flex justify-between gap-2">
+                              <span className="text-[12px] font-semibold">
+                                Score {scoreLabel(a.score)}
+                              </span>
+                              <RiskBadge level={a.risk_level} />
                             </div>
-                          ))}
-                        </div>
-                        <div>
-                          <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Intervenções</h3>
-                          {selectedHistoryQuery.data.interventions.length === 0 && (
-                            <p className="text-[12px] text-[#667085]">Nenhuma no período.</p>
-                          )}
-                          {selectedHistoryQuery.data.interventions.map((i) => (
-                            <div key={i.id} className="mb-2 rounded-lg border border-[#EAECF0] p-3 text-[12px]">
-                              <p className="font-medium">
-                                {i.channel || "Canal n/d"} · {i.status}
-                              </p>
-                              <p className="mt-1 text-[10px] text-[#667085]">{dateTimeLabel(i.created_at)}</p>
-                              <p className="mt-1 text-[10px] text-[#475467]">
-                                Desfecho: {i.outcome || "Ainda não registrado"}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
+                            <p className="mt-1 text-[10px] text-[#667085]">
+                              {dateTimeLabel(a.evaluated_at)}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </>
-                  )}
+                  ) : null}
                 </section>
-              )}
+              ) : null}
             </>
           )
         )}
+
+        <details className="group rounded-xl border border-[#E5E7EB] bg-white open:shadow-sm">
+          <summary className="cursor-pointer list-none px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-[14px] font-semibold text-[#101828]">
+                  Analytics de intervenções
+                  <span className="ml-2 text-[11px] font-medium text-[#98A2B3]">(secundário)</span>
+                </h2>
+                <p className="mt-1 text-[11px] text-[#667085]">
+                  Métricas de retenção no período — não substituem a evolução de risco acima. Abra se
+                  precisar cruzar volume de contatos.
+                </p>
+              </div>
+              <span className="text-[11px] font-semibold text-[#2563EB] group-open:hidden">
+                Expandir
+              </span>
+              <span className="hidden text-[11px] font-semibold text-[#667085] group-open:inline">
+                Recolher
+              </span>
+            </div>
+          </summary>
+          <div className="border-t border-[#E5E7EB] px-5 pb-5 pt-4">
+            <RetentionAnalyticsPanel days={Number(period)} />
+          </div>
+        </details>
       </main>
     </>
   );
