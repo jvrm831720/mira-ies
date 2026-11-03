@@ -147,3 +147,73 @@ Todos os campos devem preservar valor bruto, origem e proveniência. Ausência d
 ## 9. Próxima dependência externa
 
 A implementação do cliente real depende de receber a documentação técnica e exemplos sanitizados da API SophiA Gestão Escolar Web usada por uma instituição. Até lá, esta branch contém apenas o dossier e não deve criar credenciais, migrations, endpoints presumidos ou sincronizações reais.
+
+
+## 2B. Descoberta adicional: relatórios e extração operacional
+
+A documentação pública oficial de suporte do SophiA Gestão Escolar descreve relatórios que podem ser gerados pela interface:
+
+- **Alunos por turma:** acessar Turmas, usar Busca avançada para filtrar período/situação, selecionar as turmas, abrir Relatórios e escolher “Alunos da turma”. A documentação orienta visualizar o relatório.
+  Fonte: https://suporte.sophia.com.br/bc/SG/SEIW/comoimprimirarelacaodealunosporturma.htm
+- **Matrículas e rematrículas por período:** acessar Relatórios > Acadêmico > “Matrículas e rematrículas por período”, parametrizar e visualizar; o tipo distingue matrícula nova de rematrícula.
+  Fonte: https://suporte.sophia.com.br/bc/SG/SEIW/como_imprimir_a_relacao_de_mat.htm
+- **Planilha acadêmica:** relatório flexível por turma, com seleção de campos por aluno e disciplina. A documentação lista média, média final, faltas, percentual de faltas, presenças, percentual de frequência, situação acadêmica, aulas dadas e tarefas. O fluxo documentado termina em “Visualizar”.
+  Fonte: https://suporte.sophia.com.br/bc/SG/SEIW/como_imprimir_a_planilha_acade.htm
+
+### O que isso comprova — e o que não comprova
+
+Comprova que a interface possui relatórios operacionais para consultar alunos por turma, matrículas/rematrículas e dados acadêmicos. Não comprova:
+- exportação nativa CSV/XLSX desses relatórios;
+- execução agendada ou entrega automática;
+- extração consolidada de todas as turmas/períodos em um único arquivo;
+- presença de uma chave estável de matrícula em todos os relatórios;
+- disponibilidade dos campos financeiros detalhados em exportação;
+- mecanismo de delta/alterações desde a última extração.
+
+**Decisão:** considerar relatórios como caminho de discovery para uma carga inicial assistida, mas não prometer automação ou tratar PDF/relatório impresso como contrato de dados. Antes de construir um adaptador, é necessário confirmar no produto instalado se o relatório pode ser exportado em formato tabular (CSV/XLSX) e quais colunas/chaves são selecionáveis. Se só houver impressão/PDF, isso não atende sozinho ao requisito de ingestão recorrente confiável.
+
+## 2C. Auditoria do pipeline de importação MIRA
+
+A inspeção do código da branch `main` identificou que o pipeline genérico atual já aceita CSV, XLS e XLSX, detecta abas, permite mapeamento manual de colunas e oferece prévia sem persistência antes da confirmação. A importação individual usa os campos canônicos definidos em `backend/app/services/ingestion.py`; matrícula e nome são obrigatórios, e os demais campos são opcionais. A prévia informa correspondências existentes e a persistência atualiza registros pela matrícula, preservando valores existentes quando as células recebidas estão vazias.
+
+Arquivos inspecionados:
+- `frontend/src/components/import/ImportWizard.tsx`
+- `frontend/src/lib/api.ts`
+- `frontend/src/types/api.ts`
+- `backend/app/api/upload.py`
+- `backend/app/services/ingestion.py`
+- `backend/app/services/connectors/base.py`
+
+### Campos canônicos que podem receber relatórios SophiA
+
+| Campo MIRA | Evidência potencial no relatório SophiA | Condição |
+|---|---|---|
+| `matricula` | código/RA do aluno | confirmar identificador e estabilidade |
+| `nome` | nome do aluno | confirmar presença e cabeçalho |
+| `curso` | curso | confirmar se o relatório selecionado inclui |
+| `turma` | turma | confirmar formato e cardinalidade |
+| `status_aluno` | situação acadêmica | mapear apenas após validar os valores reais |
+| `nota_media` | média/média geral | confirmar escala, etapa e agregação |
+| `presenca_percentual` | percentual de frequência | confirmar denominador e período |
+| `reprovacoes` | não comprovado nos relatórios consultados | não inferir a partir de situação acadêmica |
+| campos financeiros | não comprovados nos relatórios consultados | requer relatório financeiro próprio e dicionário de dados |
+| `dias_sem_login` | não comprovado nos relatórios consultados | requer evento/timestamp de acesso definido |
+
+O importador possui aliases de cabeçalho e permite mapeamento manual, mas isso não resolve diferenças semânticas. Em especial, a planilha acadêmica permite selecionar dados por aluno e disciplina; não se deve importar uma média por disciplina como se fosse média geral do estudante sem regra de agregação confirmada.
+
+### Inconsistência encontrada no fluxo de múltiplos arquivos
+
+Na versão inspecionada de `main`, a UI oferece os papéis `academico`, `historico` e `matriculas`, mas o backend de prévia/confirmação múltipla aceita papéis diferentes (`cadastro`, `alunos`, `financeiro`, `engajamento`, `desempenho`; a prévia também contém `cursos`). Portanto, selecionar alguns papéis apresentados na UI pode resultar em “tipo de base desconhecido”. A lista de papéis da prévia e da confirmação também não é idêntica.
+
+Esse ponto precisa ser corrigido e coberto por testes antes de recomendar a importação multi-arquivo para um pacote SophiA. Não foi alterado nesta PR de discovery.
+
+### Recomendação de ingestão para SophiA
+
+1. Preferir um único CSV/XLSX tabular de cadastro/matrículas com uma linha por vínculo de matrícula, desde que a chave seja estável e a cardinalidade seja definida.
+2. Usar o importador individual existente para a primeira prova de conceito, com prévia, mapeamento explícito e scoring automático desabilitado até a homologação dos atributos.
+3. Importar financeiro, frequência e desempenho como bases complementares somente depois de definir a chave de junção, granularidade temporal e regras de consolidação.
+4. Não usar nomes como chave de junção; não colapsar múltiplas matrículas de um mesmo aluno sem regra de negócio aprovada.
+5. Não tratar ausência de coluna/valor como zero, presença, aprovação ou adimplência.
+6. Manter origem, arquivo, período de referência e data de extração rastreáveis. Uma nova carga deve ser comparada com a anterior antes de substituir atributos.
+
+**Conclusão do pipeline:** MIRA já possui um caminho de importação manual estruturado que pode servir como ponte para SophiA, mas a extração tabular do fornecedor e a consistência do modo multi-arquivo ainda precisam ser comprovadas/corrigidas. Não é necessário criar um segundo importador SophiA antes de testar o formato real exportado.
