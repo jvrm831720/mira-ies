@@ -192,7 +192,7 @@ def inspect_file_structure(file_content: bytes, ext: str) -> dict[str, Any]:
 # Campos desconhecidos ou ausentes permanecem desconhecidos; o papel apenas
 # limita quais colunas do arquivo podem alimentar o cadastro do estudante.
 MULTI_UPLOAD_ROLE_FIELDS: dict[str, set[str]] = {
-    "cadastro": {"matricula", "nome", "telefone", "email", "communication_opt_out"},
+    "cadastro": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
     "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro"},
     "academico": {"matricula", "curso", "campus"},
     "historico": {"matricula", "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes"},
