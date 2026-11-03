@@ -20,7 +20,7 @@ async def test_preview_accepts_all_roles_exposed_by_import_wizard(client, auth_h
         "/api/v1/upload/preview-multiple",
         headers=auth_headers,
         files=_files_for_canonical_roles(),
-        data=[("file_roles", role) for role in roles],
+        data={"file_roles": roles},
     )
 
     assert response.status_code == 200, response.text
@@ -40,7 +40,7 @@ async def test_confirmation_uses_same_role_contract_and_persists_merged_student(
         "/api/v1/upload/confirm-multiple",
         headers={**auth_headers, "Idempotency-Key": "multi-role-contract-canonical-001"},
         files=_files_for_canonical_roles(),
-        data=[("file_roles", role) for role in roles],
+        data={"file_roles": roles},
     )
 
     assert response.status_code == 201, response.text
@@ -66,7 +66,7 @@ async def test_confirmation_uses_same_role_contract_and_persists_merged_student(
         "/api/v1/upload/confirm-multiple",
         headers={**auth_headers, "Idempotency-Key": "multi-role-contract-canonical-001"},
         files=_files_for_canonical_roles(),
-        data=[("file_roles", role) for role in roles],
+        data={"file_roles": roles},
     )
     assert replay.status_code == 201, replay.text
     assert replay.json()["idempotent_replay"] is True
@@ -86,7 +86,7 @@ async def test_legacy_role_aliases_are_consistent_between_preview_and_confirmati
         "/api/v1/upload/preview-multiple",
         headers=auth_headers,
         files=files,
-        data=[("file_roles", role) for role in roles],
+        data={"file_roles": roles},
     )
     assert preview.status_code == 200, preview.text
     assert preview.json()["summary"]["files_valid"] == 4
@@ -96,7 +96,7 @@ async def test_legacy_role_aliases_are_consistent_between_preview_and_confirmati
         "/api/v1/upload/confirm-multiple",
         headers={**auth_headers, "Idempotency-Key": "multi-role-contract-legacy-001"},
         files=files,
-        data=[("file_roles", role) for role in roles],
+        data={"file_roles": roles},
     )
     assert confirmation.status_code == 201, confirmation.text
     assert confirmation.json()["students_imported"] == 1
