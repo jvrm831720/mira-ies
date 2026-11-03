@@ -15,12 +15,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { api } from "@/lib/api";
 import type { RMTotvsJob, RMTotvsJobStatus } from "@/lib/api";
 
-const ACTIVE = ["queued", "running", "retry_wait", "cancel_requested"];
+const ACTIVE = ["queued", "running", "retry_wait", "cancel_requested", "publishing"];
 const STATUS: Record<string, { label: string; className: string }> = {
   queued: { label: "Na fila", className: "bg-slate-100 text-slate-700" },
   running: { label: "Em execução", className: "bg-blue-50 text-blue-700" },
   retry_wait: { label: "Aguardando retry", className: "bg-amber-50 text-amber-700" },
   cancel_requested: { label: "Cancelamento solicitado", className: "bg-amber-50 text-amber-700" },
+  publishing: { label: "Publicando snapshot", className: "bg-blue-50 text-blue-700" },
   cancelled: { label: "Cancelada", className: "bg-slate-100 text-slate-600" },
   succeeded: { label: "Concluída", className: "bg-emerald-50 text-emerald-700" },
   failed: { label: "Falhou", className: "bg-red-50 text-red-700" },
@@ -30,7 +31,7 @@ const EVENT_LABELS: Record<string, string> = {
   lease_recovered: "Execução retomada após perda de lease",
   snapshot_attached: "Snapshot associado", retry_scheduled: "Nova tentativa agendada",
   manual_retry: "Nova tentativa solicitada manualmente",
-  cancel_requested: "Cancelamento solicitado", cancelled: "Execução cancelada",
+  cancel_requested: "Cancelamento solicitado", publishing: "Início da publicação atômica", cancelled: "Execução cancelada",
   succeeded: "Execução concluída", failed: "Execução encerrada com falha",
 };
 
@@ -275,7 +276,7 @@ export default function TotvsRmOperationsPage() {
                     <span className={`absolute left-0 top-1.5 h-2 w-2 rounded-full ${event.severity === "error" ? "bg-red-500" : event.severity === "warning" ? "bg-amber-500" : "bg-blue-500"}`} />
                     <p className="text-[11px] font-medium">{EVENT_LABELS[event.event_type] || event.event_type}</p>
                     <p className="mt-0.5 text-[10px] text-muted-foreground">{dateLabel(event.created_at)}</p>
-                    {event.details?.code && <p className="mt-1 text-[10px] text-muted-foreground">Código: {String(event.details.code)}</p>}
+                    {event.details?.code != null && <p className="mt-1 text-[10px] text-muted-foreground">Código: {String(event.details.code)}</p>}
                   </li>)}
                 </ol> : <p className="text-[11px] text-muted-foreground">Nenhum evento disponível.</p>}
               </div>

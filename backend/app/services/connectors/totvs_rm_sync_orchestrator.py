@@ -20,7 +20,7 @@ from app.models.rm_sync import RmSyncRun, RmSyncScope
 from app.models.rm_sync_jobs import RmSyncJob, RmSyncJobEvent
 
 
-ACTIVE_STATUSES = ("queued", "running", "retry_wait", "cancel_requested")
+ACTIVE_STATUSES = ("queued", "running", "retry_wait", "cancel_requested", "publishing")
 TERMINAL_STATUSES = ("cancelled", "succeeded", "failed")
 
 
@@ -188,13 +188,34 @@ class RMPostgresSyncQueue:
         async with self.sessions() as session, session.begin():
             # Each claim is scoped to one tenant. The worker never bypasses RLS.
             await self._tenant(session, tenant_id)
+            stale_cancel = (await session.execute(
+                select(RmSyncJob).where(
+                    RmSyncJob.tenant_id == tenant_id,
+                    RmSyncJob.status == "cancel_requested",
+                    RmSyncJob.heartbeat_at < stale_before,
+                ).order_by(RmSyncJob.heartbeat_at)
+                .with_for_update(skip_locked=True).limit(1)
+            )).scalar_one_or_none()
+            if stale_cancel is not None:
+                stale_cancel.status = "cancelled"
+                stale_cancel.finished_at = now
+                stale_cancel.worker_id = None
+                stale_cancel.locked_at = None
+                stale_cancel.heartbeat_at = None
+                self._event(
+                    session, tenant_id=tenant_id, job_id=stale_cancel.id,
+                    event_type="cancelled", severity="warning",
+                    details={"reason": "worker_lease_expired_after_cancel"},
+                )
+                return None
+
             candidate = (await session.execute(
                 select(RmSyncJob).where(
                     RmSyncJob.tenant_id == tenant_id,
                     (
                         (RmSyncJob.status.in_(("queued", "retry_wait"))
                          & (RmSyncJob.available_at <= now))
-                        | ((RmSyncJob.status == "running")
+                        | (RmSyncJob.status.in_(("running", "publishing"))
                            & (RmSyncJob.heartbeat_at < stale_before))
                     )
                 ).order_by(RmSyncJob.available_at, RmSyncJob.created_at)
@@ -207,11 +228,14 @@ class RMPostgresSyncQueue:
                 candidate.finished_at = now
                 candidate.error_code = "worker_lease_exhausted"
                 candidate.error_message = "Limite de tentativas atingido após perda de lease."
+                candidate.worker_id = None
+                candidate.locked_at = None
+                candidate.heartbeat_at = None
                 self._event(session, tenant_id=candidate.tenant_id, job_id=candidate.id,
                             event_type="failed", severity="error",
                             details={"code": candidate.error_code})
                 return None
-            reclaimed = candidate.status == "running"
+            reclaimed = candidate.status in ("running", "publishing")
             candidate.status = "running"
             candidate.attempts += 1
             candidate.worker_id = worker_id
@@ -223,6 +247,7 @@ class RMPostgresSyncQueue:
                         details={"attempt": candidate.attempts, "worker_id": worker_id})
             return {
                 "id": candidate.id, "tenant_id": candidate.tenant_id,
+                "worker_id": worker_id,
                 "scope_id": candidate.scope_id, "snapshot_run_id": candidate.snapshot_run_id,
                 "request": candidate.request, "attempt": candidate.attempts,
                 "max_attempts": candidate.max_attempts,
@@ -259,7 +284,7 @@ class RMPostgresSyncQueue:
                 return False
             if row.status == "cancel_requested":
                 return False
-            if row.status != "running":
+            if row.status not in ("running", "publishing"):
                 return False
             row.heartbeat_at = datetime.now(timezone.utc)
             return True
@@ -282,6 +307,8 @@ class RMPostgresSyncQueue:
                 raise RMJobNotFound("Execução não encontrada.")
             if row.status in TERMINAL_STATUSES or row.status == "cancel_requested":
                 return row.status
+            if row.status == "publishing":
+                raise RMJobConflict("O snapshot já entrou na etapa atômica de publicação; aguarde a conclusão.")
             now = datetime.now(timezone.utc)
             if row.status in ("queued", "retry_wait"):
                 row.status = "cancelled"
@@ -293,6 +320,24 @@ class RMPostgresSyncQueue:
                         event_type="cancelled" if row.status == "cancelled" else "cancel_requested",
                         details={"resulting_status": row.status, "actor_user_id": actor_user_id, "actor_type": actor_type})
             return row.status
+
+    async def authorize_publish(self, *, tenant_id: str, job_id: str, worker_id: str) -> bool:
+        """Atomically establish the publication boundary against operator cancellation."""
+        async with self.sessions() as session, session.begin():
+            await self._tenant(session, tenant_id)
+            row = (await session.execute(select(RmSyncJob).where(
+                RmSyncJob.id == job_id, RmSyncJob.tenant_id == tenant_id
+            ).with_for_update())).scalar_one_or_none()
+            if row is None or row.worker_id != worker_id:
+                raise RMJobConflict("Lease do worker não pertence a esta execução.")
+            if row.status == "cancel_requested":
+                return False
+            if row.status != "running":
+                raise RMJobConflict("Job não está em estado válido para publicação.")
+            row.status = "publishing"
+            self._event(session, tenant_id=tenant_id, job_id=job_id,
+                        event_type="publishing", details={"worker_id": worker_id})
+            return True
 
     async def finish(self, *, tenant_id: str, job_id: str, worker_id: str,
                      snapshot_run_id: str | None = None) -> str:
@@ -315,10 +360,12 @@ class RMPostgresSyncQueue:
                 row.status = "cancelled"
                 row.finished_at = now
                 event = "cancelled"
-            else:
+            elif row.status == "publishing":
                 row.status = "succeeded"
                 row.snapshot_run_id = effective_run_id
                 event = "succeeded"
+            else:
+                raise RMJobConflict("Job precisa atravessar a fronteira publishing antes de finalizar.")
             row.finished_at = now
             row.error_code = None if row.status == "succeeded" else row.error_code
             row.error_message = None if row.status == "succeeded" else row.error_message
@@ -557,12 +604,12 @@ class RMPostgresSyncQueue:
                 "tenant_id": tenant_id,
                 "jobs_by_status": by_status,
                 "queue_depth": by_status.get("queued", 0) + by_status.get("retry_wait", 0),
-                "active_jobs": by_status.get("running", 0) + by_status.get("cancel_requested", 0),
+                "active_jobs": by_status.get("running", 0) + by_status.get("cancel_requested", 0) + by_status.get("publishing", 0),
                 "average_duration_seconds": float(average_seconds) if average_seconds is not None else None,
             }
 
 
-Executor = Callable[[dict, Callable[[], Awaitable[bool]], Callable[[], Awaitable[bool]], Callable[[str], Awaitable[None]]], Awaitable[dict | None]]
+Executor = Callable[[dict, Callable[[], Awaitable[bool]], Callable[[], Awaitable[bool]], Callable[[str], Awaitable[None]], Callable[[], Awaitable[bool]]], Awaitable[dict | None]]
 
 
 class RMSyncWorker:
@@ -605,6 +652,11 @@ class RMSyncWorker:
                 worker_id=self.worker_id, snapshot_run_id=snapshot_run_id,
             )
 
+        async def before_publish() -> bool:
+            return await self.queue.authorize_publish(
+                tenant_id=job["tenant_id"], job_id=job["id"], worker_id=self.worker_id
+            )
+
         lease_lost = asyncio.Event()
 
         async def renew_lease() -> None:
@@ -633,7 +685,7 @@ class RMSyncWorker:
         try:
             if await cancelled():
                 raise RMJobCancelled()
-            result = await self.executor(job, heartbeat, cancelled, attach_snapshot)
+            result = await self.executor(job, heartbeat, cancelled, attach_snapshot, before_publish)
             if lease_lost.is_set() or not await heartbeat():
                 if await cancelled():
                     raise RMJobCancelled()
@@ -654,8 +706,11 @@ class RMSyncWorker:
             await asyncio.gather(heartbeat_task, return_exceptions=True)
         return True
 
-    async def serve(self, *, poll_seconds: float = 2.0, once: bool = False) -> None:
-        while True:
+    async def serve(
+        self, *, poll_seconds: float = 2.0, once: bool = False,
+        stop_event: asyncio.Event | None = None,
+    ) -> None:
+        while stop_event is None or not stop_event.is_set():
             processed = await self.run_once()
             if once:
                 return

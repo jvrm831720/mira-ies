@@ -18,7 +18,7 @@ from app.services.connectors.totvs_rm_sync_orchestrator import (
 router = APIRouter(prefix="/integrations/totvs-rm", tags=["Integração TOTVS RM"])
 queue = RMPostgresSyncQueue(AsyncSessionLocal)
 
-JOB_STATUSES = {"queued", "running", "retry_wait", "cancel_requested", "cancelled", "succeeded", "failed"}
+JOB_STATUSES = {"queued", "running", "retry_wait", "cancel_requested", "publishing", "cancelled", "succeeded", "failed"}
 
 
 class CreateRMSyncJobBody(BaseModel):

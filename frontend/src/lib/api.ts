@@ -123,7 +123,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
-export type RMTotvsJobStatus = "queued" | "running" | "retry_wait" | "cancel_requested" | "cancelled" | "succeeded" | "failed";
+export type RMTotvsJobStatus = "queued" | "running" | "retry_wait" | "cancel_requested" | "publishing" | "cancelled" | "succeeded" | "failed";
 export type RMTotvsScope = {
   id: string; coligada_id: string; source_name: string; entity_name: string;
   schema_version: string; current_snapshot_run_id?: string | null;

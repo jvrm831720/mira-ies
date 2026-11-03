@@ -33,7 +33,7 @@ class RmSyncJob(Base):
         Index("ix_rm_sync_jobs_scope_status", "scope_id", "status"),
         Index(
             "uq_rm_sync_jobs_active_coligada", "tenant_id", "coligada_id", unique=True,
-            postgresql_where=text("status IN ('queued', 'running', 'retry_wait', 'cancel_requested')"),
+            postgresql_where=text("status IN ('queued', 'running', 'retry_wait', 'cancel_requested', 'publishing')"),
         ),
     )
 
