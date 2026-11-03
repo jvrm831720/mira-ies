@@ -24,6 +24,7 @@ def make_config(**overrides):
             "pessoa": GvcollegeViewContract(
                 view_name="Pessoa",
                 source_fields=("codigo", "nome", "email"),
+                pagination_key="codigo",
                 field_mapping={"matricula": "codigo", "nome": "nome"},
                 default_order_by="codigo",
             )
@@ -145,7 +146,7 @@ def test_view_and_field_contract_is_explicit():
     with pytest.raises(GvcollegeConfigurationError):
         GvcollegeViewContract("dbo.GVMVW_Pessoa", ("codigo",))
     with pytest.raises(GvcollegeConfigurationError):
-        GvcollegeViewContract("Pessoa", ("codigo",), default_order_by="nome")
+        GvcollegeViewContract("Pessoa", ("codigo",), pagination_key="codigo", default_order_by="nome")
 
 
 @pytest.mark.asyncio
