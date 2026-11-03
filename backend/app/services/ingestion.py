@@ -373,7 +373,11 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "status_financeiro": safe_str(row.get("status_financeiro"))[:80] if safe_str(row.get("status_financeiro")) else None,
         "dias_sem_login": _clamp_int(safe_int(row.get("dias_sem_login")), 0, 3650),
         "presenca_percentual": _clamp(safe_float(row.get("presenca_percentual")), 0.0, 100.0),
-        "nota_media": _clamp(safe_float(row.get("nota_media")), 0.0, 10.0),
+        "nota_media": (
+            None
+            if safe_float(row.get("nota_media")) == -1
+            else _clamp(safe_float(row.get("nota_media")), 0.0, 10.0)
+        ),
         "reprovacoes": _clamp_int(safe_int(row.get("reprovacoes")), 0, 100),
     }
     return data, warnings
