@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -37,31 +38,95 @@ import {
   ModelVersionCell,
   AssessmentModelLine,
 } from "@/components/monitoramento/comparability";
+import type { RiskMovement } from "@/types/api";
 
-export function MonitoramentoPageView() {
-  const [period, setPeriod] = useState<Period>("90");
-  const [course, setCourse] = useState("");
-  const [riskLevel, setRiskLevel] = useState("");
+type MovementFilter =
+  | ""
+  | "risco_aumentou"
+  | "risco_diminuiu"
+  | "mudanca_modelo"
+  | "sem_historico_comparavel"
+  | "classification_changed";
+
+const PERIOD_VALUES: Period[] = ["30", "90", "180", "365"];
+
+function MonitoramentoPageInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [period, setPeriod] = useState<Period>(() => {
+    const p = searchParams.get("period") || "";
+    return PERIOD_VALUES.includes(p as Period) ? (p as Period) : "90";
+  });
+  const [course, setCourse] = useState(() => searchParams.get("course") || "");
+  const [riskLevel, setRiskLevel] = useState(() => {
+    const r = searchParams.get("risk") || searchParams.get("risk_level") || "";
+    return ["critico", "medio", "baixo"].includes(r) ? r : "";
+  });
+  const [movementFilter, setMovementFilter] = useState<MovementFilter>(() => {
+    const m = searchParams.get("movement") || "";
+    if (
+      [
+        "risco_aumentou",
+        "risco_diminuiu",
+        "mudanca_modelo",
+        "sem_historico_comparavel",
+        "classification_changed",
+      ].includes(m)
+    ) {
+      return m as MovementFilter;
+    }
+    return "";
+  });
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [to, setTo] = useState(() => new Date().toISOString());
+  const [historyPage, setHistoryPage] = useState(1);
+  const [extraMovements, setExtraMovements] = useState<RiskMovement[]>([]);
+
   const from = useMemo(
     () => new Date(new Date(to).getTime() - Number(period) * 86400000).toISOString(),
     [period, to]
   );
 
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (period !== "90") params.set("period", period);
+    if (course) params.set("course", course);
+    if (riskLevel) params.set("risk", riskLevel);
+    if (movementFilter) params.set("movement", movementFilter);
+    const qs = params.toString();
+    const next = qs ? pathname + "?" + qs : pathname;
+    router.replace(next, { scroll: false });
+  }, [period, course, riskLevel, movementFilter, pathname, router]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+    setExtraMovements([]);
+  }, [period, course, riskLevel, from, to]);
+
   const historyQuery = useQuery({
-    queryKey: ["risk-history", period, course, riskLevel, from, to],
+    queryKey: ["risk-history", period, course, riskLevel, from, to, historyPage],
     queryFn: () =>
       api.riskHistory({
         from,
         to,
         course: course || undefined,
         risk_level: riskLevel || undefined,
-        page: 1,
+        page: historyPage,
         page_size: 50,
       }),
     retry: false,
   });
+
+  useEffect(() => {
+    if (!historyQuery.data || historyPage <= 1) return;
+    setExtraMovements((prev) => {
+      const seen = new Set(prev.map((m) => m.student_id));
+      const added = historyQuery.data!.movements.filter((m) => !seen.has(m.student_id));
+      return prev.concat(added);
+    });
+  }, [historyQuery.data, historyPage]);
 
   const summaryQuery = useQuery({
     queryKey: ["risk-summary-monitor"],
@@ -79,9 +144,32 @@ export function MonitoramentoPageView() {
 
   const data = historyQuery.data;
   const courseOptions = data?.courses ?? [];
-  const refresh = () => setTo(new Date().toISOString());
+  const refresh = () => {
+    setHistoryPage(1);
+    setExtraMovements([]);
+    setTo(new Date().toISOString());
+  };
   const counts = data?.comparison_counts;
-  const movements = data?.movements ?? [];
+  const baseMovements = data?.movements ?? [];
+  const movements = useMemo(() => {
+    const list =
+      extraMovements.length === 0
+        ? baseMovements
+        : Array.from(
+            new Map(
+              [...baseMovements, ...extraMovements].map((m) => [m.student_id, m] as const)
+            ).values()
+          );
+    if (!movementFilter) return list;
+    if (movementFilter === "classification_changed") {
+      return list.filter((m) => m.classification_changed);
+    }
+    return list.filter((m) => m.change_type === movementFilter);
+  }, [baseMovements, extraMovements, movementFilter]);
+
+  const canLoadMore =
+    Boolean(data?.pagination) &&
+    (data?.pagination.page ?? 1) < (data?.pagination.pages ?? 1);
   const summary = summaryQuery.data?.summary;
 
   return (
@@ -103,7 +191,9 @@ export function MonitoramentoPageView() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor="risk-period">Período</label>
+            <label className="sr-only" htmlFor="risk-period">
+              Período
+            </label>
             <select
               id="risk-period"
               value={period}
@@ -135,7 +225,7 @@ export function MonitoramentoPageView() {
         </section>
 
         <section className="flex flex-wrap items-end gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4">
-          <label className="flex min-w-[180px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
+          <label className="flex min-w-[160px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
             Curso
             <select
               value={course}
@@ -144,11 +234,13 @@ export function MonitoramentoPageView() {
             >
               <option value="">Todos os cursos</option>
               {courseOptions.map((v) => (
-                <option key={v} value={v}>{v}</option>
+                <option key={v} value={v}>
+                  {v}
+                </option>
               ))}
             </select>
           </label>
-          <label className="flex min-w-[180px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
+          <label className="flex min-w-[160px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
             Classificação
             <select
               value={riskLevel}
@@ -159,6 +251,21 @@ export function MonitoramentoPageView() {
               <option value="critico">Crítico</option>
               <option value="medio">Moderado</option>
               <option value="baixo">Baixo</option>
+            </select>
+          </label>
+          <label className="flex min-w-[200px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
+            Movimentação
+            <select
+              value={movementFilter}
+              onChange={(e) => setMovementFilter(e.target.value as MovementFilter)}
+              className="h-9 rounded-lg border border-[#D0D5DD] bg-white px-2.5 text-[12px] text-[#344054]"
+            >
+              <option value="">Todas as movimentações</option>
+              <option value="risco_aumentou">Risco aumentou</option>
+              <option value="risco_diminuiu">Risco diminuiu</option>
+              <option value="classification_changed">Mudança de nível</option>
+              <option value="mudanca_modelo">Mudança de modelo</option>
+              <option value="sem_historico_comparavel">Sem histórico comparável</option>
             </select>
           </label>
           <div className="flex items-center gap-2 pb-2 text-[11px] text-[#667085]">
@@ -221,7 +328,7 @@ export function MonitoramentoPageView() {
           </div>
         )}
 
-        {historyQuery.isLoading ? (
+        {historyQuery.isLoading && historyPage === 1 ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[1, 2, 3, 4].map((n) => (
               <Skeleton key={n} className="h-28 rounded-xl" />
@@ -280,7 +387,9 @@ export function MonitoramentoPageView() {
                 </div>
                 {movements.length === 0 ? (
                   <div className="p-10 text-center text-[13px] text-[#667085]">
-                    Nenhuma movimentação no período. Ausência de histórico ≠ estabilidade.
+                    {movementFilter
+                      ? "Nenhuma movimentação com este filtro no período."
+                      : "Nenhuma movimentação no período. Ausência de histórico ≠ estabilidade."}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -368,6 +477,23 @@ export function MonitoramentoPageView() {
                     </table>
                   </div>
                 )}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EAECF0] px-5 py-3">
+                  <p className="text-[11px] text-[#667085]">
+                    Exibindo {movements.length.toLocaleString("pt-BR")} movimentações
+                    {movementFilter ? " (filtradas)" : ""}
+                    {data?.movements_truncated ? " · página truncada pela API" : ""}
+                  </p>
+                  {canLoadMore ? (
+                    <button
+                      type="button"
+                      disabled={historyQuery.isFetching}
+                      onClick={() => setHistoryPage((p) => p + 1)}
+                      className="inline-flex h-9 items-center rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:bg-[#F9FAFB] disabled:opacity-60"
+                    >
+                      {historyQuery.isFetching ? "Carregando…" : "Carregar mais avaliações"}
+                    </button>
+                  ) : null}
+                </div>
               </section>
 
               {selectedStudentId ? (
@@ -440,5 +566,20 @@ export function MonitoramentoPageView() {
         </details>
       </main>
     </>
+  );
+}
+
+export function MonitoramentoPageView() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 py-10">
+          <div className="h-8 w-48 animate-pulse rounded bg-[#F2F4F7]" />
+          <div className="h-40 animate-pulse rounded-xl bg-[#F2F4F7]" />
+        </main>
+      }
+    >
+      <MonitoramentoPageInner />
+    </Suspense>
   );
 }
