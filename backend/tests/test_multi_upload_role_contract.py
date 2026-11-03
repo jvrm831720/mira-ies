@@ -109,7 +109,7 @@ async def test_unknown_role_is_blocked_by_preview_and_confirmation(client, auth_
         "/api/v1/upload/preview-multiple",
         headers=auth_headers,
         files=files,
-        data=[("file_roles", "historico_inexistente")],
+        data={"file_roles": ["historico_inexistente"]},
     )
     assert preview.status_code == 200
     assert preview.json()["items"][0]["valid"] is False
@@ -119,6 +119,6 @@ async def test_unknown_role_is_blocked_by_preview_and_confirmation(client, auth_
         "/api/v1/upload/confirm-multiple",
         headers={**auth_headers, "Idempotency-Key": "multi-role-contract-unknown-001"},
         files=files,
-        data=[("file_roles", "historico_inexistente")],
+        data={"file_roles": ["historico_inexistente"]},
     )
     assert confirmation.status_code == 422
