@@ -34,7 +34,7 @@ async def test_preview_accepts_all_roles_exposed_by_import_wizard(client, auth_h
 
 
 @pytest.mark.asyncio
-async def test_confirmation_uses_same_role_contract_and_persists_merged_student(client, auth_headers):
+async def test_confirmation_uses_same_role_contract_and_persists_merged_student(client, auth_headers, db_session, tenant):
     roles = ["cadastro", "financeiro", "academico", "historico", "matriculas"]
     response = await client.post(
         "/api/v1/upload/confirm-multiple",
@@ -49,18 +49,31 @@ async def test_confirmation_uses_same_role_contract_and_persists_merged_student(
     assert body["idempotent_replay"] is False
     assert body["students_imported"] == 1
 
-    students_response = await client.get("/api/v1/students", headers=auth_headers)
-    assert students_response.status_code == 200
-    student = next(item for item in students_response.json()["students"] if item["matricula"] == "ROLE001")
-    assert student["nome"] == "Ana Teste"
-    assert student["curso"] == "Administracao"
-    assert student["turma"] == "ADM-2026-1"
-    assert student["semestre"] == 3
-    assert student["dias_atraso_boleto"] == 12
-    assert student["saldo_devedor"] == 350.5
-    assert student["dias_sem_login"] == 8
-    assert student["presenca_percentual"] == 82
-    assert student["nota_media"] == 7.5
+    from sqlalchemy import select
+    from app.models.student import Student
+
+    tenant_record, _ = tenant
+    result = await db_session.execute(
+        select(Student).where(
+            Student.tenant_id == tenant_record.id,
+            Student.matricula == "ROLE001",
+        )
+    )
+    student = result.scalar_one()
+    assert student.nome == "Ana Teste"
+    assert student.email == "ana@example.test"
+    assert student.curso == "Administracao"
+    assert student.campus == "Centro"
+    assert student.turma == "ADM-2026-1"
+    assert student.semestre == 3
+    assert student.forma_ingresso == "Transferencia"
+    assert student.status_aluno == "Ativo"
+    assert student.dias_atraso_boleto == 12
+    assert student.saldo_devedor == 350.5
+    assert student.dias_sem_login == 8
+    assert student.presenca_percentual == 82
+    assert student.nota_media == 7.5
+    assert student.reprovacoes == 1
 
     replay = await client.post(
         "/api/v1/upload/confirm-multiple",
