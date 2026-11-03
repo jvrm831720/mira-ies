@@ -68,7 +68,7 @@ COLUMN_ALIASES: dict[str, list[str]] = {
         "percentual presenca", "freq", "attendance percentage", "attendance_pct",
     ],
     "nota_media": [
-        "nota_media", "media", "nota", "average_grade", "average grade",
+        "nota_media", "media", "average_grade", "average grade",
         "gpa", "media geral", "cr", "grade average",
     ],
     "reprovacoes": ["reprovacoes", "reprovacao", "failures", "qtd reprovacoes", "num reprovacoes", "failed courses"],
@@ -297,6 +297,15 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         if parsed is None:
             warnings.append(f"Linha {line_number}: valor inválido em '{COLUMN_LABELS[field]}'; o campo será ignorado.")
             continue
+        # A documentação secundária da API SophiA mostra -1 em amostras de
+        # notas. Sem semântica homologada, tratamos esse valor como sentinela,
+        # nunca como uma nota real nem como zero após o clamp.
+        if field == "nota_media" and parsed == -1:
+            warnings.append(
+                f"Linha {line_number}: nota média '-1' tratada como valor sentinela; "
+                "o campo será ignorado até a semântica da origem ser confirmada."
+            )
+            continue
         if parsed < minimum or parsed > maximum:
             warnings.append(
                 f"Linha {line_number}: '{COLUMN_LABELS[field]}' será limitado ao intervalo {minimum}–{maximum}."
@@ -364,7 +373,11 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         "status_financeiro": safe_str(row.get("status_financeiro"))[:80] if safe_str(row.get("status_financeiro")) else None,
         "dias_sem_login": _clamp_int(safe_int(row.get("dias_sem_login")), 0, 3650),
         "presenca_percentual": _clamp(safe_float(row.get("presenca_percentual")), 0.0, 100.0),
-        "nota_media": _clamp(safe_float(row.get("nota_media")), 0.0, 10.0),
+        "nota_media": (
+            None
+            if safe_float(row.get("nota_media")) == -1
+            else _clamp(safe_float(row.get("nota_media")), 0.0, 10.0)
+        ),
         "reprovacoes": _clamp_int(safe_int(row.get("reprovacoes")), 0, 100),
     }
     return data, warnings
