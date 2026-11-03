@@ -75,7 +75,13 @@ def read_file_to_dataframe(file_content: bytes, ext: str, sheet_name: str | None
         if ext == "csv":
             for encoding in ["utf-8", "latin-1", "iso-8859-1", "cp1252"]:
                 try:
-                    df = pd.read_csv(io.BytesIO(file_content), encoding=encoding, dtype=str)
+                    df = pd.read_csv(
+                        io.BytesIO(file_content),
+                        encoding=encoding,
+                        dtype=str,
+                        sep=None,
+                        engine="python",
+                    )
                     # Preserve explicitly supplied all-blank columns. They are evidence
                     # of a source refresh and must reach the data-quality gate.
                     return df
