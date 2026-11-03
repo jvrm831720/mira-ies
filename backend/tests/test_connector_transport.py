@@ -36,7 +36,7 @@ async def test_rest_client_sends_get_basic_auth_and_totvs_context():
     request = seen[0]
     assert request.method == "GET"
     assert request.url.path.endswith("/EduParcelaData")
-    assert request.url.params == {"start": "0", "limit": "10"}
+    assert dict(request.url.params) == {"start": "0", "limit": "10"}
     assert request.headers["CODCOLIGADA"] == "1"
     assert request.headers["CODFILIAL"] == "2"
     assert request.headers["CODTIPOCURSO"] == "1"
