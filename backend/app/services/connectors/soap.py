@@ -98,6 +98,13 @@ class TotvsReadOnlySoapClient:
         if len(response.content) > MAX_SOAP_RESPONSE_BYTES:
             raise ConnectorTransportError("Resposta SOAP excede o tamanho máximo permitido.")
 
+        # Redirects are disabled; reject them before attempting to parse an HTML
+        # redirect page as a SOAP envelope.
+        if 300 <= response.status_code < 400:
+            raise ConnectorTransportError(
+                f"Serviço SOAP respondeu com HTTP {response.status_code}."
+            )
+
         try:
             root = ET.fromstring(response.content)
         except ET.ParseError:
