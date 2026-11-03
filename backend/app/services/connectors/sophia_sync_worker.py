@@ -156,7 +156,7 @@ class SophiaSyncWorker:
                         }
                         stmt = insert(SophiaStudentResource).values(**values)
                         stmt = stmt.on_conflict_do_update(
-                            constraint="uq_sophia_resource_student",
+                            constraint="uq_sophia_resource_student_job",
                             set_={k: stmt.excluded[k] for k in (
                                 "job_id", "source_codigo_interno", "payload", "record_count", "observed_at", "updated_at"
                             )},
