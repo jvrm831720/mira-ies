@@ -67,7 +67,7 @@ def upgrade() -> None:
             record_count INTEGER NOT NULL DEFAULT 0 CHECK (record_count >= 0),
             observed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            CONSTRAINT uq_sophia_resource_student UNIQUE (tenant_id, student_id, resource),
+            CONSTRAINT uq_sophia_resource_student_job UNIQUE (tenant_id, student_id, resource, job_id),
             CONSTRAINT fk_sophia_resource_student_tenant
                 FOREIGN KEY (tenant_id, student_id)
                 REFERENCES students (tenant_id, id) ON DELETE CASCADE,
