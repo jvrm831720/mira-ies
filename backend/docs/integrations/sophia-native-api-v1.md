@@ -21,11 +21,11 @@ A fila permite uma execução ativa por tenant, usa `FOR UPDATE SKIP LOCKED`, re
 
 ## Persistência e semântica
 
-A migration `033_sophia_sync_jobs` cria fila, eventos e snapshots por aluno/recurso. Todas as tabelas têm RLS e FORCE RLS. A chave composta tenant/aluno impede associar registros de outro tenant.
+A migration `033_sophia_sync_jobs` cria fila, eventos e snapshots históricos imutáveis por aluno/recurso/execução. Todas as tabelas têm RLS e FORCE RLS. A chave composta tenant/aluno impede associar registros de outro tenant.
 
 A MIRA preserva payloads como retornados pela origem. Valores `"-1"`, campos vazios e `null` não são convertidos em zero. Não calcula saldo devedor, inadimplência, média global ou risco a partir de payload bruto. Não infere exclusão de aluno.
 
-Cada recurso é persistido em transação própria. Se uma chamada posterior falhar, o job não será marcado como sucesso; recursos já persistidos podem ser atualizados novamente no retry. A leitura do snapshot é tenant-scoped.
+Cada recurso é persistido em transação própria e cada execução mantém seu próprio snapshot, sem sobrescrever o histórico de execuções anteriores. Se uma chamada posterior falhar, o job não será marcado como sucesso; recursos já persistidos podem ser atualizados novamente no retry. A leitura do snapshot é tenant-scoped.
 
 ## Homologação obrigatória
 
