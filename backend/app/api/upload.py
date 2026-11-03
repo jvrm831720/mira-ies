@@ -187,6 +187,30 @@ def inspect_file_structure(file_content: bytes, ext: str) -> dict[str, Any]:
         raise HTTPException(status_code=422, detail=f"Não foi possível inspecionar as abas do arquivo: {exc}") from exc
 
 
+
+# Contrato único de papéis usado tanto na prévia quanto na confirmação.
+# Campos desconhecidos ou ausentes permanecem desconhecidos; o papel apenas
+# limita quais colunas do arquivo podem alimentar o cadastro do estudante.
+MULTI_UPLOAD_ROLE_FIELDS: dict[str, set[str]] = {
+    "cadastro": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+    "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro"},
+    "academico": {"matricula", "curso", "campus"},
+    "historico": {"matricula", "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes"},
+    "matriculas": {"matricula", "turma", "semestre", "forma_ingresso", "status_aluno"},
+    # Aliases legados preservam os campos que cada papel podia importar antes
+    # da unificação, sem ampliar silenciosamente o escopo de uma base.
+    "alunos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+    "cursos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+    "engajamento": {"matricula", "dias_sem_login", "presenca_percentual"},
+    "desempenho": {"matricula", "nota_media", "reprovacoes"},
+}
+
+
+def resolve_multi_upload_role(role: str | None) -> str | None:
+    normalized = (role or "").strip().lower()
+    return normalized if normalized in MULTI_UPLOAD_ROLE_FIELDS else None
+
+
 def parse_column_mapping(value: str | None) -> dict[str, str] | None:
     if value is None or not value.strip():
         return None
@@ -214,15 +238,7 @@ async def preview_multiple_students_files(
     if file_roles and len(file_roles) != len(files):
         raise HTTPException(status_code=422, detail="Informe exatamente um tipo de base para cada arquivo.")
 
-    role_fields = {
-        "cadastro": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
-        "alunos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
-        # Legacy clients previously sent arbitrary role labels; keep this one used by the existing API contract.
-        "cursos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
-        "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro"},
-        "engajamento": {"matricula", "dias_sem_login", "presenca_percentual"},
-        "desempenho": {"matricula", "nota_media", "reprovacoes"},
-    }
+    role_fields = MULTI_UPLOAD_ROLE_FIELDS
     total_bytes = 0
     items: list[dict[str, Any]] = []
     all_matriculas: set[str] = set()
@@ -236,24 +252,25 @@ async def preview_multiple_students_files(
         content = await upload.read()
         total_bytes += len(content)
         filename = sanitize_filename(upload.filename or "")
-        role = file_roles[index].strip().lower() if index < len(file_roles) else "cadastro"
+        submitted_role = file_roles[index] if index < len(file_roles) else "cadastro"
+        role = resolve_multi_upload_role(submitted_role)
         if len(content) > settings.max_upload_size_mb * 1024 * 1024:
             raise HTTPException(status_code=413, detail=f"Arquivo {filename} excede o limite individual.")
         if not content:
             raise HTTPException(status_code=422, detail=f"Arquivo {filename} está vazio.")
-        df = read_file_to_dataframe(content, ext, expected_fields=role_fields.get(role))
-        if df.empty:
-            raise HTTPException(status_code=422, detail=f"Arquivo {filename} não contém dados.")
-        if role not in role_fields:
-            items.append({"index": index, "filename": filename, "role": role, "valid": False,
-                          "error": "Tipo de base desconhecido. Use cadastro, financeiro, engajamento ou desempenho.",
-                          "total_rows": int(len(df)), "rows_to_import": 0, "rows_to_reject": int(len(df)),
+        if role is None:
+            items.append({"index": index, "filename": filename, "role": str(submitted_role).strip().lower(), "valid": False,
+                          "error": "Tipo de base desconhecido. Use cadastro, financeiro, academico, historico ou matriculas.",
+                          "total_rows": 0, "rows_to_import": 0, "rows_to_reject": 0,
                           "warnings": [], "errors": ["Tipo de base desconhecido."]})
             continue
+        df = read_file_to_dataframe(content, ext, expected_fields=role_fields[role])
+        if df.empty:
+            raise HTTPException(status_code=422, detail=f"Arquivo {filename} não contém dados.")
         try:
             normalized, mapped = normalize_columns(df)
         except ValueError as exc:
-            items.append({"index": index, "filename": filename, "role": role, "valid": False,
+            items.append({"index": index, "filename": filename, "role": str(submitted_role).strip().lower(), "valid": False,
                           "error": str(exc), "total_rows": int(len(df)), "rows_to_import": 0,
                           "rows_to_reject": int(len(df)), "warnings": [], "errors": [str(exc)]})
             continue
@@ -266,7 +283,7 @@ async def preview_multiple_students_files(
         if missing:
             required_labels = {"matricula": "matrícula", "nome": "nome"}
             missing_labels = ", ".join(required_labels.get(field, field) for field in sorted(missing))
-            items.append({"index": index, "filename": filename, "role": role, "valid": False,
+            items.append({"index": index, "filename": filename, "role": str(submitted_role).strip().lower(), "valid": False,
                           "error": f"Colunas obrigatórias ausentes para {role}: {missing_labels}.",
                           "total_rows": int(len(df)), "rows_to_import": 0, "rows_to_reject": int(len(df)),
                           "columns": [{"key": str(k), "label": str(k)} for k in df.columns],
@@ -292,7 +309,7 @@ async def preview_multiple_students_files(
                     continue
                 record[field] = str(value).strip()
             if key_value in rows_by_key:
-                duplicate_keys.append({"filename": filename, "role": role, "matricula": key_value})
+                duplicate_keys.append({"filename": filename, "role": str(submitted_role).strip().lower(), "matricula": key_value})
                 file_warnings.append(f"Matrícula duplicada {key_value}: a linha mais recente substitui a anterior nesta prévia.")
             rows_by_key[key_value] = record
             if key_value not in consolidated:
@@ -315,7 +332,7 @@ async def preview_multiple_students_files(
             )
             existing = set((await db.execute(query)).scalars().all())
         items.append({
-            "index": index, "filename": filename, "role": role,
+            "index": index, "filename": filename, "role": str(submitted_role).strip().lower(),
             "valid": not file_errors and bool(rows_by_key),
             "total_rows": int(len(df)), "rows_to_import": len(rows_by_key),
             "rows_to_reject": int(len(df)) - len(rows_by_key),
@@ -756,13 +773,7 @@ async def confirm_multiple_students_files(
     if len(file_roles) != len(files):
         raise HTTPException(status_code=422, detail="Informe exatamente um tipo de base para cada arquivo.")
 
-    role_fields = {
-        "cadastro": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
-        "alunos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
-        "financeiro": {"matricula", "dias_atraso_boleto", "recorrencia_atrasos", "saldo_devedor", "status_financeiro"},
-        "engajamento": {"matricula", "dias_sem_login", "presenca_percentual"},
-        "desempenho": {"matricula", "nota_media", "reprovacoes"},
-    }
+    role_fields = MULTI_UPLOAD_ROLE_FIELDS
     total_bytes = 0
     consolidated: dict[str, dict[str, Any]] = {}
     sources: list[str] = []
@@ -781,12 +792,13 @@ async def confirm_multiple_students_files(
             continue
         if len(raw_content) > settings.max_upload_size_mb * 1024 * 1024:
             raise HTTPException(status_code=413, detail=f"Arquivo {filename} excede o limite individual.")
-        role = file_roles[index].strip().lower()
-        if role not in role_fields:
-            errors.append(f"{filename}: tipo de base desconhecido ({role}).")
+        submitted_role = file_roles[index]
+        role = resolve_multi_upload_role(submitted_role)
+        if role is None:
+            errors.append(f"{filename}: tipo de base desconhecido ({str(submitted_role).strip().lower()}).")
             continue
         try:
-            df = read_file_to_dataframe(raw_content, ext, expected_fields=role_fields.get(role))
+            df = read_file_to_dataframe(raw_content, ext, expected_fields=role_fields[role])
             normalized, mapped = normalize_columns(df)
         except (HTTPException, ValueError) as exc:
             errors.append(f"{filename}: {str(exc)}")
