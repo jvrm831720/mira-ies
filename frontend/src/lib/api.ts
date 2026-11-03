@@ -123,6 +123,31 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
+export type RMTotvsJobStatus = "queued" | "running" | "retry_wait" | "cancel_requested" | "cancelled" | "succeeded" | "failed";
+export type RMTotvsScope = {
+  id: string; coligada_id: string; source_name: string; entity_name: string;
+  schema_version: string; current_snapshot_run_id?: string | null;
+  created_at: string; updated_at: string;
+};
+export type RMTotvsJob = {
+  id: string; scope_id: string; coligada_id: string; source_name: string;
+  entity_name: string; schema_version: string; snapshot_run_id?: string | null;
+  status: RMTotvsJobStatus; attempts: number; max_attempts: number;
+  available_at?: string | null; created_at: string; started_at?: string | null;
+  finished_at?: string | null; error_code?: string | null; error_message?: string | null;
+  request?: { mode?: string; page_size?: number };
+};
+export type RMTotvsJobEvent = {
+  event_type: string; severity: "info" | "warning" | "error" | string;
+  details?: Record<string, unknown>; created_at: string;
+};
+export type RMTotvsJobDetail = RMTotvsJob & { events: RMTotvsJobEvent[] };
+export type RMTotvsJobsResponse = { total: number; limit: number; offset: number; jobs: RMTotvsJob[] };
+export type RMTotvsMetrics = {
+  jobs_by_status: Record<string, number>; queue_depth: number;
+  active_jobs: number; average_duration_seconds?: number | null;
+};
+
 export type JacadSyncJob = {
   job_id: string;
   status: "queued" | "running" | "retrying" | "completed" | "failed" | string;
@@ -533,6 +558,48 @@ export const api = {
   retrySponteSync: (jobId: string) =>
     request<{ job_id: string; status: string; progress?: Record<string, unknown> }>(
       `/api/v1/integrations/sponte/sync/${encodeURIComponent(jobId)}/retry`, { method: "POST" }
+    ),
+
+  totvsRmScopes: () => request<{ scopes: RMTotvsScope[] }>("/api/v1/integrations/totvs-rm/scopes"),
+
+  totvsRmJobs: (params?: { status?: string; coligada_id?: string; limit?: number; offset?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.coligada_id) query.set("coligada_id", params.coligada_id);
+    if (params?.limit != null) query.set("limit", String(params.limit));
+    if (params?.offset != null) query.set("offset", String(params.offset));
+    const suffix = query.toString() ? "?" + query.toString() : "";
+    return request<RMTotvsJobsResponse>("/api/v1/integrations/totvs-rm/jobs" + suffix);
+  },
+
+  totvsRmJob: (jobId: string) =>
+    request<RMTotvsJobDetail>(`/api/v1/integrations/totvs-rm/jobs/${encodeURIComponent(jobId)}`),
+
+  totvsRmMetrics: () =>
+    request<RMTotvsMetrics>("/api/v1/integrations/totvs-rm/metrics"),
+
+  enqueueTotvsRmSync: (body: {
+    coligada_id: string; source_name: string; entity_name: string;
+    schema_version?: string; page_size?: number; max_attempts?: number;
+  }) => request<{ job_id: string; status: string; scope_id: string }>(
+    "/api/v1/integrations/totvs-rm/sync",
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify(body),
+    }
+  ),
+
+  cancelTotvsRmJob: (jobId: string) =>
+    request<{ job_id: string; status: string }>(
+      `/api/v1/integrations/totvs-rm/jobs/${encodeURIComponent(jobId)}/cancel`,
+      { method: "POST" }
+    ),
+
+  retryTotvsRmJob: (jobId: string) =>
+    request<{ id: string; status: string; manual_retry_number: number }>(
+      `/api/v1/integrations/totvs-rm/jobs/${encodeURIComponent(jobId)}/retry`,
+      { method: "POST" }
     ),
 
   studentGroupsCatalog: () =>
