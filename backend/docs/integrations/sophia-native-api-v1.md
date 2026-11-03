@@ -15,7 +15,7 @@ O contrato consultado não documenta listagem geral de alunos. As consultas acad
 - `GET /api/v1/integrations/sophia/sync/jobs/{job_id}` retorna estado e eventos.
 - `GET /api/v1/integrations/sophia/sync/students/{student_id}/resources` retorna os últimos recursos persistidos.
 - Worker: `python -m app.services.connectors.sophia_sync_worker`; `--once` processa no máximo um job.
-- Worker exige `SOPHIA_SYNC_WORKER_TENANT_IDS` com UUIDs explicitamente autorizados.
+- Worker exige `SOPHIA_SYNC_WORKER_TENANT_IDS` com UUIDs explicitamente autorizados e `SOPHIA_ALLOWED_HOSTS` com os hosts DNS exatos homologados. A lista de hosts é obrigatória tanto para consultas diretas quanto para o worker.
 
 A fila permite uma execução ativa por tenant, usa `FOR UPDATE SKIP LOCKED`, recupera leases sem heartbeat após três minutos e limita tentativas. Eventos de criação, início, recuperação, retry, sucesso e falha são auditados.
 
