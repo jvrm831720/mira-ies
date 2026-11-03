@@ -10,11 +10,13 @@ import json
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.session import AsyncSessionLocal
 from app.models.rm_sync import RmSyncPage, RmSyncRecord, RmSyncRun, RmSyncScope
+from app.models.rm_sync_jobs import RmSyncJob
 from app.services.connectors.totvs_rm_snapshot_sync import (
     RMCommittedSnapshot,
     RMSourceSyncContract,
@@ -203,10 +205,25 @@ class RMPostgresSnapshotRepository:
         run_id: str,
         expected_record_count: int | None = None,
         authoritative_full_snapshot: bool = False,
+        job_id: str | None = None,
+        worker_id: str | None = None,
     ) -> dict:
+        if bool(job_id) != bool(worker_id):
+            raise ValueError("job_id e worker_id devem ser informados juntos.")
         async with session.begin():
             await self._set_tenant_context(session, tenant_id)
-            # Lock order is always scope -> run. begin_run uses the same order.
+            if job_id and worker_id:
+                job = (await session.execute(
+                    select(RmSyncJob).where(
+                        RmSyncJob.id == job_id, RmSyncJob.tenant_id == tenant_id
+                    ).with_for_update()
+                )).scalar_one_or_none()
+                if (
+                    job is None or job.worker_id != worker_id
+                    or job.status != "publishing" or job.snapshot_run_id != run_id
+                ):
+                    raise RMSnapshotConflict("Fencing do worker inválido; publicação bloqueada.")
+            # Lock order after the job fence is scope -> run. begin_run uses scope -> run.
             run_ref = (
                 await session.execute(
                     select(RmSyncRun.scope_id).where(
@@ -277,6 +294,29 @@ class RMPostgresSnapshotRepository:
             scope_row.updated_at = _utc_now()
             await session.flush()
             return row.diff
+
+    async def abort_run(self, *, tenant_id: str, run_id: str, reason: str) -> None:
+        """Mark an unpublished staging run as aborted without exposing source payloads."""
+        async with AsyncSessionLocal() as session, session.begin():
+            await self._set_tenant_context(session, tenant_id)
+            row = (await session.execute(
+                select(RmSyncRun).where(
+                    RmSyncRun.id == run_id, RmSyncRun.tenant_id == tenant_id
+                ).with_for_update()
+            )).scalar_one_or_none()
+            if row is None or row.status != "staging":
+                return
+            await session.execute(delete(RmSyncPage).where(
+                RmSyncPage.run_id == run_id, RmSyncPage.tenant_id == tenant_id
+            ))
+            await session.execute(delete(RmSyncRecord).where(
+                RmSyncRecord.run_id == run_id, RmSyncRecord.tenant_id == tenant_id
+            ))
+            row.next_offset = 0
+            row.record_count = 0
+            row.source_complete = False
+            row.status = "failed"
+            row.error = "Execução cancelada antes da publicação." if reason == "cancelled" else "Execução abortada antes da publicação."
 
     async def get_checkpoint(
         self, session: AsyncSession, *, tenant_id: str, run_id: str

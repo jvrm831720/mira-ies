@@ -102,10 +102,11 @@ async def test_worker_executes_and_completes_job(db_session, tenant):
     )
     calls = []
 
-    async def executor(job, heartbeat, cancelled, attach_snapshot):
+    async def executor(job, heartbeat, cancelled, attach_snapshot, before_publish):
         calls.append(job["id"])
         assert await heartbeat() is True
         assert await cancelled() is False
+        assert await before_publish() is True
         return {"snapshot_run_id": None}
 
     worker = RMSyncWorker(
@@ -204,7 +205,7 @@ async def test_expired_worker_lease_is_recovered_and_fenced(db_session, tenant):
         )
         await session.execute(update(RmSyncJob).where(
             RmSyncJob.id == first["id"], RmSyncJob.tenant_id == tenant_id
-        ).values(heartbeat_at=datetime.now(timezone.utc) - timedelta(hours=1)))
+        ).values(status="publishing", heartbeat_at=datetime.now(timezone.utc) - timedelta(hours=1)))
 
     recovered = await queue.claim(tenant_id=tenant_id, worker_id="worker-new", lease_seconds=30)
     assert recovered is not None
@@ -239,10 +240,11 @@ async def test_running_job_cancels_cooperatively_before_publication(db_session, 
         idempotency_key=f"cancel-running-{uuid4()}", request={"mode": "full_snapshot"},
     )
 
-    async def executor(job, heartbeat, cancelled, attach_snapshot):
+    async def executor(job, heartbeat, cancelled, attach_snapshot, before_publish):
         assert await heartbeat() is True
         assert await queue.request_cancel(tenant_id=tenant_id, job_id=job_id) == "cancel_requested"
         assert await cancelled() is True
+        assert await before_publish() is False
         raise RMJobCancelled()
 
     worker = RMSyncWorker(
@@ -250,3 +252,89 @@ async def test_running_job_cancels_cooperatively_before_publication(db_session, 
     )
     assert await worker.run_once() is True
     assert (await queue.history(tenant_id=tenant_id, scope_id=scope_id))[0]["status"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_publish_boundary_prevents_cancel_after_atomic_publication_start(db_session, tenant):
+    from sqlalchemy import text
+
+    tenant_row, _ = tenant
+    tenant_id = str(tenant_row.id)
+    scope_id = str(uuid4())
+    await db_session.rollback()
+    await db_session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant_id},
+    )
+    db_session.add(RmSyncScope(
+        id=scope_id, tenant_id=tenant_id, coligada_id="007",
+        source_name="TOTVS_RM", entity_name="EduAlunoData", schema_version="v1",
+    ))
+    await db_session.commit()
+
+    queue = RMPostgresSyncQueue(AsyncSessionLocal)
+    job_id = await queue.enqueue(
+        tenant_id=tenant_id, scope_id=scope_id,
+        idempotency_key=f"publish-{uuid4()}",
+        request={"mode": "full_snapshot", "page_size": 100},
+    )
+    claimed = await queue.claim(tenant_id=tenant_id, worker_id="publish-worker")
+    assert claimed and claimed["id"] == job_id
+    assert await queue.authorize_publish(
+        tenant_id=tenant_id, job_id=job_id, worker_id="publish-worker"
+    ) is True
+    assert await queue.heartbeat(
+        tenant_id=tenant_id, job_id=job_id, worker_id="publish-worker"
+    ) is True
+    with pytest.raises(RMJobConflict, match="publicação"):
+        await queue.request_cancel(tenant_id=tenant_id, job_id=job_id)
+    assert await queue.finish(
+        tenant_id=tenant_id, job_id=job_id, worker_id="publish-worker"
+    ) == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_stale_cancel_request_is_finalized_and_releases_coligada(db_session, tenant):
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import text, update
+    from app.models.rm_sync_jobs import RmSyncJob
+
+    tenant_row, _ = tenant
+    tenant_id = str(tenant_row.id)
+    scope_id = str(uuid4())
+    await db_session.rollback()
+    await db_session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant_id},
+    )
+    db_session.add(RmSyncScope(
+        id=scope_id, tenant_id=tenant_id, coligada_id="008",
+        source_name="TOTVS_RM", entity_name="EduAlunoData", schema_version="v1",
+    ))
+    await db_session.commit()
+
+    queue = RMPostgresSyncQueue(AsyncSessionLocal)
+    job_id = await queue.enqueue(
+        tenant_id=tenant_id, scope_id=scope_id,
+        idempotency_key=f"cancel-stale-{uuid4()}",
+        request={"mode": "full_snapshot"},
+    )
+    assert await queue.claim(tenant_id=tenant_id, worker_id="cancel-stale-worker")
+    assert await queue.request_cancel(tenant_id=tenant_id, job_id=job_id) == "cancel_requested"
+    async with AsyncSessionLocal() as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": tenant_id},
+        )
+        await session.execute(update(RmSyncJob).where(
+            RmSyncJob.id == job_id, RmSyncJob.tenant_id == tenant_id
+        ).values(heartbeat_at=datetime.now(timezone.utc) - timedelta(hours=1)))
+
+    assert await queue.claim(tenant_id=tenant_id, worker_id="recovery-worker") is None
+    job = await queue.get_job(tenant_id=tenant_id, job_id=job_id)
+    assert job["status"] == "cancelled"
+    assert await queue.enqueue(
+        tenant_id=tenant_id, scope_id=scope_id,
+        idempotency_key=f"after-cancel-{uuid4()}",
+        request={"mode": "full_snapshot"},
+    )

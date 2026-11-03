@@ -1,9 +1,10 @@
 """PostgreSQL integration tests for durable TOTVS RM snapshot synchronization."""
 
 import pytest
+from sqlalchemy import func, select, text
 
 from app.db.session import AsyncSessionLocal
-from app.models.rm_sync import RmSyncRun
+from app.models.rm_sync import RmSyncPage, RmSyncRecord, RmSyncRun
 from app.services.connectors.totvs_rm_snapshot_repository import (
     RMPostgresSnapshotRepository,
     RMSnapshotConflict,
@@ -199,3 +200,43 @@ async def test_one_staging_run_per_scope_and_tenant_filter(db_session, tenant, s
         tenant_id="00000000-0000-0000-0000-000000000099",
         run_id="10000000-0000-0000-0000-000000000005",
     ) is None
+
+
+@pytest.mark.asyncio
+async def test_abort_run_purges_partial_snapshot_data(db_session, tenant, sync_contract):
+    tenant_row, _ = tenant
+    repo = RMPostgresSnapshotRepository()
+    scope = _scope(tenant_row.id)
+    run_id = "10000000-0000-0000-0000-000000000007"
+    await db_session.rollback()
+    await repo.begin_run(db_session, run_id=run_id, scope=scope, contract=sync_contract)
+    await repo.stage_page(
+        db_session, tenant_id=scope.tenant_id, run_id=run_id,
+        offset=0, next_offset=1,
+        records=[{"CODCOLIGADA": 1, "IDPARCELA": "0001", "VALOR": "10.00"}],
+        has_more=True,
+    )
+    await repo.abort_run(tenant_id=scope.tenant_id, run_id=run_id, reason="cancelled")
+    checkpoint = await repo.get_checkpoint(
+        db_session, tenant_id=scope.tenant_id, run_id=run_id
+    )
+    assert checkpoint["status"] == "failed"
+    assert checkpoint["record_count"] == 0
+    await db_session.rollback()
+    async with AsyncSessionLocal() as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": scope.tenant_id},
+        )
+        page_count = (await session.execute(
+            select(func.count()).select_from(RmSyncPage).where(
+                RmSyncPage.run_id == run_id, RmSyncPage.tenant_id == scope.tenant_id
+            )
+        )).scalar_one()
+        record_count = (await session.execute(
+            select(func.count()).select_from(RmSyncRecord).where(
+                RmSyncRecord.run_id == run_id, RmSyncRecord.tenant_id == scope.tenant_id
+            )
+        )).scalar_one()
+    assert page_count == 0
+    assert record_count == 0
