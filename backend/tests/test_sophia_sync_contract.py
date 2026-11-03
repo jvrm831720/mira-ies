@@ -49,3 +49,15 @@ def test_sophia_base_url_requires_https_and_versioned_path():
         username="integration", password="secret",
     )
     assert config.validated_base_url() == "https://sophia.example/serial/api/v1"
+
+
+def test_runtime_host_requires_explicit_allowlist(monkeypatch):
+    config = SophiaApiConfig(
+        base_url="https://sophia.example/serial/api/v1",
+        username="integration", password="secret",
+    )
+    monkeypatch.delenv("SOPHIA_ALLOWED_HOSTS", raising=False)
+    with pytest.raises(ValueError, match="SOPHIA_ALLOWED_HOSTS"):
+        config.validate_runtime_host()
+    monkeypatch.setenv("SOPHIA_ALLOWED_HOSTS", "other.example,sophia.example")
+    config.validate_runtime_host()
