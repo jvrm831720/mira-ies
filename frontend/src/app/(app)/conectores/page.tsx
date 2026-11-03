@@ -253,6 +253,11 @@ export default function DadosIntegracoesPage() {
                   <History className="h-4 w-4" /> Histórico de importações
                 </Button>
               </Link>
+              <Link href="/conectores/totvs-rm">
+                <Button type="button" size="sm" variant="outline">
+                  <History className="h-4 w-4" /> Operações TOTVS RM
+                </Button>
+              </Link>
               <Button type="button" size="sm" variant="secondary" onClick={() => setTab("ingest")}>
                 <Plug className="h-4 w-4" /> Enviar payload JSON
               </Button>
