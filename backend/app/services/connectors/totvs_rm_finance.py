@@ -48,11 +48,12 @@ class TotvsRMFinancialStatusMap:
             code = str(raw_code).strip()
             if not code or any(ord(char) < 32 for char in code):
                 raise ValueError("Código de status financeiro inválido.")
-            if status is RMFinancialStatus.UNKNOWN:
+            normalized_status = RMFinancialStatus(status)
+            if normalized_status is RMFinancialStatus.UNKNOWN:
                 raise ValueError("UNKNOWN é reservado para códigos sem mapeamento.")
             if code in normalized:
                 raise ValueError("Código de status financeiro duplicado.")
-            normalized[code] = RMFinancialStatus(status)
+            normalized[code] = normalized_status
 
         object.__setattr__(self, "status_field", field_name)
         object.__setattr__(self, "codes", MappingProxyType(normalized))
