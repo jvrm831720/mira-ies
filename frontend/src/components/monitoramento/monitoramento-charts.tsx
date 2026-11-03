@@ -1,18 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Activity,
-  ArrowDownRight,
-  ArrowRight,
-  ArrowUpRight,
-  Info,
-  TrendingUp,
-  Users,
-} from "lucide-react";
-import { RiskBadge } from "@/components/ui/badge";
+import { ArrowRight } from "lucide-react";
 import type { RiskHistoryAssessment, RiskHistoryResponse, RiskMovement } from "@/types/api";
 import { cn } from "@/lib/utils";
+import { AssessmentModelLine } from "@/components/monitoramento/comparability";
 
 export type Period = "30" | "90" | "180" | "365";
 
@@ -127,7 +119,13 @@ export function ScoreTimeline({ data }: { data: RiskHistoryResponse["timeline"] 
                   );
                 })}
                 {points.map((point) => (
-                  <circle key={point.bucket} cx={x(point.bucket)} cy={y(point.average_score)} r="4" fill={color}>
+                  <circle
+                    key={point.bucket}
+                    cx={x(point.bucket)}
+                    cy={y(point.average_score)}
+                    r="4"
+                    fill={color}
+                  >
                     <title>
                       {dateLabel(point.bucket) +
                         " · média " +
@@ -151,7 +149,10 @@ export function ScoreTimeline({ data }: { data: RiskHistoryResponse["timeline"] 
       <div className="mt-2 flex flex-wrap gap-3">
         {series.map((key, i) => (
           <span key={key} className="inline-flex items-center gap-2 text-[11px] text-[#475467]">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[i % colors.length] }} />
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: colors[i % colors.length] }}
+            />
             {key}
           </span>
         ))}
@@ -188,22 +189,46 @@ export function DistributionTimeline({ data }: { data: RiskHistoryResponse["time
       {rows.map((point) => {
         const distribution = point.risk_distribution;
         const total = distribution.baixo + distribution.medio + distribution.critico;
-        const label = dateLabel(point.bucket) + " · " + point.model_scope + " v" + point.model_version;
+        const label =
+          dateLabel(point.bucket) + " · " + point.model_scope + " v" + point.model_version;
         return (
-          <div key={point.bucket + point.model_scope + point.model_version + point.score_semantics_version}>
+          <div
+            key={
+              point.bucket +
+              point.model_scope +
+              point.model_version +
+              point.score_semantics_version
+            }
+          >
             <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-[#667085]">
               <span>{label}</span>
               <span>{point.students_count} alunos</span>
             </div>
             <div
               className="flex h-3 overflow-hidden rounded-full bg-[#F2F4F7]"
-              title={distribution.critico + " críticos, " + distribution.medio + " médios, " + distribution.baixo + " baixos"}
+              title={
+                distribution.critico +
+                " críticos, " +
+                distribution.medio +
+                " médios, " +
+                distribution.baixo +
+                " baixos"
+              }
             >
               {total > 0 && (
                 <>
-                  <div className="bg-[#12B76A]" style={{ width: (distribution.baixo / total) * 100 + "%" }} />
-                  <div className="bg-[#F79009]" style={{ width: (distribution.medio / total) * 100 + "%" }} />
-                  <div className="bg-[#F04438]" style={{ width: (distribution.critico / total) * 100 + "%" }} />
+                  <div
+                    className="bg-[#12B76A]"
+                    style={{ width: (distribution.baixo / total) * 100 + "%" }}
+                  />
+                  <div
+                    className="bg-[#F79009]"
+                    style={{ width: (distribution.medio / total) * 100 + "%" }}
+                  />
+                  <div
+                    className="bg-[#F04438]"
+                    style={{ width: (distribution.critico / total) * 100 + "%" }}
+                  />
                 </>
               )}
             </div>
@@ -226,20 +251,52 @@ export function CurrentRiskDistribution({
 }) {
   const scored = summary.baixo + summary.medio + summary.critico;
   const total =
-    typeof totalStudents === "number" && totalStudents > 0 ? totalStudents : scored + summary.sem_score;
-  const pct = (n: number) => (total > 0 ? ((n / total) * 100).toFixed(1).replace(".", ",") : "0");
+    typeof totalStudents === "number" && totalStudents > 0
+      ? totalStudents
+      : scored + summary.sem_score;
+  const pct = (n: number) =>
+    total > 0 ? ((n / total) * 100).toFixed(1).replace(".", ",") : "0";
   const rows = [
-    { key: "critico", label: "Crítico", value: summary.critico, color: "bg-[#F04438]", href: "/alunos?risk_level=critico" },
-    { key: "medio", label: "Moderado", value: summary.medio, color: "bg-[#F79009]", href: "/alunos?risk_level=medio" },
-    { key: "baixo", label: "Baixo", value: summary.baixo, color: "bg-[#12B76A]", href: "/alunos?risk_level=baixo" },
-    { key: "sem_score", label: "Sem score", value: summary.sem_score, color: "bg-[#98A2B3]", href: "/alunos" },
+    {
+      key: "critico",
+      label: "Crítico",
+      value: summary.critico,
+      color: "bg-[#F04438]",
+      href: "/alunos?risk=critico",
+    },
+    {
+      key: "medio",
+      label: "Moderado",
+      value: summary.medio,
+      color: "bg-[#F79009]",
+      href: "/alunos?risk=medio",
+    },
+    {
+      key: "baixo",
+      label: "Baixo",
+      value: summary.baixo,
+      color: "bg-[#12B76A]",
+      href: "/alunos?risk=baixo",
+    },
+    {
+      key: "sem_score",
+      label: "Sem score",
+      value: summary.sem_score,
+      color: "bg-[#98A2B3]",
+      href: "/alunos?tab=dados_insuficientes",
+    },
   ];
   return (
     <div className="space-y-4">
       <div className="flex h-3 overflow-hidden rounded-full bg-[#F2F4F7]">
         {rows.map((row) =>
           total > 0 && row.value > 0 ? (
-            <div key={row.key} className={row.color} style={{ width: (row.value / total) * 100 + "%" }} title={row.label + ": " + row.value} />
+            <div
+              key={row.key}
+              className={row.color}
+              style={{ width: (row.value / total) * 100 + "%" }}
+              title={row.label + ": " + row.value}
+            />
           ) : null
         )}
       </div>
@@ -249,6 +306,11 @@ export function CurrentRiskDistribution({
             <span className="inline-flex items-center gap-2 text-[#344054]">
               <span className={cn("h-2.5 w-2.5 rounded-full", row.color)} />
               {row.label}
+              {row.key === "sem_score" ? (
+                <span className="rounded-full bg-[#F2F4F7] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#667085]">
+                  não é baixo risco
+                </span>
+              ) : null}
             </span>
             <span className="tabular-nums text-[#101828]">
               <strong>{row.value.toLocaleString("pt-BR")}</strong>
@@ -257,13 +319,28 @@ export function CurrentRiskDistribution({
           </li>
         ))}
       </ul>
+      {summary.sem_score > 0 ? (
+        <div className="rounded-lg border border-[#FEDF89] bg-[#FFFAEB] px-3 py-2.5 text-[11px] leading-relaxed text-[#B54708]">
+          <strong className="font-semibold">{summary.sem_score.toLocaleString("pt-BR")} alunos</strong>{
+            " "
+          }
+          sem avaliação utilizável. Isso é lacuna de cobertura — não estabilidade nem risco baixo.{" "}
+          <Link
+            href="/alunos?tab=dados_insuficientes"
+            className="font-semibold underline underline-offset-2"
+          >
+            Revisar cobertura
+          </Link>
+        </div>
+      ) : null}
       <p className="text-[11px] leading-relaxed text-[#667085]">
-        Fonte: snapshot atual de GET /api/v1/risk/summary.
-        {typeof totalScored === "number" ? ` Avaliados com score: ${totalScored.toLocaleString("pt-BR")}.` : ""}{" "}
-        <strong className="font-medium text-[#475467]">Sem score não é classificado como baixo risco.</strong>
+        Snapshot atual (não confundir com a série histórica abaixo).
+        {typeof totalScored === "number"
+          ? ` Avaliados com score: ${totalScored.toLocaleString("pt-BR")}.`
+          : ""}
       </p>
       <div className="flex flex-wrap gap-2">
-        {rows.slice(0, 3).map((row) => (
+        {rows.map((row) => (
           <Link
             key={row.key}
             href={row.href}
@@ -288,17 +365,34 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
     top = 14,
     bottom = 32;
   const x = (index: number) =>
-    left + (points.length <= 1 ? (width - left - right) / 2 : (index * (width - left - right)) / (points.length - 1));
+    left +
+    (points.length <= 1
+      ? (width - left - right) / 2
+      : (index * (width - left - right)) / (points.length - 1));
   const y = (score: number) => top + ((100 - score) * (height - top - bottom)) / 100;
   return (
     <div className="mb-5 rounded-lg border border-[#EAECF0] p-3">
       <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Trajetória temporal do score</h3>
       <div className="overflow-x-auto">
-        <svg viewBox={"0 0 " + width + " " + height} role="img" aria-label="Trajetória individual do score de risco" className="min-w-[600px] w-full">
+        <svg
+          viewBox={"0 0 " + width + " " + height}
+          role="img"
+          aria-label="Trajetória individual do score de risco"
+          className="min-w-[600px] w-full"
+        >
           {[0, 25, 50, 75, 100].map((tick) => (
             <g key={tick}>
-              <line x1={left} x2={width - right} y1={y(tick)} y2={y(tick)} stroke="#EAECF0" strokeDasharray="3 4" />
-              <text x={left - 8} y={y(tick) + 4} fontSize="10" textAnchor="end" fill="#667085">{tick}</text>
+              <line
+                x1={left}
+                x2={width - right}
+                y1={y(tick)}
+                y2={y(tick)}
+                stroke="#EAECF0"
+                strokeDasharray="3 4"
+              />
+              <text x={left - 8} y={y(tick) + 4} fontSize="10" textAnchor="end" fill="#667085">
+                {tick}
+              </text>
             </g>
           ))}
           {points.map((point, index) => {
@@ -318,10 +412,24 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
             const connect = compatible && gap <= 45 * 86400000;
             return (
               <g key={point.id}>
-                {connect && previous && (
-                  <line x1={x(index - 1)} y1={y(previous.score)} x2={x(index)} y2={y(point.score)} stroke="#2563EB" strokeWidth="2.5" />
-                )}
-                <circle cx={x(index)} cy={y(point.score)} r="4" fill="#FFFFFF" stroke="#2563EB" strokeWidth="2">
+                {connect && previous ? (
+                  <line
+                    x1={x(index - 1)}
+                    y1={y(previous.score)}
+                    x2={x(index)}
+                    y2={y(point.score)}
+                    stroke="#2563EB"
+                    strokeWidth="2.5"
+                  />
+                ) : null}
+                <circle
+                  cx={x(index)}
+                  cy={y(point.score)}
+                  r="4"
+                  fill="#FFFFFF"
+                  stroke="#2563EB"
+                  strokeWidth="2"
+                >
                   <title>
                     {dateTimeLabel(point.evaluated_at) +
                       " · score " +
@@ -329,7 +437,9 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
                       " · " +
                       point.risk_level +
                       " · " +
-                      (point.model_version || "versão não identificada")}
+                      (point.model_version || "versão não identificada") +
+                      " · " +
+                      point.score_semantics_version}
                   </title>
                 </circle>
                 <text x={x(index)} y={height - 10} fontSize="9" textAnchor="middle" fill="#667085">
@@ -343,6 +453,16 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
       <p className="mt-1 text-[10px] text-[#667085]">
         A linha é interrompida entre modelos/semânticas incompatíveis ou lacunas superiores a 45 dias.
       </p>
+      <ul className="mt-3 space-y-1.5 border-t border-[#F2F4F7] pt-3">
+        {points.map((a) => (
+          <li key={a.id + "-model"} className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-[11px] text-[#344054]">
+              {dateTimeLabel(a.evaluated_at)} · score {scoreLabel(a.score)}
+            </span>
+            <AssessmentModelLine a={a} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

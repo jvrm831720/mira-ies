@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -9,7 +10,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
-  Info,
   RefreshCw,
   TrendingUp,
   Users,
@@ -33,41 +33,114 @@ import {
   scoreLabel,
   type Period,
 } from "@/components/monitoramento/monitoramento-charts";
+import {
+  ComparabilityBadge,
+  ModelVersionCell,
+  AssessmentModelLine,
+} from "@/components/monitoramento/comparability";
+import type { RiskMovement } from "@/types/api";
 
-export function MonitoramentoPageView() {
-  const [period, setPeriod] = useState<Period>("90");
-  const [course, setCourse] = useState("");
-  const [riskLevel, setRiskLevel] = useState("");
+type MovementFilter =
+  | ""
+  | "risco_aumentou"
+  | "risco_diminuiu"
+  | "mudanca_modelo"
+  | "sem_historico_comparavel"
+  | "classification_changed";
+
+const PERIOD_VALUES: Period[] = ["30", "90", "180", "365"];
+
+function MonitoramentoPageInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [period, setPeriod] = useState<Period>(() => {
+    const p = searchParams.get("period") || "";
+    return PERIOD_VALUES.includes(p as Period) ? (p as Period) : "90";
+  });
+  const [course, setCourse] = useState(() => searchParams.get("course") || "");
+  const [riskLevel, setRiskLevel] = useState(() => {
+    const r = searchParams.get("risk") || searchParams.get("risk_level") || "";
+    return ["critico", "medio", "baixo"].includes(r) ? r : "";
+  });
+  const [movementFilter, setMovementFilter] = useState<MovementFilter>(() => {
+    const m = searchParams.get("movement") || "";
+    if (
+      [
+        "risco_aumentou",
+        "risco_diminuiu",
+        "mudanca_modelo",
+        "sem_historico_comparavel",
+        "classification_changed",
+      ].includes(m)
+    ) {
+      return m as MovementFilter;
+    }
+    return "";
+  });
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [to, setTo] = useState(() => new Date().toISOString());
+  const [historyPage, setHistoryPage] = useState(1);
+  const [extraMovements, setExtraMovements] = useState<RiskMovement[]>([]);
+
   const from = useMemo(
     () => new Date(new Date(to).getTime() - Number(period) * 86400000).toISOString(),
     [period, to]
   );
 
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (period !== "90") params.set("period", period);
+    if (course) params.set("course", course);
+    if (riskLevel) params.set("risk", riskLevel);
+    if (movementFilter) params.set("movement", movementFilter);
+    const qs = params.toString();
+    const next = qs ? pathname + "?" + qs : pathname;
+    router.replace(next, { scroll: false });
+  }, [period, course, riskLevel, movementFilter, pathname, router]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+    setExtraMovements([]);
+  }, [period, course, riskLevel, from, to]);
+
   const historyQuery = useQuery({
-    queryKey: ["risk-history", period, course, riskLevel, from, to],
+    queryKey: ["risk-history", period, course, riskLevel, from, to, historyPage],
     queryFn: () =>
       api.riskHistory({
         from,
         to,
         course: course || undefined,
         risk_level: riskLevel || undefined,
-        page: 1,
+        page: historyPage,
         page_size: 50,
       }),
     retry: false,
   });
 
+  // Preserve all fetched pages: React Query replaces data when the page key changes.
+  // Accumulate page 1 as the initial list, then append unseen students from later pages.
+  useEffect(() => {
+    const pageMovements = historyQuery.data?.movements;
+    if (!pageMovements) return;
+
+    setExtraMovements((previous) => {
+      if (historyPage === 1) return pageMovements;
+
+      const byStudent = new Map(previous.map((movement) => [movement.student_id, movement]));
+      for (const movement of pageMovements) {
+        if (!byStudent.has(movement.student_id)) {
+          byStudent.set(movement.student_id, movement);
+        }
+      }
+      return Array.from(byStudent.values());
+    });
+  }, [historyQuery.data, historyPage]);
+
   const summaryQuery = useQuery({
     queryKey: ["risk-summary-monitor"],
     queryFn: () => api.riskSummary(),
-    retry: false,
-  });
-
-  const workQuery = useQuery({
-    queryKey: ["retention-work-summary-monitor"],
-    queryFn: () => api.retentionWorkSummary(),
     retry: false,
   });
 
@@ -81,9 +154,32 @@ export function MonitoramentoPageView() {
 
   const data = historyQuery.data;
   const courseOptions = data?.courses ?? [];
-  const refresh = () => setTo(new Date().toISOString());
+  const refresh = () => {
+    setHistoryPage(1);
+    setExtraMovements([]);
+    setTo(new Date().toISOString());
+  };
   const counts = data?.comparison_counts;
-  const movements = data?.movements ?? [];
+  const baseMovements = data?.movements ?? [];
+  const movements = useMemo(() => {
+    const list =
+      extraMovements.length === 0
+        ? baseMovements
+        : Array.from(
+            new Map(
+              [...baseMovements, ...extraMovements].map((m) => [m.student_id, m] as const)
+            ).values()
+          );
+    if (!movementFilter) return list;
+    if (movementFilter === "classification_changed") {
+      return list.filter((m) => m.classification_changed);
+    }
+    return list.filter((m) => m.change_type === movementFilter);
+  }, [baseMovements, extraMovements, movementFilter]);
+
+  const canLoadMore =
+    Boolean(data?.pagination) &&
+    (data?.pagination.page ?? 1) < (data?.pagination.pages ?? 1);
   const summary = summaryQuery.data?.summary;
 
   return (
@@ -100,8 +196,8 @@ export function MonitoramentoPageView() {
               Monitoramento de risco
             </h1>
             <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
-              Distribuição atual, evolução entre avaliações reais, analytics de intervenções e fatores
-              preservados — sem inferir causalidade.
+              Evolução temporal das avaliações de risco persistidas: scores, movimentações entre níveis
+              e trajetória por aluno. A fila operacional fica na Visão geral e na Central de Trabalho.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -139,7 +235,7 @@ export function MonitoramentoPageView() {
         </section>
 
         <section className="flex flex-wrap items-end gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4">
-          <label className="flex min-w-[180px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
+          <label className="flex min-w-[160px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
             Curso
             <select
               value={course}
@@ -154,7 +250,7 @@ export function MonitoramentoPageView() {
               ))}
             </select>
           </label>
-          <label className="flex min-w-[180px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
+          <label className="flex min-w-[160px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
             Classificação
             <select
               value={riskLevel}
@@ -167,6 +263,21 @@ export function MonitoramentoPageView() {
               <option value="baixo">Baixo</option>
             </select>
           </label>
+          <label className="flex min-w-[200px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
+            Movimentação
+            <select
+              value={movementFilter}
+              onChange={(e) => setMovementFilter(e.target.value as MovementFilter)}
+              className="h-9 rounded-lg border border-[#D0D5DD] bg-white px-2.5 text-[12px] text-[#344054]"
+            >
+              <option value="">Todas as movimentações</option>
+              <option value="risco_aumentou">Risco aumentou</option>
+              <option value="risco_diminuiu">Risco diminuiu</option>
+              <option value="classification_changed">Mudança de nível</option>
+              <option value="mudanca_modelo">Mudança de modelo</option>
+              <option value="sem_historico_comparavel">Sem histórico comparável</option>
+            </select>
+          </label>
           <div className="flex items-center gap-2 pb-2 text-[11px] text-[#667085]">
             <CalendarDays className="h-3.5 w-3.5" />
             {data
@@ -176,66 +287,58 @@ export function MonitoramentoPageView() {
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
-          <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-            <div className="mb-4">
+        <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
               <h2 className="text-[14px] font-semibold text-[#101828]">Distribuição atual de risco</h2>
-              <p className="mt-1 text-[11px] text-[#667085]">Snapshot da base — independente do período histórico.</p>
-            </div>
-            {summaryQuery.isLoading && <Skeleton className="h-36 rounded-lg" />}
-            {summaryQuery.isError && (
-              <p className="rounded-lg border border-[#FECDCA] bg-[#FEF3F2] p-3 text-[12px] text-[#B42318]">
-                Não foi possível carregar o resumo de risco atual.
+              <p className="mt-1 text-[11px] text-[#667085]">
+                Snapshot da base — independente do período histórico abaixo. Sem score não é baixo risco.
               </p>
-            )}
-            {summary && (
-              <CurrentRiskDistribution
-                summary={summary}
-                totalStudents={summaryQuery.data?.total_students}
-                totalScored={summaryQuery.data?.total_scored}
-              />
-            )}
-          </div>
-          <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-            <div className="mb-4">
-              <h2 className="text-[14px] font-semibold text-[#101828]">Fila operacional</h2>
-              <p className="mt-1 text-[11px] text-[#667085]">Pendências de retenção — não desfechos de evasão.</p>
             </div>
-            {workQuery.isLoading && <Skeleton className="h-28 rounded-lg" />}
-            {workQuery.isError && (
-              <p className="text-[12px] text-[#B42318]">Resumo operacional indisponível.</p>
-            )}
-            {workQuery.data && (
-              <div className="space-y-3">
-                <Metric label="Pendentes" value={workQuery.data.pending} hint="Ainda não concluídos" icon={<Users className="h-4 w-4" />} />
-                <Metric
-                  label={"Atrasados (>" + workQuery.data.overdue_policy_hours + "h)"}
-                  value={workQuery.data.overdue_48h}
-                  hint="Política de atraso da instituição"
-                  icon={<ArrowUpRight className="h-4 w-4" />}
-                  tone="danger"
-                />
-                <Metric label="Falhas" value={workQuery.data.failed} hint="Execuções com erro" icon={<Info className="h-4 w-4" />} />
-                <Link href="/trabalho" className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#175CD3]">
-                  Central de Trabalho <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/trabalho"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#344054] hover:bg-white"
+              >
+                Central de Trabalho
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+              <Link
+                href="/alunos?tab=dados_insuficientes"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#344054] hover:bg-white"
+              >
+                Sem score / cobertura
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
           </div>
+          {summaryQuery.isLoading && <Skeleton className="h-36 rounded-lg" />}
+          {summaryQuery.isError && (
+            <p className="rounded-lg border border-[#FECDCA] bg-[#FEF3F2] p-3 text-[12px] text-[#B42318]">
+              Não foi possível carregar o resumo de risco atual.
+            </p>
+          )}
+          {summary && (
+            <CurrentRiskDistribution
+              summary={summary}
+              totalStudents={summaryQuery.data?.total_students}
+              totalScored={summaryQuery.data?.total_scored}
+            />
+          )}
         </section>
-
-        <RetentionAnalyticsPanel days={Number(period)} />
 
         {historyQuery.isError && (
           <div role="alert" className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-5">
-            <p className="text-[13px] font-semibold text-[#B42318]">Não foi possível carregar o histórico de risco.</p>
-            <button onClick={refresh} className="mt-3 text-[12px] font-semibold text-[#B42318] underline">
+            <p className="text-[13px] font-semibold text-[#B42318]">
+              Não foi possível carregar o histórico de risco.
+            </p>
+            <button type="button" onClick={refresh} className="mt-3 text-[12px] font-semibold text-[#B42318] underline">
               Tentar novamente
             </button>
           </div>
         )}
 
-        {historyQuery.isLoading ? (
+        {historyQuery.isLoading && historyPage === 1 ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[1, 2, 3, 4].map((n) => (
               <Skeleton key={n} className="h-28 rounded-xl" />
@@ -252,16 +355,21 @@ export function MonitoramentoPageView() {
                 <Metric
                   label="Sem histórico comparável"
                   value={(counts?.no_comparable_history ?? 0) + (counts?.model_changed ?? 0)}
-                  hint="Sem anterior ou versão incompatível"
+                  hint={
+                    "Sem anterior: " +
+                    String(counts?.no_comparable_history ?? 0) +
+                    " · modelo mudou: " +
+                    String(counts?.model_changed ?? 0)
+                  }
                   icon={<Users className="h-4 w-4" />}
                 />
               </section>
 
-              {data.temporal_data_truncated && (
+              {data.temporal_data_truncated ? (
                 <p className="rounded-lg border border-[#FEDF89] bg-[#FFFAEB] p-3 text-[12px] text-[#B54708]">
                   Série temporal limitada aos registros mais recentes; totais podem estar parciais.
                 </p>
-              )}
+              ) : null}
 
               <section className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
                 <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
@@ -284,16 +392,18 @@ export function MonitoramentoPageView() {
                 <div className="border-b border-[#EAECF0] p-5">
                   <h2 className="text-[14px] font-semibold text-[#101828]">Movimentações de risco</h2>
                   <p className="mt-1 text-[11px] text-[#667085]">
-                    Comparação entre avaliações. Aumento não prova evasão nem causalidade.
+                    Comparação entre avaliações. Delta só é legítimo quando a comparabilidade permite.
                   </p>
                 </div>
                 {movements.length === 0 ? (
                   <div className="p-10 text-center text-[13px] text-[#667085]">
-                    Nenhuma movimentação no período. Ausência de histórico ≠ estabilidade.
+                    {movementFilter
+                      ? "Nenhuma movimentação com este filtro no período."
+                      : "Nenhuma movimentação no período. Ausência de histórico ≠ estabilidade."}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[860px] text-left">
+                    <table className="w-full min-w-[1100px] text-left">
                       <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase text-[#667085]">
                         <tr>
                           <th className="px-5 py-3">Aluno</th>
@@ -301,6 +411,8 @@ export function MonitoramentoPageView() {
                           <th className="px-3 py-3">Atual</th>
                           <th className="px-3 py-3">Variação</th>
                           <th className="px-3 py-3">Movimento</th>
+                          <th className="px-3 py-3">Comparabilidade</th>
+                          <th className="px-3 py-3">Modelo</th>
                           <th className="px-5 py-3">Última avaliação</th>
                         </tr>
                       </thead>
@@ -324,16 +436,48 @@ export function MonitoramentoPageView() {
                               </div>
                             </td>
                             <td className="px-3 py-3.5 text-[12px] font-semibold">
-                              {m.delta == null ? "—" : (m.delta > 0 ? "+" : "") + scoreLabel(m.delta)}
+                              {m.delta == null
+                                ? "—"
+                                : (m.delta > 0 ? "+" : "") + scoreLabel(m.delta)}
                             </td>
                             <td className="px-3 py-3.5">
-                              <span className={cn("inline-flex rounded-full px-2 py-1 text-[10px] font-medium", movementTone(m.change_type))}>
+                              <span
+                                className={cn(
+                                  "inline-flex rounded-full px-2 py-1 text-[10px] font-medium",
+                                  movementTone(m.change_type)
+                                )}
+                              >
                                 {CHANGE_LABEL[m.change_type]}
                               </span>
+                              {m.classification_changed ? (
+                                <p className="mt-1 text-[10px] text-[#667085]">Nível mudou</p>
+                              ) : null}
+                            </td>
+                            <td className="px-3 py-3.5">
+                              <ComparabilityBadge change={m.change_type} />
+                              {m.delta == null &&
+                              (m.change_type === "mudanca_modelo" ||
+                                m.change_type === "sem_historico_comparavel") ? (
+                                <p className="mt-1 text-[10px] text-[#98A2B3]">Delta omitido</p>
+                              ) : null}
+                            </td>
+                            <td className="px-3 py-3.5">
+                              <ModelVersionCell
+                                current={m.model_version}
+                                previous={m.previous_model_version}
+                              />
+                              {m.score_semantics_version ? (
+                                <p className="mt-0.5 text-[10px] text-[#98A2B3]">
+                                  {m.score_semantics_version}
+                                </p>
+                              ) : null}
                             </td>
                             <td className="px-5 py-3.5 text-[11px] text-[#667085]">
                               {dateTimeLabel(m.current_evaluated_at)}
-                              <Link href={"/alunos/" + m.student_id} className="mt-1 block text-[10px] font-semibold text-[#175CD3]">
+                              <Link
+                                href={"/alunos/" + m.student_id}
+                                className="mt-1 block text-[10px] font-semibold text-[#175CD3]"
+                              >
                                 Ficha
                               </Link>
                             </td>
@@ -343,9 +487,26 @@ export function MonitoramentoPageView() {
                     </table>
                   </div>
                 )}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EAECF0] px-5 py-3">
+                  <p className="text-[11px] text-[#667085]">
+                    Exibindo {movements.length.toLocaleString("pt-BR")} movimentações
+                    {movementFilter ? " (filtradas)" : ""}
+                    {data?.movements_truncated ? " · página truncada pela API" : ""}
+                  </p>
+                  {canLoadMore ? (
+                    <button
+                      type="button"
+                      disabled={historyQuery.isFetching}
+                      onClick={() => setHistoryPage((p) => p + 1)}
+                      className="inline-flex h-9 items-center rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:bg-[#F9FAFB] disabled:opacity-60"
+                    >
+                      {historyQuery.isFetching ? "Carregando…" : "Carregar mais avaliações"}
+                    </button>
+                  ) : null}
+                </div>
               </section>
 
-              {selectedStudentId && (
+              {selectedStudentId ? (
                 <section className="rounded-xl border border-[#B2CCFF] bg-white p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -354,68 +515,81 @@ export function MonitoramentoPageView() {
                         {selectedHistoryQuery.data?.student.name || "Carregando…"}
                       </p>
                     </div>
-                    <button type="button" onClick={() => setSelectedStudentId(null)} className="text-[11px] text-[#667085]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStudentId(null)}
+                      className="text-[11px] text-[#667085]"
+                    >
                       Fechar
                     </button>
                   </div>
-                  {selectedHistoryQuery.isLoading && <Skeleton className="mt-4 h-20 rounded-lg" />}
-                  {selectedHistoryQuery.isError && (
+                  {selectedHistoryQuery.isLoading ? <Skeleton className="mt-4 h-20 rounded-lg" /> : null}
+                  {selectedHistoryQuery.isError ? (
                     <p className="mt-4 text-[12px] text-[#B42318]">Falha ao carregar trajetória.</p>
-                  )}
-                  {selectedHistoryQuery.data && (
+                  ) : null}
+                  {selectedHistoryQuery.data ? (
                     <>
                       <StudentAssessmentTimeline assessments={selectedHistoryQuery.data.assessments} />
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div>
-                          <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Avaliações e fatores</h3>
-                          {selectedHistoryQuery.data.assessments.length === 0 && (
-                            <p className="text-[12px] text-[#667085]">Sem avaliações no período.</p>
-                          )}
-                          {selectedHistoryQuery.data.assessments.map((a) => (
-                            <div key={a.id} className="mb-2 rounded-lg border border-[#EAECF0] p-3">
-                              <div className="flex justify-between gap-2">
-                                <span className="text-[12px] font-semibold">Score {scoreLabel(a.score)}</span>
-                                <RiskBadge level={a.risk_level} />
-                              </div>
-                              <p className="mt-1 text-[10px] text-[#667085]">{dateTimeLabel(a.evaluated_at)}</p>
-                              {a.explanation_available && a.explanation?.top_factors?.length ? (
-                                <ul className="mt-2 list-disc pl-4 text-[11px] text-[#475467]">
-                                  {a.explanation.top_factors.map((f, i) => (
-                                    <li key={a.id + "-" + i}>{f.label || f.feature || "Fator"}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="mt-2 text-[10px] text-[#667085]">Fatores não preservados nesta avaliação.</p>
-                              )}
+                      <div className="mt-4 space-y-2">
+                        {selectedHistoryQuery.data.assessments.map((a) => (
+                          <div key={a.id} className="rounded-lg border border-[#EAECF0] p-3">
+                            <div className="flex justify-between gap-2">
+                              <span className="text-[12px] font-semibold">
+                                Score {scoreLabel(a.score)}
+                              </span>
+                              <RiskBadge level={a.risk_level} />
                             </div>
-                          ))}
-                        </div>
-                        <div>
-                          <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Intervenções</h3>
-                          {selectedHistoryQuery.data.interventions.length === 0 && (
-                            <p className="text-[12px] text-[#667085]">Nenhuma no período.</p>
-                          )}
-                          {selectedHistoryQuery.data.interventions.map((i) => (
-                            <div key={i.id} className="mb-2 rounded-lg border border-[#EAECF0] p-3 text-[12px]">
-                              <p className="font-medium">
-                                {i.channel || "Canal n/d"} · {i.status}
-                              </p>
-                              <p className="mt-1 text-[10px] text-[#667085]">{dateTimeLabel(i.created_at)}</p>
-                              <p className="mt-1 text-[10px] text-[#475467]">
-                                Desfecho: {i.outcome || "Ainda não registrado"}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
+                            <p className="mt-1 text-[10px] text-[#667085]">
+                              {dateTimeLabel(a.evaluated_at)}
+                            </p>
+                            <AssessmentModelLine a={a} />
+                          </div>
+                        ))}
                       </div>
                     </>
-                  )}
+                  ) : null}
                 </section>
-              )}
+              ) : null}
             </>
           )
         )}
+
+        <details className="group rounded-xl border border-[#E5E7EB] bg-white open:shadow-sm">
+          <summary className="cursor-pointer list-none px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-[14px] font-semibold text-[#101828]">
+                  Analytics de intervenções
+                  <span className="ml-2 text-[11px] font-medium text-[#98A2B3]">(secundário)</span>
+                </h2>
+                <p className="mt-1 text-[11px] text-[#667085]">
+                  Métricas de retenção no período — não substituem a evolução de risco acima.
+                </p>
+              </div>
+              <span className="text-[11px] font-semibold text-[#2563EB] group-open:hidden">Expandir</span>
+              <span className="hidden text-[11px] font-semibold text-[#667085] group-open:inline">Recolher</span>
+            </div>
+          </summary>
+          <div className="border-t border-[#E5E7EB] px-5 pb-5 pt-4">
+            <RetentionAnalyticsPanel days={Number(period)} />
+          </div>
+        </details>
       </main>
     </>
+  );
+}
+
+export function MonitoramentoPageView() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 py-10">
+          <div className="h-8 w-48 animate-pulse rounded bg-[#F2F4F7]" />
+          <div className="h-40 animate-pulse rounded-xl bg-[#F2F4F7]" />
+        </main>
+      }
+    >
+      <MonitoramentoPageInner />
+    </Suspense>
   );
 }
