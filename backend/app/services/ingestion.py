@@ -297,6 +297,15 @@ def validate_and_clean_row(row: pd.Series, idx: int) -> tuple[dict | None, list[
         if parsed is None:
             warnings.append(f"Linha {line_number}: valor inválido em '{COLUMN_LABELS[field]}'; o campo será ignorado.")
             continue
+        # A documentação secundária da API SophiA mostra -1 em amostras de
+        # notas. Sem semântica homologada, tratamos esse valor como sentinela,
+        # nunca como uma nota real nem como zero após o clamp.
+        if field == "nota_media" and parsed == -1:
+            warnings.append(
+                f"Linha {line_number}: nota média '-1' tratada como valor sentinela; "
+                "o campo será ignorado até a semântica da origem ser confirmada."
+            )
+            continue
         if parsed < minimum or parsed > maximum:
             warnings.append(
                 f"Linha {line_number}: '{COLUMN_LABELS[field]}' será limitado ao intervalo {minimum}–{maximum}."
