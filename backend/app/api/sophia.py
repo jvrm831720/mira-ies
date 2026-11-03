@@ -58,6 +58,7 @@ async def _client_for_tenant(db: AsyncSession, tenant_id: str) -> SophiaApiClien
         username=decrypt_sophia_secret(connection.encrypted_username),
         password=decrypt_sophia_secret(connection.encrypted_password),
     )
+    config.validate_runtime_host()
     return SophiaApiClient(config)
 
 
