@@ -197,23 +197,18 @@ MULTI_UPLOAD_ROLE_FIELDS: dict[str, set[str]] = {
     "academico": {"matricula", "curso", "campus"},
     "historico": {"matricula", "dias_sem_login", "presenca_percentual", "nota_media", "reprovacoes"},
     "matriculas": {"matricula", "turma", "semestre", "forma_ingresso", "status_aluno"},
-}
-
-# Compatibilidade com clientes anteriores. Os nomes novos da interface são
-# canônicos; os aliases antigos resolvem para o mesmo conjunto de campos
-# nos endpoints de prévia e confirmação.
-MULTI_UPLOAD_ROLE_ALIASES = {
-    "alunos": "cadastro",
-    "cursos": "academico",
-    "engajamento": "historico",
-    "desempenho": "historico",
+    # Aliases legados preservam os campos que cada papel podia importar antes
+    # da unificação, sem ampliar silenciosamente o escopo de uma base.
+    "alunos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+    "cursos": {"matricula", "nome", "curso", "turma", "semestre", "forma_ingresso", "telefone", "email", "communication_opt_out"},
+    "engajamento": {"matricula", "dias_sem_login", "presenca_percentual"},
+    "desempenho": {"matricula", "nota_media", "reprovacoes"},
 }
 
 
 def resolve_multi_upload_role(role: str | None) -> str | None:
     normalized = (role or "").strip().lower()
-    canonical = MULTI_UPLOAD_ROLE_ALIASES.get(normalized, normalized)
-    return canonical if canonical in MULTI_UPLOAD_ROLE_FIELDS else None
+    return normalized if normalized in MULTI_UPLOAD_ROLE_FIELDS else None
 
 
 def parse_column_mapping(value: str | None) -> dict[str, str] | None:
@@ -283,7 +278,7 @@ async def preview_multiple_students_files(
         allowed = role_fields[role]
         recognized = {field for field in mapped.values() if field in allowed}
         missing = {"matricula"} - recognized
-        if role == "cadastro":
+        if role in {"cadastro", "alunos"}:
             missing |= {"nome"} - recognized
         if missing:
             required_labels = {"matricula": "matrícula", "nome": "nome"}
