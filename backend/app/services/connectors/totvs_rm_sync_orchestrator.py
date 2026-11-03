@@ -42,6 +42,10 @@ class RMJobConflict(RuntimeError):
     pass
 
 
+class RMJobNotFound(RMJobConflict):
+    """Job does not exist in the authenticated tenant."""
+
+
 def retry_delay_seconds(attempt: int, *, base: int = 15, cap: int = 1800) -> int:
     """Capped exponential backoff; attempt is 1-based."""
     if attempt < 1:
@@ -117,6 +121,7 @@ class RMPostgresSyncQueue:
     async def enqueue(
         self, *, tenant_id: str, scope_id: str, idempotency_key: str,
         request: dict | None = None, max_attempts: int = 5,
+        actor_user_id: str | None = None, actor_type: str = "system",
     ) -> str:
         if not idempotency_key or not idempotency_key.strip() or len(idempotency_key) > 160:
             raise ValueError("idempotency_key deve conter de 1 a 160 caracteres.")
@@ -146,7 +151,11 @@ class RMPostgresSyncQueue:
                 )
             )).scalar_one_or_none()
             if existing_key:
-                if existing_key.scope_id == scope_id and existing_key.request == payload:
+                if (
+                    existing_key.scope_id == scope_id
+                    and existing_key.request == payload
+                    and existing_key.max_attempts == max_attempts
+                ):
                     return existing_key.id
                 raise RMJobConflict("Chave de idempotência já usada com outro conteúdo.")
             await session.execute(
@@ -170,7 +179,7 @@ class RMPostgresSyncQueue:
                 status="queued", max_attempts=max_attempts,
             ))
             self._event(session, tenant_id=tenant_id, job_id=job_id,
-                        event_type="queued", details={"scope_id": scope_id})
+                        event_type="queued", details={"scope_id": scope_id, "actor_user_id": actor_user_id, "actor_type": actor_type})
             return job_id
 
     async def claim(self, *, tenant_id: str, worker_id: str, lease_seconds: int = 120) -> dict | None:
@@ -263,15 +272,15 @@ class RMPostgresSyncQueue:
             ))).scalar_one_or_none()
             return row in ("cancel_requested", "cancelled")
 
-    async def request_cancel(self, *, tenant_id: str, job_id: str) -> str:
+    async def request_cancel(self, *, tenant_id: str, job_id: str, actor_user_id: str | None = None, actor_type: str = "system") -> str:
         async with self.sessions() as session, session.begin():
             await self._tenant(session, tenant_id)
             row = (await session.execute(select(RmSyncJob).where(
                 RmSyncJob.id == job_id, RmSyncJob.tenant_id == tenant_id
             ).with_for_update())).scalar_one_or_none()
             if row is None:
-                raise RMJobConflict("Execução não encontrada.")
-            if row.status in TERMINAL_STATUSES:
+                raise RMJobNotFound("Execução não encontrada.")
+            if row.status in TERMINAL_STATUSES or row.status == "cancel_requested":
                 return row.status
             now = datetime.now(timezone.utc)
             if row.status in ("queued", "retry_wait"):
@@ -282,7 +291,7 @@ class RMPostgresSyncQueue:
                 row.cancel_requested_at = now
             self._event(session, tenant_id=tenant_id, job_id=job_id,
                         event_type="cancelled" if row.status == "cancelled" else "cancel_requested",
-                        details={"resulting_status": row.status})
+                        details={"resulting_status": row.status, "actor_user_id": actor_user_id, "actor_type": actor_type})
             return row.status
 
     async def finish(self, *, tenant_id: str, job_id: str, worker_id: str,
@@ -356,6 +365,151 @@ class RMPostgresSyncQueue:
                                  "available_at": row.available_at.isoformat() if event == "retry_scheduled" else None})
             return row.status
 
+    @staticmethod
+    def _serialize_job(job: RmSyncJob, scope: RmSyncScope) -> dict:
+        return {
+            "id": job.id,
+            "scope_id": job.scope_id,
+            "coligada_id": job.coligada_id,
+            "source_name": scope.source_name,
+            "entity_name": scope.entity_name,
+            "schema_version": scope.schema_version,
+            "snapshot_run_id": job.snapshot_run_id,
+            "status": job.status,
+            "attempts": job.attempts,
+            "max_attempts": job.max_attempts,
+            "available_at": job.available_at.isoformat() if job.available_at else None,
+            "created_at": job.created_at.isoformat(),
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+            "error_code": job.error_code,
+            "error_message": job.error_message,
+            "request": {
+                key: job.request.get(key)
+                for key in ("mode", "page_size")
+                if key in (job.request or {})
+            },
+        }
+
+    async def scopes(self, *, tenant_id: str) -> list[dict]:
+        async with self.sessions() as session, session.begin():
+            await self._tenant(session, tenant_id)
+            rows = (await session.execute(
+                select(RmSyncScope).where(RmSyncScope.tenant_id == tenant_id)
+                .order_by(RmSyncScope.coligada_id, RmSyncScope.source_name, RmSyncScope.entity_name)
+            )).scalars().all()
+            return [{
+                "id": row.id, "coligada_id": row.coligada_id,
+                "source_name": row.source_name, "entity_name": row.entity_name,
+                "schema_version": row.schema_version,
+                "current_snapshot_run_id": row.current_snapshot_run_id,
+                "created_at": row.created_at.isoformat(),
+                "updated_at": row.updated_at.isoformat(),
+            } for row in rows]
+
+    async def list_jobs(
+        self, *, tenant_id: str, status: str | None = None,
+        coligada_id: str | None = None, limit: int = 50, offset: int = 0,
+    ) -> dict:
+        async with self.sessions() as session, session.begin():
+            await self._tenant(session, tenant_id)
+            query = select(RmSyncJob, RmSyncScope).join(
+                RmSyncScope,
+                (RmSyncScope.id == RmSyncJob.scope_id)
+                & (RmSyncScope.tenant_id == RmSyncJob.tenant_id),
+            ).where(RmSyncJob.tenant_id == tenant_id)
+            if status:
+                query = query.where(RmSyncJob.status == status)
+            if coligada_id:
+                query = query.where(RmSyncJob.coligada_id == coligada_id)
+            total = (await session.execute(
+                select(func.count()).select_from(query.subquery())
+            )).scalar_one()
+            rows = (await session.execute(
+                query.order_by(RmSyncJob.created_at.desc())
+                .offset(offset).limit(limit)
+            )).all()
+            return {
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "jobs": [self._serialize_job(job, scope) for job, scope in rows],
+            }
+
+    async def get_job(self, *, tenant_id: str, job_id: str) -> dict | None:
+        async with self.sessions() as session, session.begin():
+            await self._tenant(session, tenant_id)
+            row = (await session.execute(
+                select(RmSyncJob, RmSyncScope).join(
+                    RmSyncScope,
+                    (RmSyncScope.id == RmSyncJob.scope_id)
+                    & (RmSyncScope.tenant_id == RmSyncJob.tenant_id),
+                ).where(RmSyncJob.id == job_id, RmSyncJob.tenant_id == tenant_id)
+            )).one_or_none()
+            if row is None:
+                return None
+            return self._serialize_job(row[0], row[1])
+
+    async def retry_failed(
+        self, *, tenant_id: str, job_id: str, actor_user_id: str | None = None,
+        max_manual_retries: int = 3, actor_type: str = "system",
+    ) -> dict:
+        async with self.sessions() as session, session.begin():
+            await self._tenant(session, tenant_id)
+            row = (await session.execute(
+                select(RmSyncJob).where(
+                    RmSyncJob.id == job_id, RmSyncJob.tenant_id == tenant_id
+                ).with_for_update()
+            )).scalar_one_or_none()
+            if row is None:
+                raise RMJobNotFound("Execução não encontrada.")
+            if row.status != "failed":
+                raise RMJobConflict("Somente execuções com falha podem receber nova tentativa manual.")
+            await session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+                {"lock_key": f"{tenant_id}:{row.coligada_id}"},
+            )
+            active = (await session.execute(select(RmSyncJob.id).where(
+                RmSyncJob.tenant_id == tenant_id,
+                RmSyncJob.coligada_id == row.coligada_id,
+                RmSyncJob.status.in_(ACTIVE_STATUSES),
+                RmSyncJob.id != row.id,
+            ).limit(1))).scalar_one_or_none()
+            if active:
+                raise RMJobConflict("Já existe uma sincronização ativa para esta coligada.")
+            manual_retries = (await session.execute(
+                select(func.count()).select_from(RmSyncJobEvent).where(
+                    RmSyncJobEvent.tenant_id == tenant_id,
+                    RmSyncJobEvent.job_id == job_id,
+                    RmSyncJobEvent.event_type == "manual_retry",
+                )
+            )).scalar_one()
+            if manual_retries >= max_manual_retries:
+                raise RMJobConflict("Limite de novas tentativas manuais atingido.")
+            previous_attempts = row.attempts
+            row.status = "queued"
+            row.attempts = 0
+            row.available_at = datetime.now(timezone.utc)
+            row.worker_id = None
+            row.locked_at = None
+            row.heartbeat_at = None
+            row.cancel_requested_at = None
+            row.started_at = None
+            row.finished_at = None
+            row.error_code = None
+            row.error_message = None
+            self._event(
+                session, tenant_id=tenant_id, job_id=job_id,
+                event_type="manual_retry", severity="warning",
+                details={
+                    "actor_user_id": actor_user_id,
+                    "actor_type": actor_type,
+                    "previous_attempts": previous_attempts,
+                    "manual_retry_number": manual_retries + 1,
+                },
+            )
+            return {"id": row.id, "status": row.status, "manual_retry_number": manual_retries + 1}
+
     async def history(self, *, tenant_id: str, scope_id: str, limit: int = 50) -> list[dict]:
         async with self.sessions() as session, session.begin():
             await self._tenant(session, tenant_id)
@@ -377,7 +531,10 @@ class RMPostgresSyncQueue:
             ).order_by(RmSyncJobEvent.created_at).limit(max(1, min(limit, 500))))).scalars()
             return [{
                 'event_type': row.event_type, 'severity': row.severity,
-                'details': row.details, 'created_at': row.created_at.isoformat(),
+                'details': {
+                    key: value for key, value in (row.details or {}).items()
+                    if key not in {"worker_id", "traceback", "raw_error", "payload", "response", "credentials", "authorization"}
+                }, 'created_at': row.created_at.isoformat(),
             } for row in rows]
 
     async def metrics(self, *, tenant_id: str) -> dict:
