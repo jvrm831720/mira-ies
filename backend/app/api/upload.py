@@ -274,7 +274,7 @@ async def preview_multiple_students_files(
         try:
             normalized, mapped = normalize_columns(df)
         except ValueError as exc:
-            items.append({"index": index, "filename": filename, "role": role, "valid": False,
+            items.append({"index": index, "filename": filename, "role": str(submitted_role).strip().lower(), "valid": False,
                           "error": str(exc), "total_rows": int(len(df)), "rows_to_import": 0,
                           "rows_to_reject": int(len(df)), "warnings": [], "errors": [str(exc)]})
             continue
@@ -287,7 +287,7 @@ async def preview_multiple_students_files(
         if missing:
             required_labels = {"matricula": "matrícula", "nome": "nome"}
             missing_labels = ", ".join(required_labels.get(field, field) for field in sorted(missing))
-            items.append({"index": index, "filename": filename, "role": role, "valid": False,
+            items.append({"index": index, "filename": filename, "role": str(submitted_role).strip().lower(), "valid": False,
                           "error": f"Colunas obrigatórias ausentes para {role}: {missing_labels}.",
                           "total_rows": int(len(df)), "rows_to_import": 0, "rows_to_reject": int(len(df)),
                           "columns": [{"key": str(k), "label": str(k)} for k in df.columns],
@@ -313,7 +313,7 @@ async def preview_multiple_students_files(
                     continue
                 record[field] = str(value).strip()
             if key_value in rows_by_key:
-                duplicate_keys.append({"filename": filename, "role": role, "matricula": key_value})
+                duplicate_keys.append({"filename": filename, "role": str(submitted_role).strip().lower(), "matricula": key_value})
                 file_warnings.append(f"Matrícula duplicada {key_value}: a linha mais recente substitui a anterior nesta prévia.")
             rows_by_key[key_value] = record
             if key_value not in consolidated:
@@ -336,7 +336,7 @@ async def preview_multiple_students_files(
             )
             existing = set((await db.execute(query)).scalars().all())
         items.append({
-            "index": index, "filename": filename, "role": role,
+            "index": index, "filename": filename, "role": str(submitted_role).strip().lower(),
             "valid": not file_errors and bool(rows_by_key),
             "total_rows": int(len(df)), "rows_to_import": len(rows_by_key),
             "rows_to_reject": int(len(df)) - len(rows_by_key),
