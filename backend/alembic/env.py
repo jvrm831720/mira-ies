@@ -24,6 +24,7 @@ import app.models.auth  # noqa: F401
 import app.models.jacad_connection  # noqa: F401
 import app.models.sponte_connection  # noqa: F401
 import app.models.rm_sync  # noqa: F401
+import app.models.rm_sync_jobs  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

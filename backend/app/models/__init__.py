@@ -9,6 +9,7 @@ from app.models.work_activity import WorkActivity, WorkActivityEvent
 from app.models.jacad_connection import TenantJacadConnection
 from app.models.sponte_connection import TenantSponteConnection
 from app.models.rm_sync import RmSyncScope, RmSyncRun, RmSyncPage, RmSyncRecord
+from app.models.rm_sync_jobs import RmSyncJob, RmSyncJobEvent
 
 __all__ = [
     "UploadBatch",
@@ -36,4 +37,6 @@ __all__ = [
     "RmSyncRun",
     "RmSyncPage",
     "RmSyncRecord",
+    "RmSyncJob",
+    "RmSyncJobEvent",
 ]
