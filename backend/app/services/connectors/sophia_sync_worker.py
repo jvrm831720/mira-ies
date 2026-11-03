@@ -130,6 +130,7 @@ class SophiaSyncWorker:
                 username=decrypt_sophia_secret(connection.encrypted_username),
                 password=decrypt_sophia_secret(connection.encrypted_password),
             )
+            config.validate_runtime_host()
             link_data = [(link.student_id, link.codigo_interno) for link in links]
 
         client = SophiaApiClient(config)
