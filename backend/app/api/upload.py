@@ -215,6 +215,7 @@ def resolve_multi_upload_role(role: str | None) -> str | None:
     canonical = MULTI_UPLOAD_ROLE_ALIASES.get(normalized, normalized)
     return canonical if canonical in MULTI_UPLOAD_ROLE_FIELDS else None
 
+
 def parse_column_mapping(value: str | None) -> dict[str, str] | None:
     if value is None or not value.strip():
         return None
