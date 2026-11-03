@@ -74,6 +74,7 @@ async def _prepare_test_database():
     import app.models.engagement  # noqa: F401
     import app.models.auth  # noqa: F401
     import app.models.work_activity  # noqa: F401
+    import app.models.rm_sync  # noqa: F401
 
     async with db_session_module.engine.begin() as sa_conn:
         await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
