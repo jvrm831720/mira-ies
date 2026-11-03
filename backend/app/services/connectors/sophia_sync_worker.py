@@ -19,7 +19,8 @@ from app.db.session import AsyncSessionLocal, engine
 from app.models.sophia_connection import TenantSophiaConnection, TenantSophiaStudentLink
 from app.models.sophia_sync import SophiaSyncJob, SophiaSyncJobEvent, SophiaStudentResource
 from app.services.connectors.sophia_api import SophiaApiClient, SophiaApiConfig
-from app.services.connectors.sophia_secrets import decrypt_sophia_secret\nfrom app.services.connectors.sophia_normalization import normalize_sophia_resource
+from app.services.connectors.sophia_secrets import decrypt_sophia_secret
+from app.services.connectors.sophia_normalization import normalize_sophia_resource
 
 
 RESOURCES = {
