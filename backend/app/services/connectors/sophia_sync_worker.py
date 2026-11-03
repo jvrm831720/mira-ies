@@ -44,6 +44,7 @@ class SophiaSyncWorker:
             raise ValueError("At least one authorized tenant is required.")
         self.worker_id = worker_id
         self.tenant_ids = tenant_ids
+        self._tenant_cursor = 0
 
     @staticmethod
     async def _tenant(session, tenant_id: str) -> None:
