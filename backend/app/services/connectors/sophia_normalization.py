@@ -55,12 +55,13 @@ def normalize_sophia_resource(resource: str, payload: list[dict[str, Any]]) -> l
                 "outstanding_balance": None,
             }
         else:
-            grade_value = _source_value(raw, "Nota", "Media", "Média", "MediaTurma")
+            grade_value = _source_value(raw, "Nota", "Media", "Média")
             canonical = {
                 "grade_value": _decimal_or_unknown(grade_value),
                 "grade_value_known": _decimal_or_unknown(grade_value) is not None,
                 "subject_source": _source_value(raw, "Disciplina", "NomeDisciplina"),
                 "assessment_source": _source_value(raw, "Etapa", "Avaliacao", "NomeAvaliacao"),
+                "class_average": _decimal_or_unknown(_source_value(raw, "MediaTurma")),
             }
         normalized_records.append({"raw": raw, "normalized": canonical})
     return normalized_records
