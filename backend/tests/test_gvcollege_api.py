@@ -144,7 +144,7 @@ def test_configuration_rejects_private_ip_and_invalid_page_size():
 
 def test_view_and_field_contract_is_explicit():
     with pytest.raises(GvcollegeConfigurationError):
-        GvcollegeViewContract("dbo.GVMVW_Pessoa", ("codigo",))
+        GvcollegeViewContract("dbo.GVMVW_Pessoa", ("codigo",), pagination_key="codigo")
     with pytest.raises(GvcollegeConfigurationError):
         GvcollegeViewContract("Pessoa", ("codigo",), pagination_key="codigo", default_order_by="nome")
 
