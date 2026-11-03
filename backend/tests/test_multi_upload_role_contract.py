@@ -32,6 +32,10 @@ async def test_preview_accepts_all_roles_exposed_by_import_wizard(client, auth_h
     assert body["summary"]["cross_file_conflicts"] == 0
     assert body["consolidated_preview"][0]["matricula"] == "ROLE001"
 
+    students = await client.get("/api/v1/students", headers=auth_headers)
+    assert students.status_code == 200
+    assert all(item["matricula"] != "ROLE001" for item in students.json()["students"])
+
 
 @pytest.mark.asyncio
 async def test_confirmation_uses_same_role_contract_and_persists_merged_student(client, auth_headers, db_session, tenant):
