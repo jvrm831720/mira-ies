@@ -131,10 +131,19 @@ class SophiaConnector:
         id="sophia",
         name="SophiA (Prima)",
         category="erp",
-        description="API Web Services REST (cadastro, notas, financeiro).",
+        description="Cliente nativo somente leitura para SophiA Gestão Escolar Web API v1; consultas acadêmicas/financeiras por CodigoInterno conhecido. Listagem geral de alunos não documentada no contrato v1.",
         has_api=True,
-        endpoints=["POST /api/v1/connectors/sophia/students", "POST /api/v1/connectors/sophia/sync"],
-        sample_fields=["cod_aluno", "nome", "curso", "serie", "media", "frequencia", "vl_atraso"],
+        endpoints=[
+            "POST /Autenticacao/PostAutenticacao",
+            "GET /Unidade/GetUnidades",
+            "GET /Curso/GetCursos",
+            "GET /FichaFinanceira/GetFichaFinanceira?codigo={CodigoInterno}",
+            "GET /FichaFinanceira/GetBoleto?idTitulo={IdTitulo}",
+            "GET /Boletim/GetTodasEtapasBoletim?codigo={CodigoInterno}",
+            "GET /Nota/ListarNotasRecentes?codigo={CodigoInterno}",
+            "GET /Boletim/GetFiltroBoletim?codigo={CodigoInterno}",
+        ],
+        sample_fields=["CodigoInterno", "Pago", "ValorPrevisto", "ValorPago", "DataVcto", "MediaAluno", "Faltas", "AulasDadas"],
     )
 
     def transform(self, payload: Any) -> list[dict[str, Any]]:

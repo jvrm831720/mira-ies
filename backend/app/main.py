@@ -8,29 +8,11 @@ from starlette.requests import Request
 
 from app.core.config import get_settings
 from app.api import (
-    upload,
-    health,
-    scoring,
-    connectors,
-    jacad,
-    sponte,
-    outcomes,
-    agents,
-    auth,
-    mfa,
-    delivery_webhooks,
-    org,
-    billing,
-    retention_campaigns,
-    retention_campaign_execution,
-    control_center_auth,
-    control_center_admin,
-    mira_admin,
-    work_activities,
-    student_work_timeline,
-    signals,
-    student_groups,
-    totvs_rm_operations,
+    upload, health, scoring, connectors, jacad, sponte, sophia, sophia_sync,
+    outcomes, agents, auth, mfa, delivery_webhooks, org, billing,
+    retention_campaigns, retention_campaign_execution, control_center_auth,
+    control_center_admin, mira_admin, work_activities, student_work_timeline,
+    signals, student_groups, totvs_rm_operations,
 )
 from app.db.session import init_db, apply_runtime_schema_patches, SchemaPatchError
 from app.ml.model import load_model
@@ -103,9 +85,7 @@ async def lifespan(app: FastAPI):
             t = r.scalar_one_or_none()
             if not t:
                 t = Tenant(
-                    slug="default",
-                    name="IES Demo",
-                    is_active=True,
+                    slug="default", name="IES Demo", is_active=True,
                     api_key_hash=hash_api_key(settings.dev_api_key),
                 )
                 session.add(t)
@@ -122,12 +102,8 @@ async def lifespan(app: FastAPI):
                 admin = existing.scalar_one_or_none()
                 if not admin:
                     admin = User(
-                        tenant_id=t.id,
-                        display_name="Admin Mira",
-                        email=_DEV_ADMIN_EMAIL,
-                        password_hash=hash_password(_DEV_ADMIN_PASSWORD),
-                        role="admin",
-                        is_active=True,
+                        tenant_id=t.id, display_name="Admin Mira", email=_DEV_ADMIN_EMAIL,
+                        password_hash=hash_password(_DEV_ADMIN_PASSWORD), role="admin", is_active=True,
                     )
                     session.add(admin)
                     await session.commit()
@@ -165,16 +141,12 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
 
 
 _cors = (
-    ["*"]
-    if settings.debug and settings.app_env == "development"
+    ["*"] if settings.debug and settings.app_env == "development"
     else [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 )
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware, allow_origins=_cors, allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
 )
 
 app.include_router(health.router, tags=["Health"])
@@ -183,6 +155,8 @@ app.include_router(scoring.router, prefix="/api/v1", tags=["Motor Preditivo (Ris
 app.include_router(connectors.router, prefix="/api/v1", tags=["Conectores ERP/LMS"])
 app.include_router(jacad.router, prefix="/api/v1")
 app.include_router(sponte.router, prefix="/api/v1")
+app.include_router(sophia.router, prefix="/api/v1")
+app.include_router(sophia_sync.router, prefix="/api/v1")
 app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outcomes)"])
 app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
 app.include_router(retention_campaigns.router, prefix="/api/v1")
@@ -205,11 +179,8 @@ app.include_router(mira_admin.router, prefix="/api/v1")
 @app.get("/")
 async def root():
     return {
-        "project": settings.app_name,
-        "version": "0.8.2-signals-foundation",
-        "phase": "Wave 1.1 — fundação Inteligência de Sinais",
-        "status": "running",
-        "docs": "/docs",
-        "signals": "/api/v1/signals/catalog · /evaluate · /summary",
+        "project": settings.app_name, "version": "0.8.2-signals-foundation",
+        "phase": "Wave 1.1 — fundação Inteligência de Sinais", "status": "running",
+        "docs": "/docs", "signals": "/api/v1/signals/catalog · /evaluate · /summary",
         "work": "/api/v1/work/activities · /api/v1/students/{id}/work-timeline",
     }
