@@ -119,12 +119,22 @@ function MonitoramentoPageInner() {
     retry: false,
   });
 
+  // Preserve all fetched pages: React Query replaces data when the page key changes.
+  // Accumulate page 1 as the initial list, then append unseen students from later pages.
   useEffect(() => {
-    if (!historyQuery.data || historyPage <= 1) return;
-    setExtraMovements((prev) => {
-      const seen = new Set(prev.map((m) => m.student_id));
-      const added = historyQuery.data!.movements.filter((m) => !seen.has(m.student_id));
-      return prev.concat(added);
+    const pageMovements = historyQuery.data?.movements;
+    if (!pageMovements) return;
+
+    setExtraMovements((previous) => {
+      if (historyPage === 1) return pageMovements;
+
+      const byStudent = new Map(previous.map((movement) => [movement.student_id, movement]));
+      for (const movement of pageMovements) {
+        if (!byStudent.has(movement.student_id)) {
+          byStudent.set(movement.student_id, movement);
+        }
+      }
+      return Array.from(byStudent.values());
     });
   }, [historyQuery.data, historyPage]);
 
