@@ -68,7 +68,7 @@ COLUMN_ALIASES: dict[str, list[str]] = {
         "percentual presenca", "freq", "attendance percentage", "attendance_pct",
     ],
     "nota_media": [
-        "nota_media", "media", "nota", "average_grade", "average grade",
+        "nota_media", "media", "average_grade", "average grade",
         "gpa", "media geral", "cr", "grade average",
     ],
     "reprovacoes": ["reprovacoes", "reprovacao", "failures", "qtd reprovacoes", "num reprovacoes", "failed courses"],
