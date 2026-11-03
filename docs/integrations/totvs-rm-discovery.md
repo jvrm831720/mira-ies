@@ -61,7 +61,7 @@ A documentação da parcela mostra consulta de lista em `/rmsrestdataserver/rest
 ## 4. Riscos e decisões de arquitetura
 
 1. **Conectividade:** o exemplo oficial usa Host local. Precisamos de topologia aprovada pela IES; não abrir a porta 8051 à internet.
-2. **Credenciais:** Basic Auth é documentado. Usar credencial técnica de menor privilégio, segredo cifrado em repouso, rotação e redaction total de headers/logs.
+2. **Credenciais e dados pessoais:** a Central TOTVS documenta que a leitura via WebService depende de perfil com permissões explícitas, inclusive uma opção para campos sensíveis e permissão de visualizar dados do aluno sem restrição. A MIRA não deve habilitar essas permissões amplas por padrão. Usar credencial técnica read-only com acesso mínimo aos campos necessários; não solicitar CPF, endereço ou outros dados sensíveis se não forem estritamente necessários e autorizados. Armazenar segredo cifrado, rotacionar e remover Authorization de logs.
 3. **Contexto multiempresa:** `CODCOLIGADA`, `CODFILIAL`, `CODTIPOCURSO` e `CODSISTEMA` são obrigatórios no contexto. A configuração deve ser por tenant e por combinação autorizada; não inferir valores.
 4. **Paginação e roster:** `start/limit` aparece no recurso de parcelas. O `EduAlunoData` documentado via SOAP é `ReadRecord` por chave composta; não assumir que isso permita listar todos os alunos. Limites, ordenação estável e paginação para os demais recursos ainda não foram confirmados.
 5. **Escopo somente leitura:** embora os DataServers aceitem verbos de escrita, a MIRA deve usar somente GET. Bloquear POST/PUT/DELETE no cliente HTTP, não apenas na interface.
