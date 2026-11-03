@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import ipaddress
+import os
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -74,6 +75,16 @@ class SophiaApiConfig:
         if not self.username.strip() or not self.password:
             raise ValueError("SophiA API integration username and password are required.")
         return self.base_url.rstrip("/")
+
+    def validate_runtime_host(self) -> None:
+        host = (urlsplit(self.base_url).hostname or "").lower()
+        allowed = {
+            item.strip().lower()
+            for item in os.getenv("SOPHIA_ALLOWED_HOSTS", "").split(",")
+            if item.strip()
+        }
+        if not allowed or host not in allowed:
+            raise ValueError("SophiA host is not present in the explicit SOPHIA_ALLOWED_HOSTS allowlist.")
 
 
 class SophiaApiClient:
