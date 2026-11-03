@@ -149,7 +149,7 @@ Todos os campos devem preservar valor bruto, origem e proveniência. Ausência d
 A implementação do cliente real depende de receber a documentação técnica e exemplos sanitizados da API SophiA Gestão Escolar Web usada por uma instituição. Até lá, esta branch contém apenas o dossier e não deve criar credenciais, migrations, endpoints presumidos ou sincronizações reais.
 
 
-## 2B. Descoberta adicional: relatórios e extração operacional
+## 10. Relatórios e extração operacional
 
 A documentação pública oficial de suporte do SophiA Gestão Escolar descreve relatórios que podem ser gerados pela interface:
 
@@ -172,7 +172,7 @@ Comprova que a interface possui relatórios operacionais para consultar alunos p
 
 **Decisão:** considerar relatórios como caminho de discovery para uma carga inicial assistida, mas não prometer automação ou tratar PDF/relatório impresso como contrato de dados. Antes de construir um adaptador, é necessário confirmar no produto instalado se o relatório pode ser exportado em formato tabular (CSV/XLSX) e quais colunas/chaves são selecionáveis. Se só houver impressão/PDF, isso não atende sozinho ao requisito de ingestão recorrente confiável.
 
-## 2C. Auditoria do pipeline de importação MIRA
+## 11. Auditoria do pipeline de importação MIRA
 
 A inspeção do código da branch `main` identificou que o pipeline genérico atual já aceita CSV, XLS e XLSX, detecta abas, permite mapeamento manual de colunas e oferece prévia sem persistência antes da confirmação. A importação individual usa os campos canônicos definidos em `backend/app/services/ingestion.py`; matrícula e nome são obrigatórios, e os demais campos são opcionais. A prévia informa correspondências existentes e a persistência atualiza registros pela matrícula, preservando valores existentes quando as células recebidas estão vazias.
 
@@ -203,7 +203,7 @@ O importador possui aliases de cabeçalho e permite mapeamento manual, mas isso 
 
 ### Inconsistência encontrada no fluxo de múltiplos arquivos
 
-Na versão inspecionada de `main`, a UI oferece os papéis `academico`, `historico` e `matriculas`, mas o backend de prévia/confirmação múltipla aceita papéis diferentes (`cadastro`, `alunos`, `financeiro`, `engajamento`, `desempenho`; a prévia também contém `cursos`). Portanto, selecionar alguns papéis apresentados na UI pode resultar em “tipo de base desconhecido”. A lista de papéis da prévia e da confirmação também não é idêntica.
+Na versão inspecionada de `main`, a UI oferece os papéis `academico`, `historico` e `matriculas`, mas o backend de prévia/confirmação múltipla aceita papéis diferentes (`cadastro`, `alunos`, `financeiro`, `engajamento`, `desempenho`; a prévia também contém `cursos`). Portanto, selecionar alguns papéis apresentados na UI pode resultar em “tipo de base desconhecido”. A lista de papéis da prévia e da confirmação também não é idêntica.
 
 Esse ponto precisa ser corrigido e coberto por testes antes de recomendar a importação multi-arquivo para um pacote SophiA. Não foi alterado nesta PR de discovery.
 
