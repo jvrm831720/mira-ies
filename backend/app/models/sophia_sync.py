@@ -68,7 +68,7 @@ class SophiaStudentResource(Base):
     """Latest source payload per linked student/resource; raw source values are preserved."""
     __tablename__ = "sophia_student_resources"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "student_id", "resource", name="uq_sophia_resource_student"),
+        UniqueConstraint("tenant_id", "student_id", "resource", "job_id", name="uq_sophia_resource_student_job"),
         ForeignKeyConstraint(
             ["tenant_id", "student_id"], ["students.tenant_id", "students.id"],
             ondelete="CASCADE", name="fk_sophia_resource_student_tenant",
