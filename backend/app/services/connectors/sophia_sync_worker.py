@@ -27,7 +27,7 @@ RESOURCES = {
     "report_card": "get_student_report_card",
     "recent_grades": "get_student_recent_grades",
 }
-RETRYABLE = (TimeoutError, ConnectionError, OSError)
+MAX_STUDENTS_PER_JOB = 5000
 
 
 def _tenant_allowlist() -> tuple[str, ...]:
@@ -118,7 +118,9 @@ class SophiaSyncWorker:
             links_query = links_query.where(TenantSophiaStudentLink.tenant_id == tenant_id)
             if student_ids:
                 links_query = links_query.where(TenantSophiaStudentLink.student_id.in_(student_ids))
-            links = (await session.execute(links_query.order_by(TenantSophiaStudentLink.student_id))).scalars().all()
+            links = (await session.execute(links_query.order_by(TenantSophiaStudentLink.student_id).limit(MAX_STUDENTS_PER_JOB + 1))).scalars().all()
+            if len(links) > MAX_STUDENTS_PER_JOB:
+                raise ValueError("student_batch_exceeds_5000")
             if not links:
                 raise ValueError("no_linked_students")
             config = SophiaApiConfig(
@@ -165,10 +167,14 @@ class SophiaSyncWorker:
         return {"students_completed": completed, "resource_record_counts": resource_counts}
 
     async def run_once(self) -> bool:
-        for tenant_id in self.tenant_ids:
+        tenant_count = len(self.tenant_ids)
+        for offset in range(tenant_count):
+            index = (self._tenant_cursor + offset) % tenant_count
+            tenant_id = self.tenant_ids[index]
             job = await self.claim(tenant_id)
             if job is None:
                 continue
+            self._tenant_cursor = (index + 1) % tenant_count
             try:
                 result = await self._execute(job)
                 async with AsyncSessionLocal() as session, session.begin():
@@ -213,6 +219,7 @@ class SophiaSyncWorker:
                             details={"error_type": type(exc).__name__, "attempt": row.attempts},
                         ))
             return True
+        self._tenant_cursor = (self._tenant_cursor + 1) % tenant_count
         return False
 
     async def serve(self, *, once: bool = False, poll_seconds: float = 2.0) -> None:
