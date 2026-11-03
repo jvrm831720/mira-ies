@@ -120,9 +120,9 @@ async def get_sophia_student_resources(
     rows = (await db.execute(select(SophiaStudentResource).where(
         SophiaStudentResource.tenant_id == auth.tenant_id,
         SophiaStudentResource.student_id == student_id,
-    ).order_by(SophiaStudentResource.resource))).scalars().all()
+    ).order_by(SophiaStudentResource.resource, SophiaStudentResource.observed_at.desc()))).scalars().all()
     return {"student_id": student_id, "resources": [{
-        "resource": row.resource, "payload": row.payload,
+        "resource": row.resource, "job_id": row.job_id, "payload": row.payload,
         "record_count": row.record_count,
         "source_codigo_interno": row.source_codigo_interno,
         "observed_at": row.observed_at.isoformat(), "updated_at": row.updated_at.isoformat(),
