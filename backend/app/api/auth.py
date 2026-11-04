@@ -154,7 +154,7 @@ async def login_password(body: PasswordLoginPayload, request: Request, db: Async
 
 
 class EmailOtpVerifyPayload(EmailPayload):
-    code: str = Field(pattern=r"^\\d{6}$")
+    code: str = Field(pattern=r"^\d{6}$")
 
 
 @router.post("/email/request", status_code=status.HTTP_202_ACCEPTED)
@@ -242,7 +242,7 @@ async def verify_email_login_code(
     challenge.consumed_at = now
     user = await db.get(User, challenge.user_id)
     tenant = await _active_tenant(db, user) if user else None
-    if tenant is None:
+    if tenant is None or (user.locked_until and user.locked_until > now):
         await db.commit()
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
     if await user_requires_mfa(db, user):
