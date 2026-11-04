@@ -224,6 +224,7 @@ async def duplicate_role(role_id: str, auth: AuthContext = Depends(get_current_t
                          db: AsyncSession = Depends(get_db)):
     actor = _require_admin(auth, recent=True)
     source = await _load_role(db, auth.tenant_id, role_id)
+    _validate_actor_grants(auth, source.base_role, list(source.permissions or []))
     if not source.is_active:
         raise HTTPException(status_code=409, detail="Não é possível duplicar um cargo desativado.")
     name = f"{source.name} (cópia)"
@@ -247,6 +248,7 @@ async def deactivate_role(role_id: str, auth: AuthContext = Depends(get_current_
                           db: AsyncSession = Depends(get_db)):
     _require_admin(auth, recent=True)
     role = await _load_role(db, auth.tenant_id, role_id, lock=True)
+    _validate_actor_grants(auth, role.base_role, list(role.permissions or []))
     assigned = await db.execute(select(func.count(User.id)).where(
         User.tenant_id == auth.tenant_id, User.custom_role_id == role.id, User.is_active.is_(True)
     ))
