@@ -304,7 +304,8 @@ async def require_admin_permission(permission: str, credentials: HTTPAuthorizati
         raise HTTPException(status_code=403, detail="Permissão insuficiente.")
     if permission == "governance:write" and int(claims.get("mfa_at", 0)) < int(time.time()) - 300:
         raise HTTPException(status_code=401, detail="MFA recente obrigatório para alterar políticas de dados.")
-    await db.execute(text("SELECT set_config('app.is_mira_admin', 'true', true)"))
+    if permission in {"governance:read", "governance:write", "audit:read"}:
+        await db.execute(text("SELECT set_config('app.is_mira_admin', 'true', true)"))
     return admin
 
 
