@@ -15,7 +15,11 @@ from urllib.parse import urljoin, urlsplit
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.connectors.tenant_destinations import authorize_tenant_destination
+from app.services.connectors.tenant_destinations import (
+    _destination_authorization_token,
+    authorize_tenant_destination,
+    require_destination_authorization,
+)
 
 
 class CanvasApiError(RuntimeError):
@@ -83,14 +87,20 @@ class CanvasApiClient:
         approved = await authorize_tenant_destination(
             db, tenant_id=tenant_id, connector_key="canvas", url=config.base_url
         )
-        return cls(replace(config, base_url=approved), transport=transport)
+                return cls(replace(config, base_url=approved), transport=transport, _destination_authorization=_destination_authorization_token())
 
     def __init__(
         self,
         config: CanvasConfig,
         *,
+    def __init__(
+        self,
+        config: CanvasConfig,
+        *,
+        _destination_authorization: object | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
+        require_destination_authorization(_destination_authorization)
         self.config = config
         self._api_base = config.api_base_url()
         self._origin = (urlsplit(self._api_base).scheme, urlsplit(self._api_base).netloc)
