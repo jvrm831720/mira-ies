@@ -156,7 +156,7 @@ const groups: NavGroup[] = [
         label: "Membros",
         description: "Equipe e convites",
         icon: Users,
-        match: "prefix",
+        match: "exact",
       },
       {
         href: "/membros/cargos",
