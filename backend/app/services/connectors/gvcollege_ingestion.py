@@ -77,7 +77,11 @@ def _valid_value(value: Any, value_type: GvcollegeValueType) -> bool:
     if value_type == GvcollegeValueType.STRING:
         return isinstance(value, str)
     if value_type == GvcollegeValueType.INTEGER:
-        return isinstance(value, int) and not isinstance(value, bool)
+        return (
+            isinstance(value, int)
+            and not isinstance(value, bool)
+            and -(2**63) <= value <= (2**63 - 1)
+        )
     if value_type == GvcollegeValueType.NUMBER:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             return False
@@ -151,7 +155,16 @@ def dry_run_gvcollege_ingestion(
                 "O tenant é definido pelo contexto confiável, nunca pelo registro de origem.",
             ))
 
-        unknown_fields = sorted(set(row) - set(field_by_source))
+        if any(not isinstance(name, str) for name in row):
+            row_issues.append(GvcollegeIngestionIssue(
+                index, "invalid_source_field_name",
+                "Todos os nomes de campos de origem devem ser texto.",
+            ))
+
+        unknown_fields = sorted(
+            name for name in row
+            if isinstance(name, str) and name not in field_by_source
+        )
         if unknown_fields:
             row_issues.append(GvcollegeIngestionIssue(
                 index, "unknown_source_fields",
@@ -160,11 +173,28 @@ def dry_run_gvcollege_ingestion(
 
         data: dict[str, Any] = {}
         for field in view.fields:
+            if field.source_field in row and not field.selectable:
+                row_issues.append(GvcollegeIngestionIssue(
+                    index, "field_not_selectable",
+                    f"Campo não autorizado para ingestão: {field.source_field}.",
+                ))
+                continue
+
             value = row.get(field.source_field)
             if value is None and not field.nullable:
                 row_issues.append(GvcollegeIngestionIssue(
                     index, "required_field_missing",
                     f"Campo obrigatório ausente: {field.source_field}.",
+                ))
+                continue
+            if (
+                value == ""
+                and not field.nullable
+                and field.value_type == GvcollegeValueType.STRING
+            ):
+                row_issues.append(GvcollegeIngestionIssue(
+                    index, "required_field_blank",
+                    f"Campo obrigatório não pode ficar vazio: {field.source_field}.",
                 ))
                 continue
             if not _valid_value(value, field.value_type):
@@ -188,13 +218,14 @@ def dry_run_gvcollege_ingestion(
                 index, "duplicate_source_record_id",
                 "Chave de origem duplicada no lote.",
             ))
-        else:
-            seen_ids.add(source_record_id)
 
         if row_issues:
             issues.extend(row_issues)
             continue
 
+        # Uma linha rejeitada por outro motivo não deve bloquear uma linha
+        # posterior válida que use a mesma chave de origem.
+        seen_ids.add(source_record_id)
         records.append(GvcollegeDryRunRecord(
             tenant_id=tenant_id.strip(),
             source_system="gvcollege",
