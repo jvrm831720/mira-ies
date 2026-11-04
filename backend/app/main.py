@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.api import (
     upload, health, scoring, connectors, jacad, sponte, sophia, sophia_sync,
     outcomes, agents, auth, mfa, delivery_webhooks, org, billing,
-    retention_campaigns, retention_campaign_execution, control_center_auth,
+    retention_campaigns, retention_campaign_execution, retention_campaign_intelligence, control_center_auth,
     control_center_admin, mira_admin, work_activities, student_work_timeline,
     signals, student_groups, totvs_rm_operations,
 )
@@ -161,6 +161,7 @@ app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outc
 app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
 app.include_router(retention_campaigns.router, prefix="/api/v1")
 app.include_router(retention_campaign_execution.router, prefix="/api/v1")
+app.include_router(retention_campaign_intelligence.router, prefix="/api/v1")
 app.include_router(delivery_webhooks.router, prefix="/api/v1", tags=["Webhooks de entrega"])
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(mfa.router, prefix="/api/v1")
