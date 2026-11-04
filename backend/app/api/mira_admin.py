@@ -6,7 +6,7 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -162,6 +162,22 @@ class SharedDataPolicyPayload(BaseModel):
     evidence_reference: str = Field(min_length=1, max_length=500)
     reason: str = Field(min_length=3, max_length=500)
 
+    @field_validator("contract_reference", "contract_version", "evidence_reference")
+    @classmethod
+    def normalize_required_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("O campo não pode ficar vazio.")
+        return normalized
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("A justificativa precisa ter ao menos 3 caracteres.")
+        return normalized
+
     @model_validator(mode="after")
     def validate_dates(self):
         if self.effective_at.tzinfo is None or self.effective_at.utcoffset() is None:
@@ -184,6 +200,25 @@ class InstitutionalAuthorizationPayload(BaseModel):
     dataset_eligibility_reference: str = Field(min_length=1, max_length=500)
     reason: str = Field(min_length=3, max_length=500)
 
+    @field_validator(
+        "contract_reference", "contract_version", "evidence_reference",
+        "dataset_eligibility_reference",
+    )
+    @classmethod
+    def normalize_required_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("O campo não pode ficar vazio.")
+        return normalized
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("A justificativa precisa ter ao menos 3 caracteres.")
+        return normalized
+
     @model_validator(mode="after")
     def validate_dates(self):
         if self.effective_at.tzinfo is None or self.effective_at.utcoffset() is None:
@@ -198,6 +233,14 @@ class InstitutionalAuthorizationPayload(BaseModel):
 
 class GovernanceRevokePayload(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("A justificativa precisa ter ao menos 3 caracteres.")
+        return normalized
 
 
 async def _append_governance_audit(
