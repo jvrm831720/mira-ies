@@ -827,7 +827,7 @@ export type RetentionCampaignProposal = {
   reviewed_by?: string | null; reviewed_at?: string | null; approved_by?: string | null; approved_at?: string | null;
   authorization_status: "not_verified" | "institution_attested"; authorization_basis?: string | null;
   authorization_reference?: string | null; authorization_attested_by?: string | null;
-  authorization_attested_at?: string | null; execution_enabled: false;
+  authorization_attested_at?: string | null; scheduled_for?: string | null; schedule_timezone?: string | null; execution_enabled: false;
 };
 export type RetentionCampaignProposalsResponse = { count: number; proposals: RetentionCampaignProposal[] };
 export type RetentionCampaignProposalAudit = {
