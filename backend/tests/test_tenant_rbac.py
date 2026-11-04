@@ -56,3 +56,13 @@ def test_route_maps_to_explicit_permission(path, method, expected):
 
 def test_unknown_protected_route_falls_back_to_access_level():
     assert _permission_for_request(_request("/api/v1/unknown"), "operator") == "access.operator"
+
+
+def test_custom_role_always_retains_minimum_application_access():
+    payload = RolePayload(name="Consulta", base_role="viewer", permissions=[])
+    assert "access.viewer" in payload.permissions
+
+
+def test_member_role_assignment_requires_permission_management():
+    assert _permission_for_request(_request("/api/v1/org/members/123/role", "POST")) == "permissions.manage"
+    assert _permission_for_request(_request("/api/v1/org/members/123/permissions", "GET")) == "permissions.manage"
