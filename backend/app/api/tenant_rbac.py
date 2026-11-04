@@ -201,6 +201,7 @@ async def update_role(role_id: str, body: RolePayload, auth: AuthContext = Depen
     _validate_permission_ceiling(body.base_role, body.permissions)
     _validate_actor_grants(auth, body.base_role, body.permissions)
     role = await _load_role(db, auth.tenant_id, role_id, lock=True)
+    _validate_actor_grants(auth, role.base_role, list(role.permissions or []))
     if not role.is_active:
         raise HTTPException(status_code=409, detail="Reative o cargo antes de editá-lo.")
     conflict = await db.execute(select(TenantRole.id).where(
