@@ -47,14 +47,14 @@ def upgrade() -> None:
     op.create_index("ix_mira_tenant_role_audit_tenant_created", "mira_tenant_role_audit", ["tenant_id", "created_at"])
     op.execute("""
         CREATE FUNCTION reject_mira_role_audit_mutation() RETURNS trigger
-        LANGUAGE plpgsql AS $
+        LANGUAGE plpgsql AS $rbac$
         BEGIN
             IF pg_trigger_depth() > 1 THEN
                 IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
             END IF;
             RAISE EXCEPTION 'mira_tenant_role_audit is append-only';
         END;
-        $
+        $rbac$
     """)
     op.execute("""
         CREATE TRIGGER trg_mira_tenant_role_audit_append_only
