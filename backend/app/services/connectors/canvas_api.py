@@ -6,13 +6,16 @@ Canvas origin and /api/v1 namespace.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import math
 import re
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 
 
 class CanvasApiError(RuntimeError):
@@ -66,6 +69,21 @@ _ALLOWED_PATHS = (
 
 class CanvasApiClient:
     """Minimal GET-only client for documented Canvas REST resources."""
+
+    @classmethod
+    async def for_tenant(
+        cls,
+        db: AsyncSession,
+        *,
+        tenant_id: str,
+        config: CanvasConfig,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "CanvasApiClient":
+        """Build only after the tenant's persisted Canvas destination is approved."""
+        approved = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="canvas", url=config.base_url
+        )
+        return cls(replace(config, base_url=approved), transport=transport)
 
     def __init__(
         self,
