@@ -59,6 +59,8 @@ def _serialize_proposal(proposal: RetentionCampaignProposal) -> dict[str, Any]:
         "created_at": proposal.created_at,
         "updated_at": proposal.updated_at,
         "execution_enabled": False,
+        "communication_authorization_status": "not_verified",
+        "authorization_review_required": True,
     }
 
 
@@ -85,6 +87,7 @@ async def list_campaign_opportunities(
             "Alcance bruto não desconta contato inválido, opt-out, preferências ou intervenções recentes.",
             "Sem score é ação interna de saneamento e não autoriza contato.",
             "Nenhuma campanha é aprovada, agendada ou executada nesta etapa.",
+            "Elegibilidade técnica de contato não comprova consentimento nem base legal; a autorização de comunicação permanece não verificada e exige revisão da instituição.",
         ],
     }
 
@@ -264,7 +267,7 @@ async def create_campaign_proposal(
 
 @router.get("/proposals")
 async def list_campaign_proposals(
-    auth: AuthContext = Depends(get_current_tenant),
+    auth: AuthContext = Depends(require_min_role("coordinator")),
     db: AsyncSession = Depends(get_db),
 ):
     rows = list((await db.execute(
@@ -279,7 +282,7 @@ async def list_campaign_proposals(
 @router.get("/proposals/{proposal_id}")
 async def get_campaign_proposal(
     proposal_id: str,
-    auth: AuthContext = Depends(get_current_tenant),
+    auth: AuthContext = Depends(require_min_role("coordinator")),
     db: AsyncSession = Depends(get_db),
 ):
     proposal = (await db.execute(
