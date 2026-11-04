@@ -153,6 +153,107 @@ async def login_password(body: PasswordLoginPayload, request: Request, db: Async
     return response
 
 
+class EmailOtpVerifyPayload(EmailPayload):
+    code: str = Field(pattern=r"^\\d{6}$")
+
+
+@router.post("/email/request", status_code=status.HTTP_202_ACCEPTED)
+async def request_email_login_code(body: EmailPayload, db: AsyncSession = Depends(get_db)):
+    """Solicita OTP sem revelar se o endereço possui uma conta ativa."""
+    settings = get_settings()
+    if not settings.resend_api_key or not settings.email_from:
+        raise HTTPException(status_code=503, detail="Login por e-mail temporariamente indisponível.")
+
+    identifier_hash = _fingerprint("email_login", body.email)
+    await _check_cooldown(db, "email_login", identifier_hash)
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    tenant = await _active_tenant(db, user) if user else None
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    challenge = AuthChallenge(
+        user_id=user.id if tenant else None,
+        challenge_type="email_login",
+        identifier_hash=identifier_hash,
+        token_hash=_token_digest("email_login", body.email, code),
+        expires_at=_now() + timedelta(minutes=_OTP_TTL_MINUTES),
+    )
+    await db.execute(
+        update(AuthChallenge)
+        .where(
+            AuthChallenge.challenge_type == "email_login",
+            AuthChallenge.identifier_hash == identifier_hash,
+            AuthChallenge.consumed_at.is_(None),
+        )
+        .values(consumed_at=_now())
+    )
+    db.add(challenge)
+    await db.commit()
+
+    if tenant:
+        delivery = await send_email_resend(
+            to=user.email,
+            subject="Seu código de acesso à MIRA",
+            body=(
+                f"Olá, {user.display_name}.\\n\\n"
+                f"Seu código de acesso à MIRA é {code}.\\n"
+                f"Ele expira em {_OTP_TTL_MINUTES} minutos e só pode ser usado uma vez. "
+                "Não compartilhe este código.\\n\\n"
+                "Se você não solicitou este acesso, ignore esta mensagem."
+            ),
+        )
+        if not delivery.ok:
+            logger.warning("Falha na entrega de código de acesso MIRA via Resend.")
+    return {"message": "Se houver uma conta ativa associada a este e-mail, enviaremos um código."}
+
+
+@router.post("/email/verify")
+async def verify_email_login_code(
+    body: EmailOtpVerifyPayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    identifier_hash = _fingerprint("email_login", body.email)
+    result = await db.execute(
+        select(AuthChallenge)
+        .where(
+            AuthChallenge.challenge_type == "email_login",
+            AuthChallenge.identifier_hash == identifier_hash,
+            AuthChallenge.consumed_at.is_(None),
+        )
+        .order_by(AuthChallenge.created_at.desc())
+        .limit(1)
+        .with_for_update()
+    )
+    challenge = result.scalar_one_or_none()
+    now = _now()
+    if not challenge or not challenge.user_id or challenge.expires_at <= now:
+        raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
+    if challenge.attempts >= _MAX_CHALLENGE_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Limite de tentativas atingido. Solicite um novo código.")
+
+    challenge.attempts += 1
+    expected = _token_digest("email_login", body.email, body.code)
+    if not hmac.compare_digest(challenge.token_hash, expected):
+        if challenge.attempts >= _MAX_CHALLENGE_ATTEMPTS:
+            challenge.consumed_at = now
+        await db.commit()
+        raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
+
+    challenge.consumed_at = now
+    user = await db.get(User, challenge.user_id)
+    tenant = await _active_tenant(db, user) if user else None
+    if tenant is None:
+        await db.commit()
+        raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
+    if await user_requires_mfa(db, user):
+        return await create_login_challenge(
+            db, user, tenant, purpose="verify" if user.mfa_enabled_at else "enroll"
+        )
+    response = _token_response(user, tenant, request, db)
+    await db.commit()
+    return response
+
+
 @router.post("/whatsapp/request", status_code=status.HTTP_202_ACCEPTED)
 async def request_whatsapp_code(body: WhatsAppRequestPayload, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
