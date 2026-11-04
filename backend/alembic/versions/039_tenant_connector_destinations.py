@@ -55,6 +55,11 @@ def upgrade() -> None:
         BEFORE UPDATE OR DELETE ON tenant_connector_destination_audit
         FOR EACH ROW EXECUTE FUNCTION reject_connector_destination_audit_mutation()
     """)
+    op.execute("""
+        CREATE TRIGGER tenant_connector_destination_audit_no_truncate
+        BEFORE TRUNCATE ON tenant_connector_destination_audit
+        FOR EACH STATEMENT EXECUTE FUNCTION reject_connector_destination_audit_mutation()
+    """)
     for table in ("tenant_connector_destinations", "tenant_connector_destination_audit"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
