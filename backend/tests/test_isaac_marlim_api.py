@@ -162,3 +162,40 @@ def test_registry_keeps_isaac_separate_from_wpensar():
 def test_isaac_marlim_config_repr_does_not_expose_api_key():
     config = IsaacMarlimConfig("secret-api-key", "sandbox")
     assert "secret-api-key" not in repr(config)
+
+
+@pytest.mark.asyncio
+async def test_for_tenant_requires_registered_marlim_destination(monkeypatch):
+    async def authorize(db, *, tenant_id, connector_key, url):
+        assert tenant_id == "tenant-a"
+        assert connector_key == "isaac_marlim"
+        assert url == "https://sandbox.api.marlim.co"
+        return url
+
+    monkeypatch.setattr(
+        "app.services.connectors.isaac_marlim_api.authorize_tenant_destination",
+        authorize,
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "sandbox.api.marlim.co"
+        return httpx.Response(200, json={
+            "paid_transactions_amount": 0,
+            "refunded_transactions_amount": 0,
+            "transfer_estimated_amount": 0,
+        })
+
+    client = await IsaacMarlimApiClient.for_tenant(
+        object(),
+        tenant_id="tenant-a",
+        config=IsaacMarlimConfig("sandbox-test-key", "sandbox"),
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        result = await client.fetch_conciliation(
+            date_created=datetime(2026, 11, 4, tzinfo=timezone.utc),
+            with_transactions=False,
+        )
+        assert result.transactions == ()
+    finally:
+        await client.close()
