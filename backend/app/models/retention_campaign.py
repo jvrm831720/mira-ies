@@ -107,7 +107,7 @@ class RetentionCampaignProposalAuditEvent(Base):
         UUID(as_uuid=False), ForeignKey("retention_campaign_proposals.id", ondelete="CASCADE"), nullable=False
     )
     actor_user_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=False), nullable=True
     )
     event_type: Mapped[str] = mapped_column(String(40), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
