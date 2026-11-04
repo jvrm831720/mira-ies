@@ -21,6 +21,7 @@ from app.models.student import Student
 from app.services.connectors import get_connector, ingest_records
 from app.services.connectors.jacad_mapping import enrich_jacad_students
 from app.services.connectors.jacad_api import JacadApiClient, JacadQuotaDeferred, decrypt_api_token
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 
 logger = logging.getLogger(__name__)
 PREFIX = "beacon:jacad:job:"
@@ -260,6 +261,7 @@ async def _run_sync(job_id: str, redis: Redis):
         if not connection or connection.default_org_id is None:
             raise RuntimeError("Configure uma conexão JACAD ativa com ID da organização.")
         base_url, token, org_id = connection.base_url, decrypt_api_token(connection.encrypted_api_token), connection.default_org_id
+        await authorize_tenant_destination(session, tenant_id=tenant_id, connector_key="jacad", url=base_url)
 
     client = JacadApiClient(base_url, token, request_guard=lambda: _jacad_request_guard(redis, tenant_id))
     semaphore = asyncio.Semaphore(settings.jacad_sync_concurrency)
