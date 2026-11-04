@@ -14,12 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.channels.whatsapp import normalize_phone_br
 from app.agents.providers.resend_provider import send_email_resend
-from app.core.auth import AuthContext, get_current_tenant, require_min_role
+from app.core.auth import AuthContext, ROLE_RANK, get_current_tenant, require_min_role
 from app.core.config import get_settings
 from app.core.mira_security import hash_password
 from app.core.security import hash_api_key
 from app.db.session import get_db
-from app.models.auth import OrganizationInvite, User
+from app.models.auth import OrganizationInvite, TenantRole, TenantRoleAudit, User
 from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
@@ -51,6 +51,7 @@ def _invite_token_hash(token: str) -> str:
 class InviteCreatePayload(BaseModel):
     email: str = Field(min_length=5, max_length=255)
     role: Literal["admin", "coordinator", "operator", "viewer"] = "coordinator"
+    custom_role_id: Optional[str] = Field(default=None, max_length=36)
 
     @field_validator("email")
     @classmethod
@@ -71,6 +72,7 @@ def _member_dict(user: User) -> dict:
         "email": user.email,
         "display_name": user.display_name,
         "role": user.role if user.role in _VALID_ROLES else "coordinator",
+        "custom_role_id": user.custom_role_id,
         "status": "active" if user.is_active else "disabled",
         "phone": user.phone_e164,
         "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -82,6 +84,7 @@ def _invite_dict(inv: OrganizationInvite, invite_url: Optional[str] = None) -> d
         "id": inv.id,
         "email": inv.email,
         "role": inv.role,
+        "custom_role_id": inv.custom_role_id,
         "status": inv.status,
         "created_at": inv.created_at.isoformat() if inv.created_at else None,
         "expires_at": inv.expires_at.isoformat() if inv.expires_at else None,
@@ -136,6 +139,34 @@ async def create_invite(
 ):
     settings = get_settings()
 
+    if body.role == "admin":
+        if auth.role != "admin" or not auth.user_id:
+            raise HTTPException(status_code=403, detail="Somente um administrador pode conceder o papel admin.")
+        if auth.aal < 2 or not auth.authenticated_at or int(_now().timestamp()) - auth.authenticated_at > 600:
+            raise HTTPException(status_code=403, detail="Confirme novamente sua identidade com MFA antes de conceder admin.")
+    if body.custom_role_id and body.role == "admin":
+        raise HTTPException(status_code=422, detail="Um convite não pode combinar admin com cargo personalizado.")
+    custom_role = None
+    if auth.custom_role_id and not body.custom_role_id:
+        raise HTTPException(status_code=403, detail="Cargos personalizados só podem convidar membros para cargos que já possuem.")
+    if body.custom_role_id:
+        custom_role = (await db.execute(select(TenantRole).where(
+            TenantRole.id == body.custom_role_id,
+            TenantRole.tenant_id == auth.tenant_id,
+            TenantRole.is_active.is_(True),
+        ))).scalar_one_or_none()
+        if not custom_role:
+            raise HTTPException(status_code=404, detail="Cargo personalizado não encontrado ou desativado.")
+        if auth.role != "admin" and auth.permissions is None:
+            raise HTTPException(status_code=403, detail="Somente administradores ou delegados podem convidar para cargos personalizados.")
+        if body.role == "admin":
+            raise HTTPException(status_code=422, detail="Convites com cargo personalizado não podem conceder admin.")
+        if auth.custom_role_id and (
+            ROLE_RANK.get(custom_role.base_role, 99) > ROLE_RANK.get(auth.role or "viewer", 0)
+            or auth.permissions is None
+            or not set(custom_role.permissions or []).issubset(auth.permissions)
+        ):
+            raise HTTPException(status_code=403, detail="Você não pode convidar alguém com privilégios que não possui.")
     existing_user = await db.execute(select(User.id).where(User.email == body.email))
     if existing_user.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Já existe uma conta com esse e-mail.")
@@ -155,13 +186,21 @@ async def create_invite(
     invite = OrganizationInvite(
         tenant_id=auth.tenant_id,
         email=body.email,
-        role=body.role,
+        role=custom_role.base_role if custom_role else body.role,
+        custom_role_id=custom_role.id if custom_role else None,
         token_hash=_invite_token_hash(raw_token),
         status="pending",
         invited_by_user_id=auth.user_id,
         expires_at=_now() + timedelta(days=_INVITE_TTL_DAYS),
     )
     db.add(invite)
+    db.add(TenantRoleAudit(
+        tenant_id=auth.tenant_id,
+        actor_user_id=auth.user_id,
+        role_id=custom_role.id if custom_role else None,
+        event_type="member.role_invited",
+        details={"invite_id": invite.id, "base_role": invite.role, "custom_role_id": invite.custom_role_id},
+    ))
     await db.commit()
     await db.refresh(invite)
 
@@ -237,13 +276,23 @@ async def accept_invite(
         raise HTTPException(status_code=409, detail="Este telefone já está em uso.")
 
     display = (body.display_name or "").strip() or invite.email.split("@")[0]
+    custom_role = None
+    if invite.custom_role_id:
+        custom_role = (await db.execute(select(TenantRole).where(
+            TenantRole.id == invite.custom_role_id,
+            TenantRole.tenant_id == invite.tenant_id,
+            TenantRole.is_active.is_(True),
+        ))).scalar_one_or_none()
+        if not custom_role:
+            raise HTTPException(status_code=400, detail="O cargo deste convite foi desativado. Solicite um novo convite.")
     user = User(
         tenant_id=invite.tenant_id,
         display_name=display[:120],
         email=invite.email,
         phone_e164=phone,
         password_hash=hash_password(body.password),
-        role=invite.role if invite.role in _VALID_ROLES else "coordinator",
+        role=custom_role.base_role if custom_role else (invite.role if invite.role in _VALID_ROLES else "coordinator"),
+        custom_role_id=custom_role.id if custom_role else None,
         is_active=True,
     )
     db.add(user)
@@ -283,6 +332,8 @@ async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession =
         "tenant_slug": auth.tenant_slug,
         "user_id": auth.user_id,
         "role": auth.role or (user.role if user else "admin"),
+        "custom_role_id": auth.custom_role_id,
+        "permissions": sorted(auth.permissions) if auth.permissions is not None else None,
         "display_name": user.display_name if user else None,
         "email": user.email if user else None,
         "onboarding_completed": bool(completed_at),

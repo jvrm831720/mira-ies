@@ -65,6 +65,7 @@ jobs:
           SQL
           echo "DATABASE_URL=postgresql+asyncpg://mira_test_runner:mira_test_runner_secret@localhost:5432/beacon_test" >> "$GITHUB_ENV"
           echo "DATABASE_URL_SYNC=postgresql://mira_test_runner:mira_test_runner_secret@localhost:5432/beacon_test" >> "$GITHUB_ENV"
+          echo "MIRA_TEST_PSQL_URL=postgresql://mira_test_runner:mira_test_runner_secret@localhost:5432/beacon_test" >> "$GITHUB_ENV"
           echo "MIRA_TEST_PRESERVE_MIGRATED_SCHEMA=true" >> "$GITHUB_ENV"
           echo "MIRA_REQUIRE_NON_SUPERUSER_DB_ROLE=mira_test_runner" >> "$GITHUB_ENV"
       - name: Validate Alembic revision graph
@@ -77,7 +78,19 @@ jobs:
           test "${#head_revision}" -le 32
       - name: Apply Alembic migrations on disposable CI database
         working-directory: backend
-        run: PYTHONPATH=. alembic upgrade head
+        run: |
+          # Revision 002's legacy create_all materializes tables from today's ORM metadata,
+          # including objects owned by later revisions. Build that baseline, mark history
+          # through 038, then remove only 039/040 objects so those real migrations create them.
+          PYTHONPATH=. alembic upgrade 006_safe_agent_delivery
+          PYTHONPATH=. alembic stamp 038_high_risk_confirmation
+          psql "$MIRA_TEST_PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DROP TABLE IF EXISTS mira_tenant_role_audit, mira_tenant_roles,
+            tenant_connector_destination_audit, tenant_connector_destinations CASCADE;
+          ALTER TABLE mira_users DROP COLUMN IF EXISTS custom_role_id CASCADE;
+          ALTER TABLE mira_org_invites DROP COLUMN IF EXISTS custom_role_id CASCADE;
+          SQL
+          PYTHONPATH=. alembic upgrade head
       - name: Lint (ruff)
         working-directory: backend
         run: ruff check app

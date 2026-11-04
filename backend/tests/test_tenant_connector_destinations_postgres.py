@@ -16,7 +16,7 @@ from app.models.tenant import Tenant
 
 @pytest.mark.asyncio
 async def test_postgres_destination_migration_rls_and_append_only_audit(db_session):
-    """Exercise the exact RLS policies and triggers installed by Alembic 039."""
+    """Exercise the exact RLS policies and triggers installed by Alembic 040."""
     if os.environ.get("MIRA_TEST_PRESERVE_MIGRATED_SCHEMA", "").lower() != "true":
         pytest.skip("Requires the disposable CI database migrated with Alembic.")
 
@@ -30,7 +30,7 @@ async def test_postgres_destination_migration_rls_and_append_only_audit(db_sessi
     assert role.rolsuper is False
     assert role.rolbypassrls is False
 
-    # Verify the exact objects created by migration 039; the test does not
+    # Verify the exact objects created by migration 040; the test does not
     # create substitute policies or triggers.
     policies = (await db_session.execute(text("""
         SELECT tablename, policyname, cmd
@@ -48,7 +48,7 @@ async def test_postgres_destination_migration_rls_and_append_only_audit(db_sessi
 
     trigger_rows = (await db_session.execute(text("""
         SELECT c.relname AS table_name, t.tgname AS trigger_name,
-               t.tgenabled, p.proname AS function_name
+               t.tgenabled::text AS tgenabled, p.proname AS function_name
         FROM pg_trigger t
         JOIN pg_class c ON c.oid = t.tgrelid
         JOIN pg_proc p ON p.oid = t.tgfoid
@@ -78,37 +78,39 @@ async def test_postgres_destination_migration_rls_and_append_only_audit(db_sessi
     tenant_b = Tenant(slug=f"egress-b-{uuid.uuid4().hex[:8]}", name="Egress B", is_active=True)
     db_session.add_all([tenant_a, tenant_b])
     await db_session.commit()
+    tenant_a_id, tenant_b_id = tenant_a.id, tenant_b.id
 
+    destination_a_id, destination_b_id = str(uuid.uuid4()), str(uuid.uuid4())
     destination_a_id, destination_b_id = str(uuid.uuid4()), str(uuid.uuid4())
     audit_a_id, audit_b_id = str(uuid.uuid4()), str(uuid.uuid4())
 
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a_id})
     db_session.add(TenantConnectorDestination(
-        id=destination_a_id, tenant_id=tenant_a.id, connector_key="canvas",
+        id=destination_a_id, tenant_id=tenant_a_id, connector_key="canvas",
         hostname="canvas.a.example", scheme="https", port=443,
         is_enabled=True, approval_reason="Approved for tenant A",
     ))
     db_session.add(TenantConnectorDestinationAudit(
-        id=audit_a_id, tenant_id=tenant_a.id, destination_id=destination_a_id,
+        id=audit_a_id, tenant_id=tenant_a_id, destination_id=destination_a_id,
         connector_key="canvas", hostname="canvas.a.example", action="approved",
         reason="Approved for tenant A",
     ))
     await db_session.commit()
 
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b_id})
     db_session.add(TenantConnectorDestination(
-        id=destination_b_id, tenant_id=tenant_b.id, connector_key="canvas",
+        id=destination_b_id, tenant_id=tenant_b_id, connector_key="canvas",
         hostname="canvas.b.example", scheme="https", port=443,
         is_enabled=True, approval_reason="Approved for tenant B",
     ))
     db_session.add(TenantConnectorDestinationAudit(
-        id=audit_b_id, tenant_id=tenant_b.id, destination_id=destination_b_id,
+        id=audit_b_id, tenant_id=tenant_b_id, destination_id=destination_b_id,
         connector_key="canvas", hostname="canvas.b.example", action="approved",
         reason="Approved for tenant B",
     ))
     await db_session.commit()
 
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a_id})
     visible_a = (await db_session.execute(text(
         "SELECT id FROM tenant_connector_destinations ORDER BY id"
     ))).scalars().all()
@@ -130,10 +132,10 @@ async def test_postgres_destination_migration_rls_and_append_only_audit(db_sessi
                  is_enabled, approval_reason)
             VALUES (:id, :tenant_id, 'canvas', 'forged.b.example',
                     'https', 443, true, 'Cross-tenant approval attempt')
-        """), {"id": str(uuid.uuid4()), "tenant_id": tenant_b.id})
+        """), {"id": str(uuid.uuid4()), "tenant_id": tenant_b_id})
     await db_session.rollback()
 
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a_id})
     cross_tenant_audit_update = await db_session.execute(text(
         "UPDATE tenant_connector_destination_audit SET reason = 'tampered' WHERE id = :id"
     ), {"id": audit_b_id})
@@ -144,32 +146,32 @@ async def test_postgres_destination_migration_rls_and_append_only_audit(db_sessi
         "UPDATE tenant_connector_destinations SET is_enabled = false WHERE id = :id"
     ), {"id": destination_a_id})
     db_session.add(TenantConnectorDestinationAudit(
-        id=str(uuid.uuid4()), tenant_id=tenant_a.id, destination_id=destination_a_id,
+        id=str(uuid.uuid4()), tenant_id=tenant_a_id, destination_id=destination_a_id,
         connector_key="canvas", hostname="canvas.a.example", action="revoked",
         reason="Revoked for tenant A",
     ))
     await db_session.commit()
 
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a_id})
     with pytest.raises(DBAPIError, match="append-only"):
         await db_session.execute(text(
             "UPDATE tenant_connector_destination_audit SET reason = 'tampered' WHERE id = :id"
         ), {"id": audit_a_id})
     await db_session.rollback()
 
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a_id})
     with pytest.raises(DBAPIError, match="append-only"):
         await db_session.execute(text(
             "DELETE FROM tenant_connector_destination_audit WHERE id = :id"
         ), {"id": audit_a_id})
     await db_session.rollback()
 
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a_id})
     with pytest.raises(DBAPIError, match="append-only"):
         await db_session.execute(text("TRUNCATE TABLE tenant_connector_destination_audit"))
     await db_session.rollback()
 
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b_id})
     visible_b = (await db_session.execute(text(
         "SELECT id FROM tenant_connector_destinations ORDER BY id"
     ))).scalars().all()

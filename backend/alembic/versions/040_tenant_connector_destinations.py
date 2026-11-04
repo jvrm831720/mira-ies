@@ -1,12 +1,12 @@
 """Persist exact outbound destinations per tenant and connector.
 
-Revision ID: 039_tenant_conn_dest
-Revises: 038_high_risk_confirmation
+Revision ID: 040_tenant_conn_dest
+Revises: 039_tenant_custom_rbac
 """
 from alembic import op
 
-revision = "039_tenant_conn_dest"
-down_revision = "038_high_risk_confirmation"
+revision = "040_tenant_conn_dest"
+down_revision = "039_tenant_custom_rbac"
 branch_labels = None
 depends_on = None
 

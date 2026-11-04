@@ -27,7 +27,7 @@ def require_destination_authorization(token: object | None) -> None:
     if get_settings().app_env == "testing":
         return
     raise DestinationPolicyError(
-        "Use a factory for_tenant após aprovar o destino no registro do tenant."
+        "Use uma factory for_tenant após aprovar o destino no registro do tenant."
     )
 
 

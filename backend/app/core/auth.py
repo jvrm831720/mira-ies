@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,7 @@ from app.core.config import get_settings
 from app.core.mira_security import decode_access_token
 from app.core.security import hash_api_key
 from app.db.session import get_db
-from app.models.auth import User, UserSession
+from app.models.auth import TenantRole, User, UserSession
 from app.models.tenant import Tenant
 
 # Hierarquia simples: admin > coordinator > operator > viewer
@@ -30,6 +30,8 @@ class AuthContext:
     session_id: Optional[str] = None
     aal: int = 1
     authenticated_at: Optional[int] = None
+    permissions: Optional[frozenset[str]] = None
+    custom_role_id: Optional[str] = None
 
 
 async def _set_tenant_rls_context(db: AsyncSession, tenant_id: str) -> None:
@@ -86,6 +88,39 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     if not tenant or not tenant.is_active:
         raise _unauthorized()
     role = user.role if getattr(user, "role", None) in ROLE_RANK else "coordinator"
+    custom_permissions = None
+    custom_role_id = getattr(user, "custom_role_id", None)
+    if custom_role_id:
+        custom_role_result = await db.execute(
+            select(TenantRole).where(
+                TenantRole.id == custom_role_id,
+                TenantRole.tenant_id == tenant.id,
+                TenantRole.is_active.is_(True),
+            )
+        )
+        custom_role = custom_role_result.scalar_one_or_none()
+        if custom_role:
+            role = custom_role.base_role if custom_role.base_role in ROLE_RANK and custom_role.base_role != "admin" else "viewer"
+            base_rank = ROLE_RANK.get(role, 0)
+            permission_ceiling = {
+                "access.viewer": 1, "dashboard.view": 1, "students.view": 1,
+                "access.operator": 2, "students.create": 2, "students.edit": 2,
+                "campaigns.view": 2, "campaigns.create": 2, "campaigns.edit": 2,
+                "members.view": 2, "data.view": 2,
+                "access.coordinator": 3, "data.import": 3, "audit.view": 3,
+                "students.sensitive.view": 3, "campaigns.approve": 3,
+                "campaigns.execute": 3,
+                "members.manage": 3, "permissions.manage": 3, "settings.manage": 3,
+                "students.delete": 3, "campaigns.delete": 3, "critical.manage": 3,
+            }
+            custom_permissions = frozenset(
+                item for item in (custom_role.permissions or [])
+                if isinstance(item, str)
+                and permission_ceiling.get(item, 99) <= base_rank
+            )
+        else:
+            role = "viewer"
+            custom_permissions = frozenset()
     await _set_tenant_rls_context(db, tenant.id)
     return AuthContext(
         tenant=tenant,
@@ -96,10 +131,13 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         session_id=session.id,
         aal=int(claims.get("aal", 1)),
         authenticated_at=int(claims.get("iat", 0)),
+        permissions=custom_permissions,
+        custom_role_id=custom_role_id,
     )
 
 
 async def get_current_tenant(
+    request: Request,
     x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
     authorization: Optional[str] = Header(default=None),
     db: AsyncSession = Depends(get_db),
@@ -120,7 +158,9 @@ async def get_current_tenant(
             raw_key = parts[0].strip()
 
     if session_token:
-        return await _auth_session_token(session_token, db)
+        auth = await _auth_session_token(session_token, db)
+        _enforce_custom_request_permission(request, auth)
+        return auth
 
     if not raw_key:
         raise HTTPException(
@@ -182,6 +222,22 @@ def require_roles(*allowed: str):
     min_rank = min(ROLE_RANK.get(r, 99) for r in allowed) if allowed else 0
 
     async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        # Custom roles must satisfy the explicit access tier as well as the
+        # per-route permission enforced by get_current_tenant. Never infer
+        # authorization from base_role alone for a custom-role session.
+        if auth.permissions is not None:
+            required_access = {
+                1: "access.viewer",
+                2: "access.operator",
+                3: "access.coordinator",
+            }.get(min_rank)
+            if not required_access or required_access not in auth.permissions:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Você não tem permissão para esta ação.",
+                )
+            return auth
+
         role = auth.role or "viewer"
         rank = ROLE_RANK.get(role, 0)
         if rank < min_rank and role not in allowed:
@@ -189,19 +245,9 @@ def require_roles(*allowed: str):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Você não tem permissão para esta ação.",
             )
-        # Also accept if role is in allowed list even with weird ranks
-        if allowed and role not in allowed and rank < min_rank:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Você não tem permissão para esta ação.",
-            )
         if allowed and role not in allowed:
-            # rank-based: admin can do coordinator things
             highest_allowed = max(ROLE_RANK.get(r, 0) for r in allowed)
-            if rank < highest_allowed and role not in allowed:
-                # allow higher rank than minimum required among allowed
-                if rank >= min_rank:
-                    return auth
+            if rank < highest_allowed and rank < min_rank:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Você não tem permissão para esta ação.",
@@ -211,11 +257,80 @@ def require_roles(*allowed: str):
     return _dep
 
 
+def _permission_for_request(request: Request, fallback_role: str = "viewer") -> str:
+    path = request.url.path.removeprefix("/api/v1")
+    method = request.method.upper()
+    parts = path.strip("/").split("/") if path.strip("/") else []
+    if path.startswith("/auth/mfa") or path == "/org/me" or path.startswith("/org/me/"):
+        return "access.viewer"
+    if path.startswith("/org/roles") or path.startswith("/org/role-audit"):
+        return "permissions.manage"
+    if path.startswith("/org/members") and len(parts) >= 3 and parts[-1] in {"role", "permissions"}:
+        return "permissions.manage"
+    if path.startswith("/students"):
+        if method in {"GET", "HEAD"}:
+            return "students.sensitive.view" if len(parts) >= 2 else "students.view"
+        if method in {"PATCH", "PUT"}:
+            return "students.edit"
+        if method == "DELETE":
+            return "students.delete"
+        if method == "POST":
+            return "students.create"
+    if path.startswith("/risk"):
+        return "students.view" if path.endswith("/critical") else "dashboard.view"
+    if path.startswith("/upload"):
+        return "data.import"
+    if path.startswith("/connectors") or path.startswith("/integrations"):
+        return "data.import" if method in {"POST", "PUT", "PATCH"} else "data.view"
+    if path.startswith("/agents/retention/campaigns"):
+        if path.endswith("/approve"):
+            return "campaigns.approve"
+        if path.endswith("/execute") or path.endswith("/schedule"):
+            return "campaigns.execute"
+        if method == "GET":
+            return "campaigns.view"
+        if method == "POST":
+            return "campaigns.create"
+        if method in {"PATCH", "PUT"}:
+            return "campaigns.edit"
+        if method == "DELETE":
+            return "campaigns.delete"
+    if path.startswith("/agents/retention"):
+        return "campaigns.view" if method in {"GET", "HEAD"} else "campaigns.execute"
+    if path.startswith("/org/members"):
+        return "members.view" if method == "GET" else "members.manage"
+    if path.startswith("/org/invites"):
+        return "members.view" if method == "GET" else "members.manage"
+    if path.startswith("/outcomes") or path.startswith("/results"):
+        return "audit.view" if method in {"GET", "HEAD"} else "critical.manage"
+    if path.startswith("/work") or path.startswith("/students/"):
+        return "students.view" if method in {"GET", "HEAD"} else "students.edit"
+    if path.startswith("/billing") or path.startswith("/settings"):
+        return "settings.manage"
+    if method in {"POST", "PUT", "PATCH", "DELETE"}:
+        return "critical.manage"
+    return f"access.{fallback_role}"
+
+
+def _enforce_custom_request_permission(request: Request, auth: AuthContext) -> None:
+    if auth.permissions is None:
+        return
+    required = _permission_for_request(request)
+    if required not in auth.permissions:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão para esta ação.")
+
+
 def require_min_role(min_role: str):
     """Exige rank >= min_role (admin passa em tudo)."""
     threshold = ROLE_RANK.get(min_role, 99)
 
-    async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+    async def _dep(request: Request, auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        if auth.permissions is not None:
+            required_permission = _permission_for_request(request, min_role)
+            allowed = required_permission in auth.permissions
+            if not allowed:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão para esta ação.")
+            return auth
         rank = ROLE_RANK.get(auth.role or "viewer", 0)
         if rank < threshold:
             raise HTTPException(
@@ -224,4 +339,28 @@ def require_min_role(min_role: str):
             )
         return auth
 
+    return _dep
+
+
+def require_permission(permission: str):
+    """Exige uma permissão explícita; sessões legadas usam a matriz padrão por papel."""
+    async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        if auth.permissions is not None:
+            allowed = permission in auth.permissions
+        else:
+            role = auth.role or "viewer"
+            rank = ROLE_RANK.get(role, 0)
+            defaults = {
+                "dashboard.view": 1, "students.view": 1, "members.view": 2,
+                "students.create": 2, "students.edit": 2, "data.import": 3,
+                "campaigns.view": 2, "campaigns.create": 2, "campaigns.edit": 2,
+                "campaigns.approve": 3, "campaigns.execute": 3,
+                "members.manage": 4, "permissions.manage": 4, "settings.manage": 4,
+                "students.delete": 4, "campaigns.delete": 4, "critical.manage": 4,
+                "audit.view": 3, "data.view": 2, "students.sensitive.view": 3,
+            }
+            allowed = rank >= defaults.get(permission, 99)
+        if not allowed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão para esta ação.")
+        return auth
     return _dep

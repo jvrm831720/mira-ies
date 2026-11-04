@@ -225,7 +225,7 @@ async def test_for_tenant_replaces_caller_allowlist_with_persisted_destination(m
     client = await GvcollegeWebAPIClient.for_tenant(
         object(),
         tenant_id="tenant-a",
-        config=make_config(allowed_hosts=frozenset({"attacker.example"})),
+        config=make_config(allowed_hosts=frozenset({"erp.instituicao.edu.br", "attacker.example"})),
         transport=httpx.MockTransport(handler),
     )
     try:

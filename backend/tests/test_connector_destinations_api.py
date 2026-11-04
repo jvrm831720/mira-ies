@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.models.connector_destination import TenantConnectorDestinationAudit
 
@@ -54,6 +54,10 @@ async def test_admin_can_approve_list_and_revoke_only_own_tenant_destination(
 
     await db_session.refresh(tenant_a)
     await db_session.refresh(tenant_b)
+    await db_session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant_a.id},
+    )
     audit_a = (
         await db_session.execute(
             select(TenantConnectorDestinationAudit).where(
@@ -62,6 +66,10 @@ async def test_admin_can_approve_list_and_revoke_only_own_tenant_destination(
         )
     ).scalars().all()
     assert sorted(event.action for event in audit_a) == ["approved", "revoked"]
+    await db_session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant_b.id},
+    )
     audit_b = (
         await db_session.execute(
             select(TenantConnectorDestinationAudit).where(
