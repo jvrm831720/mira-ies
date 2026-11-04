@@ -1,7 +1,7 @@
 """Persist retention campaign proposals with immutable audience snapshots.
 
 Revision ID: 034_retention_campaign_proposals
-Revises: 018_model_lifecycle
+Revises: 033_sophia_sync_jobs
 """
 from alembic import op
 import sqlalchemy as sa
