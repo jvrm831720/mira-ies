@@ -61,6 +61,45 @@ def upgrade() -> None:
         BEFORE UPDATE OR DELETE ON mira_tenant_role_audit
         FOR EACH ROW EXECUTE FUNCTION reject_mira_role_audit_mutation()
     """)
+    op.execute("""
+        CREATE FUNCTION protect_last_tenant_admin() RETURNS trigger
+        LANGUAGE plpgsql AS $admin$
+        DECLARE remaining_admins integer;
+        BEGIN
+            IF pg_trigger_depth() > 1 THEN
+                IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+            END IF;
+            IF TG_OP = 'DELETE' THEN
+                IF OLD.role = 'admin' AND OLD.is_active THEN
+                    PERFORM 1 FROM tenants WHERE id = OLD.tenant_id FOR UPDATE;
+                    SELECT count(*) INTO remaining_admins FROM mira_users
+                    WHERE tenant_id = OLD.tenant_id AND role = 'admin'
+                      AND is_active IS TRUE AND id <> OLD.id;
+                    IF remaining_admins = 0 THEN
+                        RAISE EXCEPTION 'cannot remove the last active tenant administrator';
+                    END IF;
+                END IF;
+                RETURN OLD;
+            END IF;
+            IF OLD.role = 'admin' AND OLD.is_active
+               AND (NEW.role <> 'admin' OR NEW.is_active IS FALSE OR NEW.tenant_id <> OLD.tenant_id) THEN
+                PERFORM 1 FROM tenants WHERE id = OLD.tenant_id FOR UPDATE;
+                SELECT count(*) INTO remaining_admins FROM mira_users
+                WHERE tenant_id = OLD.tenant_id AND role = 'admin'
+                  AND is_active IS TRUE AND id <> OLD.id;
+                IF remaining_admins = 0 THEN
+                    RAISE EXCEPTION 'cannot demote or deactivate the last active tenant administrator';
+                END IF;
+            END IF;
+            RETURN NEW;
+        END;
+        $admin$
+    """)
+    op.execute("""
+        CREATE TRIGGER trg_mira_users_protect_last_admin
+        BEFORE UPDATE OF role, is_active, tenant_id OR DELETE ON mira_users
+        FOR EACH ROW EXECUTE FUNCTION protect_last_tenant_admin()
+    """)
     for table in ("mira_tenant_roles", "mira_tenant_role_audit"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
@@ -72,6 +111,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DROP TRIGGER IF EXISTS trg_mira_users_protect_last_admin ON mira_users")
+    op.execute("DROP FUNCTION IF EXISTS protect_last_tenant_admin()")
     op.execute("DROP TRIGGER IF EXISTS trg_mira_tenant_role_audit_append_only ON mira_tenant_role_audit")
     op.execute("DROP FUNCTION IF EXISTS reject_mira_role_audit_mutation()")
     op.drop_constraint("fk_mira_org_invites_custom_role", "mira_org_invites", type_="foreignkey")
