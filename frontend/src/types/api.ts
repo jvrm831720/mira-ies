@@ -615,6 +615,126 @@ export type RetentionAnalytics = {
   cost_note: string;
 };
 
+export type PermanenceMetricCounts = {
+  confirmed_outcomes: number;
+  unique_students: number;
+  rematriculados: number;
+  active_confirmed: number;
+  concluded: number;
+  permanence_outcomes: number;
+  evasion_outcomes: number;
+  transfers_excluded: number;
+  permanence_rate_pct: number | null;
+  evasion_rate_pct: number | null;
+  rematricula_share_pct: number | null;
+  outcomes_with_academic_period: number;
+  academic_period_coverage_pct: number | null;
+  outcomes_with_source: number;
+  source_coverage_pct: number | null;
+};
+
+export type PermanenceBreakdown = PermanenceMetricCounts & {
+  key: string;
+  label: string;
+};
+
+export type PermanenceAnalyticsRecord = {
+  event_id: string;
+  student_id?: string | null;
+  matricula: string;
+  student_name?: string | null;
+  course?: string | null;
+  outcome: string;
+  outcome_label: string;
+  outcome_at: string;
+  academic_period?: string | null;
+  academic_period_reported: boolean;
+  outcome_source: string;
+  intervention_count: number;
+  campaigns: string[];
+  channels: string[];
+};
+
+export type OperationalPermanenceMetrics = {
+  records: number;
+  messages_sent: number;
+  unique_students_contacted: number;
+  delivered_messages: number;
+  engaged_messages: number;
+  failed_messages: number;
+  delivery_rate_pct: number | null;
+  engagement_rate_pct: number | null;
+};
+
+export type OperationalPermanenceBreakdown = {
+  key: string;
+  label: string;
+  records: number;
+  messages_sent: number;
+  unique_students_contacted: number;
+  delivered_messages: number;
+};
+
+export type PermanenceAnalytics = {
+  generated_at: string;
+  period_days: number;
+  filters_applied: {
+    academic_period?: string | null;
+    course?: string | null;
+    campaign_id?: string | null;
+    channel?: string | null;
+  };
+  options: {
+    academic_periods: string[];
+    courses: string[];
+    campaigns: Array<{ id: string; name: string }>;
+    channels: string[];
+  };
+  educational: {
+    summary: PermanenceMetricCounts;
+    by_academic_period: PermanenceBreakdown[];
+    by_course: PermanenceBreakdown[];
+    by_campaign: PermanenceBreakdown[];
+    by_channel: PermanenceBreakdown[];
+    source_events_total: number;
+    records_total: number;
+    records: PermanenceAnalyticsRecord[];
+  };
+  operational: {
+    summary: OperationalPermanenceMetrics;
+    by_campaign: OperationalPermanenceBreakdown[];
+    by_channel: OperationalPermanenceBreakdown[];
+    by_course: OperationalPermanenceBreakdown[];
+    by_calendar_month: Array<{ key: string; label: string } & OperationalPermanenceMetrics>;
+  };
+  comparison: {
+    status: "insufficient_data" | "available_descriptive";
+    method: string;
+    causal_claim: false;
+    minimum_group_size: number;
+    minimum_per_stratum: number;
+    exposed_n: number;
+    no_intervention_n: number;
+    mixed_exposure_excluded: number;
+    missing_baseline_risk_excluded: number;
+    common_risk_bands?: string[];
+    exposed_coverage_common_support_pct?: number;
+    permanence_rate_exposed_pct: number | null;
+    permanence_rate_no_intervention_standardized_pct: number | null;
+    difference_percentage_points: number | null;
+    reason: string;
+  };
+  methodology: {
+    outcome_source: string;
+    permanence_definition: string;
+    intervention_window_days: number;
+    causality: string;
+    academic_period: string;
+    operational_period: string;
+    comparison: string;
+  };
+};
+
 export type RiskHistoryAssessment = {
   id: string;
   student_id: string;

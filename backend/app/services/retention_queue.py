@@ -20,7 +20,14 @@ DELAYED_SUFFIX = ":delayed"
 JOB_PREFIX = "beacon:retention:job:"
 DEDUPE_PREFIX = "beacon:retention:dedupe:"
 LOCK_SUFFIX = ":lock"
+LIFECYCLE_LOCK_SUFFIX = ":lifecycle-lock"
+_JOB_TERMINAL_STATES = frozenset({"completed", "failed", "dead_letter", "cancelled"})
+_JOB_QUEUE_STATES = frozenset({"queued", "scheduled", "retrying"})
 logger = logging.getLogger(__name__)
+
+
+class RetentionJobLifecycleError(ValueError):
+    """Raised when an execution cannot perform the requested lifecycle action."""
 
 
 def _event(level: int, event_name: str, **fields: Any) -> None:
@@ -153,7 +160,16 @@ async def get_job(
         for field in ("attempt", "max_attempts"):
             if field in result:
                 result[field] = int(result[field])
-        for field in ("created_at", "updated_at", "next_retry_at", "scheduled_for"):
+        for field in (
+            "created_at",
+            "updated_at",
+            "next_retry_at",
+            "scheduled_for",
+            "paused_at",
+            "resumed_at",
+            "cancel_requested_at",
+            "cancelled_at",
+        ):
             if field in result:
                 result[field] = float(result[field])
         return result
@@ -169,6 +185,84 @@ async def _update_job(redis: Redis, job_id: str, **fields: Any) -> None:
         for key, value in fields.items()
     }
     await redis.hset(_job_key(job_id), mapping=encoded)
+
+
+async def _remove_job_from_queues(redis: Redis, job_id: str) -> None:
+    """Remove a job from both ready and delayed queues before changing state."""
+    settings = get_settings()
+    await redis.lrem(settings.retention_queue_name, 0, job_id)
+    await redis.zrem(f"{settings.retention_queue_name}{DELAYED_SUFFIX}", job_id)
+
+
+async def transition_retention_job(
+    job_id: str,
+    *,
+    tenant_id: str,
+    action: str,
+) -> dict[str, Any] | None:
+    """Apply an idempotent lifecycle action to a tenant-owned queue job.
+
+    Queued, scheduled and retrying jobs can be paused or cancelled immediately.
+    A running job accepts cancellation as ``cancel_requested``; the worker checks
+    that request before starting and before publishing a completed result. A
+    running job cannot be paused because the orchestrator may already be calling
+    a provider and cannot safely roll back messages already sent.
+    """
+    if action not in {"pause", "resume", "cancel"}:
+        raise RetentionJobLifecycleError(f"Ação de ciclo de vida desconhecida: {action}")
+
+    redis = redis_client()
+    lock_key = f"{_job_key(job_id)}{LIFECYCLE_LOCK_SUFFIX}"
+    try:
+        locked = await redis.set(lock_key, tenant_id, ex=30, nx=True)
+        if not locked:
+            raise RetentionJobLifecycleError("Outra operação já está alterando esta execução.")
+        job = await get_job(job_id, tenant_id=tenant_id, redis=redis)
+        if not job:
+            return None
+        current = str(job.get("status"))
+        now = time.time()
+
+        if action == "pause":
+            if current == "paused":
+                return job
+            if current == "running":
+                raise RetentionJobLifecycleError(
+                    "Uma execução em andamento não pode ser pausada; aguarde sua conclusão ou cancele-a."
+                )
+            if current in _JOB_TERMINAL_STATES:
+                raise RetentionJobLifecycleError(f"Execução já encerrada com estado {current}.")
+            if current not in _JOB_QUEUE_STATES:
+                raise RetentionJobLifecycleError(f"Não é possível pausar uma execução em estado {current}.")
+            await _remove_job_from_queues(redis, job_id)
+            await _update_job(redis, job_id, status="paused", paused_at=now)
+            _event(logging.INFO, "retention_job_paused", job_id=job_id, tenant_id=tenant_id, previous_status=current)
+
+        elif action == "resume":
+            if current == "queued":
+                return job
+            if current != "paused":
+                raise RetentionJobLifecycleError(f"Somente execuções pausadas podem ser retomadas (estado atual: {current}).")
+            await _update_job(redis, job_id, status="queued", resumed_at=now)
+            await redis.rpush(get_settings().retention_queue_name, job_id)
+            _event(logging.INFO, "retention_job_resumed", job_id=job_id, tenant_id=tenant_id)
+
+        else:  # cancel
+            if current == "cancelled":
+                return job
+            if current in {"completed", "failed", "dead_letter"}:
+                raise RetentionJobLifecycleError(f"Execução já encerrada com estado {current}.")
+            if current == "running":
+                await _update_job(redis, job_id, status="cancel_requested", cancel_requested_at=now)
+                _event(logging.INFO, "retention_job_cancel_requested", job_id=job_id, tenant_id=tenant_id)
+            else:
+                await _remove_job_from_queues(redis, job_id)
+                await _update_job(redis, job_id, status="cancelled", cancelled_at=now)
+                _event(logging.INFO, "retention_job_cancelled", job_id=job_id, tenant_id=tenant_id, previous_status=current)
+
+        return await get_job(job_id, tenant_id=tenant_id, redis=redis)
+    finally:
+        await redis.delete(lock_key)
 
 
 async def _schedule_retry(redis: Redis, job_id: str, *, attempt: int, error: str, error_type: str | None = None) -> None:
@@ -191,7 +285,7 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
     """Executa um job uma vez; retorna ``True`` quando deve ser considerado concluído."""
     settings = get_settings()
     job = await get_job(job_id, redis=redis)
-    if not job or job.get("status") in {"completed", "failed", "dead_letter"}:
+    if not job or job.get("status") in _JOB_TERMINAL_STATES | {"paused"}:
         return True
     lock_key = f"{_job_key(job_id)}{LOCK_SUFFIX}"
     locked = await redis.set(lock_key, "1", ex=900, nx=True)
@@ -200,6 +294,10 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
     try:
         job = await get_job(job_id, redis=redis)
         if not job:
+            return True
+        if job.get("status") in _JOB_TERMINAL_STATES | {"paused", "cancel_requested"}:
+            if job.get("status") == "cancel_requested":
+                await _update_job(redis, job_id, status="cancelled", cancelled_at=time.time())
             return True
         attempt = int(job.get("attempt", 0)) + 1
         await _update_job(redis, job_id, status="running", attempt=attempt)
@@ -237,6 +335,11 @@ async def process_retention_job(job_id: str, redis: Redis) -> bool:
             )
             await redis.rpush(settings.retention_dead_letter_queue_name, job_id)
             _event(logging.ERROR, "retention_job_dead_lettered", job_id=job_id, tenant_id=job.get("tenant_id"), status="dead_letter", attempt=attempt, max_attempts=int(job.get("max_attempts", settings.retention_max_attempts)), error_type=type(exc).__name__)
+            return True
+        latest = await get_job(job_id, redis=redis)
+        if latest and latest.get("status") == "cancel_requested":
+            await _update_job(redis, job_id, status="cancelled", cancelled_at=time.time(), result=result)
+            _event(logging.INFO, "retention_job_cancelled_after_run", job_id=job_id, tenant_id=job.get("tenant_id"))
             return True
         await _update_job(redis, job_id, status="completed", result=result)
         _event(logging.INFO, "retention_job_completed", job_id=job_id, tenant_id=job.get("tenant_id"), status="completed", attempt=attempt)

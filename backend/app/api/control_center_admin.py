@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.control_center_auth import admin_permission
+from app.api.control_center_auth import admin_permission, consume_action_confirmation
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.auth import User
@@ -359,6 +359,7 @@ async def create_billing_record(
     if existing:
         raise HTTPException(status_code=409, detail="Já existe um registro financeiro para esta instituição. Atualize o registro existente.")
     data = body.model_dump()
+    await consume_action_confirmation(db, request, admin, "billing_record_create", body.tenant_id, data)
     record = AdminBillingRecord(**data, created_by_admin_id=admin.id)
     db.add(record)
     await db.flush()
@@ -385,6 +386,7 @@ async def update_billing_record(
     if not record:
         raise HTTPException(status_code=404, detail="Registro financeiro não encontrado.")
     data = body.model_dump(exclude_unset=True)
+    await consume_action_confirmation(db, request, admin, "billing_record_update", record.id, data)
     for key, value in data.items():
         if value is not None or key in {"payment_link", "notes"}:
             setattr(record, key, value)
@@ -430,6 +432,8 @@ async def update_organization(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(status_code=422, detail="Informe ao menos um campo para atualizar.")
+    action = "organization_deactivate" if changes.get("is_active") is False else "organization_update"
+    await consume_action_confirmation(db, request, admin, action, tenant.id, changes)
     before = {key: getattr(tenant, key) for key in changes}
     for key, value in changes.items():
         if value is not None or key in {"segment", "name"}:
@@ -464,6 +468,8 @@ async def update_member(
     changes = body.model_dump(exclude_unset=True)
     if not changes:
         raise HTTPException(status_code=422, detail="Informe ao menos um campo para atualizar.")
+    action = "member_permission_change" if "role" in changes else "member_update"
+    await consume_action_confirmation(db, request, admin, action, member.id, changes)
     before = {key: getattr(member, key) for key in changes}
     for key, value in changes.items():
         if value is not None:

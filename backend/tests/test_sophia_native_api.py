@@ -1,5 +1,6 @@
 """Contract tests for the read-only SophiA Gestão Escolar Web API v1 client."""
 import json
+import math
 
 import httpx
 import pytest
@@ -117,6 +118,12 @@ async def test_rejects_invalid_credentials_and_non_array_payloads():
     await client.close()
 
 
+@pytest.mark.parametrize("timeout", [0, -1, math.nan, math.inf, -math.inf])
+def test_sophia_config_rejects_non_positive_or_non_finite_timeouts(timeout):
+    with pytest.raises(ValueError, match="positive and finite"):
+        SophiaApiClient(config(timeout_seconds=timeout))
+
+
 @pytest.mark.parametrize(
     "base_url",
     [
@@ -152,3 +159,11 @@ async def test_boleto_uses_documented_id_titulo_parameter():
     assert result["LinhaDigitavel"] == "00190"
     assert requests[1].url.params["idTitulo"] == "987"
 
+
+
+
+def test_sophia_config_repr_does_not_expose_credentials():
+    value = config(username="secret-user", password="secret-password")
+    rendered = repr(value)
+    assert "secret-user" not in rendered
+    assert "secret-password" not in rendered

@@ -136,6 +136,9 @@ async def student_work_timeline(
                 "refs": {
                     "status": act.status,
                     "activity_type": act.activity_type,
+                    "priority": getattr(act, "priority", "normal"),
+                    "origin_type": getattr(act, "origin_type", "manual"),
+                    "campaign_id": getattr(act, "campaign_id", None),
                     "title": act.title,
                     "assignee_user_id": act.assignee_user_id,
                     "intervention_log_id": act.intervention_log_id,

@@ -78,6 +78,7 @@ class TrainingEvent(Base):
     __table_args__ = (
         Index("ix_training_events_tenant_labeled", "tenant_id", "label"),
         Index("ix_training_events_matricula", "tenant_id", "matricula"),
+        Index("ix_training_events_tenant_outcome_period", "tenant_id", "outcome_period"),
     )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
@@ -95,6 +96,8 @@ class TrainingEvent(Base):
     label: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     outcome: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     outcome_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    outcome_period: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    outcome_source: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     target_definition: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     labeled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     outcome_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

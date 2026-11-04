@@ -32,6 +32,8 @@ class OutcomeItem(BaseModel):
     matricula: str
     outcome: str
     observed_at: Optional[datetime] = None
+    academic_period: Optional[str] = Field(default=None, max_length=40)
+    source: Optional[str] = Field(default=None, max_length=40)
     notes: Optional[str] = None
     student_id: Optional[str] = None
     training_event_id: Optional[str] = None
@@ -131,6 +133,8 @@ async def register_outcomes(body: OutcomeBatchRequest, auth: AuthContext = Depen
         event.target_definition = TARGET_DEFINITION_VERSION if label is not None else None
         event.outcome = outcome_key
         event.outcome_at = item.observed_at
+        event.outcome_period = item.academic_period.strip()[:40] if item.academic_period else None
+        event.outcome_source = (item.source.strip().lower()[:40] or "import") if item.source else "import"
         event.labeled_at = now
         event.outcome_notes = item.notes
         updated += 1
@@ -138,7 +142,7 @@ async def register_outcomes(body: OutcomeBatchRequest, auth: AuthContext = Depen
         # Link imported academic outcomes to real messages sent within the previous 90 days.
         # This is observational attribution, not proof the message caused the outcome.
         final_status = {
-            "ativo": "stayed", "concluiu": "stayed", "formou": "stayed",
+            "rematriculado": "stayed", "ativo": "stayed", "concluiu": "stayed", "formou": "stayed",
             "evadiu": "dropped", "trancou": "dropped", "transferiu": "transferred",
         }.get(outcome_key)
         if item.observed_at is not None and final_status:

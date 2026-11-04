@@ -114,3 +114,9 @@ async def test_user_lookup_rejects_empty_values_and_invalid_field():
             await client.get_users_by_field("idnumber", [])
         with pytest.raises(ValueError, match="inteiro positivo"):
             await client.get_user_courses(True)
+
+
+
+def test_moodle_config_repr_does_not_expose_token():
+    config = MoodleConfig("https://campus.example.edu", "secret-token")
+    assert "secret-token" not in repr(config)

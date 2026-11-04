@@ -1,5 +1,6 @@
 from app.models.student import UploadBatch, Student
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
+from app.models.educational_outcome import AcademicOutcome
 from app.models.auth import AuthChallenge, MfaAuditEvent, MfaLoginChallenge, MfaRecoveryCode, MfaTenantPolicy, OrganizationInvite, User, UserSession
 from app.models.retention_campaign import RetentionCampaign, RetentionCampaignProposal, RetentionCampaignProposalAuditEvent
 from app.models.data_governance import TenantDataUsePolicy
@@ -14,7 +15,7 @@ from app.models.rm_sync import RmSyncScope, RmSyncRun, RmSyncPage, RmSyncRecord
 from app.models.rm_sync_jobs import RmSyncJob, RmSyncJobEvent
 
 __all__ = [
-    "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact",
+    "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
     "AuthChallenge", "MfaLoginChallenge", "MfaRecoveryCode", "MfaAuditEvent",
     "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User",
     "RetentionCampaign", "RetentionCampaignProposal", "RetentionCampaignProposalAuditEvent", "TenantDataUsePolicy", "InstitutionalTrainingAuthorization",

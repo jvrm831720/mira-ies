@@ -1,10 +1,13 @@
 import { api, ApiError } from "./api";
 import type {
+  CampaignActivityGenerationBody,
+  CampaignActivityGenerationResponse,
   CreateWorkActivityBody,
   PatchWorkActivityBody,
   RecordResultBody,
   RecordResultResponse,
   StudentWorkTimelineResponse,
+  WorkActivitySummary,
   WorkActivitiesResponse,
   WorkActivity,
   WorkActivityEventsResponse,
@@ -68,6 +71,8 @@ export const workApi = {
   list: (params?: {
     status?: string;
     assignee?: string;
+    origin_type?: string;
+    priority?: string;
     student_id?: string;
     intervention_log_id?: string;
     overdue_only?: boolean;
@@ -76,6 +81,8 @@ export const workApi = {
     const q = new URLSearchParams();
     if (params?.status) q.set("status", params.status);
     if (params?.assignee) q.set("assignee", params.assignee);
+    if (params?.origin_type) q.set("origin_type", params.origin_type);
+    if (params?.priority) q.set("priority", params.priority);
     if (params?.student_id) q.set("student_id", params.student_id);
     if (params?.intervention_log_id) q.set("intervention_log_id", params.intervention_log_id);
     if (params?.overdue_only) q.set("overdue_only", "true");
@@ -87,11 +94,19 @@ export const workApi = {
   mine: (limit = 100) =>
     workRequest<WorkActivitiesResponse>(`/api/v1/work/activities/mine?limit=${limit}`),
 
+  summary: () => workRequest<WorkActivitySummary>("/api/v1/work/activities/summary"),
+
   get: (id: string) =>
     workRequest<WorkActivity>(`/api/v1/work/activities/${encodeURIComponent(id)}`),
 
   create: (body: CreateWorkActivityBody) =>
     workRequest<WorkActivity>("/api/v1/work/activities", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  generateFromCampaign: (body: CampaignActivityGenerationBody) =>
+    workRequest<CampaignActivityGenerationResponse>("/api/v1/work/activities/campaign-generated", {
       method: "POST",
       body: JSON.stringify(body),
     }),

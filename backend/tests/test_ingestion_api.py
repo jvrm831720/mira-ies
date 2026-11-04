@@ -83,3 +83,50 @@ async def test_webhook_erp_rejects_unsupported_connector(client, auth_headers):
         content=json.dumps([{"id": "1"}]),
     )
     assert resp.status_code == 404
+
+
+
+async def test_webhook_rejects_unsigned_payload_in_production_even_when_flag_enabled(
+    client, tenant_factory, monkeypatch,
+):
+    from types import SimpleNamespace
+    import app.core.security as security
+    from app.core.config import get_settings
+
+    current_settings = get_settings()
+    _tenant, raw_key = await tenant_factory(
+        slug="unsigned-prod", name="Unsigned Production", webhook_secret=None
+    )
+    monkeypatch.setattr(
+        security, "get_settings",
+        lambda: SimpleNamespace(
+            app_env="production",
+            allow_unsigned_webhooks=True,
+            secret_key=current_settings.secret_key,
+        ),
+    )
+    resp = await client.post(
+        "/api/v1/webhooks/moodle",
+        headers={"X-API-Key": raw_key},
+        content=json.dumps({"id": "M-PROD", "fullname": "Unsigned"}),
+    )
+    assert resp.status_code == 401
+
+
+async def test_ingestion_internal_exception_is_not_returned_to_client(
+    client, auth_headers, monkeypatch,
+):
+    import app.api.connectors as connectors_api
+
+    async def fail_with_sensitive_detail(*args, **kwargs):
+        raise RuntimeError("https://internal.example/?token=secret-value")
+
+    monkeypatch.setattr(connectors_api, "ingest_records", fail_with_sensitive_detail)
+    resp = await client.post(
+        "/api/v1/connectors/jacad/students",
+        headers=auth_headers,
+        json=[{"codigoAluno": "J-ERR", "nomeAluno": "Julia", "frequencia": 92}],
+    )
+    assert resp.status_code == 500
+    assert resp.json()["detail"] == "Falha interna ao processar ingestao"
+    assert "secret-value" not in resp.text

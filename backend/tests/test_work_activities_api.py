@@ -8,6 +8,8 @@ from sqlalchemy import select
 
 from app.core.mira_security import hash_password
 from app.models.auth import User
+from app.models.retention_campaign import RetentionCampaign
+from app.models.student import Student, UploadBatch
 from app.models.work_activity import WorkActivity, WorkActivityEvent
 
 
@@ -294,3 +296,131 @@ async def test_patch_assignee_and_due_record_events(client, tenant_factory, db_s
         )
     ).scalars().all()
     assert len(event_rows) >= 3
+
+
+@pytest.mark.asyncio
+async def test_priority_summary_filters_and_detail_audit(client, tenant_factory):
+    tenant, key = await tenant_factory(slug="work-priority-summary")
+    headers = {"X-API-Key": key}
+    blank_title = await client.post(
+        "/api/v1/work/activities", headers=headers, json={"title": "   "}
+    )
+    assert blank_title.status_code == 422
+    reserved_path = await client.get(
+        "/api/v1/work/activities/campaign-generated", headers=headers
+    )
+    assert reserved_path.status_code == 422
+
+    overdue = await client.post(
+        "/api/v1/work/activities",
+        headers=headers,
+        json={
+            "title": "Contato prioritário",
+            "priority": "urgent",
+            "due_at": (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat(),
+        },
+    )
+    assert overdue.status_code == 201, overdue.text
+    activity_id = overdue.json()["id"]
+    assert overdue.json()["priority"] == "urgent"
+    assert overdue.json()["origin_type"] == "manual"
+
+    patched = await client.patch(
+        f"/api/v1/work/activities/{activity_id}",
+        headers=headers,
+        json={"title": "Contato atualizado", "description": "Registrar encaminhamento", "priority": "high"},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["priority"] == "high"
+
+    filtered = await client.get(
+        "/api/v1/work/activities?priority=high&origin_type=manual",
+        headers=headers,
+    )
+    assert filtered.status_code == 200
+    assert [row["id"] for row in filtered.json()["activities"]] == [activity_id]
+
+    summary = await client.get("/api/v1/work/activities/summary", headers=headers)
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["pending"] == 1
+    assert summary.json()["overdue"] == 1
+    assert summary.json()["unassigned"] == 1
+    assert summary.json()["urgent_pending"] == 0
+
+    events = await client.get(f"/api/v1/work/activities/{activity_id}/events", headers=headers)
+    types = [event["event_type"] for event in events.json()["events"]]
+    assert "priority_changed" in types
+    assert "details_changed" in types
+    detail_event = next(event for event in events.json()["events"] if event["event_type"] == "details_changed")
+    assert detail_event["payload"] == {"fields": ["title", "description"]}
+
+
+@pytest.mark.asyncio
+async def test_campaign_generated_activities_are_tenant_scoped_and_idempotent(
+    client, tenant_factory, db_session
+):
+    tenant, key = await tenant_factory(slug="work-campaign-generation")
+    headers = {"X-API-Key": key}
+    campaign = RetentionCampaign(
+        tenant_id=tenant.id,
+        slug="human-follow-up",
+        name="Encaminhamento humano",
+        version=1,
+        status="active",
+        rules=[],
+    )
+    batch = UploadBatch(
+        tenant_id=tenant.id,
+        filename="test.csv",
+        original_filename="test.csv",
+        status="processed",
+    )
+    db_session.add_all([campaign, batch])
+    await db_session.commit()
+    await db_session.refresh(campaign)
+    await db_session.refresh(batch)
+    students = [
+        Student(batch_id=batch.id, tenant_id=tenant.id, matricula=f"M-{i}", nome=f"Aluno {i}")
+        for i in (1, 2)
+    ]
+    db_session.add_all(students)
+    await db_session.commit()
+    for student in students:
+        await db_session.refresh(student)
+
+    payload = {
+        "campaign_id": campaign.id,
+        "generation_key": "v1-regra-follow-up-2026-11-04",
+        "student_ids": [student.id for student in students],
+        "title": "Realizar contato acadêmico",
+        "activity_type": "contact",
+        "priority": "high",
+    }
+    first = await client.post("/api/v1/work/activities/campaign-generated", headers=headers, json=payload)
+    assert first.status_code == 200, first.text
+    assert first.json()["created_count"] == 2
+    assert first.json()["reused_count"] == 0
+    assert all(item["origin_type"] == "campaign" for item in first.json()["activities"])
+    assert all(item["campaign_id"] == campaign.id for item in first.json()["activities"])
+
+    generated = first.json()["activities"][0]
+    moved = await client.patch(
+        f"/api/v1/work/activities/{generated['id']}",
+        headers=headers,
+        json={"student_id": next(student.id for student in students if student.id != generated["student_id"])},
+    )
+    assert moved.status_code == 422
+
+    repeated = await client.post("/api/v1/work/activities/campaign-generated", headers=headers, json=payload)
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["created_count"] == 0
+    assert repeated.json()["reused_count"] == 2
+    assert {item["id"] for item in repeated.json()["activities"]} == {
+        item["id"] for item in first.json()["activities"]
+    }
+
+    campaign_only = await client.get(
+        "/api/v1/work/activities?origin_type=campaign&priority=high", headers=headers
+    )
+    assert campaign_only.status_code == 200
+    assert campaign_only.json()["count"] == 2

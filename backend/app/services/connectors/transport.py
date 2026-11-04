@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
+import math
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -72,8 +73,8 @@ class ReadOnlyRestClient:
             raise ConnectorConfigurationError("HTTP sem TLS exige allow_insecure_http explícito.")
         if (username is None) != (password is None):
             raise ConnectorConfigurationError("Usuário e senha devem ser informados juntos.")
-        if timeout_seconds <= 0:
-            raise ConnectorConfigurationError("Timeout deve ser maior que zero.")
+        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+            raise ConnectorConfigurationError("Timeout deve ser positivo e finito.")
 
         headers = {
             "Accept": "application/json",

@@ -1,6 +1,8 @@
 /** Atividade operacional da Central de Trabalho (distinta de InterventionLog). */
 export type WorkActivityStatus = "open" | "in_progress" | "completed" | "cancelled";
 export type WorkActivityType = "follow_up" | "contact" | "review" | "other";
+export type WorkPriority = "low" | "normal" | "high" | "urgent";
+export type WorkOrigin = "manual" | "campaign";
 export type WorkResultKind = "done" | "unreachable" | "deferred" | "referred";
 
 export type WorkActivityAssignee = {
@@ -18,6 +20,9 @@ export type WorkActivity = {
   description?: string | null;
   activity_type: WorkActivityType | string;
   status: WorkActivityStatus | string;
+  priority: WorkPriority | string;
+  origin_type: WorkOrigin | string;
+  campaign_id?: string | null;
   assignee_user_id?: string | null;
   assignee?: WorkActivityAssignee | null;
   created_by_user_id?: string | null;
@@ -57,6 +62,29 @@ export type CreateWorkActivityBody = {
   intervention_log_id?: string | null;
   assignee_user_id?: string | null;
   due_at?: string | null;
+  priority?: WorkPriority;
+  campaign_id?: string | null;
+};
+
+export type CampaignActivityGenerationBody = {
+  campaign_id: string;
+  generation_key: string;
+  student_ids: string[];
+  title: string;
+  description?: string | null;
+  activity_type?: WorkActivityType;
+  priority?: WorkPriority;
+  assignee_user_id?: string | null;
+  due_at?: string | null;
+};
+
+export type CampaignActivityGenerationResponse = {
+  campaign_id: string;
+  generation_key: string;
+  count: number;
+  created_count: number;
+  reused_count: number;
+  activities: WorkActivity[];
 };
 
 export type PatchWorkActivityBody = {
@@ -67,6 +95,7 @@ export type PatchWorkActivityBody = {
   due_at?: string | null;
   clear_due?: boolean;
   status?: WorkActivityStatus;
+  priority?: WorkPriority;
   student_id?: string | null;
   clear_student?: boolean;
   intervention_log_id?: string | null;
@@ -122,4 +151,14 @@ export type StudentWorkTimelineResponse = {
   truncated?: boolean;
   items: WorkTimelineItem[];
   definition?: string;
+};
+
+export type WorkActivitySummary = {
+  pending: number;
+  overdue: number;
+  completed_7d: number;
+  unassigned: number;
+  campaign_pending: number;
+  urgent_pending: number;
+  as_of: string;
 };

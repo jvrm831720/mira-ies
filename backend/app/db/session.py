@@ -105,6 +105,18 @@ async def ensure_schema_patches(conn) -> None:
         ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'coordinator'
         """,
         """
+        ALTER TABLE training_events
+        ADD COLUMN IF NOT EXISTS outcome_period VARCHAR(40) NULL
+        """,
+        """
+        ALTER TABLE training_events
+        ADD COLUMN IF NOT EXISTS outcome_source VARCHAR(40) NULL
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_training_events_tenant_outcome_period
+        ON training_events (tenant_id, outcome_period)
+        """,
+        """
         ALTER TABLE intervention_logs
         ADD COLUMN IF NOT EXISTS decision_reason VARCHAR(240) NULL
         """,

@@ -35,6 +35,9 @@ _MAX_CODE_ATTEMPTS = 5
 _MAX_PASSWORD_ATTEMPTS = 8
 _LOCK_MINUTES = 15
 _TOKEN_TTL_SECONDS = 20 * 60
+_ACTION_CODE_TTL_SECONDS = 300
+_ACTION_CODE_ATTEMPTS = 5
+_HIGH_RISK_ACTIONS = {"organization_deactivate", "member_permission_change"}
 _ALLOWED_ROLES = {"super_admin", "operations", "finance", "support", "auditor"}
 _ROLE_PERMISSIONS = {
     "super_admin": {"*"},
@@ -107,7 +110,7 @@ def _issue_token(admin: AdminPrincipal) -> str:
     claims = {
         "iss": "mira-control-center", "aud": "mira-control-center",
         "sub": admin.id, "role": admin.role, "ver": admin.auth_version,
-        "iat": now, "exp": now + _TOKEN_TTL_SECONDS,
+        "iat": now, "mfa_at": now, "exp": now + _TOKEN_TTL_SECONDS,
     }
     unsigned = f"{_b64(json.dumps(header, separators=(',', ':')).encode())}.{_b64(json.dumps(claims, separators=(',', ':')).encode())}"
     signature = hmac.new(get_settings().secret_key.encode(), unsigned.encode("ascii"), hashlib.sha256).digest()
@@ -307,6 +310,76 @@ def admin_permission(permission: str) -> Callable:
                          db: AsyncSession = Depends(get_db)) -> AdminPrincipal:
         return await require_admin_permission(permission, credentials, db)
     return dependency
+
+
+class ActionConfirmationPayload(BaseModel):
+    action: str = Field(min_length=3, max_length=100)
+    target_id: str = Field(min_length=1, max_length=100)
+    payload: dict
+
+
+def _action_payload_hash(action: str, target_id: str, payload: dict) -> str:
+    serialized = json.dumps({"action": action, "target_id": target_id, "payload": payload}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return _digest("high-risk-action", serialized)
+
+
+@router.post("/action-confirmations", status_code=202)
+async def request_action_confirmation(
+    body: ActionConfirmationPayload, request: Request,
+    admin: AdminPrincipal = Depends(admin_permission("orgs:read")),
+    db: AsyncSession = Depends(get_db),
+):
+    action = body.action.strip()
+    allowed = {"organization_update", "organization_deactivate", "member_update", "member_permission_change", "billing_record_create", "billing_record_update"}
+    if action not in allowed:
+        raise HTTPException(status_code=422, detail="Ação não habilitada para confirmação.")
+    credentials = request.headers.get("authorization", "").removeprefix("Bearer ")
+    claims = _decode_token(credentials)
+    if action in _HIGH_RISK_ACTIONS and (not claims or int(claims.get("mfa_at", 0)) < int(time.time()) - 300):
+        await _audit(db, "high_risk_confirmation_request", "mfa_required", admin.id, request)
+        await db.commit()
+        raise HTTPException(status_code=401, detail="MFA recente obrigatório. Entre novamente e solicite a confirmação.")
+    await _enforce_rate_limit(request, "action_confirmation", 5, 300, identity=admin.email)
+    now = _now()
+    email_hash = _digest("email", admin.email)
+    recent = await db.execute(select(AdminEmailChallenge.id).where(AdminEmailChallenge.email_hash == email_hash, AdminEmailChallenge.purpose == "action", AdminEmailChallenge.created_at >= now - timedelta(seconds=_CODE_COOLDOWN_SECONDS)).limit(1))
+    if recent.scalar_one_or_none():
+        raise HTTPException(status_code=429, detail="Aguarde antes de solicitar outro código.")
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    await db.execute(update(AdminEmailChallenge).where(AdminEmailChallenge.admin_id == admin.id, AdminEmailChallenge.purpose == "action", AdminEmailChallenge.consumed_at.is_(None)).values(consumed_at=now))
+    challenge = AdminEmailChallenge(admin_id=admin.id, email_hash=email_hash, code_hash=_digest("otp", f"{admin.email}:{code}"), purpose="action", action_key=action, payload_hash=_action_payload_hash(action, body.target_id, body.payload), expires_at=now + timedelta(seconds=_ACTION_CODE_TTL_SECONDS))
+    db.add(challenge)
+    await _audit(db, "high_risk_confirmation_requested", "pending", admin.id, request, reason=action)
+    await db.commit()
+    settings = get_settings()
+    if not settings.resend_api_key or not settings.email_from:
+        challenge.consumed_at = _now(); await db.commit()
+        raise HTTPException(status_code=503, detail="Confirmação por e-mail indisponível.")
+    delivery = await send_email_resend(to=admin.email, subject="Confirmação de ação crítica — MIRA", body=f"Solicitação: {action} (alvo {body.target_id}). Código: {code}. Expira em 5 minutos, uso único. Se não reconhece a ação, ignore este e-mail.")
+    if not delivery.ok:
+        challenge.consumed_at = _now(); await db.commit()
+        raise HTTPException(status_code=503, detail="Não foi possível enviar a confirmação por e-mail.")
+    return {"message": "Código enviado ao e-mail cadastrado.", "expires_in": _ACTION_CODE_TTL_SECONDS, "challenge_id": challenge.id}
+
+
+async def consume_action_confirmation(db: AsyncSession, request: Request, admin: AdminPrincipal, action: str, target_id: str, payload: dict) -> None:
+    challenge_id = request.headers.get("x-confirmation-id")
+    code = request.headers.get("x-confirmation-code", "")
+    result = await db.execute(select(AdminEmailChallenge).where(AdminEmailChallenge.id == challenge_id, AdminEmailChallenge.admin_id == admin.id, AdminEmailChallenge.purpose == "action", AdminEmailChallenge.consumed_at.is_(None)).with_for_update())
+    challenge = result.scalar_one_or_none()
+    now = _now()
+    valid = bool(challenge and challenge.expires_at > now and challenge.attempts < _ACTION_CODE_ATTEMPTS)
+    if not valid:
+        await _audit(db, "high_risk_action", "denied", admin.id, request, reason=action); await db.commit()
+        raise HTTPException(status_code=401, detail="Confirmação ausente, inválida ou expirada.")
+    challenge.attempts += 1
+    matches = challenge.action_key == action and hmac.compare_digest(challenge.payload_hash or "", _action_payload_hash(action, target_id, payload)) and hmac.compare_digest(challenge.code_hash, _digest("otp", f"{admin.email}:{code}"))
+    if not matches:
+        if challenge.attempts >= _ACTION_CODE_ATTEMPTS: challenge.consumed_at = now
+        await _audit(db, "high_risk_action_confirmation", "denied", admin.id, request, reason=action); await db.commit()
+        raise HTTPException(status_code=401, detail="Confirmação inválida para esta ação.")
+    challenge.consumed_at = now
+    await _audit(db, "high_risk_action_confirmation", "confirmed", admin.id, request, reason=action)
 
 
 @router.get("/me")
