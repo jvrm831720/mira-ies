@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Index
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,6 +18,10 @@ def _utc_now() -> datetime:
 class TenantConnectorDestination(Base):
     __tablename__ = "tenant_connector_destinations"
     __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "connector_key", "hostname", "port",
+            name="uq_tenant_connector_destination",
+        ),
         Index("ix_tenant_connector_destinations_tenant_connector", "tenant_id", "connector_key", "is_enabled"),
     )
 
