@@ -54,7 +54,6 @@ class CanvasConfig:
         return self.base_url.strip().rstrip("/") + "/api/v1/"
 
 
-_ID = re.compile(r"^[1-9][0-9]*$")
 _ALLOWED_PATHS = (
     re.compile(r"^courses$"),
     re.compile(r"^courses/[1-9][0-9]*/users$"),
@@ -162,13 +161,7 @@ class CanvasApiClient:
             if not isinstance(payload, list):
                 raise CanvasContractError("Paginação Canvas esperava uma lista JSON.")
             results.extend(payload)
-            next_url = None
-            for link in response.headers.get("Link", "").split(","):
-                if 'rel="next"' in link:
-                    match = re.search(r"<([^>]+)>", link)
-                    if match:
-                        next_url = match.group(1)
-                    break
+            next_url = response.links.get("next", {}).get("url")
             if not next_url:
                 return results
             resolved = urljoin(str(response.url), next_url)
