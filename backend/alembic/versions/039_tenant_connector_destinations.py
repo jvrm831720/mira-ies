@@ -5,7 +5,7 @@ Revises: 038_high_risk_confirmation
 """
 from alembic import op
 
-revision = "039_tenant_connector_destinations"
+revision = "039_tenant_conn_dest"
 down_revision = "038_high_risk_confirmation"
 branch_labels = None
 depends_on = None
