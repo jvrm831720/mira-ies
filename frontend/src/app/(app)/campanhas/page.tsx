@@ -69,7 +69,15 @@ function localDateTimeToUtcIso(value: string, timeZone: string): string {
   ) {
     throw new Error("Este horário local não existe no fuso selecionado. Escolha outro horário.");
   }
-  return new Date(candidate).toISOString();
+  const localAsUtc = Date.UTC(
+    Number(check.year), Number(check.month) - 1, Number(check.day),
+    Number(check.hour), Number(check.minute), Number(check.second)
+  );
+  const offsetMinutes = Math.round((localAsUtc - candidate) / 60000);
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absoluteOffset = Math.abs(offsetMinutes);
+  const offset = `${sign}${String(Math.floor(absoluteOffset / 60)).padStart(2, "0")}:${String(absoluteOffset % 60).padStart(2, "0")}`;
+  return `${value}:00${offset}`;
 }
 
 function CampaignProposalsContent() {
