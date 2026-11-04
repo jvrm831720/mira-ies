@@ -1,14 +1,14 @@
-"""Read-only governance console for modalities, data permissions, runs and model versions."""
+"""Internal governance console for data-use policies, datasets, runs and model versions."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field, model_validator
 
 from app.api.control_center_auth import admin_permission
 from app.db.session import get_db
@@ -153,7 +153,7 @@ async def list_governance_audit(
 
 
 class SharedDataPolicyPayload(BaseModel):
-    tenant_id: str = Field(min_length=36, max_length=36)
+    tenant_id: UUID
     mode: Literal["shared_training", "institution_only"]
     contract_reference: str = Field(min_length=1, max_length=160)
     contract_version: str = Field(min_length=1, max_length=80)
@@ -210,6 +210,7 @@ async def _append_governance_audit(
     target_id: str,
     tenant_id: str,
     reason: str,
+    details: dict | None = None,
 ) -> None:
     db.add(AdminAuditEvent(
         actor_admin_id=admin.id,
@@ -219,7 +220,12 @@ async def _append_governance_audit(
         target_id=target_id,
         reason=reason,
         request_id=request.headers.get("x-request-id"),
-        metadata_redacted={"tenant_id": tenant_id, "path": request.url.path, "method": request.method},
+        metadata_redacted={
+            "tenant_id": tenant_id,
+            "path": request.url.path,
+            "method": request.method,
+            **(details or {}),
+        },
     ))
 
 
@@ -230,7 +236,7 @@ async def create_shared_data_policy(
     admin: AdminPrincipal = Depends(admin_permission("governance:write")),
     db: AsyncSession = Depends(get_db),
 ):
-    tenant = await db.get(Tenant, body.tenant_id)
+    tenant = await db.get(Tenant, str(body.tenant_id))
     if not tenant:
         raise HTTPException(status_code=404, detail="Instituição não encontrada.")
     policy = TenantDataUsePolicy(
@@ -251,6 +257,7 @@ async def create_shared_data_policy(
         db, admin=admin, request=request, action="governance.shared_policy.created",
         target_type="tenant_data_use_policy", target_id=policy.id,
         tenant_id=tenant.id, reason=body.reason.strip(),
+        details={"mode": body.mode, "contract_version": body.contract_version.strip()},
     )
     await db.commit()
     return {"policy_id": policy.id, "tenant_id": tenant.id, "mode": policy.mode, "status": "recorded"}
@@ -293,6 +300,7 @@ async def revoke_shared_data_policy(
         db, admin=admin, request=request, action="governance.shared_policy.revoked",
         target_type="tenant_data_use_policy", target_id=revocation.id,
         tenant_id=policy.tenant_id, reason=body.reason.strip(),
+        details={"mode": policy.mode, "contract_version": policy.contract_version},
     )
     await db.commit()
     return {"policy_id": revocation.id, "supersedes_policy_id": policy.id, "status": "revoked"}
@@ -326,6 +334,7 @@ async def create_institutional_training_authorization(
         db, admin=admin, request=request, action="governance.institutional_authorization.created",
         target_type="institutional_training_authorization", target_id=authorization.id,
         tenant_id=tenant.id, reason=body.reason.strip(),
+        details={"contract_version": body.contract_version.strip()},
     )
     await db.commit()
     return {"authorization_id": authorization.id, "tenant_id": tenant.id, "status": "recorded"}
@@ -375,6 +384,7 @@ async def revoke_institutional_training_authorization(
         db, admin=admin, request=request, action="governance.institutional_authorization.revoked",
         target_type="institutional_training_authorization", target_id=revocation.id,
         tenant_id=authorization.tenant_id, reason=body.reason.strip(),
+        details={"contract_version": authorization.contract_version},
     )
     await db.commit()
     return {"authorization_id": revocation.id, "supersedes_authorization_id": authorization.id, "status": "revoked"}
