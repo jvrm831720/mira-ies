@@ -21,7 +21,8 @@ from app.models.sponte_connection import TenantSponteConnection
 from app.models.student import Student, UploadBatch
 from app.services.connectors import get_connector
 from app.services.connectors.jacad_api import decrypt_api_token
-from app.services.connectors.sponte_api import SponteApiClient, SponteQuotaDeferred
+from app.services.connectors.sponte_api import SponteApiClient, SponteQuotaDeferred, SPONTE_BASE_URL
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 from app.services.connectors.sponte_mapping import (
     aluno_id, build_student_payloads, compact_row, pick, record_id,
 )
