@@ -43,6 +43,9 @@ async def test_postgres_destination_rls_and_append_only_audit(db_session):
         """CREATE TRIGGER tenant_connector_destination_audit_append_only_test
            BEFORE UPDATE OR DELETE ON tenant_connector_destination_audit
            FOR EACH ROW EXECUTE FUNCTION reject_connector_destination_audit_mutation_test()""",
+        """CREATE TRIGGER tenant_connector_destination_audit_no_truncate_test
+           BEFORE TRUNCATE ON tenant_connector_destination_audit
+           FOR EACH STATEMENT EXECUTE FUNCTION reject_connector_destination_audit_mutation_test()""",
     ]
     for statement in statements:
         await db_session.execute(text(statement))
@@ -134,6 +137,10 @@ async def test_postgres_destination_rls_and_append_only_audit(db_session):
             ), {"id": audit_a_id})
         await db_session.rollback()
 
+        with pytest.raises(DBAPIError, match="append-only"):
+            await db_session.execute(text("TRUNCATE TABLE tenant_connector_destination_audit"))
+        await db_session.rollback()
+
         await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b.id})
         visible_b = (await db_session.execute(text(
             "SELECT id FROM tenant_connector_destinations ORDER BY id"
@@ -143,6 +150,9 @@ async def test_postgres_destination_rls_and_append_only_audit(db_session):
         await db_session.rollback()
         await db_session.execute(text(
             "DROP TRIGGER IF EXISTS tenant_connector_destination_audit_append_only_test ON tenant_connector_destination_audit"
+        ))
+        await db_session.execute(text(
+            "DROP TRIGGER IF EXISTS tenant_connector_destination_audit_no_truncate_test ON tenant_connector_destination_audit"
         ))
         await db_session.execute(text(
             "DROP FUNCTION IF EXISTS reject_connector_destination_audit_mutation_test()"
