@@ -13,8 +13,7 @@ from app.core.auth import AuthContext, require_min_role, _set_tenant_rls_context
 from app.db.session import get_db
 from app.models.sponte_connection import TenantSponteConnection
 from app.services.connectors.jacad_api import decrypt_api_token, encrypt_api_token
-from app.services.connectors.sponte_api import SponteApiClient, SponteConnectionError, SPONTE_BASE_URL
-from app.services.connectors.tenant_destinations import authorize_tenant_destination
+from app.services.connectors.sponte_api import SponteApiClient, SponteConnectionError
 from app.services.sponte_queue import (
     enqueue_sponte_sync, get_current_sponte_job, get_sponte_job, retry_sponte_sync,
 )
