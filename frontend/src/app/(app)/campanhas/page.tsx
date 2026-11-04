@@ -40,7 +40,7 @@ const channelLabels: Record<string, string> = {
 };
 
 function localDateTimeToUtcIso(value: string, timeZone: string): string {
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})$/.exec(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
   if (!match) throw new Error("Informe uma data e hora válidas.");
   const [, year, month, day, hour, minute] = match;
   const desired = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
