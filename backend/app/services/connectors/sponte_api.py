@@ -8,6 +8,12 @@ from typing import Any
 
 import httpx
 
+from app.services.connectors.tenant_destinations import (
+    _destination_authorization_token,
+    authorize_tenant_destination,
+    require_destination_authorization,
+)
+
 SPONTE_BASE_URL = "https://sponte-bi.sponteweb.com.br"
 SPONTE_ENDPOINTS = (
     "alunos",
@@ -35,6 +41,27 @@ class SponteQuotaDeferred(SponteConnectionError):
 
 
 class SponteApiClient:
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        api_key: str,
+        client_code: int,
+        timeout: float = 30.0,
+        transport: httpx.AsyncBaseTransport | None = None,
+        request_guard: Callable[[], Awaitable[None]] | None = None,
+    ) -> "SponteApiClient":
+        approved = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="sponte", url=SPONTE_BASE_URL
+        )
+        return cls(
+            api_key, client_code, timeout=timeout, transport=transport,
+            request_guard=request_guard,
+            _destination_authorization=_destination_authorization_token(),
+        )
+
     def __init__(
         self,
         api_key: str,
@@ -43,7 +70,9 @@ class SponteApiClient:
         timeout: float = 30.0,
         transport: httpx.AsyncBaseTransport | None = None,
         request_guard: Callable[[], Awaitable[None]] | None = None,
+        _destination_authorization: object | None = None,
     ):
+        require_destination_authorization(_destination_authorization)
         self.api_key = api_key
         self.client_code = int(client_code)
         self.request_guard = request_guard
