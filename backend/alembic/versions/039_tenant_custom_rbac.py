@@ -26,13 +26,14 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint("tenant_id", "name", name="uq_mira_tenant_roles_tenant_name"),
+        sa.UniqueConstraint("tenant_id", "id", name="uq_mira_tenant_roles_tenant_id_id"),
         sa.CheckConstraint("base_role IN ('viewer','operator','coordinator')", name="ck_mira_tenant_roles_base_role"),
     )
     op.create_index("ix_mira_tenant_roles_tenant_active", "mira_tenant_roles", ["tenant_id", "is_active"])
     op.add_column("mira_users", sa.Column("custom_role_id", postgresql.UUID(as_uuid=False), nullable=True))
-    op.create_foreign_key("fk_mira_users_custom_role", "mira_users", "mira_tenant_roles", ["custom_role_id"], ["id"], ondelete="SET NULL")
+    op.create_foreign_key("fk_mira_users_custom_role_tenant", "mira_users", "mira_tenant_roles", ["tenant_id", "custom_role_id"], ["tenant_id", "id"], ondelete="RESTRICT")
     op.add_column("mira_org_invites", sa.Column("custom_role_id", postgresql.UUID(as_uuid=False), nullable=True))
-    op.create_foreign_key("fk_mira_org_invites_custom_role", "mira_org_invites", "mira_tenant_roles", ["custom_role_id"], ["id"], ondelete="SET NULL")
+    op.create_foreign_key("fk_mira_org_invites_custom_role_tenant", "mira_org_invites", "mira_tenant_roles", ["tenant_id", "custom_role_id"], ["tenant_id", "id"], ondelete="RESTRICT")
     op.create_table(
         "mira_tenant_role_audit",
         sa.Column("id", postgresql.UUID(as_uuid=False), primary_key=True),
@@ -146,9 +147,9 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS protect_last_tenant_admin()")
     op.execute("DROP TRIGGER IF EXISTS trg_mira_tenant_role_audit_append_only ON mira_tenant_role_audit")
     op.execute("DROP FUNCTION IF EXISTS reject_mira_role_audit_mutation()")
-    op.drop_constraint("fk_mira_org_invites_custom_role", "mira_org_invites", type_="foreignkey")
+    op.drop_constraint("fk_mira_org_invites_custom_role_tenant", "mira_org_invites", type_="foreignkey")
     op.drop_column("mira_org_invites", "custom_role_id")
-    op.drop_constraint("fk_mira_users_custom_role", "mira_users", type_="foreignkey")
+    op.drop_constraint("fk_mira_users_custom_role_tenant", "mira_users", type_="foreignkey")
     op.drop_column("mira_users", "custom_role_id")
     for table in ("mira_tenant_role_audit", "mira_tenant_roles"):
         op.execute(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY")
