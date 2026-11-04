@@ -145,7 +145,7 @@ async def test_whatsapp_otp_is_followed_by_required_totp(
         json={"phone": phone},
     )
     assert requested.status_code == 202
-    code_match = re.search(r"\b(\d{6})\b", sent[0])
+    code_match = re.search("[0-9]{6}", sent[0])
     assert code_match
 
     verified = await client.post(
@@ -261,7 +261,7 @@ async def test_email_otp_login_sends_code_and_requires_mfa(
     )
     assert requested.status_code == 202
     assert "possibilidade de cadastro" in requested.json()["message"]
-    code_match = re.search(r"\b(\d{6})\b", sent[0])
+    code_match = re.search("[0-9]{6}", sent[0])
     assert code_match
 
     verified = await client.post(
@@ -301,7 +301,7 @@ async def test_email_otp_request_routes_verified_unknown_email_to_onboarding(
     )
     assert requested.status_code == 202
     assert len(sent) == 1
-    code_match = re.search(r"\b(\d{6})\b", sent[0])
+    code_match = re.search("[0-9]{6}", sent[0])
     assert code_match
 
     verified = await client.post(
@@ -340,7 +340,7 @@ async def test_email_otp_rejects_invalid_codes_and_enforces_attempt_limit(
     import app.api.auth as auth_api
     monkeypatch.setattr(auth_api, "send_email_resend", fake_send)
     await client.post("/api/v1/auth/email/request", json={"email": user.email})
-    actual_code = re.search(r"\\b(\\d{6})\\b", sent[0])
+    actual_code = re.search("[0-9]{6}", sent[0])
     assert actual_code
     wrong_code = f"{(int(actual_code.group(1)) + 1) % 1_000_000:06d}"
 
