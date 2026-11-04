@@ -6,7 +6,7 @@ or token values.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import ipaddress
 import math
 import os
@@ -14,6 +14,13 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.connectors.tenant_destinations import (
+    _destination_authorization_token,
+    authorize_tenant_destination,
+    require_destination_authorization,
+)
 
 
 class SophiaApiError(RuntimeError):
@@ -93,12 +100,32 @@ class SophiaApiConfig:
 class SophiaApiClient:
     """Minimal read-only client for documented SophiA Gestão Escolar v1 routes."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db: AsyncSession,
+        *,
+        tenant_id: str,
+        config: SophiaApiConfig,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "SophiaApiClient":
+        approved = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="sophia",
+            url=config.validated_base_url(),
+        )
+        return cls(
+            replace(config, base_url=approved), transport=transport,
+            _destination_authorization=_destination_authorization_token(),
+        )
+
     def __init__(
         self,
         config: SophiaApiConfig,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        _destination_authorization: object | None = None,
     ) -> None:
+        require_destination_authorization(_destination_authorization)
         self.config = config
         self.base_url = config.validated_base_url()
         self._token: str | None = None
