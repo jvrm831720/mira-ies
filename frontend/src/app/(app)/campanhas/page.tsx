@@ -24,6 +24,12 @@ const statusLabels: Record<string, string> = {
   in_review: "Em revisão",
   changes_requested: "Ajustes solicitados",
   approved: "Aprovada",
+  scheduled: "Agendada",
+  running: "Em execução simulada",
+  paused: "Pausada",
+  completed: "Concluída",
+  cancelled: "Cancelada",
+  failed: "Falhou",
 };
 
 const channelLabels: Record<string, string> = {
@@ -33,6 +39,39 @@ const channelLabels: Record<string, string> = {
   operacao_interna: "Operação interna",
 };
 
+function localDateTimeToUtcIso(value: string, timeZone: string): string {
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})$/.exec(value);
+  if (!match) throw new Error("Informe uma data e hora válidas.");
+  const [, year, month, day, hour, minute] = match;
+  const desired = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  let candidate = desired;
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const parts = Object.fromEntries(
+      formatter.formatToParts(new Date(candidate)).map((part) => [part.type, part.value])
+    );
+    const represented = Date.UTC(
+      Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+      Number(parts.hour), Number(parts.minute), Number(parts.second)
+    );
+    candidate += desired - represented;
+  }
+  const check = Object.fromEntries(
+    formatter.formatToParts(new Date(candidate)).map((part) => [part.type, part.value])
+  );
+  if (
+    Number(check.year) !== Number(year) || Number(check.month) !== Number(month) ||
+    Number(check.day) !== Number(day) || Number(check.hour) !== Number(hour) ||
+    Number(check.minute) !== Number(minute)
+  ) {
+    throw new Error("Este horário local não existe no fuso selecionado. Escolha outro horário.");
+  }
+  return new Date(candidate).toISOString();
+}
+
 function CampaignProposalsContent() {
   const queryClient = useQueryClient();
   const proposalsQuery = useQuery({
@@ -40,6 +79,10 @@ function CampaignProposalsContent() {
     queryFn: () => api.retentionCampaignProposals(),
   });
   const meQuery = useQuery({ queryKey: ["org-me"], queryFn: () => api.me() });
+  const scheduleQuery = useQuery({
+    queryKey: ["retention-campaign-schedule"],
+    queryFn: () => api.retentionCampaignSchedule(),
+  });
   const proposals = proposalsQuery.data?.proposals ?? [];
   const [selectedId, setSelectedId] = useState("");
   const selected = proposals.find((item) => item.id === selectedId) ?? null;
@@ -54,6 +97,8 @@ function CampaignProposalsContent() {
   const [authorizationReference, setAuthorizationReference] = useState("");
   const [attested, setAttested] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTimezone, setScheduleTimezone] = useState("America/Sao_Paulo");
 
   const role = meQuery.data?.role ?? "viewer";
   const userId = meQuery.data?.user_id ?? null;
@@ -93,6 +138,8 @@ function CampaignProposalsContent() {
   const inReview = selected?.status === "in_review";
   const canRequestChanges = Boolean(inReview && canCoordinate && !isCreator);
   const canAttest = Boolean(inReview && isAdmin && !isCreator);
+  const canSchedule = Boolean(selected?.status === "approved" && isAdmin);
+  const isScheduled = selected?.status === "scheduled";
   const canApprove = Boolean(
     inReview && isAdmin && !isCreator && selected?.authorization_status === "institution_attested"
   );
@@ -100,6 +147,7 @@ function CampaignProposalsContent() {
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["retention-campaign-proposals"] });
     await queryClient.invalidateQueries({ queryKey: ["retention-campaign-proposal-audit", selectedId] });
+    await queryClient.invalidateQueries({ queryKey: ["retention-campaign-schedule"] });
   };
 
   async function perform(action: () => Promise<unknown>, success: string) {
@@ -161,7 +209,7 @@ function CampaignProposalsContent() {
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
             <LockKeyhole className="h-4 w-4" />
-            Execução e agendamento desabilitados
+            Agendamento manual disponível para propostas aprovadas · execução desabilitada
           </div>
         </div>
 
@@ -364,6 +412,68 @@ function CampaignProposalsContent() {
                       </div>
                     ) : null}
 
+                    {canSchedule ? (
+                      <div className="space-y-3 rounded-lg border p-4">
+                        <div>
+                          <p className="text-sm font-semibold">Agendar campanha</p>
+                          <p className="text-xs text-muted-foreground">
+                            O agendamento registra data e fuso. Não cria uma execução nem envia mensagens.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="space-y-1.5 text-sm font-medium">
+                            Data e hora local
+                            <Input type="datetime-local" value={scheduleDate} disabled={busy} onChange={(event) => setScheduleDate(event.target.value)} />
+                          </label>
+                          <label className="space-y-1.5 text-sm font-medium">
+                            Fuso horário IANA
+                            <Input value={scheduleTimezone} disabled={busy} onChange={(event) => setScheduleTimezone(event.target.value)} placeholder="America/Sao_Paulo" />
+                          </label>
+                        </div>
+                        <Button
+                          variant="outline"
+                          disabled={busy || !scheduleDate || scheduleTimezone.trim().length < 3}
+                          onClick={() => {
+                            try {
+                              const scheduledFor = localDateTimeToUtcIso(scheduleDate, scheduleTimezone.trim());
+                              void perform(
+                                () => api.scheduleRetentionCampaignProposal(selected.id, {
+                                  scheduled_for: scheduledFor,
+                                  schedule_timezone: scheduleTimezone.trim(),
+                                }),
+                                "Agendamento registrado. Nenhuma execução foi iniciada."
+                              );
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : "Data ou fuso inválido.");
+                            }
+                          }}
+                        >
+                          <Clock3 className="mr-2 h-4 w-4" /> Confirmar agendamento
+                        </Button>
+                      </div>
+                    ) : null}
+
+                    {isScheduled ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+                        <div>
+                          <p className="text-sm font-semibold">Campanha agendada</p>
+                          <p className="text-xs text-muted-foreground">
+                            {selected.scheduled_for ? new Date(selected.scheduled_for).toLocaleString("pt-BR", { timeZone: selected.schedule_timezone ?? "UTC" }) : "Data não disponível"}
+                            {" · "}{selected.schedule_timezone ?? "Fuso não informado"}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">A data não dispara a campanha. Execução permanece desabilitada.</p>
+                        </div>
+                        {isAdmin ? (
+                          <Button variant="outline" disabled={busy} onClick={() => void perform(
+                            () => api.removeRetentionCampaignSchedule(selected.id),
+                            "Agendamento removido. A proposta voltou para aprovada."
+                          )}>
+                            Remover agendamento
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+
                     {selected.status === "approved" ? (
                       <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
                         <CheckCircle2 className="h-4 w-4" />
@@ -404,6 +514,32 @@ function CampaignProposalsContent() {
             ) : null}
           </div>
         )}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Cronograma de campanhas</CardTitle>
+            <CardDescription>Agendamentos persistidos da instituição. A chegada da data não inicia a execução.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {scheduleQuery.isLoading ? <p className="text-sm text-muted-foreground">Carregando cronograma…</p> :
+              scheduleQuery.isError ? <p className="text-sm text-muted-foreground">Cronograma indisponível para seu perfil.</p> :
+              (scheduleQuery.data?.schedules.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">Nenhuma campanha agendada.</p> :
+              <ul className="divide-y">
+                {scheduleQuery.data?.schedules.map((item) => (
+                  <li key={item.proposal_id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                    <div>
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.scheduled_for ? new Date(item.scheduled_for).toLocaleString("pt-BR", { timeZone: item.schedule_timezone ?? "UTC" }) : "Data indisponível"}
+                        {" · "}{item.schedule_timezone ?? "Fuso não informado"}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-muted px-2 py-1 text-xs font-medium">Agendada · sem execução</span>
+                  </li>
+                ))}
+              </ul>
+            }
+          </CardContent>
+        </Card>
         <div className="flex items-start gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           Aprovação não comprova legalidade por si só. A instituição é responsável pela revisão da autorização e da documentação. Esta tela não executa campanhas.
