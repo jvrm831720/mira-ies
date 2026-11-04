@@ -227,9 +227,9 @@ class WpensarConnector:
         id="wpensar",
         name="WPensar / Isaac",
         category="erp",
-        description="APIs de cobranca, conciliacao financeira e boletos (parcial).",
-        has_api=True,
-        endpoints=["POST /api/v1/connectors/wpensar/students", "POST /api/v1/connectors/wpensar/financial"],
+        description="Transformação de payloads WPensar; cliente nativo de leitura ainda não implementado.",
+        has_api=False,
+        endpoints=[],
         sample_fields=["student_id", "name", "days_overdue", "overdue_count", "product_name"],
     )
 
