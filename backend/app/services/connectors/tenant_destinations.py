@@ -4,8 +4,28 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.auth import _set_tenant_rls_context
 from app.models.connector_destination import TenantConnectorDestination
+_DESTINATION_AUTHORIZATION_TOKEN = object()
+
+
+def _destination_authorization_token() -> object:
+    """Internal capability passed only by tenant-authorized client factories."""
+    return _DESTINATION_AUTHORIZATION_TOKEN
+
+
+def require_destination_authorization(token: object | None) -> None:
+    """Prevent raw client construction outside tests and authorized factories."""
+    if token is _DESTINATION_AUTHORIZATION_TOKEN:
+        return
+    if get_settings().app_env == "testing":
+        return
+    raise DestinationPolicyError(
+        "Use a factory for_tenant após aprovar o destino no registro do tenant."
+    )
+
+
 from app.services.connectors.destination_policy import (
     DestinationPolicyError,
     validate_tenant_destination,
