@@ -271,7 +271,7 @@ def _permission_for_request(request: Request, fallback_role: str = "viewer") -> 
         if method == "POST":
             return "students.create"
     if path.startswith("/risk"):
-        return "students.view"
+        return "students.view" if path.endswith("/critical") else "dashboard.view"
     if path.startswith("/upload"):
         return "data.import"
     if path.startswith("/connectors") or path.startswith("/integrations"):
