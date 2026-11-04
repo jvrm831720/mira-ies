@@ -191,11 +191,6 @@ class GvcollegeWebAPIClient:
         config: GvcollegeInstitutionConfig,
         *,
         auth_headers: Mapping[str, str] | None = None,
-    def __init__(
-        self,
-        config: GvcollegeInstitutionConfig,
-        *,
-        auth_headers: Mapping[str, str] | None = None,
         _destination_authorization: object | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
