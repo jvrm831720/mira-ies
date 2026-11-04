@@ -121,6 +121,12 @@ async def create_campaign_proposal(
     # proposal is rejected rather than persisting a partial audience.
     raw_members: list[dict[str, Any]] = []
     total_seen = 0
+    matched_counts = {group_id: 0 for group_id in group_ids}
+    expected_counts = {
+        item["id"]: item["matched_count"]
+        for item in summary["groups"]
+        if item["id"] in group_ids
+    }
     cutoff = evaluated_at - timedelta(days=RECENT_CONTACT_DAYS)
     async for batch in iter_student_group_batches(
         db, tenant_id=auth.tenant_id, max_students=GROUP_MAX_STUDENTS
@@ -159,6 +165,8 @@ async def create_campaign_proposal(
                 group.group_id for group in result.groups
                 if group.group_id in group_ids and group.state == "TRUE"
             )
+            for group_id in matched:
+                matched_counts[group_id] += 1
             if not matched:
                 continue
             student = by_id.get(snapshot.id)
@@ -208,8 +216,8 @@ async def create_campaign_proposal(
                 },
             })
 
-    if total_seen != summary["total_eligible"]:
-        raise HTTPException(status_code=409, detail="A base de alunos mudou durante a avaliação; gere a proposta novamente.")
+    if total_seen != summary["total_eligible"] or matched_counts != expected_counts:
+        raise HTTPException(status_code=409, detail="A audiência mudou durante a avaliação; gere a proposta novamente.")
     snapshot = deduplicate_audience_members(raw_members)
     if not snapshot:
         raise HTTPException(status_code=409, detail="Nenhum aluno confirmado nos grupos selecionados.")
