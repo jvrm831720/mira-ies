@@ -13,22 +13,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "mira_users",
-        sa.Column("custom_role_id", postgresql.UUID(as_uuid=False), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_mira_users_custom_role", "mira_users", "mira_tenant_roles",
-        ["custom_role_id"], ["id"], ondelete="SET NULL",
-    )
-    op.add_column(
-        "mira_org_invites",
-        sa.Column("custom_role_id", postgresql.UUID(as_uuid=False), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_mira_org_invites_custom_role", "mira_org_invites", "mira_tenant_roles",
-        ["custom_role_id"], ["id"], ondelete="SET NULL",
-    )
     op.create_table(
         "mira_tenant_roles",
         sa.Column("id", postgresql.UUID(as_uuid=False), primary_key=True),
@@ -45,6 +29,10 @@ def upgrade() -> None:
         sa.CheckConstraint("base_role IN ('viewer','operator','coordinator')", name="ck_mira_tenant_roles_base_role"),
     )
     op.create_index("ix_mira_tenant_roles_tenant_active", "mira_tenant_roles", ["tenant_id", "is_active"])
+    op.add_column("mira_users", sa.Column("custom_role_id", postgresql.UUID(as_uuid=False), nullable=True))
+    op.create_foreign_key("fk_mira_users_custom_role", "mira_users", "mira_tenant_roles", ["custom_role_id"], ["id"], ondelete="SET NULL")
+    op.add_column("mira_org_invites", sa.Column("custom_role_id", postgresql.UUID(as_uuid=False), nullable=True))
+    op.create_foreign_key("fk_mira_org_invites_custom_role", "mira_org_invites", "mira_tenant_roles", ["custom_role_id"], ["id"], ondelete="SET NULL")
     op.create_table(
         "mira_tenant_role_audit",
         sa.Column("id", postgresql.UUID(as_uuid=False), primary_key=True),
