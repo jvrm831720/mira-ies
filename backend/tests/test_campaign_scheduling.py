@@ -54,7 +54,7 @@ def _admin_auth(institution, admin_id):
 
 @pytest.mark.asyncio
 async def test_schedule_and_remove_schedule_are_tenant_scoped_and_audited(
-    client, tenant, db_session
+    client, tenant, tenant_factory, db_session
 ):
     from app.main import app
 
@@ -63,11 +63,24 @@ async def test_schedule_and_remove_schedule_are_tenant_scoped_and_audited(
     db_session.add(proposal)
     await db_session.commit()
     await db_session.refresh(proposal)
+    other_tenant, _ = await tenant_factory(slug="other-tenant")
+    other_proposal = _approved_proposal(other_tenant.id, "other-creator")
+    db_session.add(other_proposal)
+    await db_session.commit()
+    await db_session.refresh(other_proposal)
     app.dependency_overrides[get_current_tenant] = lambda: _admin_auth(
         institution, str(uuid4())
     )
     try:
         future = (datetime.now(ZoneInfo("America/Sao_Paulo")) + timedelta(days=2)).replace(microsecond=0)
+        cross_tenant = await client.post(
+            f"/api/v1/agents/retention/campaigns/intelligence/proposals/{other_proposal.id}/schedule",
+            json={
+                "scheduled_for": future.isoformat(),
+                "schedule_timezone": "America/Sao_Paulo",
+            },
+        )
+        assert cross_tenant.status_code == 404
         response = await client.post(
             f"/api/v1/agents/retention/campaigns/intelligence/proposals/{proposal.id}/schedule",
             json={
