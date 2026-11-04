@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -16,7 +16,7 @@ from app.models.connector_destination import (
     TenantConnectorDestination,
     TenantConnectorDestinationAudit,
 )
-from app.services.connectors.destination_policy import DestinationPolicyError, _normalize_hostname
+from app.services.connectors.destination_policy import DestinationPolicyError, normalize_hostname
 
 router = APIRouter(prefix="/security/connector-destinations", tags=["Segurança de egress"])
 
@@ -55,7 +55,7 @@ async def approve_destination(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        hostname = _normalize_hostname(body.hostname)
+        hostname = normalize_hostname(body.hostname)
     except DestinationPolicyError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     existing_result = await db.execute(
@@ -99,7 +99,7 @@ async def approve_destination(
 @router.delete("/{destination_id}", status_code=status.HTTP_200_OK)
 async def revoke_destination(
     destination_id: str,
-    reason: str = Field(min_length=8, max_length=500),
+    reason: str = Query(min_length=8, max_length=500),
     auth: AuthContext = Depends(require_min_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
