@@ -5,9 +5,6 @@ from app.models.auth import AuthChallenge, MfaAuditEvent, MfaLoginChallenge, Mfa
 from app.models.retention_campaign import RetentionCampaign, RetentionCampaignProposal, RetentionCampaignProposalAuditEvent
 from app.models.data_governance import TenantDataUsePolicy
 from app.models.institutional_training_authorization import InstitutionalTrainingAuthorization
-from app.models.eligible_contribution import EligibleContribution
-from app.models.training_run import TrainingDatasetSnapshot, TrainingRun
-from app.models.mira_base_lifecycle import MiraBaseLifecycleEvent
 from app.models.risk_assessment import RiskAssessment
 from app.models.work_activity import WorkActivity, WorkActivityEvent
 from app.models.jacad_connection import TenantJacadConnection
@@ -16,18 +13,17 @@ from app.models.sophia_connection import TenantSophiaConnection, TenantSophiaStu
 from app.models.sophia_sync import SophiaSyncJob, SophiaSyncJobEvent, SophiaStudentResource
 from app.models.rm_sync import RmSyncScope, RmSyncRun, RmSyncPage, RmSyncRecord
 from app.models.rm_sync_jobs import RmSyncJob, RmSyncJobEvent
+from app.models.connector_destination import TenantConnectorDestination, TenantConnectorDestinationAudit
 
 __all__ = [
     "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
     "AuthChallenge", "MfaLoginChallenge", "MfaRecoveryCode", "MfaAuditEvent",
     "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User",
-    "RetentionCampaign", "RetentionCampaignProposal", "RetentionCampaignProposalAuditEvent",
-    "TenantDataUsePolicy", "InstitutionalTrainingAuthorization", "EligibleContribution",
-    "TrainingDatasetSnapshot", "TrainingRun", "MiraBaseLifecycleEvent",
+    "RetentionCampaign", "RetentionCampaignProposal", "RetentionCampaignProposalAuditEvent", "TenantDataUsePolicy", "InstitutionalTrainingAuthorization",
     "RiskAssessment", "WorkActivity", "WorkActivityEvent",
     "TenantJacadConnection", "TenantSponteConnection",
     "TenantSophiaConnection", "TenantSophiaStudentLink",
     "SophiaSyncJob", "SophiaSyncJobEvent", "SophiaStudentResource",
     "RmSyncScope", "RmSyncRun", "RmSyncPage", "RmSyncRecord",
-    "RmSyncJob", "RmSyncJobEvent",
+    "RmSyncJob", "RmSyncJobEvent", "TenantConnectorDestination", "TenantConnectorDestinationAudit",
 ]
