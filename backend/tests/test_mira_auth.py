@@ -279,7 +279,7 @@ async def test_email_otp_login_sends_code_and_requires_mfa(
     assert replay.status_code == 401
 
 
-async def test_email_otp_request_does_not_disclose_unknown_accounts(
+async def test_email_otp_request_routes_verified_unknown_email_to_onboarding(
     client, monkeypatch
 ):
     settings = get_settings()
@@ -288,21 +288,38 @@ async def test_email_otp_request_does_not_disclose_unknown_accounts(
     sent: list[str] = []
 
     async def fake_send(*, to: str, subject: str, body: str):
-        sent.append(to)
+        assert to == "new-user@example.test"
+        sent.append(body)
         return SendResult(ok=True, channel="email", provider="resend")
 
     import app.api.auth as auth_api
     monkeypatch.setattr(auth_api, "send_email_resend", fake_send)
 
-    response = await client.post(
+    requested = await client.post(
         "/api/v1/auth/email/request",
-        json={"email": "not-registered@example.test"},
+        json={"email": "new-user@example.test"},
     )
-    assert response.status_code == 202
-    assert response.json() == {
-        "message": "Se houver uma conta ativa associada a este e-mail, enviaremos um código."
+    assert requested.status_code == 202
+    assert len(sent) == 1
+    code_match = re.search(r"\b(\d{6})\b", sent[0])
+    assert code_match
+
+    verified = await client.post(
+        "/api/v1/auth/email/verify",
+        json={"email": "new-user@example.test", "code": code_match.group(1)},
+    )
+    assert verified.status_code == 200, verified.text
+    assert verified.json() == {
+        "onboarding_required": True,
+        "email": "new-user@example.test",
     }
-    assert sent == []
+    assert "access_token" not in verified.json()
+
+    replay = await client.post(
+        "/api/v1/auth/email/verify",
+        json={"email": "new-user@example.test", "code": code_match.group(1)},
+    )
+    assert replay.status_code == 401
 
 
 async def test_email_otp_rejects_invalid_codes_and_enforces_attempt_limit(
