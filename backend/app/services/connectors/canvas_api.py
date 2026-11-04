@@ -87,7 +87,7 @@ class CanvasApiClient:
         approved = await authorize_tenant_destination(
             db, tenant_id=tenant_id, connector_key="canvas", url=config.base_url
         )
-                return cls(replace(config, base_url=approved), transport=transport, _destination_authorization=_destination_authorization_token())
+        return cls(replace(config, base_url=approved), transport=transport, _destination_authorization=_destination_authorization_token())
 
     def __init__(
         self,
