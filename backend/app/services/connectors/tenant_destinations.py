@@ -4,6 +4,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import _set_tenant_rls_context
 from app.models.connector_destination import TenantConnectorDestination
 from app.services.connectors.destination_policy import (
     DestinationPolicyError,
@@ -14,6 +15,9 @@ from app.services.connectors.destination_policy import (
 async def load_tenant_allowed_hosts(
     db: AsyncSession, *, tenant_id: str, connector_key: str
 ) -> set[str]:
+    # Apply the tenant context on the same transaction before touching RLS tables.
+    # Callers must still derive tenant_id from authenticated/job context, never request payload.
+    await _set_tenant_rls_context(db, tenant_id)
     result = await db.execute(
         select(TenantConnectorDestination.hostname).where(
             TenantConnectorDestination.tenant_id == tenant_id,
