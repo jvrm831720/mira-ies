@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 TARGET_DEFINITION_VERSION = "evasion_90d_v1"
 TARGET_HORIZON = timedelta(days=90)
 POSITIVE_OUTCOMES = frozenset({"evadiu", "trancou"})
-NEGATIVE_OUTCOMES = frozenset({"ativo", "concluiu", "formou"})
+NEGATIVE_OUTCOMES = frozenset({"rematriculado", "ativo", "concluiu", "formou"})
 EXCLUDED_OUTCOMES = frozenset({"transferiu"})
 SUPPORTED_OUTCOMES = POSITIVE_OUTCOMES | NEGATIVE_OUTCOMES | EXCLUDED_OUTCOMES
 
@@ -24,7 +24,8 @@ def derive_target_label(
 ) -> tuple[int | None, str]:
     """Rotula a ocorrência de evasão/trancamento nos 90 dias após a pontuação.
 
-    Ativo só vira negativo após 90 dias observados; conclusão/formatura é negativa.
+    Ativo só vira negativo após 90 dias observados; rematrícula, conclusão e formatura
+    são evidências diretas para o rótulo negativo de evasão.
     Transferência é um desfecho concorrente e fica fora do treino.
     """
     outcome_key = outcome.strip().lower()

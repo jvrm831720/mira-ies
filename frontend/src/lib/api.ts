@@ -453,6 +453,21 @@ export const api = {
   retentionAnalytics: (days = 30) =>
     request<RetentionAnalytics>(`/api/v1/agents/retention/analytics?days=${days}`),
 
+  permanenceAnalytics: (params?: {
+    days?: number;
+    academic_period?: string;
+    course?: string;
+    campaign_id?: string;
+    channel?: "whatsapp" | "email" | "sms";
+  }) => {
+    const q = new URLSearchParams({ days: String(params?.days ?? 365) });
+    if (params?.academic_period) q.set("academic_period", params.academic_period);
+    if (params?.course) q.set("course", params.course);
+    if (params?.campaign_id) q.set("campaign_id", params.campaign_id);
+    if (params?.channel) q.set("channel", params.channel);
+    return request<import("@/types/api").PermanenceAnalytics>(`/api/v1/outcomes/analytics?${q.toString()}`);
+  },
+
   retentionRun: (body: RetentionRunRequest, idempotencyKey?: string) =>
     request<RetentionRunResult>("/api/v1/agents/retention/run", {
       method: "POST",

@@ -115,14 +115,21 @@ const groups: NavGroup[] = [
   {
     id: "inteligencia",
     label: "Inteligência e resultados",
-    links: [
-      {
-        href: "/retencao/logs",
-        label: "Resultados",
-        description: "Indicadores e logs",
-        icon: ChartNoAxesCombined,
-        match: "prefix",
-      },
+      links: [
+        {
+          href: "/resultados",
+          label: "Resultados de permanência",
+          description: "Rematrícula, evasão e outcomes acadêmicos",
+          icon: ChartNoAxesCombined,
+          match: "prefix",
+        },
+        {
+          href: "/retencao/logs",
+          label: "Histórico de contatos",
+          description: "Execução e entrega de intervenções",
+          icon: Activity,
+          match: "prefix",
+        },
     ],
   },
   {

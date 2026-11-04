@@ -76,6 +76,36 @@ async def test_transfer_is_recorded_but_excluded_from_training(client, auth_head
     assert body["learning"]["labeled_events"] == 0
 
 
+async def test_rematriculado_is_a_supported_permanence_outcome(client, auth_headers, tenant, db_session):
+    t, _raw_key = tenant
+    now = datetime.now(timezone.utc)
+    scored_at = now - timedelta(days=120)
+    event = _training_event(t, "RE-1", scored_at)
+    db_session.add(event)
+    await db_session.commit()
+
+    resp = await client.post(
+        "/api/v1/outcomes",
+        headers=auth_headers,
+        json={"tenant_slug": t.slug, "outcomes": [{
+            "matricula": "RE-1",
+            "training_event_id": event.id,
+            "outcome": "rematriculado",
+            "observed_at": (scored_at + timedelta(days=30)).isoformat(),
+            "academic_period": "2026.2",
+            "source": "jacad",
+        }]},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["updated"] == 1
+    assert resp.json()["labeled"] == 1
+    await db_session.refresh(event)
+    assert event.outcome == "rematriculado"
+    assert event.outcome_period == "2026.2"
+    assert event.outcome_source == "jacad"
+    assert event.label == 0
+
+
 async def test_active_outcome_waits_for_90_day_window_then_becomes_negative(
     client, auth_headers, tenant, db_session,
 ):

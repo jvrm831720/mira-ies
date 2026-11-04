@@ -9,7 +9,7 @@ from starlette.requests import Request
 from app.core.config import get_settings
 from app.api import (
     upload, health, scoring, connectors, jacad, sponte, sophia, sophia_sync,
-    outcomes, agents, auth, mfa, delivery_webhooks, org, billing,
+    outcomes, academic_outcomes, outcome_analytics, agents, auth, mfa, delivery_webhooks, org, billing,
     retention_campaigns, retention_campaign_execution, retention_campaign_intelligence, retention_campaign_proposal_workflow, control_center_auth,
     control_center_admin, mira_admin, work_activities, student_work_timeline,
     signals, student_groups, totvs_rm_operations,
@@ -158,6 +158,8 @@ app.include_router(sponte.router, prefix="/api/v1")
 app.include_router(sophia.router, prefix="/api/v1")
 app.include_router(sophia_sync.router, prefix="/api/v1")
 app.include_router(outcomes.router, prefix="/api/v1", tags=["Learning Loop (Outcomes)"])
+app.include_router(academic_outcomes.router, prefix="/api/v1", tags=["Outcomes acadêmicos"])
+app.include_router(outcome_analytics.router, prefix="/api/v1", tags=["Resultados de permanência"])
 app.include_router(agents.router, prefix="/api/v1", tags=["Agentes de Retencao"])
 app.include_router(retention_campaigns.router, prefix="/api/v1")
 app.include_router(retention_campaign_execution.router, prefix="/api/v1")

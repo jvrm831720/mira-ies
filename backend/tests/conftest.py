@@ -69,11 +69,19 @@ async def _prepare_test_database():
 
     import app.models.student  # noqa: F401
     import app.models.tenant  # noqa: F401
+    import app.models.educational_outcome  # noqa: F401
     import app.models.intervention  # noqa: F401
     import app.models.consent  # noqa: F401
     import app.models.engagement  # noqa: F401
     import app.models.auth  # noqa: F401
+    import app.models.control_center  # noqa: F401
+    import app.models.data_governance  # noqa: F401
+    import app.models.institutional_training_authorization  # noqa: F401
     import app.models.work_activity  # noqa: F401
+    import app.models.jacad_connection  # noqa: F401
+    import app.models.sponte_connection  # noqa: F401
+    import app.models.sophia_connection  # noqa: F401
+    import app.models.sophia_sync  # noqa: F401
     import app.models.rm_sync  # noqa: F401
     import app.models.rm_sync_jobs  # noqa: F401
     import app.models.retention_campaign  # noqa: F401
