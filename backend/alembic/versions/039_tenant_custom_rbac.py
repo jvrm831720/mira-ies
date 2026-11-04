@@ -100,6 +100,34 @@ def upgrade() -> None:
         BEFORE UPDATE OF role, is_active, tenant_id OR DELETE ON mira_users
         FOR EACH ROW EXECUTE FUNCTION protect_last_tenant_admin()
     """)
+    op.execute("""
+        CREATE FUNCTION prevent_custom_role_revocation_escalation() RETURNS trigger
+        LANGUAGE plpgsql AS $role_ref$
+        BEGIN
+            IF TG_OP = 'UPDATE' AND OLD.custom_role_id IS NOT NULL AND NEW.custom_role_id IS NULL THEN
+                IF TG_TABLE_NAME = 'mira_users' THEN
+                    IF OLD.role <> 'admin' THEN
+                        NEW.role := 'viewer';
+                        NEW.auth_version := OLD.auth_version + 1;
+                    END IF;
+                ELSIF TG_TABLE_NAME = 'mira_org_invites' THEN
+                    NEW.role := 'viewer';
+                END IF;
+            END IF;
+            RETURN NEW;
+        END;
+        $role_ref$
+    """)
+    op.execute("""
+        CREATE TRIGGER trg_mira_users_custom_role_revocation
+        BEFORE UPDATE OF custom_role_id ON mira_users
+        FOR EACH ROW EXECUTE FUNCTION prevent_custom_role_revocation_escalation()
+    """)
+    op.execute("""
+        CREATE TRIGGER trg_mira_invites_custom_role_revocation
+        BEFORE UPDATE OF custom_role_id ON mira_org_invites
+        FOR EACH ROW EXECUTE FUNCTION prevent_custom_role_revocation_escalation()
+    """)
     for table in ("mira_tenant_roles", "mira_tenant_role_audit"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
@@ -111,6 +139,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DROP TRIGGER IF EXISTS trg_mira_invites_custom_role_revocation ON mira_org_invites")
+    op.execute("DROP TRIGGER IF EXISTS trg_mira_users_custom_role_revocation ON mira_users")
+    op.execute("DROP FUNCTION IF EXISTS prevent_custom_role_revocation_escalation()")
     op.execute("DROP TRIGGER IF EXISTS trg_mira_users_protect_last_admin ON mira_users")
     op.execute("DROP FUNCTION IF EXISTS protect_last_tenant_admin()")
     op.execute("DROP TRIGGER IF EXISTS trg_mira_tenant_role_audit_append_only ON mira_tenant_role_audit")
