@@ -97,7 +97,7 @@ _PERMISSION_CEILING = {
     "students.sensitive.view": 3, "campaigns.approve": 3,
     "campaigns.execute": 3, "members.manage": 3,
     "permissions.manage": 3, "settings.manage": 3,
-    "students.delete": 4, "campaigns.delete": 4, "critical.manage": 4,
+    "students.delete": 3, "campaigns.delete": 3, "critical.manage": 3,
 }
 
 
