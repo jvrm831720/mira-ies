@@ -1,13 +1,13 @@
 """Add priority, campaign origin and idempotent campaign task generation.
 
-Revision ID: 036_work_activity_priority_campaign
+Revision ID: 036_work_activity_prio_campaign
 Revises: 036_retention_campaign_lifecycle
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "036_work_activity_priority_campaign"
+revision = "036_work_activity_prio_campaign"
 down_revision = "036_retention_campaign_lifecycle"
 branch_labels = None
 depends_on = None
