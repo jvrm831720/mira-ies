@@ -5,7 +5,9 @@ Este módulo é puro: não recebe sessão de banco, não faz HTTP e não executa
 from __future__ import annotations
 
 import hashlib
+import json
 import math
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -51,6 +53,24 @@ class GvcollegeDryRunReport:
     remote_requests: int = 0
 
 
+@dataclass(frozen=True)
+class GvcollegeIngestionPreview:
+    view_id: str
+    schema_version: str
+    tenant_id: str
+    rows_received: int
+    rows_accepted: int
+    rows_rejected: int
+    acceptance_rate: float
+    issue_counts: dict[str, int]
+    issues: tuple[GvcollegeIngestionIssue, ...]
+    issues_total: int
+    issues_truncated: bool
+    persisted: bool = False
+    scoring_executed: bool = False
+    remote_requests: int = 0
+
+
 def _valid_value(value: Any, value_type: GvcollegeValueType) -> bool:
     if value is None:
         return True
@@ -59,11 +79,12 @@ def _valid_value(value: Any, value_type: GvcollegeValueType) -> bool:
     if value_type == GvcollegeValueType.INTEGER:
         return isinstance(value, int) and not isinstance(value, bool)
     if value_type == GvcollegeValueType.NUMBER:
-        return (
-            isinstance(value, (int, float))
-            and not isinstance(value, bool)
-            and math.isfinite(float(value))
-        )
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        try:
+            return math.isfinite(float(value))
+        except (OverflowError, ValueError):
+            return False
     if value_type == GvcollegeValueType.BOOLEAN:
         return isinstance(value, bool)
     return False
@@ -72,8 +93,8 @@ def _valid_value(value: Any, value_type: GvcollegeValueType) -> bool:
 def _iso_timestamp(value: str | None, *, field_name: str) -> str | None:
     if value is None:
         return None
-    if not isinstance(value, str):
-        raise ValueError(f"{field_name} deve ser uma string ISO-8601")
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} deve ser uma string ISO-8601 não vazia")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
@@ -84,7 +105,11 @@ def _iso_timestamp(value: str | None, *, field_name: str) -> str | None:
 
 
 def _idempotency_key(tenant_id: str, view_id: str, schema_version: str, source_record_id: str) -> str:
-    material = "|".join((tenant_id, "gvcollege", view_id, schema_version, source_record_id))
+    material = json.dumps(
+        [tenant_id, "gvcollege", view_id, schema_version, source_record_id],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
@@ -109,7 +134,7 @@ def dry_run_gvcollege_ingestion(
     view = get_synthetic_gvcollege_view(view_id)
     normalized_observed_at = _iso_timestamp(observed_at, field_name="observed_at")
     normalized_ingested_at = _iso_timestamp(
-        ingested_at or datetime.now(timezone.utc).isoformat(),
+        datetime.now(timezone.utc).isoformat() if ingested_at is None else ingested_at,
         field_name="ingested_at",
     )
     field_by_source = {field.source_field: field for field in view.fields}
@@ -161,7 +186,7 @@ def dry_run_gvcollege_ingestion(
         elif source_record_id in seen_ids:
             row_issues.append(GvcollegeIngestionIssue(
                 index, "duplicate_source_record_id",
-                f"Chave de origem duplicada no lote: {source_record_id}.",
+                "Chave de origem duplicada no lote.",
             ))
         else:
             seen_ids.add(source_record_id)
@@ -195,10 +220,55 @@ def dry_run_gvcollege_ingestion(
     )
 
 
+def build_gvcollege_ingestion_preview(
+    report: GvcollegeDryRunReport,
+    *,
+    max_issue_details: int = 200,
+) -> GvcollegeIngestionPreview:
+    """Gera resumo sem expor valores de alunos ou payloads de origem."""
+    if not isinstance(max_issue_details, int) or isinstance(max_issue_details, bool):
+        raise ValueError("max_issue_details deve ser um inteiro")
+    if not 0 <= max_issue_details <= 1000:
+        raise ValueError("max_issue_details deve estar entre 0 e 1000")
+
+    view = get_synthetic_gvcollege_view(report.view_id)
+    counts = Counter(issue.code for issue in report.issues)
+    total = len(report.issues)
+    acceptance_rate = (
+        report.rows_accepted / report.rows_received
+        if report.rows_received
+        else 0.0
+    )
+    return GvcollegeIngestionPreview(
+        view_id=report.view_id,
+        schema_version=view.schema_version,
+        tenant_id=report.tenant_id,
+        rows_received=report.rows_received,
+        rows_accepted=report.rows_accepted,
+        rows_rejected=report.rows_rejected,
+        acceptance_rate=round(acceptance_rate, 4),
+        issue_counts=dict(sorted(counts.items())),
+        issues=report.issues[:max_issue_details],
+        issues_total=total,
+        issues_truncated=total > max_issue_details,
+        persisted=report.persisted,
+        scoring_executed=report.scoring_executed,
+        remote_requests=report.remote_requests,
+    )
+
+
 def dry_run_report_to_dict(report: GvcollegeDryRunReport) -> dict[str, Any]:
     """Serialização explícita para testes e futuras interfaces de prévia."""
     return {
         **asdict(report),
         "records": [asdict(record) for record in report.records],
         "issues": [asdict(issue) for issue in report.issues],
+    }
+
+
+def ingestion_preview_to_dict(preview: GvcollegeIngestionPreview) -> dict[str, Any]:
+    """Serialização da prévia sem registros normalizados nem valores pessoais."""
+    return {
+        **asdict(preview),
+        "issues": [asdict(issue) for issue in preview.issues],
     }

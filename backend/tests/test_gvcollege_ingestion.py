@@ -1,4 +1,8 @@
-from app.services.connectors.gvcollege_ingestion import dry_run_gvcollege_ingestion
+from app.services.connectors.gvcollege_ingestion import (
+    build_gvcollege_ingestion_preview,
+    dry_run_gvcollege_ingestion,
+    ingestion_preview_to_dict,
+)
 
 
 TENANT = "tenant-synthetic-wave3"
@@ -96,3 +100,53 @@ def test_dry_run_rejects_naive_observation_timestamp():
         assert "fuso horário" in str(exc)
     else:
         raise AssertionError("Timestamp sem fuso deveria ser rejeitado")
+
+
+def test_dry_run_rejects_empty_ingested_at():
+    try:
+        dry_run_gvcollege_ingestion(
+            "synthetic_students_v1",
+            [{"matricula": "SYN-0007", "nome": "Aluno Sintético 007"}],
+            tenant_id=TENANT,
+            ingested_at="",
+        )
+    except ValueError as exc:
+        assert "não vazia" in str(exc)
+    else:
+        raise AssertionError("Timestamp vazio deveria ser rejeitado")
+
+
+def test_preview_summarizes_results_without_exposing_student_values():
+    report = dry_run_gvcollege_ingestion(
+        "synthetic_students_v1",
+        [
+            {"matricula": "SYN-0008", "nome": "Nome Sintético Privado"},
+            {"matricula": "SYN-0009", "nome": None},
+        ],
+        tenant_id=TENANT,
+        ingested_at=INGESTED_AT,
+    )
+    preview = ingestion_preview_to_dict(build_gvcollege_ingestion_preview(report))
+    serialized = str(preview)
+    assert preview["rows_received"] == 2
+    assert preview["rows_accepted"] == 1
+    assert preview["rows_rejected"] == 1
+    assert preview["issue_counts"] == {"required_field_missing": 1}
+    assert "Nome Sintético Privado" not in serialized
+    assert "SYN-0008" not in serialized
+    assert preview["persisted"] is False
+    assert preview["scoring_executed"] is False
+    assert preview["remote_requests"] == 0
+
+
+def test_preview_limits_issue_details_and_reports_truncation():
+    report = dry_run_gvcollege_ingestion(
+        "synthetic_students_v1",
+        [{"matricula": f"SYN-{index:04}", "nome": None} for index in range(1, 4)],
+        tenant_id=TENANT,
+        ingested_at=INGESTED_AT,
+    )
+    preview = build_gvcollege_ingestion_preview(report, max_issue_details=1)
+    assert preview.issues_total == 3
+    assert len(preview.issues) == 1
+    assert preview.issues_truncated is True
