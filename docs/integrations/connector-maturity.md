@@ -23,8 +23,8 @@ operacional com um cliente.
 | GVDASA / GVcollege | Cliente WebAPI read-only, contratos de views por tenant, OData restrito e manifesto de prontidão. Sem credenciais ou views reais de cliente. | Suporte técnico implementado |
 | WPensar | Transformação de payload; sem contrato público de API REST de leitura validado e sem cliente nativo pull. | Em desenvolvimento |
 | Isaac / Marlim | Cliente read-only parcial para conciliação financeira documentada; sem persistência, vínculo com cobrança/aluno ou homologação. | Suporte técnico implementado |
-| Moodle | Suporte a webhook/transformação; sem cliente nativo pull. | Em desenvolvimento |
-| Canvas | Suporte a webhook/transformação; sem cliente nativo pull. | Em desenvolvimento |
+| Moodle | Cliente nativo Web Services REST read-only; funções dependem da configuração e permissões da instalação. Sem homologação institucional. | Suporte técnico implementado |
+| Canvas | Cliente nativo REST read-only com OAuth2 e paginação protegida. Sem homologação institucional. | Suporte técnico implementado |
 | JSON genérico | Transformação de payload e rota de ingestão genérica. Não equivale a conector nativo de ERP. | Suporte técnico implementado |
 
 ## Regras de governança
