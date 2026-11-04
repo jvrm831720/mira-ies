@@ -26,9 +26,11 @@ const EMPTY: TenantRolePayload = { name: "", description: "", base_role: "viewer
 export default function CustomRolesPage() {
   const qc = useQueryClient();
   const me = useQuery({ queryKey: ["org-me"], queryFn: () => api.me(), retry: false });
+  const canManageRoles = me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true;
+  const canViewMembers = me.data?.role === "admin" || me.data?.permissions?.includes("members.view") === true;
   const roles = useQuery({ queryKey: ["tenant-roles"], queryFn: () => api.tenantRoles(), retry: false, enabled: me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true });
   const catalog = useQuery({ queryKey: ["tenant-role-catalog"], queryFn: () => api.tenantRoleCatalog(), enabled: me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true });
-  const members = useQuery({ queryKey: ["org-members"], queryFn: () => api.listMembers(), retry: false, enabled: me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true });
+  const members = useQuery({ queryKey: ["org-members"], queryFn: () => api.listMembers(), retry: false, enabled: canManageRoles && canViewMembers });
   const audit = useQuery({ queryKey: ["tenant-role-audit"], queryFn: () => api.tenantRoleAudit(), retry: false, enabled: me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true });
   const [form, setForm] = useState<TenantRolePayload>(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -36,7 +38,6 @@ export default function CustomRolesPage() {
   const [selectedMember, setSelectedMember] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
 
-  const canManageRoles = me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true;
   const roleList = roles.data?.roles ?? [];
   const memberList = members.data?.members ?? [];
   const labels = useMemo(() => new Map((catalog.data?.permissions ?? []).map((p) => [p.key, p.label])), [catalog.data]);
@@ -133,14 +134,17 @@ export default function CustomRolesPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader><CardTitle>Atribuir cargo a membro</CardTitle><CardDescription>Alterar o cargo invalida as sessões existentes. Administradores principais não podem ser rebaixados por esta tela.</CardDescription></CardHeader>
-              <CardContent className="space-y-3">
-                <select value={selectedMember} onChange={(e) => setSelectedMember(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Selecione um membro</option>{memberList.filter((m) => m.role !== "admin").map((m) => <option key={m.id} value={m.id}>{m.display_name || m.email} · {m.email}</option>)}</select>
-                <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Revogar cargo personalizado (papel padrão: coordenação)</option>{roleList.filter((r) => r.is_active).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
-                <Button variant="outline" className="w-full" onClick={() => assignMutation.mutate()} disabled={!selectedMember || assignMutation.isPending}>{assignMutation.isPending ? "Atualizando…" : "Atualizar acesso do membro"}</Button>
-              </CardContent>
-            </Card>
+            {canViewMembers && (
+              <Card>
+                <CardHeader><CardTitle>Atribuir cargo a membro</CardTitle><CardDescription>Alterar o cargo invalida as sessões existentes. Administradores principais não podem ser rebaixados por esta tela.</CardDescription></CardHeader>
+                <CardContent className="space-y-3">
+                  <select value={selectedMember} onChange={(e) => setSelectedMember(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Selecione um membro</option>{memberList.filter((m) => m.role !== "admin").map((m) => <option key={m.id} value={m.id}>{m.display_name || m.email} · {m.email}</option>)}</select>
+                  <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Revogar cargo personalizado (papel padrão: coordenação)</option>{roleList.filter((r) => r.is_active).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
+                  <Button variant="outline" className="w-full" onClick={() => assignMutation.mutate()} disabled={!selectedMember || assignMutation.isPending}>{assignMutation.isPending ? "Atualizando…" : "Atualizar acesso do membro"}</Button>
+                </CardContent>
+              </Card>
+  
+            )}
           </div>
         </div>
 
