@@ -6,12 +6,15 @@ an allowlist of documented read operations and sends tokens in the POST body.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import math
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 
 
 MOODLE_READ_FUNCTIONS = frozenset({
@@ -89,6 +92,21 @@ def _flatten_params(value: Any, prefix: str = "") -> dict[str, str]:
 
 class MoodleApiClient:
     """Minimal read-only client for Moodle's standard REST web service endpoint."""
+
+    @classmethod
+    async def for_tenant(
+        cls,
+        db: AsyncSession,
+        *,
+        tenant_id: str,
+        config: MoodleConfig,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "MoodleApiClient":
+        """Build only after the tenant's persisted Moodle destination is approved."""
+        approved = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="moodle", url=config.base_url
+        )
+        return cls(replace(config, base_url=approved), transport=transport)
 
     def __init__(
         self,
