@@ -139,7 +139,7 @@ export default function CustomRolesPage() {
                 <CardHeader><CardTitle>Atribuir cargo a membro</CardTitle><CardDescription>Alterar o cargo invalida as sessões existentes. Administradores principais não podem ser rebaixados por esta tela.</CardDescription></CardHeader>
                 <CardContent className="space-y-3">
                   <select value={selectedMember} onChange={(e) => setSelectedMember(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Selecione um membro</option>{memberList.filter((m) => m.role !== "admin").map((m) => <option key={m.id} value={m.id}>{m.display_name || m.email} · {m.email}</option>)}</select>
-                  <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Revogar cargo personalizado (papel padrão: coordenação)</option>{roleList.filter((r) => r.is_active).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
+                  <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Revogar cargo personalizado (papel padrão: consulta)</option>{roleList.filter((r) => r.is_active).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
                   <Button variant="outline" className="w-full" onClick={() => assignMutation.mutate()} disabled={!selectedMember || assignMutation.isPending}>{assignMutation.isPending ? "Atualizando…" : "Atualizar acesso do membro"}</Button>
                 </CardContent>
               </Card>
