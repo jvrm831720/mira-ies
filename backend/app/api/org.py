@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.channels.whatsapp import normalize_phone_br
 from app.agents.providers.resend_provider import send_email_resend
-from app.core.auth import AuthContext, get_current_tenant, require_min_role
+from app.core.auth import AuthContext, ROLE_RANK, get_current_tenant, require_min_role
 from app.core.config import get_settings
 from app.core.mira_security import hash_password
 from app.core.security import hash_api_key
@@ -147,6 +147,8 @@ async def create_invite(
     if body.custom_role_id and body.role == "admin":
         raise HTTPException(status_code=422, detail="Um convite não pode combinar admin com cargo personalizado.")
     custom_role = None
+    if auth.custom_role_id and not body.custom_role_id:
+        raise HTTPException(status_code=403, detail="Cargos personalizados só podem convidar membros para cargos que já possuem.")
     if body.custom_role_id:
         custom_role = (await db.execute(select(TenantRole).where(
             TenantRole.id == body.custom_role_id,
@@ -157,6 +159,12 @@ async def create_invite(
             raise HTTPException(status_code=404, detail="Cargo personalizado não encontrado ou desativado.")
         if body.role == "admin":
             raise HTTPException(status_code=422, detail="Convites com cargo personalizado não podem conceder admin.")
+        if auth.custom_role_id and (
+            ROLE_RANK.get(custom_role.base_role, 99) > ROLE_RANK.get(auth.role or "viewer", 0)
+            or auth.permissions is None
+            or not set(custom_role.permissions or []).issubset(auth.permissions)
+        ):
+            raise HTTPException(status_code=403, detail="Você não pode convidar alguém com privilégios que não possui.")
     existing_user = await db.execute(select(User.id).where(User.email == body.email))
     if existing_user.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Já existe uma conta com esse e-mail.")
