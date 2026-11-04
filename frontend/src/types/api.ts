@@ -813,3 +813,26 @@ export type StudentGroupMembersResponse = {
   truncated: boolean;
   notes: string[];
 };
+
+
+export type RetentionCampaignProposalStatus = "draft" | "in_review" | "changes_requested" | "approved";
+export type RetentionCampaignProposal = {
+  id: string; tenant_id: string; status: RetentionCampaignProposalStatus; revision: number;
+  title: string; objective: string; strategy: string; recommended_channels: string[];
+  cadence_days: number[]; message_brief: string; source_group_ids: string[];
+  source_catalog_version: string; recommendation_engine: string; source_evaluated_at: string;
+  audience_total: number; outreach_eligible_count: number; blocked_count: number;
+  internal_action_count: number; audience_hash: string; audience_snapshot: Array<Record<string, unknown>>;
+  created_by?: string | null; created_at: string; updated_at: string;
+  reviewed_by?: string | null; reviewed_at?: string | null; approved_by?: string | null; approved_at?: string | null;
+  authorization_status: "not_verified" | "institution_attested"; authorization_basis?: string | null;
+  authorization_reference?: string | null; authorization_attested_by?: string | null;
+  authorization_attested_at?: string | null; execution_enabled: false;
+};
+export type RetentionCampaignProposalsResponse = { count: number; proposals: RetentionCampaignProposal[] };
+export type RetentionCampaignProposalAudit = {
+  proposal_id: string; count: number; events: Array<{
+    id: string; event_type: string; actor_user_id?: string | null; revision: number;
+    details: Record<string, unknown>; created_at: string;
+  }>;
+};
