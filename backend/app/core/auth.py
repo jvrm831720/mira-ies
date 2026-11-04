@@ -222,6 +222,22 @@ def require_roles(*allowed: str):
     min_rank = min(ROLE_RANK.get(r, 99) for r in allowed) if allowed else 0
 
     async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        # Custom roles must satisfy the explicit access tier as well as the
+        # per-route permission enforced by get_current_tenant. Never infer
+        # authorization from base_role alone for a custom-role session.
+        if auth.permissions is not None:
+            required_access = {
+                1: "access.viewer",
+                2: "access.operator",
+                3: "access.coordinator",
+            }.get(min_rank)
+            if not required_access or required_access not in auth.permissions:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Você não tem permissão para esta ação.",
+                )
+            return auth
+
         role = auth.role or "viewer"
         rank = ROLE_RANK.get(role, 0)
         if rank < min_rank and role not in allowed:
@@ -229,19 +245,9 @@ def require_roles(*allowed: str):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Você não tem permissão para esta ação.",
             )
-        # Also accept if role is in allowed list even with weird ranks
-        if allowed and role not in allowed and rank < min_rank:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Você não tem permissão para esta ação.",
-            )
         if allowed and role not in allowed:
-            # rank-based: admin can do coordinator things
             highest_allowed = max(ROLE_RANK.get(r, 0) for r in allowed)
-            if rank < highest_allowed and role not in allowed:
-                # allow higher rank than minimum required among allowed
-                if rank >= min_rank:
-                    return auth
+            if rank < highest_allowed and rank < min_rank:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Você não tem permissão para esta ação.",
