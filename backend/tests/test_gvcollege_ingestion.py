@@ -155,7 +155,7 @@ def test_preview_limits_issue_details_and_reports_truncation():
 def test_dry_run_rejects_blank_required_string():
     report = dry_run_gvcollege_ingestion(
         "synthetic_students_v1",
-        [{"matricula": "SYN-0010", "nome": ""}],
+        [{"matricula": "SYN-0010", "nome": "   "}],
         tenant_id=TENANT,
         ingested_at=INGESTED_AT,
     )
