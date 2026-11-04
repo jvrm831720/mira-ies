@@ -40,6 +40,25 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+      - name: Create non-superuser PostgreSQL test role
+        env:
+          ADMIN_DATABASE_URL: postgresql://beacon:beacon_secret@localhost:5432/beacon_test
+        run: |
+          psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mira_test_runner') THEN
+              CREATE ROLE mira_test_runner LOGIN PASSWORD 'mira_test_runner_secret'
+                NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+            END IF;
+          END
+          $;
+          ALTER DATABASE beacon_test OWNER TO mira_test_runner;
+          ALTER SCHEMA public OWNER TO mira_test_runner;
+          GRANT ALL ON SCHEMA public TO mira_test_runner;
+          SQL
+          echo "DATABASE_URL=postgresql+asyncpg://mira_test_runner:mira_test_runner_secret@localhost:5432/beacon_test" >> "$GITHUB_ENV"
+          echo "DATABASE_URL_SYNC=postgresql://mira_test_runner:mira_test_runner_secret@localhost:5432/beacon_test" >> "$GITHUB_ENV"
       - name: Validate Alembic revision graph
         working-directory: backend
         run: |
