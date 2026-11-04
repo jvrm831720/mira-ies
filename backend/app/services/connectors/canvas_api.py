@@ -105,9 +105,12 @@ class CanvasApiClient:
 
     def _validate_page_url(self, url: str) -> None:
         parsed = urlsplit(url)
+        api_path = urlsplit(self._api_base).path
+        relative_path = parsed.path[len(api_path):] if parsed.path.startswith(api_path) else ""
         if (
             (parsed.scheme, parsed.netloc) != self._origin
-            or not parsed.path.startswith(urlsplit(self._api_base).path)
+            or not relative_path
+            or not any(pattern.fullmatch(relative_path) for pattern in _ALLOWED_PATHS)
             or parsed.username
             or parsed.password
             or parsed.fragment
