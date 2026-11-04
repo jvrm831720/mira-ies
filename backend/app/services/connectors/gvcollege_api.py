@@ -11,11 +11,14 @@ import json
 import math
 import re
 from collections.abc import AsyncIterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 from urllib.parse import quote, urlsplit
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -157,6 +160,27 @@ class ODataFilter:
 
 class GvcollegeWebAPIClient:
     """Cliente assíncrono read-only; não oferece métodos de escrita."""
+
+    @classmethod
+    async def for_tenant(
+        cls,
+        db: AsyncSession,
+        *,
+        tenant_id: str,
+        config: GvcollegeInstitutionConfig,
+        auth_headers: Mapping[str, str] | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "GvcollegeWebAPIClient":
+        if config.tenant_id != tenant_id:
+            raise GvcollegeConfigurationError("Tenant da configuração não corresponde ao tenant autenticado.")
+        approved_url = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="gvcollege", url=config.base_url
+        )
+        approved_host = urlsplit(approved_url).hostname
+        trusted_config = replace(
+            config, base_url=approved_url, allowed_hosts=frozenset({approved_host})
+        )
+        return cls(trusted_config, auth_headers=auth_headers, transport=transport)
 
     def __init__(
         self,
