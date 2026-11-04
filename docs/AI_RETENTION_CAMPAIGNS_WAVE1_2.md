@@ -23,7 +23,7 @@
 ## Limites
 - A proposta é um rascunho; não tem aprovação, agendamento nem execução.
 - Nenhuma integração de canal é chamada e nenhum envio é possível por estes endpoints.
-- O snapshot armazena identificadores internos e matrícula, mas não telefone, e-mail ou conteúdo de mensagem.
+- O snapshot armazena somente o identificador interno do aluno e metadados de elegibilidade; não persiste matrícula, telefone, e-mail ou conteúdo de mensagem.
 - A janela de supressão de sete dias é uma regra conservadora inicial, ainda configurável em wave posterior.
 - O snapshot é consistente com a avaliação da requisição; mudanças concorrentes na base são detectadas por contagem e exigem nova geração.
 
