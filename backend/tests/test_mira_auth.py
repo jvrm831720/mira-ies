@@ -260,7 +260,7 @@ async def test_email_otp_login_sends_code_and_requires_mfa(
         json={"email": " EMAIL-OTP@example.test "},
     )
     assert requested.status_code == 202
-    assert "Se houver uma conta ativa" in requested.json()["message"]
+    assert "possibilidade de cadastro" in requested.json()["message"]
     code_match = re.search(r"\b(\d{6})\b", sent[0])
     assert code_match
 
