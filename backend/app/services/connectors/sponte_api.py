@@ -56,6 +56,8 @@ class SponteApiClient:
         approved = await authorize_tenant_destination(
             db, tenant_id=tenant_id, connector_key="sponte", url=SPONTE_BASE_URL
         )
+        if approved.rstrip("/") != SPONTE_BASE_URL.rstrip("/"):
+            raise ValueError("Destino Sponte autorizado diverge do endpoint oficial.")
         return cls(
             api_key, client_code, timeout=timeout, transport=transport,
             request_guard=request_guard,
