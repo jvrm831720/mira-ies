@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,6 +23,7 @@ class User(Base):
         UniqueConstraint("email", name="uq_mira_users_email"),
         UniqueConstraint("phone_e164", name="uq_mira_users_phone_e164"),
         Index("ix_mira_users_tenant_id", "tenant_id"),
+        ForeignKeyConstraint(["tenant_id", "custom_role_id"], ["mira_tenant_roles.tenant_id", "mira_tenant_roles.id"], name="fk_mira_users_custom_role_tenant", ondelete="RESTRICT"),
     )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
@@ -34,7 +35,7 @@ class User(Base):
     phone_e164: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(32), default="coordinator", nullable=False)
-    custom_role_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_tenant_roles.id", ondelete="SET NULL"), nullable=True)
+    custom_role_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     auth_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     mfa_totp_secret_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -61,6 +62,7 @@ class OrganizationInvite(Base):
         Index("ix_mira_org_invites_tenant_status", "tenant_id", "status"),
         Index("ix_mira_org_invites_email", "email"),
         Index("ix_mira_org_invites_token_hash", "token_hash", unique=True),
+        ForeignKeyConstraint(["tenant_id", "custom_role_id"], ["mira_tenant_roles.tenant_id", "mira_tenant_roles.id"], name="fk_mira_org_invites_custom_role_tenant", ondelete="RESTRICT"),
     )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
@@ -189,6 +191,7 @@ class TenantRole(Base):
     __tablename__ = "mira_tenant_roles"
     __table_args__ = (
         UniqueConstraint("tenant_id", "name", name="uq_mira_tenant_roles_tenant_name"),
+        UniqueConstraint("tenant_id", "id", name="uq_mira_tenant_roles_tenant_id_id"),
         Index("ix_mira_tenant_roles_tenant_active", "tenant_id", "is_active"),
     )
 
