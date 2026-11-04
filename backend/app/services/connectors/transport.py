@@ -14,6 +14,11 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from app.services.connectors.tenant_destinations import (
+    authorize_connector_client,
+    require_destination_authorization,
+)
+
 
 class ConnectorConfigurationError(ValueError):
     """Configuração insegura ou inválida do conector."""
@@ -53,6 +58,29 @@ class ERPRequestContext:
 class ReadOnlyRestClient:
     """Cliente REST que expõe exclusivamente GET e não segue redirects."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        base_url: str,
+        username: str | None = None,
+        password: str | None = None,
+        context: ERPRequestContext | None = None,
+        timeout_seconds: float = 20.0,
+        allow_insecure_http: bool = False,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "ReadOnlyRestClient":
+        token = await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="totvs_rm", url=base_url
+        )
+        return cls(
+            base_url=base_url, username=username, password=password, context=context,
+            timeout_seconds=timeout_seconds, allow_insecure_http=allow_insecure_http,
+            transport=transport, authorization_token=token,
+        )
+
     def __init__(
         self,
         *,
@@ -63,7 +91,9 @@ class ReadOnlyRestClient:
         timeout_seconds: float = 20.0,
         allow_insecure_http: bool = False,
         transport: httpx.AsyncBaseTransport | None = None,
+        authorization_token: object | None = None,
     ) -> None:
+        require_destination_authorization(authorization_token)
         parsed = urlsplit(base_url)
         if parsed.scheme not in {"https", "http"} or not parsed.netloc:
             raise ConnectorConfigurationError("URL base deve usar HTTP ou HTTPS.")

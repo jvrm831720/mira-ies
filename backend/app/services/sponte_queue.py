@@ -444,12 +444,12 @@ async def _run_sync(job_id: str, redis: Redis):
         client_code = connection.client_code
         initial_date = connection.initial_extraction_date
         watermarks = dict(connection.sync_watermarks or {})
+        credential_scope = hashlib.sha256(api_key.encode()).hexdigest()[:20]
+        client = await SponteApiClient.for_tenant(
+            session, tenant_id=tenant_id, api_key=api_key, client_code=client_code,
+            request_guard=lambda: _request_guard(redis, credential_scope),
+        )
 
-    credential_scope = hashlib.sha256(api_key.encode()).hexdigest()[:20]
-    client = SponteApiClient(
-        api_key, client_code,
-        request_guard=lambda: _request_guard(redis, credential_scope),
-    )
     affected_key = f"{_key(job_id)}:affected"
     semaphore = asyncio.Semaphore(settings.sponte_sync_concurrency)
     try:

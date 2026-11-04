@@ -63,3 +63,13 @@ async def authorize_tenant_destination(
         url=url,
         tenant_allowed_hosts={tenant_id: hosts},
     )
+
+
+async def authorize_connector_client(
+    db: AsyncSession, *, tenant_id: str, connector_key: str, url: str
+) -> object:
+    """Authorize a concrete client destination and return its internal capability."""
+    await authorize_tenant_destination(
+        db, tenant_id=tenant_id, connector_key=connector_key, url=url
+    )
+    return _destination_authorization_token()

@@ -17,6 +17,11 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 
+from app.services.connectors.tenant_destinations import (
+    authorize_connector_client,
+    require_destination_authorization,
+)
+
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _HEADER_NAME = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
@@ -158,13 +163,35 @@ class ODataFilter:
 class GvcollegeWebAPIClient:
     """Cliente assíncrono read-only; não oferece métodos de escrita."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        config: GvcollegeInstitutionConfig,
+        auth_headers: Mapping[str, str] | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "GvcollegeWebAPIClient":
+        if config.tenant_id != tenant_id:
+            raise GvcollegeConfigurationError("Configuração GVcollege pertence a outro tenant")
+        token = await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="gvcollege", url=config.base_url
+        )
+        return cls(
+            config, auth_headers=auth_headers, transport=transport,
+            authorization_token=token,
+        )
+
     def __init__(
         self,
         config: GvcollegeInstitutionConfig,
         *,
         auth_headers: Mapping[str, str] | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
+        authorization_token: object | None = None,
     ) -> None:
+        require_destination_authorization(authorization_token)
         self.config = config
         self._auth_headers = dict(auth_headers or {})
         forbidden_headers = {

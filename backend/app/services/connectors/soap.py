@@ -11,6 +11,11 @@ from xml.etree import ElementTree as ET
 
 import httpx
 
+from app.services.connectors.tenant_destinations import (
+    authorize_connector_client,
+    require_destination_authorization,
+)
+
 from app.services.connectors.transport import (
     ConnectorConfigurationError,
     ConnectorTransportError,
@@ -34,6 +39,29 @@ def _context_string(context: ERPRequestContext) -> str:
 class TotvsReadOnlySoapClient:
     """Cliente SOAP 1.1 que permite somente DataServer ReadRecord."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        endpoint: str,
+        username: str,
+        password: str,
+        context: ERPRequestContext,
+        timeout_seconds: float = 20.0,
+        allow_insecure_http: bool = False,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "TotvsReadOnlySoapClient":
+        token = await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="totvs_rm", url=endpoint
+        )
+        return cls(
+            endpoint=endpoint, username=username, password=password, context=context,
+            timeout_seconds=timeout_seconds, allow_insecure_http=allow_insecure_http,
+            transport=transport, authorization_token=token,
+        )
+
     def __init__(
         self,
         *,
@@ -44,7 +72,9 @@ class TotvsReadOnlySoapClient:
         timeout_seconds: float = 20.0,
         allow_insecure_http: bool = False,
         transport: httpx.AsyncBaseTransport | None = None,
+        authorization_token: object | None = None,
     ) -> None:
+        require_destination_authorization(authorization_token)
         parsed = urlsplit(endpoint)
         if parsed.scheme not in {"https", "http"} or not parsed.netloc:
             raise ConnectorConfigurationError("Endpoint SOAP deve usar HTTP ou HTTPS.")

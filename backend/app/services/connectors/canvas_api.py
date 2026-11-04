@@ -14,6 +14,11 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
+from app.services.connectors.tenant_destinations import (
+    authorize_connector_client,
+    require_destination_authorization,
+)
+
 
 class CanvasApiError(RuntimeError):
     """Base error for Canvas API failures."""
@@ -67,12 +72,28 @@ _ALLOWED_PATHS = (
 class CanvasApiClient:
     """Minimal GET-only client for documented Canvas REST resources."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        config: CanvasConfig,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "CanvasApiClient":
+        token = await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="canvas", url=config.base_url
+        )
+        return cls(config, transport=transport, authorization_token=token)
+
     def __init__(
         self,
         config: CanvasConfig,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        authorization_token: object | None = None,
     ) -> None:
+        require_destination_authorization(authorization_token)
         self.config = config
         self._api_base = config.api_base_url()
         self._origin = (urlsplit(self._api_base).scheme, urlsplit(self._api_base).netloc)

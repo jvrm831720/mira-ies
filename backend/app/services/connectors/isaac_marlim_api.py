@@ -13,6 +13,11 @@ from typing import Any, Literal
 
 import httpx
 
+from app.services.connectors.tenant_destinations import (
+    authorize_connector_client,
+    require_destination_authorization,
+)
+
 
 ISAAC_MARLIM_BASE_URLS = {
     "sandbox": "https://sandbox.api.marlim.co",
@@ -118,12 +123,28 @@ def _parse_transactions(
 class IsaacMarlimApiClient:
     """Client restricted to the documented, read-only reconciliation endpoint."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        config: IsaacMarlimConfig,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "IsaacMarlimApiClient":
+        token = await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="isaac", url=config.base_url()
+        )
+        return cls(config, transport=transport, authorization_token=token)
+
     def __init__(
         self,
         config: IsaacMarlimConfig,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        authorization_token: object | None = None,
     ) -> None:
+        require_destination_authorization(authorization_token)
         self.config = config
         self._client = httpx.AsyncClient(
             base_url=config.base_url(),
