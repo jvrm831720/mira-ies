@@ -92,7 +92,8 @@ async def approve_destination(
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Destino já cadastrado; atualize a aprovação existente.") from exc
-    await db.refresh(row)
+    # All response fields are already known; avoid a post-commit SELECT after
+    # transaction-local RLS context has been cleared.
     return {"id": row.id, "connector_key": row.connector_key, "hostname": row.hostname, "enabled": row.is_enabled}
 
 
