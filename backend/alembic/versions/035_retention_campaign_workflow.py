@@ -41,7 +41,7 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=False), primary_key=True),
         sa.Column("tenant_id", postgresql.UUID(as_uuid=False), sa.ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False),
         sa.Column("proposal_id", postgresql.UUID(as_uuid=False), sa.ForeignKey("retention_campaign_proposals.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("actor_user_id", postgresql.UUID(as_uuid=False), sa.ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("actor_user_id", postgresql.UUID(as_uuid=False), nullable=True),
         sa.Column("event_type", sa.String(40), nullable=False),
         sa.Column("revision", sa.Integer(), nullable=False),
         sa.Column("details", postgresql.JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
