@@ -30,17 +30,12 @@ async def _read_json(request: Request) -> Any:
 async def _read_json_verified(request: Request, auth: AuthContext) -> Any:
     """Le body e valida HMAC se o tenant tiver webhook_secret."""
     from app.core.security import verify_webhook_signature
-    from app.core.config import get_settings
     import json
     raw = await request.body()
     sig = request.headers.get("X-Beacon-Signature") or request.headers.get("X-Signature")
     secret = auth.tenant.webhook_secret
-    settings = get_settings()
-    if secret:
-        if not verify_webhook_signature(raw, sig, secret):
-            raise HTTPException(status_code=401, detail="X-Beacon-Signature invalida ou ausente")
-    elif not settings.allow_unsigned_webhooks:
-        raise HTTPException(status_code=401, detail="Webhook sem secret e assinatura obrigatoria")
+    if not verify_webhook_signature(raw, sig, secret):
+        raise HTTPException(status_code=401, detail="Assinatura do webhook invalida ou ausente")
     try:
         return json.loads(raw.decode("utf-8") or "null")
     except Exception:
@@ -82,8 +77,9 @@ async def _ingest_via_connector(
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na ingestao: {str(e)}")
+    except Exception:
+        # Detalhes internos podem conter URLs, tokens ou dados do tenant.
+        raise HTTPException(status_code=500, detail="Falha interna ao processar ingestao")
 
 
 @router.get("/connectors")

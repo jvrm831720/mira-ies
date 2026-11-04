@@ -52,8 +52,9 @@ async def ingest_records(
             scoring_result = await score_batch(
                 session, batch.id, force=True, tenant_id=tenant_id, tenant_slug=tenant_slug
             )
-        except Exception as e:
-            scoring_result = {"error": str(e), "scored": 0}
+        except Exception:
+            # Nao devolver detalhes internos do scorer na resposta da API.
+            scoring_result = {"error": "Falha ao calcular score", "scored": 0}
 
     from app.schemas.student import UploadBatchResponse
 
