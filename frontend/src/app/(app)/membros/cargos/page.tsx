@@ -26,10 +26,10 @@ const EMPTY: TenantRolePayload = { name: "", description: "", base_role: "viewer
 export default function CustomRolesPage() {
   const qc = useQueryClient();
   const me = useQuery({ queryKey: ["org-me"], queryFn: () => api.me(), retry: false });
-  const roles = useQuery({ queryKey: ["tenant-roles"], queryFn: () => api.tenantRoles(), retry: false });
-  const catalog = useQuery({ queryKey: ["tenant-role-catalog"], queryFn: () => api.tenantRoleCatalog() });
-  const members = useQuery({ queryKey: ["org-members"], queryFn: () => api.listMembers(), retry: false });
-  const audit = useQuery({ queryKey: ["tenant-role-audit"], queryFn: () => api.tenantRoleAudit(), retry: false });
+  const roles = useQuery({ queryKey: ["tenant-roles"], queryFn: () => api.tenantRoles(), retry: false, enabled: me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true });
+  const catalog = useQuery({ queryKey: ["tenant-role-catalog"], queryFn: () => api.tenantRoleCatalog(), enabled: me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true });
+  const members = useQuery({ queryKey: ["org-members"], queryFn: () => api.listMembers(), retry: false, enabled: me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true });
+  const audit = useQuery({ queryKey: ["tenant-role-audit"], queryFn: () => api.tenantRoleAudit(), retry: false, enabled: me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true });
   const [form, setForm] = useState<TenantRolePayload>(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [stepUpCode, setStepUpCode] = useState("");
