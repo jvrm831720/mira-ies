@@ -815,7 +815,7 @@ export type StudentGroupMembersResponse = {
 };
 
 
-export type RetentionCampaignProposalStatus = "draft" | "in_review" | "changes_requested" | "approved";
+export type RetentionCampaignProposalStatus = "draft" | "in_review" | "changes_requested" | "approved" | "scheduled" | "running" | "paused" | "completed" | "cancelled" | "failed";
 export type RetentionCampaignProposal = {
   id: string; tenant_id: string; status: RetentionCampaignProposalStatus; revision: number;
   title: string; objective: string; strategy: string; recommended_channels: string[];
@@ -835,4 +835,22 @@ export type RetentionCampaignProposalAudit = {
     id: string; event_type: string; actor_user_id?: string | null; revision: number;
     details: Record<string, unknown>; created_at: string;
   }>;
+};
+
+export type RetentionCampaignScheduleItem = {
+  proposal_id: string;
+  tenant_id: string;
+  title: string;
+  status: "scheduled" | "approved";
+  scheduled_for: string | null;
+  schedule_timezone: string | null;
+  revision: number;
+  execution_enabled: false;
+  dispatch_created?: false;
+};
+export type RetentionCampaignScheduleResponse = {
+  tenant_id: string;
+  count: number;
+  schedules: RetentionCampaignScheduleItem[];
+  execution_enabled: false;
 };
