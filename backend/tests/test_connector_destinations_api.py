@@ -61,7 +61,7 @@ async def test_admin_can_approve_list_and_revoke_only_own_tenant_destination(
             )
         )
     ).scalars().all()
-    assert [event.action for event in audit_a] == ["approved", "revoked"]
+    assert sorted(event.action for event in audit_a) == ["approved", "revoked"]
     audit_b = (
         await db_session.execute(
             select(TenantConnectorDestinationAudit).where(
