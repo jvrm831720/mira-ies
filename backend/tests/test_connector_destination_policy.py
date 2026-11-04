@@ -41,7 +41,7 @@ def test_rejects_host_allowed_for_another_tenant():
         "https://lms.example.edu.br:8443",
         "https://lms.example.edu.br?next=https://evil.test",
         "https://lms.example.edu.br#fragment",
-        "https://lms.example.edu.br/../admin",
+        "https://lms.example.edu.br/../admin",\n        "https://lms.example.edu.br/%2e%2e/admin",\n        "https://lms.example.edu.br/%252e%252e/admin",\n        "https://bad_host.example.com",\n        "https://-bad.example.com",
         "https://lms.example.edu.br\\\\@evil.test",
     ],
 )
