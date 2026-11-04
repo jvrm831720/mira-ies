@@ -47,9 +47,8 @@ def upgrade() -> None:
     op.execute("CREATE INDEX ix_tenant_connector_destination_audit_tenant_created ON tenant_connector_destination_audit (tenant_id, created_at DESC)")
     op.execute("""
         CREATE FUNCTION reject_connector_destination_audit_mutation()
-        RETURNS trigger LANGUAGE plpgsql AS $
-        BEGIN RAISE EXCEPTION 'connector destination audit is append-only'; END;
-        $
+        RETURNS trigger LANGUAGE plpgsql
+        AS 'BEGIN RAISE EXCEPTION ''connector destination audit is append-only''; END;'
     """)
     op.execute("""
         CREATE TRIGGER tenant_connector_destination_audit_append_only
