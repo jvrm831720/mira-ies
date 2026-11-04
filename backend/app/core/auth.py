@@ -101,8 +101,22 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         custom_role = custom_role_result.scalar_one_or_none()
         if custom_role:
             role = custom_role.base_role if custom_role.base_role in ROLE_RANK and custom_role.base_role != "admin" else "viewer"
+            base_rank = ROLE_RANK.get(role, 0)
+            permission_ceiling = {
+                "access.viewer": 1, "dashboard.view": 1, "students.view": 1,
+                "access.operator": 2, "students.create": 2, "students.edit": 2,
+                "campaigns.view": 2, "campaigns.create": 2, "campaigns.edit": 2,
+                "members.view": 2, "data.view": 2,
+                "access.coordinator": 3, "data.import": 3, "audit.view": 3,
+                "students.sensitive.view": 3, "campaigns.approve": 3,
+                "campaigns.execute": 3,
+                "members.manage": 4, "permissions.manage": 4, "settings.manage": 4,
+                "students.delete": 4, "campaigns.delete": 4, "critical.manage": 4,
+            }
             custom_permissions = frozenset(
-                item for item in (custom_role.permissions or []) if isinstance(item, str)
+                item for item in (custom_role.permissions or [])
+                if isinstance(item, str)
+                and permission_ceiling.get(item, 99) <= base_rank
             )
         else:
             role = "viewer"
