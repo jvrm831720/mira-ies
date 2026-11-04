@@ -50,11 +50,24 @@ def _now() -> datetime:
 
 
 def _require_admin(auth: AuthContext, *, recent: bool = False) -> str:
-    if not auth.user_id or auth.role != "admin" or getattr(auth, "custom_role_id", None):
-        raise HTTPException(status_code=403, detail="Apenas um administrador institucional pode administrar cargos.")
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="Esta operação exige uma sessão humana.")
+    builtin_admin = auth.role == "admin" and not auth.custom_role_id
+    delegated_manager = auth.permissions is not None and "permissions.manage" in auth.permissions
+    if not builtin_admin and not delegated_manager:
+        raise HTTPException(status_code=403, detail="Você não tem permissão para administrar cargos.")
     if recent and (auth.aal < 2 or not auth.authenticated_at or int(_now().timestamp()) - auth.authenticated_at > 600):
         raise HTTPException(status_code=403, detail="Confirme novamente sua identidade com MFA antes desta operação.")
     return auth.user_id
+
+
+def _validate_actor_grants(auth: AuthContext, base_role: str, permissions: list[str]) -> None:
+    if auth.role == "admin" and not auth.custom_role_id:
+        return
+    if BASE_ROLE_RANK.get(base_role, 99) > BASE_ROLE_RANK.get(auth.role or "viewer", 0):
+        raise HTTPException(status_code=403, detail="Você não pode atribuir um cargo-base superior ao seu.")
+    if auth.permissions is None or not set(permissions).issubset(auth.permissions):
+        raise HTTPException(status_code=403, detail="Você só pode delegar permissões que já possui.")
 
 
 def _audit(db: AsyncSession, auth: AuthContext, event: str, *, role_id: str | None = None,
@@ -83,7 +96,7 @@ _PERMISSION_CEILING = {
     "access.coordinator": 3, "data.import": 3, "audit.view": 3,
     "students.sensitive.view": 3, "campaigns.approve": 3,
     "campaigns.execute": 3, "members.manage": 3,
-    "permissions.manage": 4, "settings.manage": 4,
+    "permissions.manage": 3, "settings.manage": 3,
     "students.delete": 4, "campaigns.delete": 4, "critical.manage": 4,
 }
 
@@ -162,6 +175,7 @@ async def create_role(body: RolePayload, auth: AuthContext = Depends(get_current
                       db: AsyncSession = Depends(get_db)):
     actor = _require_admin(auth, recent=True)
     _validate_permission_ceiling(body.base_role, body.permissions)
+    _validate_actor_grants(auth, body.base_role, body.permissions)
     duplicate = await db.execute(select(TenantRole.id).where(
         TenantRole.tenant_id == auth.tenant_id, func.lower(TenantRole.name) == body.name.lower()
     ))
@@ -185,6 +199,7 @@ async def update_role(role_id: str, body: RolePayload, auth: AuthContext = Depen
                       db: AsyncSession = Depends(get_db)):
     _require_admin(auth, recent=True)
     _validate_permission_ceiling(body.base_role, body.permissions)
+    _validate_actor_grants(auth, body.base_role, body.permissions)
     role = await _load_role(db, auth.tenant_id, role_id, lock=True)
     if not role.is_active:
         raise HTTPException(status_code=409, detail="Reative o cargo antes de editá-lo.")
@@ -272,6 +287,12 @@ async def assign_member_role(user_id: str, body: dict, auth: AuthContext = Depen
     if target.role == "admin":
         raise HTTPException(status_code=409, detail="A administração principal não pode ser substituída por cargo personalizado.")
     new_role = await _load_role(db, auth.tenant_id, role_id) if role_id else None
+    if new_role and auth.role != "admin" and (
+        BASE_ROLE_RANK.get(new_role.base_role, 99) > BASE_ROLE_RANK.get(auth.role or "viewer", 0)
+        or auth.permissions is None
+        or not set(new_role.permissions or []).issubset(auth.permissions)
+    ):
+        raise HTTPException(status_code=403, detail="Você não pode atribuir um cargo com privilégios que não possui.")
     if new_role and not new_role.is_active:
         raise HTTPException(status_code=409, detail="O cargo selecionado está desativado.")
     old_role_id = target.custom_role_id
