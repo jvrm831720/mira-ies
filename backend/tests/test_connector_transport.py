@@ -205,3 +205,31 @@ async def test_offset_pagination_rejects_reserved_query_params():
             ]
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_rest_for_tenant_uses_persisted_destination(monkeypatch):
+    async def authorize(db, *, tenant_id, connector_key, url):
+        assert tenant_id == "tenant-a"
+        assert connector_key == "rest"
+        assert url == "https://untrusted-config.example"
+        return "https://approved.example"
+
+    monkeypatch.setattr(
+        "app.services.connectors.transport.authorize_tenant_destination", authorize
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "approved.example"
+        return httpx.Response(200, json={"ok": True})
+
+    client = await ReadOnlyRestClient.for_tenant(
+        object(),
+        tenant_id="tenant-a",
+        base_url="https://untrusted-config.example",
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        assert await client.get_json("health") == {"ok": True}
+    finally:
+        await client.aclose()
