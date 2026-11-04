@@ -7,6 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.auth import _set_tenant_rls_context
 from app.models.connector_destination import TenantConnectorDestination
+from app.services.connectors.destination_policy import (
+    DestinationPolicyError,
+    validate_tenant_destination,
+)
+
 _DESTINATION_AUTHORIZATION_TOKEN = object()
 
 
@@ -25,11 +30,6 @@ def require_destination_authorization(token: object | None) -> None:
         "Use a factory for_tenant após aprovar o destino no registro do tenant."
     )
 
-
-from app.services.connectors.destination_policy import (
-    DestinationPolicyError,
-    validate_tenant_destination,
-)
 
 
 async def load_tenant_allowed_hosts(
