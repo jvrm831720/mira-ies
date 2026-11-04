@@ -58,7 +58,10 @@ async def _client_for_tenant(db: AsyncSession, tenant_id: str) -> SophiaApiClien
         username=decrypt_sophia_secret(connection.encrypted_username),
         password=decrypt_sophia_secret(connection.encrypted_password),
     )
-    return await SophiaApiClient.for_tenant(db, tenant_id=tenant_id, config=config)
+    try:
+        return await SophiaApiClient.for_tenant(db, tenant_id=tenant_id, config=config)
+    except ValueError as exc:
+        raise SophiaApiError("Destino SophiA não aprovado para este tenant.") from exc
 
 
 async def _student_code(db: AsyncSession, tenant_id: str, student_id: str) -> int:
