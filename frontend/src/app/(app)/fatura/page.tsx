@@ -71,20 +71,20 @@ export default function FaturaPage() {
       />
       <main className="mx-auto w-full max-w-[1100px] space-y-6 px-4 pb-12 pt-5 md:px-9">
         {/* Plan */}
-        <section className="overflow-hidden rounded-[24px] border border-white/10 bg-[#0f0e1c] text-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
+        <section className="overflow-hidden rounded-[12px] border border-mist-50 bg-white text-ink shadow-soft">
           <div className="grid gap-0 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-5 p-6 md:p-8">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/80">
-                <Sparkles className="h-3.5 w-3.5 text-[var(--brand-coral)]" />
+              <div className="inline-flex items-center gap-1.5 rounded-[7px] border border-mist-50 bg-paper px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                <Sparkles className="h-3.5 w-3.5 text-cobalt" />
                 Plano atual
               </div>
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">
                   {data?.plan_name || "Plano da instituição"}
                 </h2>
-                <p className="mt-1 text-sm text-white/55">
+                <p className="mt-1 text-sm text-slate-600">
                   Renovação em{" "}
-                  <strong className="font-semibold text-white/85">
+                  <strong className="font-semibold text-ink">
                     {data?.renews_at
                       ? new Date(data.renews_at).toLocaleDateString("pt-BR")
                       : "—"}
@@ -103,21 +103,21 @@ export default function FaturaPage() {
               </div>
             </div>
 
-            <div className="border-t border-white/10 bg-black/25 p-6 md:p-8 lg:border-l lg:border-t-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
+            <div className="border-t border-mist-50 bg-paper p-6 md:p-8 lg:border-l lg:border-t-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
                 Próxima cobrança
               </p>
               <p className="mt-3 text-3xl font-semibold tracking-tight">
                 {formatBRL(data?.next_invoice_brl ?? data?.plan_price_brl ?? 0)}
               </p>
-              <p className="mt-2 text-sm text-white/50">
+              <p className="mt-2 text-sm text-slate-600">
                 Valor do plano desta instituição. Créditos extras de canal são cobrados à parte.
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 <Button
                   type="button"
                   onClick={() => setInvoicesOpen(true)}
-                  className="rounded-full bg-white text-[#0f0e1c] hover:bg-white/90"
+                  className="rounded-[10px]"
                 >
                   <Receipt className="h-4 w-4" />
                   Baixar faturas
@@ -127,7 +127,7 @@ export default function FaturaPage() {
                     href={data.payment_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-sm font-medium text-white transition hover:bg-white/10"
+                    className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-mist-50 bg-white px-4 text-sm font-medium text-ink transition hover:bg-paper"
                   >
                     <ExternalLink className="h-4 w-4" />
                     Pagar / atualizar
@@ -136,7 +136,7 @@ export default function FaturaPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-full border-white/15 bg-transparent text-white hover:bg-white/10"
+                    className="rounded-[10px]"
                     onClick={() =>
                       toast.message("Link de pagamento ainda não configurado para esta instituição.")
                     }
@@ -170,7 +170,7 @@ export default function FaturaPage() {
               return (
                 <Card
                   key={key}
-                  className="overflow-hidden border-border/80 shadow-[0_10px_30px_rgba(16,13,80,0.04)]"
+                  className="overflow-hidden border-mist-50 shadow-none"
                 >
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -185,9 +185,9 @@ export default function FaturaPage() {
                         créditos
                       </span>
                     </p>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className="h-1.5 overflow-hidden rounded-[10px] bg-muted">
                       <div
-                        className="h-full rounded-full bg-[var(--brand-indigo)]"
+                        className="h-full rounded-[10px] bg-cobalt"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -203,7 +203,7 @@ export default function FaturaPage() {
 
         {/* Buy */}
         <section className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
-          <Card className="border-border/80 shadow-[0_10px_30px_rgba(16,13,80,0.04)]">
+          <Card className="border-mist-50 shadow-none">
             <CardHeader>
               <CardTitle className="text-base">Comprar créditos</CardTitle>
               <p className="text-sm text-muted-foreground">
@@ -218,9 +218,9 @@ export default function FaturaPage() {
                     type="button"
                     onClick={() => setChannel(key)}
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition",
+                      "inline-flex items-center gap-2 rounded-[10px] border px-3.5 py-2 text-sm font-medium transition",
                       channel === key
-                        ? "border-[var(--brand-midnight)] bg-[var(--brand-midnight)] text-white"
+                        ? "border-graphite bg-graphite text-white"
                         : "border-border bg-white text-foreground hover:bg-muted"
                     )}
                   >
@@ -237,14 +237,14 @@ export default function FaturaPage() {
                     type="button"
                     onClick={() => setPackId(pack.id)}
                     className={cn(
-                      "relative rounded-2xl border p-4 text-left transition",
+                      "relative rounded-[12px] border p-4 text-left transition",
                       packId === pack.id
-                        ? "border-[var(--brand-indigo)] bg-secondary shadow-sm"
+                        ? "border-cobalt bg-ice shadow-sm"
                         : "border-border bg-white hover:border-primary/30"
                     )}
                   >
                     {"popular" in pack && pack.popular ? (
-                      <span className="absolute -top-2 right-3 rounded-full bg-[var(--brand-coral)] px-2 py-0.5 text-[10px] font-bold text-[var(--brand-midnight)]">
+                      <span className="absolute -top-2 right-3 rounded-[7px] bg-cobalt px-2 py-0.5 text-[10px] font-semibold text-white">
                         Popular
                       </span>
                     ) : null}
@@ -259,7 +259,7 @@ export default function FaturaPage() {
               </div>
 
               <Button
-                className="h-11 w-full rounded-full"
+                className="h-10 w-full rounded-[10px]"
                 disabled={purchase.isPending}
                 onClick={() => purchase.mutate()}
               >
@@ -271,38 +271,38 @@ export default function FaturaPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/80 bg-[#0c0b1d] text-white shadow-[0_10px_30px_rgba(16,13,80,0.12)]">
+          <Card className="border-mist-50 bg-paper text-ink shadow-none">
             <CardHeader>
-              <CardTitle className="text-base text-white">Como os créditos funcionam</CardTitle>
+              <CardTitle className="text-base text-ink">Como os créditos funcionam</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm text-white/70">
+            <CardContent className="space-y-4 text-sm text-carbon">
               <p>
                 Cada mensagem enviada consome 1 crédito do canal correspondente (WhatsApp, e-mail ou
                 SMS).
               </p>
               <ul className="space-y-2">
                 <li className="flex gap-2">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-coral)]" />
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-[10px] bg-cobalt" />
                   Os três canais têm saldos independentes.
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-coral)]" />
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-[10px] bg-cobalt" />
                   Sem saldo, o canal fica pausado até a reposição.
                 </li>
                 <li className="flex gap-2">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-coral)]" />
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-[10px] bg-cobalt" />
                   O valor do plano e o link de pagamento são configurados por instituição.
                 </li>
               </ul>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
+              <div className="rounded-[10px] border border-mist-50 bg-white p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
                   Resumo da compra
                 </p>
-                <p className="mt-2 text-lg font-semibold text-white">
+                <p className="mt-2 text-lg font-semibold text-ink">
                   {CHANNELS.find((c) => c.key === channel)?.label} ·{" "}
                   {selectedPack.credits.toLocaleString("pt-BR")} créditos
                 </p>
-                <p className="mt-1 text-sm text-white/55">{formatBRL(selectedPack.price)}</p>
+                <p className="mt-1 text-sm text-slate-600">{formatBRL(selectedPack.price)}</p>
               </div>
             </CardContent>
           </Card>
@@ -328,7 +328,7 @@ export default function FaturaPage() {
             role="dialog"
             aria-modal
             aria-labelledby="invoices-title"
-            className="relative z-10 w-full max-w-lg overflow-hidden rounded-[24px] border border-border bg-white shadow-2xl"
+            className="relative z-10 w-full max-w-lg overflow-hidden rounded-[12px] border border-mist-50 bg-white shadow-elevated"
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <div>
@@ -340,7 +340,7 @@ export default function FaturaPage() {
               <button
                 type="button"
                 onClick={() => setInvoicesOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-full hover:bg-muted"
+                className="grid h-9 w-9 place-items-center rounded-[10px] hover:bg-muted"
                 aria-label="Fechar"
               >
                 <X className="h-4 w-4" />
@@ -373,7 +373,7 @@ export default function FaturaPage() {
                       href={inv.download_url || "#"}
                       target={inv.download_url ? "_blank" : undefined}
                       rel="noopener noreferrer"
-                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold transition hover:bg-muted"
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[10px] border border-border px-3 text-xs font-semibold transition hover:bg-muted"
                       onClick={(e) => {
                         if (!inv.download_url) {
                           e.preventDefault();
@@ -397,9 +397,9 @@ export default function FaturaPage() {
 
 function MetricDark({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-      <p className="text-[11px] font-medium text-white/45">{label}</p>
-      <p className="mt-1 text-lg font-semibold tracking-tight text-white">{value}</p>
+    <div className="rounded-[10px] border border-mist-50 bg-paper px-4 py-3">
+      <p className="text-[11px] font-medium text-slate-600">{label}</p>
+      <p className="mt-1 text-lg font-semibold tracking-tight text-ink">{value}</p>
     </div>
   );
 }

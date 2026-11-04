@@ -6,6 +6,33 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        page: "var(--color-page-canvas)",
+        ink: "var(--color-ink-black)",
+        graphite: "var(--color-graphite)",
+        carbon: "var(--color-carbon)",
+        slate: {
+          500: "var(--color-slate-500)",
+          600: "var(--color-slate-600)",
+          700: "var(--color-slate-700)",
+        },
+        fog: "var(--color-fog-400)",
+        mist: {
+          50: "var(--color-mist-50)",
+          300: "var(--color-mist-300)",
+        },
+        cloud: {
+          100: "var(--color-cloud-100)",
+          200: "var(--color-cloud-200)",
+        },
+        haze: "var(--color-haze)",
+        paper: "var(--color-paper)",
+        periwinkle: "var(--color-periwinkle)",
+        cobalt: {
+          DEFAULT: "var(--color-cobalt-core)",
+          bright: "var(--color-cobalt-bright)",
+          soft: "var(--color-cobalt-soft)",
+        },
+        ice: "var(--color-ice-wash)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -45,15 +72,19 @@ const config: Config = {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "var(--radius-control)",
+        md: "8px",
+        sm: "7px",
+        card: "var(--radius-card)",
       },
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        display: ["var(--font-interdisplay)", "Inter", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)",
+        soft: "var(--shadow-card)",
+        subtle: "var(--shadow-subtle)",
+        elevated: "var(--shadow-overlay)",
       },
     },
   },

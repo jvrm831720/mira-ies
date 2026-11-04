@@ -65,13 +65,13 @@ export default function ConectoresPage() {
                   key={c.id}
                   type="button"
                   onClick={() => setSelected(c.id)}
-                  className={`flex w-full items-start gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                  className={`flex w-full items-start gap-2 rounded-[10px] border px-3 py-2.5 text-left text-sm transition ${
                     selected === c.id
-                      ? "border-primary/40 bg-secondary"
+                      ? "border-cobalt/40 bg-ice"
                       : "border-border hover:bg-muted/40"
                   }`}
                 >
-                  <Plug className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <Plug className="mt-0.5 h-4 w-4 shrink-0 text-cobalt" />
                   <span>
                     <span className="block font-semibold">{c.name}</span>
                     <span className="mt-0.5 block text-[11px] text-muted-foreground">
@@ -96,14 +96,14 @@ export default function ConectoresPage() {
                 value={payload}
                 onChange={(e) => setPayload(e.target.value)}
                 rows={14}
-                className="w-full rounded-xl border border-input bg-background p-3 font-mono text-xs outline-none focus:ring-2 focus:ring-primary/25"
+                className="w-full rounded-[10px] border border-input bg-background p-3 font-mono text-xs outline-none focus:ring-2 focus:ring-cobalt/25"
               />
               <Button onClick={onIngest} disabled={loading}>
                 {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
                 {loading ? "Processando…" : "Ingerir e pontuar"}
               </Button>
               {result && (
-                <pre className="overflow-x-auto rounded-xl bg-muted/40 p-3 text-[11px]">{result}</pre>
+                <pre className="overflow-x-auto rounded-[10px] bg-muted/40 p-3 text-[11px]">{result}</pre>
               )}
             </CardContent>
           </Card>

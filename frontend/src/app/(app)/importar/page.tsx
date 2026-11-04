@@ -211,8 +211,8 @@ export default function ImportarPage() {
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="overflow-hidden">
-            <CardHeader className="border-b border-black/[0.05] pb-5">
-              <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
+            <CardHeader className="border-b border-mist-50 pb-5">
+              <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-cobalt">
                 <span className="grid h-6 w-6 place-items-center rounded-lg bg-secondary">01</span>
                 Importação inteligente · sem IA
               </div>
@@ -232,7 +232,7 @@ export default function ImportarPage() {
                   if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
                 }}
                 onDrop={onDrop}
-                className={`relative flex min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-7 text-center transition ${dragging ? "border-primary bg-secondary" : file ? "border-[#b9c2f2] bg-[#f7f8ff]" : "border-border bg-muted/20 hover:border-primary/40 hover:bg-secondary/40"}`}
+                className={`relative flex min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-[12px] border border-dashed px-5 py-7 text-center transition ${dragging ? "border-primary bg-secondary" : file ? "border-periwinkle bg-ice" : "border-border bg-muted/20 hover:border-cobalt/40 hover:bg-secondary/40"}`}
               >
                 <input
                   ref={inputRef}
@@ -242,7 +242,7 @@ export default function ImportarPage() {
                   aria-label="Escolher arquivo CSV ou Excel"
                   onChange={onFileChange}
                 />
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-primary shadow-sm">
+                <span className="grid h-12 w-12 place-items-center rounded-[12px] bg-white text-cobalt shadow-sm">
                   {file ? <FileCheck2 className="h-6 w-6" /> : <UploadCloud className="h-6 w-6" />}
                 </span>
                 {file ? (
@@ -254,7 +254,7 @@ export default function ImportarPage() {
                   <>
                     <span className="mt-3 text-sm font-semibold text-neutral-900">Arraste o arquivo até aqui</span>
                     <span className="mt-1 text-xs text-muted-foreground">ou clique para procurar no computador</span>
-                    <span className="mt-4 rounded-lg border border-border bg-white px-3 py-1.5 text-[10px] font-medium text-muted-foreground">CSV · XLSX · XLS · até 50 MB</span>
+                    <span className="mt-4 rounded-[7px] border border-mist-50 bg-white px-3 py-1.5 text-[10px] font-medium text-muted-foreground">CSV · XLSX · XLS · até 50 MB</span>
                   </>
                 )}
               </label>
@@ -278,7 +278,7 @@ export default function ImportarPage() {
               </div>
 
               {errorMessage && (
-                <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs text-red-800">
+                <div role="alert" className="flex items-start gap-2.5 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-3 text-xs text-red-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{errorMessage}</span>
                 </div>
@@ -288,11 +288,11 @@ export default function ImportarPage() {
                 <div className="space-y-5 border-t border-border pt-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">02 · Revisão</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-cobalt">02 · Revisão</p>
                       <h2 className="mt-1 text-lg font-semibold tracking-[-0.03em] text-neutral-950">Confira o que será importado</h2>
                       <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{preview.message}</p>
                     </div>
-                    <div className="shrink-0 rounded-xl border border-border bg-[var(--brand-paper)] px-3 py-2 text-right">
+                    <div className="shrink-0 rounded-[10px] border border-border bg-paper px-3 py-2 text-right">
                       <p className="text-[10px] text-neutral-500">Indicador de qualidade</p>
                       <p className="mt-0.5 text-xl font-semibold tabular-nums text-neutral-900">{preview.quality_score.toLocaleString("pt-BR")}/100</p>
                     </div>
@@ -316,12 +316,12 @@ export default function ImportarPage() {
                         type="button"
                         onClick={() => void analyzeFile()}
                         disabled={previewLoading || uploadLoading}
-                        className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-primary hover:underline disabled:opacity-50 sm:self-auto"
+                        className="inline-flex items-center gap-1.5 self-start text-xs font-semibold text-cobalt hover:underline disabled:opacity-50 sm:self-auto"
                       >
                         <RefreshCw className="h-3.5 w-3.5" /> Sugerir novamente
                       </button>
                     </div>
-                    <div className="overflow-hidden rounded-2xl border border-border">
+                    <div className="overflow-hidden rounded-[12px] border border-border">
                       <div className="hidden grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.05fr)] gap-3 bg-muted/40 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground sm:grid">
                         <span>Coluna no arquivo</span><span>Exemplo de valor</span><span>Campo Mira</span>
                       </div>
@@ -332,7 +332,7 @@ export default function ImportarPage() {
                               <p className="break-words text-xs font-semibold text-neutral-800">{column.label}</p>
                               <p className="mt-0.5 truncate font-mono text-[10px] text-neutral-400">{column.key}</p>
                             </div>
-                            <div className="min-w-0 truncate rounded-lg bg-[var(--brand-paper)] px-2.5 py-2 text-xs text-neutral-600" title={column.sample || "Sem amostra"}>
+                            <div className="min-w-0 truncate rounded-lg bg-paper px-2.5 py-2 text-xs text-neutral-600" title={column.sample || "Sem amostra"}>
                               {column.sample || <span className="text-neutral-400">Sem amostra</span>}
                             </div>
                             <label className="relative block min-w-0">
@@ -341,7 +341,7 @@ export default function ImportarPage() {
                                 value={mapping[column.key] || ""}
                                 onChange={(event) => setMapping((current) => ({ ...current, [column.key]: event.target.value }))}
                                 disabled={uploadLoading}
-                                className="h-10 w-full appearance-none rounded-xl border border-input bg-white pl-3 pr-8 text-xs font-medium text-neutral-800 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-60"
+                                className="h-10 w-full appearance-none rounded-[10px] border border-input bg-white pl-3 pr-8 text-xs font-medium text-neutral-800 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-60"
                               >
                                 <option value="">Não importar esta coluna</option>
                                 {IMPORT_FIELDS.map((field) => {
@@ -365,14 +365,14 @@ export default function ImportarPage() {
                       </Button>
                     </div>
                     {mappingDirty && (
-                      <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <p role="status" className="rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                         Você alterou colunas. Revalide o mapeamento para atualizar a prévia antes de importar.
                       </p>
                     )}
                   </section>
 
                   {preview.missing_required_columns.length > 0 && (
-                    <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-xs text-red-800">
+                    <div role="alert" className="flex items-start gap-2.5 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-3 text-xs text-red-800">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>
                         Faltam campos obrigatórios: <strong>{preview.missing_required_columns.map((field) => preview.field_labels[field as ImportField] || field).join(", ")}</strong>. Ajuste o mapeamento acima e revalide.
@@ -381,7 +381,7 @@ export default function ImportarPage() {
                   )}
 
                   {preview.invalid_rows_count > 0 && (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5">
+                    <div className="rounded-[10px] border border-amber-200 bg-amber-50/70 p-3.5">
                       <p className="flex items-center gap-2 text-xs font-semibold text-amber-900">
                         <AlertTriangle className="h-4 w-4" /> {number(preview.invalid_rows_count)} linha(s) não serão importadas
                       </p>
@@ -395,7 +395,7 @@ export default function ImportarPage() {
                   )}
 
                   {preview.warnings.length > 0 && (
-                    <div className="rounded-xl border border-[#dce0ff] bg-[#f7f7ff] p-3.5">
+                    <div className="rounded-[10px] border border-[#dce0ff] bg-[#f7f7ff] p-3.5">
                       <p className="flex items-center gap-2 text-xs font-semibold text-[#313e9e]"><Info className="h-4 w-4" /> Revisões recomendadas</p>
                       <ul className="mt-2 space-y-1.5">
                         {preview.warnings.slice(0, 6).map((warning, index) => <li key={`${index}-${warning}`} className="text-[11px] leading-relaxed text-[#313e9e]/85">{warning}</li>)}
@@ -416,7 +416,7 @@ export default function ImportarPage() {
                       <p className="mt-1 text-xs text-neutral-500">Amostra das primeiras linhas válidas após o mapeamento. Nenhum dado foi salvo nesta etapa.</p>
                     </div>
                     {preview.sample_rows.length > 0 ? (
-                      <div className="overflow-x-auto rounded-xl border border-border">
+                      <div className="overflow-x-auto rounded-[10px] border border-border">
                         <table className="w-full min-w-[760px] border-collapse text-left">
                           <thead className="bg-muted/40">
                             <tr>{[
@@ -443,13 +443,13 @@ export default function ImportarPage() {
                         </table>
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-xs text-neutral-500">
+                      <div className="rounded-[10px] border border-dashed border-border px-4 py-8 text-center text-xs text-neutral-500">
                         Nenhuma linha válida para exibir. Ajuste o mapeamento ou corrija as linhas inválidas no arquivo de origem.
                       </div>
                     )}
                   </section>
 
-                  <div className="rounded-2xl border border-border bg-muted/20 p-4">
+                  <div className="rounded-[12px] border border-border bg-muted/20 p-4">
                     <label className="flex cursor-pointer items-start gap-3">
                       <input type="checkbox" checked={autoScore} onChange={(event) => setAutoScore(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#4050cd]" />
                       <span>
@@ -461,7 +461,7 @@ export default function ImportarPage() {
 
                   <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
-                      <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cobalt" />
                       Escopo da instituição autenticada. Matrículas existentes serão atualizadas e células vazias preservarão os dados atuais.
                     </p>
                     <Button onClick={() => void onUpload()} disabled={!canImport} className="w-full shrink-0 sm:w-auto">
@@ -476,7 +476,7 @@ export default function ImportarPage() {
               {result && (
                 <div className="space-y-4 border-t border-border pt-5">
                   <div className="flex items-start gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9f7f0] text-[#287653]"><CheckCircle2 className="h-5 w-5" /></span>
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#e9f7f0] text-[#287653]"><CheckCircle2 className="h-5 w-5" /></span>
                     <div className="min-w-0">
                       <h2 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950">Importação concluída</h2>
                       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{result.message || "A planilha foi processada."}</p>
@@ -492,7 +492,7 @@ export default function ImportarPage() {
                     <p className="text-xs text-amber-700">{number(result.quality.duplicates_removed)} duplicata(s) no arquivo foram consolidadas pela matrícula.</p>
                   ) : null}
                   {result.quality?.warnings?.length ? (
-                    <div className="rounded-xl border border-[#dce0ff] bg-[#f7f7ff] p-3.5">
+                    <div className="rounded-[10px] border border-[#dce0ff] bg-[#f7f7ff] p-3.5">
                       <p className="text-xs font-semibold text-[#313e9e]">Pontos para revisar</p>
                       <ul className="mt-2 space-y-1.5">{result.quality.warnings.slice(0, 6).map((warning, index) => <li key={`${index}-${warning}`} className="text-[11px] leading-relaxed text-[#313e9e]/85">{warning}</li>)}</ul>
                     </div>
@@ -518,7 +518,7 @@ export default function ImportarPage() {
           <aside className="space-y-4">
             <Card className="bg-[var(--brand-midnight)] text-white shadow-none">
               <CardHeader>
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-[var(--brand-coral)]"><FileSpreadsheet className="h-4 w-4" /></span>
+                <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-white/10 text-[var(--brand-coral)]"><FileSpreadsheet className="h-4 w-4" /></span>
                 <CardTitle className="pt-1 text-[15px] text-white">Como a importação funciona</CardTitle>
                 <CardDescription className="text-white/60">Regras claras, prévia primeiro e confirmação antes de salvar.</CardDescription>
               </CardHeader>
@@ -541,12 +541,12 @@ export default function ImportarPage() {
               </CardContent>
             </Card>
 
-            <div className="rounded-2xl border border-[#dce0ff] bg-[#f3f4ff] p-4 text-xs leading-relaxed text-[#313e9e]">
+            <div className="rounded-[12px] border border-[#dce0ff] bg-[#f3f4ff] p-4 text-xs leading-relaxed text-[#313e9e]">
               <div className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0" /><p><strong>Privacidade e consentimento:</strong> importe somente dados necessários e autorizados pela instituição. Marque <code>communication_opt_out</code> como verdadeiro para registrar que o aluno não deve ser contatado.</p></div>
             </div>
 
-            <div className="flex items-start gap-2 rounded-2xl border border-border bg-white px-3.5 py-3 text-[11px] leading-relaxed text-neutral-500">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div className="flex items-start gap-2 rounded-[12px] border border-border bg-white px-3.5 py-3 text-[11px] leading-relaxed text-neutral-500">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-cobalt" />
               Prévia e importação usam a sessão autenticada. Nenhum dado é salvo até você confirmar a importação.
             </div>
           </aside>
@@ -558,8 +558,8 @@ export default function ImportarPage() {
 
 function StepCard({ number: step, title, detail, active, complete }: { number: string; title: string; detail: string; active?: boolean; complete?: boolean }) {
   return (
-    <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${active ? "border-[rgba(64,80,205,0.25)] bg-[#f4f5ff]" : "border-black/[0.06] bg-white"}`}>
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-semibold ${complete ? "bg-[#e9f7f0] text-[#287653]" : active ? "bg-[var(--brand-indigo)] text-white" : "bg-neutral-100 text-neutral-500"}`}>
+    <div className={`flex items-center gap-3 rounded-[12px] border px-4 py-3 transition ${active ? "border-[rgba(64,80,205,0.25)] bg-[#f4f5ff]" : "border-black/[0.06] bg-white"}`}>
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-xs font-semibold ${complete ? "bg-[#e9f7f0] text-[#287653]" : active ? "bg-[var(--brand-indigo)] text-white" : "bg-neutral-100 text-neutral-500"}`}>
         {complete ? <CheckCircle2 className="h-4 w-4" /> : step}
       </span>
       <div className="min-w-0">
@@ -578,7 +578,7 @@ function ReviewStat({ label, value, tone }: { label: string; value: number; tone
     warning: "bg-[#fff7e8] text-[#966215]",
   };
   return (
-    <div className={`rounded-xl border border-black/[0.055] p-3 ${tones[tone]}`}>
+    <div className={`rounded-[10px] border border-black/[0.055] p-3 ${tones[tone]}`}>
       <p className="min-h-7 text-[10px] font-medium leading-relaxed opacity-75">{label}</p>
       <p className="mt-1 text-2xl font-semibold leading-none tracking-[-0.04em] tabular-nums">{number(value)}</p>
     </div>
@@ -587,7 +587,7 @@ function ReviewStat({ label, value, tone }: { label: string; value: number; tone
 
 function ResultStat({ label, value }: { label: string; value?: number }) {
   return (
-    <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
+    <div className="rounded-[10px] border border-border/80 bg-muted/20 p-3.5">
       <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</p>
       <p className="mt-1.5 text-lg font-semibold tabular-nums">{value == null ? "—" : number(value)}</p>
     </div>

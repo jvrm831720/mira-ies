@@ -116,19 +116,19 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
   ];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-black/[0.06] bg-[rgba(247,245,239,0.88)] backdrop-blur-xl">
+    <header className="sticky top-0 z-20 border-b border-mist-50 bg-white/95 backdrop-blur-xl">
       <div className={cn("flex w-full items-center gap-4 px-4 md:px-8 xl:px-10", compact ? "min-h-[52px] justify-end py-2" : "min-h-[72px] justify-between py-3")}>
         {!compact && <div className="min-w-0">
-          <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-neutral-400 sm:flex">
+          <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-slate-600 sm:flex">
             <span className="inline-flex items-center gap-1.5 uppercase tracking-[0.14em]">
               <Building2 className="h-3 w-3" />
               {me.data?.tenant_name || "Mira"}
             </span>
-            <ChevronRight className="h-3 w-3 text-[var(--brand-indigo)]" />
-            <span className="text-neutral-600">{title}</span>
+            <ChevronRight className="h-3 w-3 text-cobalt" />
+            <span className="text-carbon">{title}</span>
           </div>
-          <h1 className="truncate text-[22px] font-semibold tracking-[-0.055em] text-neutral-950 md:text-[25px]">{title}</h1>
-          {subtitle ? <p className="mt-0.5 hidden truncate text-[12px] leading-relaxed text-neutral-500 sm:block">{subtitle}</p> : null}
+          <h1 className="truncate text-[22px] font-semibold tracking-[-0.035em] text-ink md:text-[25px]">{title}</h1>
+          {subtitle ? <p className="mt-0.5 hidden truncate text-[12px] leading-relaxed text-slate-600 sm:block">{subtitle}</p> : null}
         </div>}
 
         <div className="relative flex items-center gap-1" ref={panelRef}>
@@ -148,7 +148,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
 
           <button
             type="button"
-            className="ml-1 rounded-full border border-neutral-200 bg-white p-2.5 text-neutral-700 transition hover:bg-neutral-50 md:hidden"
+            className="ml-1 rounded-[10px] border border-mist-50 bg-white p-2.5 text-carbon transition hover:bg-paper md:hidden"
             onClick={() => setMobileOpen((v) => !v)}
             aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
             aria-expanded={mobileOpen}
@@ -157,7 +157,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
           </button>
 
           {panel === "notifications" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-[12px] border border-mist-50 bg-white shadow-elevated">
               <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
                 <p className="text-sm font-semibold text-neutral-900">Notificações</p>
                 <span className="text-[10px] text-neutral-400">{notifications.length} recentes</span>
@@ -178,7 +178,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
           )}
 
           {panel === "help" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,360px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,360px)] overflow-hidden rounded-[12px] border border-mist-50 bg-white shadow-elevated">
               <div className="border-b border-neutral-100 px-4 py-3">
                 <p className="text-sm font-semibold text-neutral-900">Pedir ajuda</p>
                 <p className="mt-0.5 text-[11px] text-neutral-500">
@@ -207,7 +207,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
                     onChange={(e) => setHelpMessage(e.target.value)}
                     rows={4}
                     placeholder="Conte o que aconteceu e o que você tentou fazer."
-                    className="flex w-full rounded-[16px] border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15"
+                    className="flex w-full rounded-[10px] border border-mist-50 bg-white px-3 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-cobalt/20"
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={helpSending}>
@@ -218,7 +218,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
           )}
 
           {panel === "account" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,280px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,280px)] overflow-hidden rounded-[12px] border border-mist-50 bg-white shadow-elevated">
               <div className="border-b border-neutral-100 px-4 py-3">
                 <p className="truncate text-sm font-semibold text-neutral-900">
                   {me.data?.display_name || me.data?.email || "Conta"}
@@ -232,7 +232,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
                 <Link
                   href="/config"
                   onClick={() => setPanel("none")}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-700 transition hover:bg-neutral-50"
+                  className="flex items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-[13px] text-carbon transition hover:bg-paper"
                 >
                   <Settings className="h-4 w-4 text-neutral-400" />
                   Configurações
@@ -240,7 +240,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-700 transition hover:bg-neutral-50"
+                  className="flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-[13px] text-carbon transition hover:bg-paper"
                 >
                   <LogOut className="h-4 w-4 text-neutral-400" />
                   Sair da conta
@@ -254,7 +254,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
       {mobileOpen && (
         <nav
           aria-label="Navegação mobile"
-          className="border-t border-neutral-200 bg-white px-4 py-3 md:hidden"
+          className="border-t border-mist-50 bg-white px-4 py-3 md:hidden"
         >
           <div className="mb-2 flex items-center gap-2 rounded-xl bg-neutral-50 px-2 py-2 text-xs text-neutral-500">
             <Building2 className="h-3.5 w-3.5" />
@@ -270,8 +270,8 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
               className={cn(
                 "block rounded-[11px] px-2.5 py-2 text-[13px]",
                 pathname === l.href
-                  ? "bg-neutral-900 font-semibold text-white"
-                  : "text-neutral-600 hover:bg-neutral-50"
+                  ? "bg-paper font-semibold text-ink"
+                  : "text-slate-600 hover:bg-paper"
               )}
             >
               {l.label}
@@ -301,8 +301,8 @@ function IconButton({
       aria-label={label}
       aria-expanded={active}
         className={cn(
-        "grid h-9 w-9 place-items-center rounded-[11px] text-neutral-500 transition hover:bg-white hover:text-neutral-900",
-        active && "bg-white text-neutral-900 shadow-sm"
+        "grid h-9 w-9 place-items-center rounded-[10px] text-slate-600 transition hover:bg-paper hover:text-ink",
+        active && "bg-paper text-ink shadow-sm"
       )}
     >
       {children}

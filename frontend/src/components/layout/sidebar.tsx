@@ -56,12 +56,12 @@ export function Sidebar() {
   return (
     <>
     <button type="button" onClick={() => setMobileOpen(true)} aria-label="Abrir menu de navegação"
-      className="fixed left-3 top-3 z-40 grid h-10 w-10 place-items-center rounded-xl border border-neutral-200 bg-white text-neutral-800 shadow-sm md:hidden">
+      className="fixed left-3 top-3 z-40 grid h-10 w-10 place-items-center rounded-[10px] border border-mist-50 bg-white text-ink shadow-sm md:hidden">
       <Menu className="h-5 w-5" />
     </button>
     {mobileOpen && <button type="button" aria-label="Fechar menu de navegação" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-black/40 md:hidden" />}
     <aside className={cn(
-      "fixed inset-y-0 left-0 z-50 flex min-h-screen shrink-0 flex-col bg-[#1a1a1a] text-white transition-[width,transform] duration-200 ease-out md:sticky md:top-0 md:z-20",
+      "fixed inset-y-0 left-0 z-50 flex min-h-screen shrink-0 flex-col border-r border-mist-50 bg-white text-ink transition-[width,transform] duration-200 ease-out md:sticky md:top-0 md:z-20",
       collapsed ? "w-[76px]" : "w-[236px]",
       mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
       "md:flex"
@@ -70,10 +70,10 @@ export function Sidebar() {
         <div className={cn("overflow-hidden", collapsed ? "w-[39px]" : "w-[100px]")}>
           <Image src="/mira-logo.svg" alt="Mira" width={100} height={26} className="h-auto w-[100px] max-w-none" priority />
         </div>
-        {mobileOpen && <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fechar menu" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white md:hidden"><X className="h-4 w-4" /></button>}
+        {mobileOpen && <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fechar menu" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-600 hover:bg-paper hover:text-ink md:hidden"><X className="h-4 w-4" /></button>}
         {!collapsed && (
           <button type="button" onClick={() => setCollapsed(true)} aria-label="Recolher menu lateral" title="Recolher menu"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white">
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-600 transition hover:bg-paper hover:text-ink">
             <PanelLeftClose className="h-4 w-4" />
           </button>
         )}
@@ -81,24 +81,24 @@ export function Sidebar() {
 
       <div className={cn("relative pb-5", collapsed ? "px-2" : "px-3")} ref={orgRef}>
         <button type="button" onClick={() => setOrgOpen((v) => !v)} title={collapsed ? orgName : undefined}
-          className={cn("flex w-full items-center rounded-[16px] border border-white/10 bg-white/[0.06] text-left transition hover:bg-white/[0.1]",
+          className={cn("flex w-full items-center rounded-[10px] border border-mist-50 bg-paper text-left transition hover:bg-haze",
             collapsed ? "justify-center p-2" : "gap-2.5 px-3 py-2.5")}
           aria-expanded={orgOpen} aria-haspopup="listbox" aria-label={"Instituição: " + orgName}>
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[11px] bg-[var(--brand-indigo)] text-white"><Building2 className="h-3.5 w-3.5" /></span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] bg-white text-cobalt shadow-subtle"><Building2 className="h-3.5 w-3.5" /></span>
           {!collapsed && <>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[12px] font-semibold leading-tight text-white">{orgName}</span>
-              <span className="mt-0.5 block truncate text-[10px] text-white/50">{role ? "Perfil · " + role : "Instituição ativa"}</span>
+              <span className="block truncate text-[12px] font-semibold leading-tight text-ink">{orgName}</span>
+              <span className="mt-0.5 block truncate text-[10px] text-slate-600">{role ? "Perfil · " + role : "Instituição ativa"}</span>
             </span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-white/45" />
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-600" />
           </>}
         </button>
-        {orgOpen && <div role="listbox" className={cn("absolute top-[calc(100%-4px)] z-30 overflow-hidden rounded-[16px] border border-white/10 bg-[#242424] shadow-2xl",
+        {orgOpen && <div role="listbox" className={cn("absolute top-[calc(100%-4px)] z-30 overflow-hidden rounded-[12px] border border-mist-50 bg-white shadow-elevated",
           collapsed ? "left-[68px] w-[205px]" : "left-3 right-3")}>
-          <p className="px-3 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">Instituição</p>
-          <button type="button" role="option" aria-selected className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] hover:bg-white/[0.06]" onClick={() => setOrgOpen(false)}>
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--brand-indigo)] text-white"><Building2 className="h-3.5 w-3.5" /></span>
-            <span className="min-w-0 flex-1"><span className="block truncate font-medium text-white">{orgName}</span><span className="block text-[10px] text-white/50">Ativa agora</span></span>
+          <p className="px-3 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">Instituição</p>
+          <button type="button" role="option" aria-selected className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] hover:bg-paper" onClick={() => setOrgOpen(false)}>
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-ice text-cobalt"><Building2 className="h-3.5 w-3.5" /></span>
+            <span className="min-w-0 flex-1"><span className="block truncate font-medium text-ink">{orgName}</span><span className="block text-[10px] text-slate-600">Ativa agora</span></span>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           </button>
         </div>}
@@ -106,16 +106,16 @@ export function Sidebar() {
 
       <nav aria-label="Navegação principal" className={cn("flex flex-1 flex-col overflow-y-auto pb-4", collapsed ? "gap-3 px-2" : "gap-5 px-3")}>
         {groups.map((group) => <div key={group.label}>
-          {!collapsed && <p className="mb-1.5 px-3 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/45">{group.label}</p>}
+          {!collapsed && <p className="mb-1.5 px-3 text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-600">{group.label}</p>}
           <div className="space-y-1">
             {group.links.map((link) => {
               const active = link.href === "/" ? pathname === "/" : pathname === link.href || (link.href === "/retencao" ? pathname.startsWith("/retencao") : pathname.startsWith(link.href + "/"));
               return <Link key={link.label} href={link.href} title={collapsed ? link.label : undefined} aria-label={link.label} onClick={() => setMobileOpen(false)}
                 className={cn("group relative flex shrink-0 items-center rounded-[11px] transition duration-200",
                   collapsed ? "h-11 justify-center px-0" : "gap-3 px-3 py-2.5 text-[12px]",
-                  active ? "bg-white font-semibold text-[#1a1a1a] shadow-[0_8px_24px_rgba(0,0,0,0.18)]" : "text-white/70 hover:bg-white/[0.08] hover:text-white")}
+                  active ? "bg-paper font-semibold text-ink" : "text-slate-600 hover:bg-paper hover:text-ink")}
                 aria-current={active ? "page" : undefined}>
-                <link.icon className={cn("h-[17px] w-[17px] shrink-0", active ? "text-[var(--brand-indigo)]" : "text-white/50 group-hover:text-white/80")} />
+                <link.icon className={cn("h-[17px] w-[17px] shrink-0", active ? "text-cobalt" : "text-slate-600 group-hover:text-ink")} />
                 {!collapsed && <span className="truncate">{link.label}</span>}
               </Link>;
             })}
@@ -123,18 +123,18 @@ export function Sidebar() {
         </div>)}
       </nav>
 
-      <div className={cn("shrink-0 border-t border-white/10", collapsed ? "p-2" : "p-3")}>
-        {!collapsed && <div className="mb-1.5 rounded-[15px] bg-white/[0.06] px-3 py-2.5">
-          <p className="truncate text-[12px] font-semibold text-white">{displayName}</p>
-          <p className="mt-0.5 truncate text-[10px] text-white/50">{me.data?.email || "Sessão da instituição"}</p>
+      <div className={cn("shrink-0 border-t border-mist-50", collapsed ? "p-2" : "p-3")}>
+        {!collapsed && <div className="mb-1.5 rounded-[10px] bg-paper px-3 py-2.5">
+          <p className="truncate text-[12px] font-semibold text-ink">{displayName}</p>
+          <p className="mt-0.5 truncate text-[10px] text-slate-600">{me.data?.email || "Sessão da instituição"}</p>
         </div>}
         <button type="button" onClick={logout} title={collapsed ? "Sair da conta" : undefined} aria-label="Sair da conta"
-          className={cn("flex w-full items-center rounded-[11px] text-[12px] text-white/60 transition hover:bg-white/[0.08] hover:text-white",
+          className={cn("flex w-full items-center rounded-[10px] text-[12px] text-slate-600 transition hover:bg-paper hover:text-ink",
             collapsed ? "h-11 justify-center" : "gap-2.5 px-3 py-2")}>
-          <LogOut className="h-3.5 w-3.5 text-white/45" />{!collapsed && "Sair da conta"}
+          <LogOut className="h-3.5 w-3.5 text-slate-600" />{!collapsed && "Sair da conta"}
         </button>
         {collapsed && <button type="button" onClick={() => setCollapsed(false)} title="Expandir menu" aria-label="Expandir menu lateral"
-          className="mt-1 flex h-9 w-full items-center justify-center rounded-[11px] text-white/55 transition hover:bg-white/[0.08] hover:text-white">
+          className="mt-1 flex h-9 w-full items-center justify-center rounded-[10px] text-slate-600 transition hover:bg-paper hover:text-ink">
           <PanelLeftOpen className="h-4 w-4" />
         </button>}
       </div>

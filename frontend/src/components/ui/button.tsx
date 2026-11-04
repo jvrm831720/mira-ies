@@ -8,14 +8,14 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "rounded-[var(--radius-pill)] bg-neutral-950 text-white shadow-sm transition-colors duration-[var(--motion-standard)] hover:bg-neutral-800",
+          "rounded-[var(--radius-control)] bg-graphite text-white shadow-sm transition-colors duration-[var(--motion-standard)] hover:bg-ink",
         secondary:
-          "rounded-[var(--radius-pill)] bg-neutral-100 text-neutral-900 transition-colors duration-[var(--motion-standard)] hover:bg-neutral-200",
+          "rounded-[var(--radius-control)] bg-paper text-ink transition-colors duration-[var(--motion-standard)] hover:bg-haze",
         outline:
-          "rounded-[var(--radius-pill)] border border-[var(--border-subtle)] bg-white text-neutral-900 transition-colors duration-[var(--motion-standard)] hover:bg-neutral-50",
-        ghost: "rounded-[var(--radius-pill)] transition-colors duration-[var(--motion-standard)] hover:bg-neutral-100",
+          "rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-white text-ink transition-colors duration-[var(--motion-standard)] hover:bg-paper",
+        ghost: "rounded-[var(--radius-control)] text-carbon transition-colors duration-[var(--motion-standard)] hover:bg-paper",
         destructive:
-          "rounded-[var(--radius-pill)] bg-red-600 text-white transition-colors duration-[var(--motion-standard)] hover:bg-red-700",
+          "rounded-[var(--radius-control)] bg-red-700 text-white transition-colors duration-[var(--motion-standard)] hover:bg-red-800",
       },
       size: {
         default: "h-10 px-4 py-2",

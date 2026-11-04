@@ -3,68 +3,110 @@
 @tailwind utilities;
 
 :root {
-  --background: 36 33% 97%;
-  --foreground: 222 25% 12%;
-  --card: 40 33% 99%;
-  --card-foreground: 222 25% 12%;
-  --primary: 233 56% 53%;
+  /* Design tokens — Attio-inspired editorial system for MIRA */
+  --color-page-canvas: #ffffff;
+  --color-ink-black: #1c1d1f;
+  --color-graphite: #232529;
+  --color-obsidian: #101113;
+  --color-carbon: #2e3238;
+  --color-slate-500: #505967;
+  --color-slate-600: #6f7988;
+  --color-slate-700: #8f99a8;
+  --color-fog-400: #9fa1a7;
+  --color-mist-300: #b5bdc9;
+  --color-cloud-200: #cad0d9;
+  --color-cloud-100: #d3d8df;
+  --color-mist-50: #e4e7ec;
+  --color-haze: #eeeff1;
+  --color-paper: #f4f5f6;
+  --color-cobalt-core: #266df0;
+  --color-cobalt-bright: #407ff2;
+  --color-cobalt-soft: #538bf3;
+  --color-periwinkle: #bad0fa;
+  --color-ice-wash: #e4edff;
+  --color-onyx-footer: #000000;
+
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-interdisplay: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-tiempostext: 'Source Serif 4', Georgia, serif;
+
+  /* shadcn-compatible semantic colors: interactive emphasis is cobalt */
+  --background: 0 0% 100%;
+  --foreground: 220 5% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 5% 12%;
+  --primary: 218 87% 55%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 36 24% 92%;
-  --secondary-foreground: 222 25% 12%;
-  --muted: 36 20% 92%;
-  --muted-foreground: 220 10% 44%;
-  --accent: 233 56% 96%;
-  --accent-foreground: 233 56% 30%;
-  --destructive: 4 76% 58%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 220 6% 15%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 216 10% 48%;
+  --accent: 218 100% 95%;
+  --accent-foreground: 218 87% 45%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
   --success: 155 55% 34%;
   --success-foreground: 0 0% 100%;
   --warning: 35 92% 48%;
   --warning-foreground: 28 77% 15%;
-  --border: 34 18% 86%;
-  --input: 34 18% 86%;
-  --ring: 233 56% 53%;
-  --brand-indigo: #4050cd;
-  --brand-blue: #29399f;
-  --brand-coral: #f47769;
-  --brand-midnight: #17191d;
-  --brand-black: #101114;
-  --brand-paper: #f7f5ef;
-  --radius: 1rem;
-  --radius-control: 0.75rem;
-  --radius-card: 1rem;
-  --radius-pill: 999px;
+  --border: 220 16% 91%;
+  --input: 220 16% 91%;
+  --ring: 218 87% 55%;
 
-  /* Spacing scale (4px base) */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-10: 2.5rem;
-  --space-12: 3rem;
+  /* Backwards-compatible aliases for in-progress pages */
+  --brand-indigo: #266df0;
+  --brand-blue: #266df0;
+  --brand-coral: #266df0;
+  --brand-midnight: #232529;
+  --brand-black: #101113;
+  --brand-paper: #f4f5f6;
 
-  /* Semantic surfaces and text */
-  --surface-page: hsl(var(--background));
-  --surface-card: hsl(var(--card));
-  --surface-subtle: hsl(var(--muted));
-  --text-primary: hsl(var(--foreground));
-  --text-secondary: hsl(var(--muted-foreground));
-  --border-subtle: hsl(var(--border));
-  --border-strong: #c9c5bd;
-  --focus-ring: hsl(var(--ring));
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
-  --shadow-overlay: 0 16px 48px rgba(15, 23, 42, 0.16);
+  --surface-page: #ffffff;
+  --surface-card: #ffffff;
+  --surface-subtle: #f4f5f6;
+  --surface-paper: #f4f5f6;
+  --text-primary: #1c1d1f;
+  --text-secondary: #6f7988;
+  --border-subtle: #e4e7ec;
+  --border-strong: #d3d8df;
+  --focus-ring: #266df0;
+
+  --radius: 10px;
+  --radius-control: 10px;
+  --radius-card: 12px;
+  --radius-pill: 10px;
+  --radius-badge: 7px;
+
+  --shadow-subtle: rgb(238, 239, 241) 0 0 0 1px inset;
+  --shadow-card: rgba(28, 40, 64, 0.06) 0 2px 6px 0, rgba(28, 40, 64, 0.04) 0 4px 12px -2px;
+  --shadow-overlay: 0 12px 30px rgba(28, 40, 64, 0.10);
   --motion-fast: 120ms;
   --motion-standard: 180ms;
   --motion-slow: 260ms;
+
+  --spacing-unit: 4px;
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-28: 28px;
+  --spacing-32: 32px;
+  --spacing-36: 36px;
+  --spacing-40: 40px;
+  --spacing-44: 44px;
+  --spacing-48: 48px;
+  --spacing-60: 60px;
+  --spacing-80: 80px;
+  --spacing-100: 100px;
+  --spacing-120: 120px;
+  --page-max-width: 1440px;
+  --card-padding: 24px;
+  --element-gap: 8px;
 }
 
-* {
-  border-color: hsl(var(--border));
-}
+* { border-color: hsl(var(--border)); }
 
 html {
   scroll-behavior: smooth;
@@ -72,54 +114,66 @@ html {
 }
 
 body {
-  color: hsl(var(--foreground));
-  background:
-    radial-gradient(circle at 92% -12%, rgba(64, 80, 205, 0.055), transparent 28rem),
-    hsl(var(--background));
+  color: var(--text-primary);
+  background: var(--surface-page);
   min-height: 100vh;
-  font-feature-settings: "rlig" 1, "calt" 1;
+  font-family: var(--font-inter);
+  font-size: 14px;
+  font-weight: 500;
+  font-feature-settings: 'ss03' 1, 'rlig' 1, 'calt' 1;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: rgba(23, 25, 29, 0.18);
+  background: rgba(28, 29, 31, 0.18);
   background-clip: padding-box;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(23, 25, 29, 0.32);
+  background: rgba(28, 29, 31, 0.32);
   background-clip: padding-box;
 }
 
-::selection {
-  color: #fff;
-  background: var(--brand-indigo);
+::selection { color: #fff; background: var(--color-cobalt-core); }
+:focus-visible { outline: 2px solid var(--color-cobalt-core); outline-offset: 2px; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+
+@layer components {
+  .mira-page { color: var(--text-primary); }
+  .mira-page h2 { letter-spacing: -0.02em; }
+  .mira-page section[aria-label] { min-width: 0; }
+  .mira-surface {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--surface-card);
+    box-shadow: var(--shadow-card);
+  }
+  .mira-muted { color: var(--text-secondary); }
+  .mira-eyebrow {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
 }
 
-:focus-visible {
-  outline: 2px solid var(--brand-indigo);
-  outline-offset: 3px;
+.mira-page input:not([type='checkbox']),
+.mira-page select {
+  border-radius: var(--radius-control);
+  border-color: var(--border-subtle);
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast);
 }
-
-button,
-a,
-input,
-select,
-textarea {
-  -webkit-tap-highlight-color: transparent;
+.mira-page input:not([type='checkbox']):focus,
+.mira-page select:focus {
+  border-color: var(--color-cobalt-core);
+  box-shadow: 0 0 0 3px rgba(38, 109, 240, 0.14);
 }
+.mira-page article,
+.mira-page [data-mira-card='true'] { box-shadow: var(--shadow-card); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -128,73 +182,5 @@ textarea {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-/* MIRA visual system: clear hierarchy, calmer surfaces, purposeful accent color. */
-:root {
-  --surface-page: #f7f6f2;
-  --surface-card: #ffffff;
-  --surface-subtle: #f2f1ed;
-  --text-primary: #17191d;
-  --text-secondary: #667085;
-  --border-subtle: #e6e4df;
-  --border-strong: #d0cdc5;
-  --shadow-card: 0 1px 2px rgba(23, 25, 29, 0.03), 0 8px 24px rgba(23, 25, 29, 0.045);
-}
-
-.mira-page {
-  color: var(--text-primary);
-}
-
-.mira-page h2 {
-  letter-spacing: -0.035em;
-}
-
-.mira-page input:not([type="checkbox"]),
-.mira-page select {
-  border-radius: var(--radius-control);
-  border-color: var(--border-subtle);
-  transition: border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast);
-}
-
-.mira-page input:not([type="checkbox"]):focus,
-.mira-page select:focus {
-  border-color: var(--brand-indigo);
-  box-shadow: 0 0 0 4px rgba(64, 80, 205, 0.10);
-}
-
-.mira-page article,
-.mira-page [data-mira-card="true"] {
-  box-shadow: var(--shadow-card);
-}
-
-.mira-page .mira-eyebrow {
-  color: var(--brand-indigo);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-/* Shared layout primitives — incremental MIRA design-system rollout */
-@layer components {
-  .mira-page {
-    color: var(--text-primary);
-  }
-
-  .mira-page section[aria-label] {
-    min-width: 0;
-  }
-
-  .mira-surface {
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-card);
-    background: var(--surface-card);
-    box-shadow: var(--shadow-card);
-  }
-
-  .mira-muted {
-    color: var(--text-secondary);
   }
 }
