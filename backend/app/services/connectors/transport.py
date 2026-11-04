@@ -82,7 +82,6 @@ class ReadOnlyRestClient:
             context=context, timeout_seconds=timeout_seconds,
             allow_insecure_http=allow_insecure_http, transport=transport,
             _destination_authorization=_destination_authorization_token(),
-            _destination_authorization=_destination_authorization_token(),
         )
 
     def __init__(
