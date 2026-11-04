@@ -1,7 +1,7 @@
-"""Read-only client for Isaac/Marlim bank reconciliation.
+"""Read-only client for the current Marlim v3 bank reconciliation API.
 
 This is a payment-reconciliation source, not a WPensar academic ERP API.
-Only the documented POST /v1/conciliation retrieval operation is exposed.
+Only the documented POST /v3/conciliation retrieval operation is exposed.
 No seller creation, payment creation, refunds, or other write operations.
 """
 from __future__ import annotations
@@ -15,8 +15,8 @@ import httpx
 
 
 ISAAC_MARLIM_BASE_URLS = {
-    "sandbox": "https://sandbox.api.isaac.marlim.co",
-    "production": "https://api.isaac.marlim.co",
+    "sandbox": "https://sandbox.api.marlim.co",
+    "production": "https://api.marlim.co",
 }
 
 
@@ -86,7 +86,11 @@ def _amount(value: Any, field: str) -> int:
     return value
 
 
-def _parse_transactions(payload: dict[str, Any], key: str, state: Literal["paid", "refunded"]) -> list[IsaacMarlimTransaction]:
+def _parse_transactions(
+    payload: dict[str, Any],
+    key: str,
+    state: Literal["paid", "refunded"],
+) -> list[IsaacMarlimTransaction]:
     rows = payload.get(key, [])
     if rows is None:
         return []
@@ -154,19 +158,23 @@ class IsaacMarlimApiClient:
             raise ValueError("date_created deve conter timezone explícito.")
         if isinstance(page, bool) or not isinstance(page, int) or page < 1:
             raise ValueError("page deve ser um inteiro maior ou igual a 1.")
-        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 100:
-            raise ValueError("count deve ser um inteiro entre 1 e 100.")
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 1000:
+            raise ValueError("count deve ser um inteiro entre 1 e 1000.")
         if not isinstance(with_transactions, bool):
             raise ValueError("with_transactions deve ser booleano.")
 
         request_body = {
-            "date_created": date_created.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-            "with_transactions": bool(with_transactions),
+            "date_created": (
+                date_created.astimezone(timezone.utc)
+                .isoformat(timespec="seconds")
+                .replace("+00:00", "Z")
+            ),
+            "with_transactions": with_transactions,
             "page": page,
             "count": count,
         }
         try:
-            response = await self._client.post("/v1/conciliation", json=request_body)
+            response = await self._client.post("/v3/conciliation", json=request_body)
         except httpx.HTTPError as exc:
             raise IsaacMarlimApiError(
                 f"Falha de transporte na API Isaac/Marlim ({type(exc).__name__})."
