@@ -79,8 +79,18 @@ class RetentionCampaignProposal(Base):
     created_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    reviewed_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    authorization_status: Mapped[str] = mapped_column(String(32), nullable=False, default="not_verified")
+    authorization_basis: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    authorization_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    authorization_attested_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    authorization_attested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-
+    
 class RetentionCampaignProposalAuditEvent(Base):
     """Append-only audit trail for proposal editing, review and approval."""
 
