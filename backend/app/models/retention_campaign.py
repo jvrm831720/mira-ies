@@ -90,8 +90,15 @@ class RetentionCampaignProposal(Base):
     authorization_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
     authorization_attested_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
     authorization_attested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    schedule_timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    
+
 class RetentionCampaignProposalAuditEvent(Base):
     """Append-only audit trail for proposal editing, review and approval."""
 
@@ -110,12 +117,8 @@ class RetentionCampaignProposalAuditEvent(Base):
     tenant_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
-    proposal_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), nullable=False
-    )
-    actor_user_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False), nullable=True
-    )
+    proposal_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    actor_user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
