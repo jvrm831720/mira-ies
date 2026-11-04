@@ -225,7 +225,7 @@ class GvcollegeConnector:
 class WpensarConnector:
     info = ConnectorInfo(
         id="wpensar",
-        name="WPensar / Isaac",
+        name="WPensar",
         category="erp",
         description="Transformação de payloads WPensar; cliente nativo de leitura ainda não implementado.",
         has_api=False,
