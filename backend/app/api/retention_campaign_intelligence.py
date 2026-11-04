@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.channels.email import is_valid_email
@@ -105,6 +105,9 @@ async def create_campaign_proposal(
     if any(definition is None for definition in definitions.values()):
         raise HTTPException(status_code=422, detail="A proposta contém grupo desconhecido.")
 
+    # All reads used to derive the audience and its eligibility must observe one
+    # PostgreSQL MVCC snapshot. This is deliberately the first DB command.
+    await db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"))
     evaluated_at = datetime.now(timezone.utc)
     summary = await _build_summary(db, tenant_id=auth.tenant_id, evaluated_at=evaluated_at)
     if summary["truncated"] or summary["evaluated"] != summary["total_eligible"]:
