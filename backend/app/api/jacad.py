@@ -13,6 +13,7 @@ from app.core.auth import AuthContext, require_min_role, _set_tenant_rls_context
 from app.db.session import get_db
 from app.models.jacad_connection import TenantJacadConnection
 from app.services.jacad_queue import enqueue_jacad_sync, get_active_jacad_job, get_jacad_job, retry_jacad_sync
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 from app.services.connectors.jacad_api import (
     JacadApiClient,
     JacadConnectionError,
@@ -109,6 +110,10 @@ async def test_jacad_connection(
     connection = await _get_connection(db, auth.tenant_id)
     if not connection or not connection.is_enabled:
         raise HTTPException(status_code=404, detail="Configure a conexão JACAD antes de testar.")
+    try:
+        await authorize_tenant_destination(db, tenant_id=auth.tenant_id, connector_key="jacad", url=connection.base_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="Destino JACAD não aprovado para este tenant.") from exc
     client = JacadApiClient(connection.base_url, decrypt_api_token(connection.encrypted_api_token))
     try:
         result = await client.test_connection(org_id=connection.default_org_id)
