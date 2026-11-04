@@ -353,11 +353,13 @@ async def request_action_confirmation(
     await db.commit()
     settings = get_settings()
     if not settings.resend_api_key or not settings.email_from:
-        challenge.consumed_at = _now(); await db.commit()
+        challenge.consumed_at = _now()
+        await db.commit()
         raise HTTPException(status_code=503, detail="Confirmação por e-mail indisponível.")
     delivery = await send_email_resend(to=admin.email, subject="Confirmação de ação crítica — MIRA", body=f"Solicitação: {action} (alvo {body.target_id}). Código: {code}. Expira em 5 minutos, uso único. Se não reconhece a ação, ignore este e-mail.")
     if not delivery.ok:
-        challenge.consumed_at = _now(); await db.commit()
+        challenge.consumed_at = _now()
+        await db.commit()
         raise HTTPException(status_code=503, detail="Não foi possível enviar a confirmação por e-mail.")
     return {"message": "Código enviado ao e-mail cadastrado.", "expires_in": _ACTION_CODE_TTL_SECONDS, "challenge_id": challenge.id}
 
@@ -370,13 +372,16 @@ async def consume_action_confirmation(db: AsyncSession, request: Request, admin:
     now = _now()
     valid = bool(challenge and challenge.expires_at > now and challenge.attempts < _ACTION_CODE_ATTEMPTS)
     if not valid:
-        await _audit(db, "high_risk_action", "denied", admin.id, request, reason=action); await db.commit()
+        await _audit(db, "high_risk_action", "denied", admin.id, request, reason=action)
+        await db.commit()
         raise HTTPException(status_code=401, detail="Confirmação ausente, inválida ou expirada.")
     challenge.attempts += 1
     matches = challenge.action_key == action and hmac.compare_digest(challenge.payload_hash or "", _action_payload_hash(action, target_id, payload)) and hmac.compare_digest(challenge.code_hash, _digest("otp", f"{admin.email}:{code}"))
     if not matches:
-        if challenge.attempts >= _ACTION_CODE_ATTEMPTS: challenge.consumed_at = now
-        await _audit(db, "high_risk_action_confirmation", "denied", admin.id, request, reason=action); await db.commit()
+        if challenge.attempts >= _ACTION_CODE_ATTEMPTS:
+            challenge.consumed_at = now
+        await _audit(db, "high_risk_action_confirmation", "denied", admin.id, request, reason=action)
+        await db.commit()
         raise HTTPException(status_code=401, detail="Confirmação inválida para esta ação.")
     challenge.consumed_at = now
     await _audit(db, "high_risk_action_confirmation", "confirmed", admin.id, request, reason=action)
