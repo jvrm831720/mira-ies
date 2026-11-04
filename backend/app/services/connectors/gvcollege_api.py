@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import math
 import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ import httpx
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_HEADER_NAME = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 _ALLOWED_OPERATORS = {"eq", "ne", "gt", "ge", "lt", "le"}
 
 
@@ -90,6 +92,8 @@ class GvcollegeInstitutionConfig:
             or parsed.password
             or parsed.query
             or parsed.fragment
+            or parsed.path not in ("", "/")
+            or parsed.port not in (None, 443)
         ):
             raise GvcollegeConfigurationError(
                 "base_url deve ser HTTPS, sem credenciais, query ou fragmento"
@@ -111,8 +115,14 @@ class GvcollegeInstitutionConfig:
             )
         if not 1 <= self.page_size <= 1000:
             raise GvcollegeConfigurationError("page_size deve estar entre 1 e 1000")
-        if self.timeout_seconds <= 0 or self.max_response_bytes <= 0:
-            raise GvcollegeConfigurationError("Limites HTTP devem ser positivos")
+        if (
+            not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+            or not isinstance(self.max_response_bytes, int)
+            or isinstance(self.max_response_bytes, bool)
+            or self.max_response_bytes <= 0
+        ):
+            raise GvcollegeConfigurationError("Limites HTTP devem ser positivos e finitos")
         if not self.views:
             raise GvcollegeConfigurationError("Nenhuma view foi homologada")
         object.__setattr__(self, "allowed_hosts", normalized)
@@ -132,7 +142,11 @@ class ODataFilter:
             raise GvcollegeConfigurationError("Operador OData não permitido")
         if isinstance(self.value, bool):
             value = "true" if self.value else "false"
-        elif isinstance(self.value, (int, float)):
+        elif isinstance(self.value, float):
+            if not math.isfinite(self.value):
+                raise GvcollegeConfigurationError("Filtro numérico deve ser finito")
+            value = str(self.value)
+        elif isinstance(self.value, int):
             value = str(self.value)
         elif isinstance(self.value, str):
             value = "'" + self.value.replace("'", "''") + "'"
@@ -153,8 +167,19 @@ class GvcollegeWebAPIClient:
     ) -> None:
         self.config = config
         self._auth_headers = dict(auth_headers or {})
-        if any("\r" in k + v or "\n" in k + v for k, v in self._auth_headers.items()):
-            raise GvcollegeConfigurationError("Header de autenticação inválido")
+        forbidden_headers = {
+            "host", "content-length", "transfer-encoding", "connection",
+            "proxy-authorization", "proxy-authenticate",
+        }
+        for key, value in self._auth_headers.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                raise GvcollegeConfigurationError("Headers de autenticação devem ser texto")
+            if (
+                not _HEADER_NAME.fullmatch(key)
+                or key.lower() in forbidden_headers
+                or any(char in key + value for char in "\r\n")
+            ):
+                raise GvcollegeConfigurationError("Header de autenticação inválido")
         self._client = httpx.AsyncClient(
             base_url=config.base_url,
             timeout=httpx.Timeout(config.timeout_seconds),
