@@ -1,6 +1,6 @@
 """Persist exact outbound destinations per tenant and connector.
 
-Revision ID: 039_tenant_connector_destinations
+Revision ID: 039_tenant_conn_dest
 Revises: 038_high_risk_confirmation
 """
 from alembic import op
