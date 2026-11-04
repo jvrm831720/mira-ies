@@ -6,7 +6,7 @@ Canvas origin and /api/v1 namespace.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import re
 from typing import Any
@@ -30,7 +30,7 @@ class CanvasContractError(CanvasApiError):
 @dataclass(frozen=True)
 class CanvasConfig:
     base_url: str
-    access_token: str
+    access_token: str = field(repr=False)
     timeout_seconds: float = 30.0
 
     def api_base_url(self) -> str:

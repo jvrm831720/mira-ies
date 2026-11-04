@@ -91,7 +91,7 @@ class MoodleConnector:
 
             dias_login = to_int(pick(item, "dias_sem_login", "days_since_login"))
             if dias_login is None:
-                dias_login = _days_since(pick(item, "lastaccess", "last_access", "timecreated"))
+                dias_login = _days_since(pick(item, "lastaccess", "last_access"))
 
             records.append({
                 "matricula": matricula,
@@ -150,7 +150,7 @@ class CanvasConnector:
             dias_login = to_int(pick(item, "dias_sem_login"))
             if dias_login is None:
                 dias_login = _days_since(pick(
-                    item, "last_activity_at", "last_login", "updated_at"
+                    item, "last_activity_at", "last_login"
                 ))
 
             records.append({

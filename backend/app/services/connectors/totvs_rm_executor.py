@@ -9,7 +9,7 @@ import importlib
 import inspect
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 import httpx
@@ -26,7 +26,7 @@ from app.services.connectors.totvs_rm_sync_orchestrator import RMJobCancelled, R
 class RMConnection:
     base_url: str
     username: str
-    password: str
+    password: str = field(repr=False)
     context_headers: dict[str, str]
 
 

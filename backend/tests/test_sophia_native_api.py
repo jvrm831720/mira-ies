@@ -152,3 +152,11 @@ async def test_boleto_uses_documented_id_titulo_parameter():
     assert result["LinhaDigitavel"] == "00190"
     assert requests[1].url.params["idTitulo"] == "987"
 
+
+
+
+def test_sophia_config_repr_does_not_expose_credentials():
+    value = config(username="secret-user", password="secret-password")
+    rendered = repr(value)
+    assert "secret-user" not in rendered
+    assert "secret-password" not in rendered

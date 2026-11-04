@@ -96,3 +96,11 @@ def test_executor_requires_explicit_installation_homologation(monkeypatch):
         _assert_executor_contract_enabled()
     monkeypatch.setenv("RM_SYNC_EDUALUNODATA_CONTRACT_CONFIRMED", "true")
     _assert_executor_contract_enabled()
+
+
+
+def test_rm_connection_repr_does_not_expose_password():
+    from app.services.connectors.totvs_rm_executor import RMConnection
+
+    connection = RMConnection("https://rm.example", "integration-user", "secret-password", {})
+    assert "secret-password" not in repr(connection)

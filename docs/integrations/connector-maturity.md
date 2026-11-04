@@ -20,10 +20,11 @@ operacional com um cliente.
 | SophiA Gestão Escolar | Cliente nativo da API, fila/worker, snapshots e isolamento por tenant. Credenciais e ambiente institucional ainda não homologados. | Suporte técnico implementado |
 | JACAD | Conector de API e sincronização em background. Homologação real depende de instalação e credenciais do cliente. | Suporte técnico implementado |
 | Sponte | Conector da API Sponte BI, extração paginada e sincronização em background. Homologação real depende do cliente. | Suporte técnico implementado |
-| GVDASA / GVcollege | Cliente WebAPI read-only, contratos de views por tenant, OData restrito e manifesto de prontidão. Sem credenciais ou views reais de cliente. | Suporte técnico implementado |
-| WPensar / Isaac | Suporte a transformação de payload; sem cliente nativo de API e sincronização pull. | Em desenvolvimento |
-| Moodle | Suporte a webhook/transformação; sem cliente nativo pull. | Em desenvolvimento |
-| Canvas | Suporte a webhook/transformação; sem cliente nativo pull. | Em desenvolvimento |
+| GVDASA / GVcollege | Transformer de payload; Wave 3 contém apenas descoberta local de fixtures sintéticas e normalização em dry-run. Não há cliente WebAPI de consulta, descoberta remota ou persistência nesta wave. Sem credenciais ou views reais de cliente. | Em desenvolvimento |
+| WPensar | Transformação de payload; sem contrato público de API REST de leitura validado e sem cliente nativo pull. | Em desenvolvimento |
+| Isaac / Marlim | Cliente read-only parcial para conciliação financeira documentada; sem persistência, vínculo com cobrança/aluno ou homologação. | Suporte técnico implementado |
+| Moodle | Cliente nativo Web Services REST read-only; funções dependem da configuração e permissões da instalação. Sem homologação institucional. | Suporte técnico implementado |
+| Canvas | Cliente nativo REST read-only com OAuth2 e paginação protegida. Sem homologação institucional. | Suporte técnico implementado |
 | JSON genérico | Transformação de payload e rota de ingestão genérica. Não equivale a conector nativo de ERP. | Suporte técnico implementado |
 
 ## Regras de governança

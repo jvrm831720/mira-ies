@@ -6,7 +6,7 @@ or token values.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import ipaddress
 import os
 from typing import Any
@@ -43,8 +43,8 @@ class SophiaApiConfig:
     # Full API root, including the installation serial and version path,
     # e.g. https://host.example/<serial>/api/v1.
     base_url: str
-    username: str
-    password: str
+    username: str = field(repr=False)
+    password: str = field(repr=False)
     user_agent: str = "MIRA-IES"
     timeout_seconds: float = 25.0
 

@@ -6,7 +6,7 @@ an allowlist of documented read operations and sends tokens in the POST body.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -41,7 +41,7 @@ class MoodleContractError(MoodleApiError):
 @dataclass(frozen=True)
 class MoodleConfig:
     base_url: str
-    token: str
+    token: str = field(repr=False)
     timeout_seconds: float = 30.0
 
     def endpoint_url(self) -> str:
