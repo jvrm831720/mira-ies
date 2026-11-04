@@ -168,7 +168,9 @@ class CanvasApiClient:
             self._validate_page_url(resolved)
             url = resolved
             page_params = None
-        return results
+        raise CanvasContractError(
+            "Canvas excedeu o limite de páginas; resultados parciais não serão tratados como completos."
+        )
 
     async def list_courses(self, params: dict[str, Any] | None = None) -> Any:
         return await self.get("courses", params)
