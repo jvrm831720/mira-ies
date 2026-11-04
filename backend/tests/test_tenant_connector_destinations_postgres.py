@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 
 import pytest
@@ -14,157 +15,162 @@ from app.models.tenant import Tenant
 
 
 @pytest.mark.asyncio
-async def test_postgres_destination_rls_and_append_only_audit(db_session):
-    """Exercise real PostgreSQL RLS with FORCE ROW LEVEL SECURITY enabled."""
-    tenant_a = Tenant(slug="egress-a", name="Egress A", is_active=True)
-    tenant_b = Tenant(slug="egress-b", name="Egress B", is_active=True)
+async def test_postgres_destination_migration_rls_and_append_only_audit(db_session):
+    """Exercise the exact RLS policies and triggers installed by Alembic 039."""
+    if os.environ.get("MIRA_TEST_PRESERVE_MIGRATED_SCHEMA", "").lower() != "true":
+        pytest.skip("Requires the disposable CI database migrated with Alembic.")
+
+    expected_role = os.environ.get("MIRA_REQUIRE_NON_SUPERUSER_DB_ROLE", "mira_test_runner")
+    role = (await db_session.execute(text("""
+        SELECT current_user, rolsuper, rolbypassrls
+        FROM pg_roles
+        WHERE rolname = current_user
+    """))).one()
+    assert role.current_user == expected_role
+    assert role.rolsuper is False
+    assert role.rolbypassrls is False
+
+    # Verify the exact objects created by migration 039; the test does not
+    # create substitute policies or triggers.
+    policies = (await db_session.execute(text("""
+        SELECT tablename, policyname, cmd
+        FROM pg_policies
+        WHERE schemaname = current_schema()
+          AND tablename IN (
+            'tenant_connector_destinations',
+            'tenant_connector_destination_audit'
+          )
+    """))).all()
+    assert {(r.tablename, r.policyname, r.cmd) for r in policies} == {
+        ("tenant_connector_destinations", "tenant_connector_destinations_isolation", "ALL"),
+        ("tenant_connector_destination_audit", "tenant_connector_destination_audit_isolation", "ALL"),
+    }
+
+    trigger_rows = (await db_session.execute(text("""
+        SELECT c.relname AS table_name, t.tgname AS trigger_name,
+               t.tgenabled, p.proname AS function_name
+        FROM pg_trigger t
+        JOIN pg_class c ON c.oid = t.tgrelid
+        JOIN pg_proc p ON p.oid = t.tgfoid
+        WHERE NOT t.tgisinternal
+          AND c.relname = 'tenant_connector_destination_audit'
+    """))).all()
+    assert {(r.table_name, r.trigger_name, r.function_name) for r in trigger_rows} == {
+        ("tenant_connector_destination_audit", "tenant_connector_destination_audit_append_only", "reject_connector_destination_audit_mutation"),
+        ("tenant_connector_destination_audit", "tenant_connector_destination_audit_no_truncate", "reject_connector_destination_audit_mutation"),
+    }
+    assert all(r.tgenabled == "O" for r in trigger_rows)
+
+    rls = (await db_session.execute(text("""
+        SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
+        FROM pg_class c
+        WHERE c.relname IN (
+          'tenant_connector_destinations',
+          'tenant_connector_destination_audit'
+        )
+    """))).all()
+    assert {(r.relname, r.relrowsecurity, r.relforcerowsecurity) for r in rls} == {
+        ("tenant_connector_destinations", True, True),
+        ("tenant_connector_destination_audit", True, True),
+    }
+
+    tenant_a = Tenant(slug=f"egress-a-{uuid.uuid4().hex[:8]}", name="Egress A", is_active=True)
+    tenant_b = Tenant(slug=f"egress-b-{uuid.uuid4().hex[:8]}", name="Egress B", is_active=True)
     db_session.add_all([tenant_a, tenant_b])
     await db_session.commit()
 
-    statements = [
-        "ALTER TABLE tenant_connector_destinations ENABLE ROW LEVEL SECURITY",
-        "ALTER TABLE tenant_connector_destinations FORCE ROW LEVEL SECURITY",
-        "DROP POLICY IF EXISTS tenant_connector_destinations_test_isolation ON tenant_connector_destinations",
-        """CREATE POLICY tenant_connector_destinations_test_isolation
-           ON tenant_connector_destinations
-           USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-           WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)""",
-        "ALTER TABLE tenant_connector_destination_audit ENABLE ROW LEVEL SECURITY",
-        "ALTER TABLE tenant_connector_destination_audit FORCE ROW LEVEL SECURITY",
-        "DROP POLICY IF EXISTS tenant_connector_destination_audit_test_isolation ON tenant_connector_destination_audit",
-        """CREATE POLICY tenant_connector_destination_audit_test_isolation
-           ON tenant_connector_destination_audit
-           USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
-           WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)""",
-        """CREATE OR REPLACE FUNCTION reject_connector_destination_audit_mutation_test()
-           RETURNS trigger LANGUAGE plpgsql
-           AS 'BEGIN RAISE EXCEPTION ''connector destination audit is append-only''; END;'""",
-        "DROP TRIGGER IF EXISTS tenant_connector_destination_audit_append_only_test ON tenant_connector_destination_audit",
-        """CREATE TRIGGER tenant_connector_destination_audit_append_only_test
-           BEFORE UPDATE OR DELETE ON tenant_connector_destination_audit
-           FOR EACH ROW EXECUTE FUNCTION reject_connector_destination_audit_mutation_test()""",
-        """CREATE TRIGGER tenant_connector_destination_audit_no_truncate_test
-           BEFORE TRUNCATE ON tenant_connector_destination_audit
-           FOR EACH STATEMENT EXECUTE FUNCTION reject_connector_destination_audit_mutation_test()""",
-    ]
-    for statement in statements:
-        await db_session.execute(text(statement))
+    destination_a_id, destination_b_id = str(uuid.uuid4()), str(uuid.uuid4())
+    audit_a_id, audit_b_id = str(uuid.uuid4()), str(uuid.uuid4())
+
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    db_session.add(TenantConnectorDestination(
+        id=destination_a_id, tenant_id=tenant_a.id, connector_key="canvas",
+        hostname="canvas.a.example", scheme="https", port=443,
+        is_enabled=True, approval_reason="Approved for tenant A",
+    ))
+    db_session.add(TenantConnectorDestinationAudit(
+        id=audit_a_id, tenant_id=tenant_a.id, destination_id=destination_a_id,
+        connector_key="canvas", hostname="canvas.a.example", action="approved",
+        reason="Approved for tenant A",
+    ))
     await db_session.commit()
 
-    destination_a_id = str(uuid.uuid4())
-    destination_b_id = str(uuid.uuid4())
-    audit_a_id = str(uuid.uuid4())
-    audit_b_id = str(uuid.uuid4())
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b.id})
+    db_session.add(TenantConnectorDestination(
+        id=destination_b_id, tenant_id=tenant_b.id, connector_key="canvas",
+        hostname="canvas.b.example", scheme="https", port=443,
+        is_enabled=True, approval_reason="Approved for tenant B",
+    ))
+    db_session.add(TenantConnectorDestinationAudit(
+        id=audit_b_id, tenant_id=tenant_b.id, destination_id=destination_b_id,
+        connector_key="canvas", hostname="canvas.b.example", action="approved",
+        reason="Approved for tenant B",
+    ))
+    await db_session.commit()
 
-    try:
-        await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
-        db_session.add(TenantConnectorDestination(
-            id=destination_a_id, tenant_id=tenant_a.id, connector_key="canvas",
-            hostname="canvas.a.example", scheme="https", port=443,
-            is_enabled=True, approval_reason="Approved for tenant A",
-        ))
-        db_session.add(TenantConnectorDestinationAudit(
-            id=audit_a_id, tenant_id=tenant_a.id, destination_id=destination_a_id,
-            connector_key="canvas", hostname="canvas.a.example", action="approved",
-            reason="Approved for tenant A",
-        ))
-        await db_session.commit()
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    visible_a = (await db_session.execute(text(
+        "SELECT id FROM tenant_connector_destinations ORDER BY id"
+    ))).scalars().all()
+    assert visible_a == [uuid.UUID(destination_a_id)]
+    visible_a_audit = (await db_session.execute(text(
+        "SELECT id FROM tenant_connector_destination_audit ORDER BY id"
+    ))).scalars().all()
+    assert visible_a_audit == [uuid.UUID(audit_a_id)]
 
-        await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b.id})
-        db_session.add(TenantConnectorDestination(
-            id=destination_b_id, tenant_id=tenant_b.id, connector_key="canvas",
-            hostname="canvas.b.example", scheme="https", port=443,
-            is_enabled=True, approval_reason="Approved for tenant B",
-        ))
-        db_session.add(TenantConnectorDestinationAudit(
-            id=audit_b_id, tenant_id=tenant_b.id, destination_id=destination_b_id,
-            connector_key="canvas", hostname="canvas.b.example", action="approved",
-            reason="Approved for tenant B",
-        ))
-        await db_session.commit()
+    # RLS filters cross-tenant writes and rejects cross-tenant inserts.
+    result = await db_session.execute(text(
+        "UPDATE tenant_connector_destinations SET is_enabled = false WHERE id = :id"
+    ), {"id": destination_b_id})
+    assert result.rowcount == 0
+    with pytest.raises(DBAPIError):
+        await db_session.execute(text("""
+            INSERT INTO tenant_connector_destinations
+                (id, tenant_id, connector_key, hostname, scheme, port,
+                 is_enabled, approval_reason)
+            VALUES (:id, :tenant_id, 'canvas', 'forged.b.example',
+                    'https', 443, true, 'Cross-tenant approval attempt')
+        """), {"id": str(uuid.uuid4()), "tenant_id": tenant_b.id})
+    await db_session.rollback()
 
-        await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
-        visible_a = (await db_session.execute(text(
-            "SELECT id FROM tenant_connector_destinations ORDER BY id"
-        ))).scalars().all()
-        assert visible_a == [destination_a_id]
-        visible_a_audit = (await db_session.execute(text(
-            "SELECT id FROM tenant_connector_destination_audit ORDER BY id"
-        ))).scalars().all()
-        assert visible_a_audit == [audit_a_id]
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    cross_tenant_audit_update = await db_session.execute(text(
+        "UPDATE tenant_connector_destination_audit SET reason = 'tampered' WHERE id = :id"
+    ), {"id": audit_b_id})
+    assert cross_tenant_audit_update.rowcount == 0
 
-        # A cross-tenant revoke/update is filtered by RLS and changes no row.
-        result = await db_session.execute(text(
-            "UPDATE tenant_connector_destinations SET is_enabled = false WHERE id = :id"
-        ), {"id": destination_b_id})
-        assert result.rowcount == 0
-        with pytest.raises(DBAPIError):
-            await db_session.execute(text("""
-                INSERT INTO tenant_connector_destinations
-                    (id, tenant_id, connector_key, hostname, scheme, port,
-                     is_enabled, approval_reason)
-                VALUES (:id, :tenant_id, 'canvas', 'forged.b.example',
-                        'https', 443, true, 'Cross-tenant approval attempt')
-            """), {"id": str(uuid.uuid4()), "tenant_id": tenant_b.id})
-        await db_session.rollback()
-        await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
-        cross_tenant_audit_update = await db_session.execute(text(
+    # A tenant may update its own destination and append a revoke event.
+    await db_session.execute(text(
+        "UPDATE tenant_connector_destinations SET is_enabled = false WHERE id = :id"
+    ), {"id": destination_a_id})
+    db_session.add(TenantConnectorDestinationAudit(
+        id=str(uuid.uuid4()), tenant_id=tenant_a.id, destination_id=destination_a_id,
+        connector_key="canvas", hostname="canvas.a.example", action="revoked",
+        reason="Revoked for tenant A",
+    ))
+    await db_session.commit()
+
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    with pytest.raises(DBAPIError, match="append-only"):
+        await db_session.execute(text(
             "UPDATE tenant_connector_destination_audit SET reason = 'tampered' WHERE id = :id"
-        ), {"id": audit_b_id})
-        assert cross_tenant_audit_update.rowcount == 0
+        ), {"id": audit_a_id})
+    await db_session.rollback()
 
-        # Tenant A can revoke its own destination and append a revocation event.
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    with pytest.raises(DBAPIError, match="append-only"):
         await db_session.execute(text(
-            "UPDATE tenant_connector_destinations SET is_enabled = false WHERE id = :id"
-        ), {"id": destination_a_id})
-        db_session.add(TenantConnectorDestinationAudit(
-            id=str(uuid.uuid4()), tenant_id=tenant_a.id, destination_id=destination_a_id,
-            connector_key="canvas", hostname="canvas.a.example", action="revoked",
-            reason="Revoked for tenant A",
-        ))
-        await db_session.commit()
+            "DELETE FROM tenant_connector_destination_audit WHERE id = :id"
+        ), {"id": audit_a_id})
+    await db_session.rollback()
 
-        with pytest.raises(DBAPIError, match="append-only"):
-            await db_session.execute(text(
-                "UPDATE tenant_connector_destination_audit SET reason = 'tampered' WHERE id = :id"
-            ), {"id": audit_a_id})
-        await db_session.rollback()
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+    with pytest.raises(DBAPIError, match="append-only"):
+        await db_session.execute(text("TRUNCATE TABLE tenant_connector_destination_audit"))
+    await db_session.rollback()
 
-        await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
-        with pytest.raises(DBAPIError, match="append-only"):
-            await db_session.execute(text(
-                "DELETE FROM tenant_connector_destination_audit WHERE id = :id"
-            ), {"id": audit_a_id})
-        await db_session.rollback()
-
-        with pytest.raises(DBAPIError, match="append-only"):
-            await db_session.execute(text("TRUNCATE TABLE tenant_connector_destination_audit"))
-        await db_session.rollback()
-
-        await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b.id})
-        visible_b = (await db_session.execute(text(
-            "SELECT id FROM tenant_connector_destinations ORDER BY id"
-        ))).scalars().all()
-        assert visible_b == [destination_b_id]
-    finally:
-        await db_session.rollback()
-        await db_session.execute(text(
-            "DROP TRIGGER IF EXISTS tenant_connector_destination_audit_append_only_test ON tenant_connector_destination_audit"
-        ))
-        await db_session.execute(text(
-            "DROP TRIGGER IF EXISTS tenant_connector_destination_audit_no_truncate_test ON tenant_connector_destination_audit"
-        ))
-        await db_session.execute(text(
-            "DROP FUNCTION IF EXISTS reject_connector_destination_audit_mutation_test()"
-        ))
-        await db_session.execute(text(
-            "DROP POLICY IF EXISTS tenant_connector_destinations_test_isolation ON tenant_connector_destinations"
-        ))
-        await db_session.execute(text(
-            "DROP POLICY IF EXISTS tenant_connector_destination_audit_test_isolation ON tenant_connector_destination_audit"
-        ))
-        await db_session.execute(text("ALTER TABLE tenant_connector_destinations NO FORCE ROW LEVEL SECURITY"))
-        await db_session.execute(text("ALTER TABLE tenant_connector_destinations DISABLE ROW LEVEL SECURITY"))
-        await db_session.execute(text("ALTER TABLE tenant_connector_destination_audit NO FORCE ROW LEVEL SECURITY"))
-        await db_session.execute(text("ALTER TABLE tenant_connector_destination_audit DISABLE ROW LEVEL SECURITY"))
-        await db_session.commit()
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b.id})
+    visible_b = (await db_session.execute(text(
+        "SELECT id FROM tenant_connector_destinations ORDER BY id"
+    ))).scalars().all()
+    assert visible_b == [uuid.UUID(destination_b_id)]
