@@ -49,8 +49,12 @@ def upgrade() -> None:
         RETURNS trigger AS $$
         BEGIN
             IF TG_OP = 'DELETE' THEN
-                RAISE EXCEPTION 'Retention campaign proposal snapshots cannot be deleted'
-                    USING ERRCODE = 'check_violation';
+                -- Permit tenant-level cascade deletion, but reject direct proposal deletion.
+                IF EXISTS (SELECT 1 FROM tenants WHERE id = OLD.tenant_id) THEN
+                    RAISE EXCEPTION 'Retention campaign proposal snapshots cannot be deleted'
+                        USING ERRCODE = 'check_violation';
+                END IF;
+                RETURN OLD;
             END IF;
             IF NEW.source_group_ids IS DISTINCT FROM OLD.source_group_ids
                OR NEW.source_catalog_version IS DISTINCT FROM OLD.source_catalog_version
