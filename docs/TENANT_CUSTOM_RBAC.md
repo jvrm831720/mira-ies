@@ -51,7 +51,7 @@ A autenticação central resolve a permissão específica por recurso e método 
 
 ## Recuperação administrativa
 
-O papel `admin` existente não é editável nem pode ser convertido em cargo personalizado por esta funcionalidade. Assim, a instituição mantém um caminho administrativo de recuperação independente dos cargos configuráveis. A atribuição de cargos não altera nem desativa administradores principais.
+O papel `admin` existente não é editável nem pode ser convertido em cargo personalizado por esta funcionalidade. Um trigger no banco impede rebaixar, desativar ou excluir o último administrador ativo de um tenant. A recuperação de credenciais usa o fluxo existente de redefinição de senha por e-mail e os códigos de recuperação MFA; se ambos forem perdidos, é necessário um processo de suporte com verificação de identidade fora de banda. A atribuição de cargos não altera nem desativa administradores principais.
 
 ## Migration
 
