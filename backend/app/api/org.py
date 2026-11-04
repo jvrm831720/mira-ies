@@ -139,8 +139,11 @@ async def create_invite(
 ):
     settings = get_settings()
 
-    if body.role == "admin" and (auth.role != "admin" or not auth.user_id):
-        raise HTTPException(status_code=403, detail="Somente um administrador pode conceder o papel admin.")
+    if body.role == "admin":
+        if auth.role != "admin" or not auth.user_id:
+            raise HTTPException(status_code=403, detail="Somente um administrador pode conceder o papel admin.")
+        if auth.aal < 2 or not auth.authenticated_at or int(_now().timestamp()) - auth.authenticated_at > 600:
+            raise HTTPException(status_code=403, detail="Confirme novamente sua identidade com MFA antes de conceder admin.")
     if body.custom_role_id and body.role == "admin":
         raise HTTPException(status_code=422, detail="Um convite não pode combinar admin com cargo personalizado.")
     custom_role = None
