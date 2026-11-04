@@ -131,9 +131,11 @@ class SophiaSyncWorker:
                 password=decrypt_sophia_secret(connection.encrypted_password),
             )
             config.validate_runtime_host()
+            client = await SophiaApiClient.for_tenant(
+                session, tenant_id=tenant_id, config=config
+            )
             link_data = [(link.student_id, link.codigo_interno) for link in links]
 
-        client = SophiaApiClient(config)
         completed = 0
         resource_counts: dict[str, int] = {}
         try:

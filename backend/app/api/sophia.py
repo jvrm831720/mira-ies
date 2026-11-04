@@ -59,7 +59,7 @@ async def _client_for_tenant(db: AsyncSession, tenant_id: str) -> SophiaApiClien
         password=decrypt_sophia_secret(connection.encrypted_password),
     )
     config.validate_runtime_host()
-    return SophiaApiClient(config)
+    return await SophiaApiClient.for_tenant(db, tenant_id=tenant_id, config=config)
 
 
 async def _student_code(db: AsyncSession, tenant_id: str, student_id: str) -> int:

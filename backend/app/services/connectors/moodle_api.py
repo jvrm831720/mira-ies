@@ -13,6 +13,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
+from app.services.connectors.tenant_destinations import (
+    authorize_connector_client,
+    require_destination_authorization,
+)
+
 
 MOODLE_READ_FUNCTIONS = frozenset({
     "core_webservice_get_site_info",
@@ -90,12 +95,28 @@ def _flatten_params(value: Any, prefix: str = "") -> dict[str, str]:
 class MoodleApiClient:
     """Minimal read-only client for Moodle's standard REST web service endpoint."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        config: MoodleConfig,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "MoodleApiClient":
+        token = await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="moodle", url=config.base_url
+        )
+        return cls(config, transport=transport, authorization_token=token)
+
     def __init__(
         self,
         config: MoodleConfig,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        authorization_token: object | None = None,
     ) -> None:
+        require_destination_authorization(authorization_token)
         self.config = config
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(config.timeout_seconds),

@@ -13,6 +13,10 @@ from xml.etree import ElementTree
 
 from app.services.connectors.soap import TotvsReadOnlySoapClient
 from app.services.connectors.transport import ERPRequestContext, ReadOnlyRestClient
+from app.services.connectors.tenant_destinations import (
+    authorize_connector_client,
+    require_destination_authorization,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,8 +37,24 @@ class TotvsRMConfig:
 class TotvsRMReadOnlyAdapter:
     """Operações de leitura RM sem sincronização automática ou escrita."""
 
-    def __init__(self, config: TotvsRMConfig) -> None:
+    @classmethod
+    async def for_tenant(
+        cls, db, *, tenant_id: str, config: TotvsRMConfig
+    ) -> "TotvsRMReadOnlyAdapter":
+        await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="totvs_rm", url=config.soap_endpoint
+        )
+        token = await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="totvs_rm", url=config.rest_base_url
+        )
+        return cls(config, authorization_token=token)
+
+    def __init__(
+        self, config: TotvsRMConfig, *, authorization_token: object | None = None
+    ) -> None:
+        require_destination_authorization(authorization_token)
         self._config = config
+        self._authorization_token = authorization_token
 
     async def read_student_record(self, *, ra: str) -> dict[str, str]:
         """Lê aluno por chave composta e retorna apenas CODCOLIGADA/RA.
@@ -52,6 +72,7 @@ class TotvsRMReadOnlyAdapter:
             context=self._config.context,
             timeout_seconds=self._config.timeout_seconds,
             allow_insecure_http=self._config.allow_insecure_http,
+            authorization_token=self._authorization_token,
         ) as soap:
             raw_xml = await soap.read_record(
                 dataserver="EduAlunoData",
@@ -100,6 +121,7 @@ class TotvsRMReadOnlyAdapter:
             context=self._config.context,
             timeout_seconds=self._config.timeout_seconds,
             allow_insecure_http=self._config.allow_insecure_http,
+            authorization_token=self._authorization_token,
         ) as rest:
             async for page in rest.iter_offset_pages(
                 "EduAlunoData",
@@ -140,6 +162,7 @@ class TotvsRMReadOnlyAdapter:
             context=self._config.context,
             timeout_seconds=self._config.timeout_seconds,
             allow_insecure_http=self._config.allow_insecure_http,
+            authorization_token=self._authorization_token,
         ) as rest:
             async for page in rest.iter_offset_pages(
                 path,

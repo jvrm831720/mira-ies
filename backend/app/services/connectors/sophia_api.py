@@ -15,6 +15,11 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from app.services.connectors.tenant_destinations import (
+    authorize_connector_client,
+    require_destination_authorization,
+)
+
 
 class SophiaApiError(RuntimeError):
     """Base error for SophiA API failures."""
@@ -93,12 +98,28 @@ class SophiaApiConfig:
 class SophiaApiClient:
     """Minimal read-only client for documented SophiA Gestão Escolar v1 routes."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        config: SophiaApiConfig,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "SophiaApiClient":
+        token = await authorize_connector_client(
+            db, tenant_id=tenant_id, connector_key="sophia", url=config.base_url
+        )
+        return cls(config, transport=transport, authorization_token=token)
+
     def __init__(
         self,
         config: SophiaApiConfig,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        authorization_token: object | None = None,
     ) -> None:
+        require_destination_authorization(authorization_token)
         self.config = config
         self.base_url = config.validated_base_url()
         self._token: str | None = None
