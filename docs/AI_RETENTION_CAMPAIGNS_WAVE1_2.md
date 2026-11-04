@@ -5,7 +5,7 @@
 - Criação para um ou mais dos sete grupos, com deduplicação por `student_id`.
 - Snapshot da audiência com grupos de origem, elegibilidade por canal, bloqueios, ação interna e data da intervenção recente.
 - Hash SHA-256 canônico para verificar a integridade do snapshot.
-- Trigger PostgreSQL impede alteração posterior do snapshot, hash, grupos de origem, versão do catálogo, motor e contagens.
+- Trigger PostgreSQL impede alteração ou exclusão direta do snapshot, hash, grupos de origem, versão do catálogo, motor e contagens; exclusão em cascata por remoção do tenant permanece permitida.
 - Tenant scoping em criação, listagem e leitura.
 - Proposta registra objetivo, estratégia, canais, cadência e briefing derivados das oportunidades existentes.
 
