@@ -43,7 +43,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", postgresql.UUID(as_uuid=False), sa.ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False),
         sa.Column("proposal_id", postgresql.UUID(as_uuid=False), nullable=False),
         sa.Column("actor_user_id", postgresql.UUID(as_uuid=False), nullable=True),
-        sa.Column("event_type", sa.String(40), nullable=False),
+        sa.Column("event_type", sa.String(80), nullable=False),
         sa.Column("revision", sa.Integer(), nullable=False),
         sa.Column("details", postgresql.JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
