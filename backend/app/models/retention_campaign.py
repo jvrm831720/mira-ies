@@ -116,7 +116,7 @@ class RetentionCampaignProposalAuditEvent(Base):
     actor_user_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), nullable=True
     )
-    event_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
