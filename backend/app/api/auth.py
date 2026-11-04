@@ -159,7 +159,7 @@ class EmailOtpVerifyPayload(EmailPayload):
 
 @router.post("/email/request", status_code=status.HTTP_202_ACCEPTED)
 async def request_email_login_code(body: EmailPayload, db: AsyncSession = Depends(get_db)):
-    """Solicita OTP sem revelar se o endereço possui uma conta ativa."""
+    """Envia OTP para qualquer e-mail; a existência da conta só é revelada após validar o código."""
     settings = get_settings()
     if not settings.resend_api_key or not settings.email_from:
         raise HTTPException(status_code=503, detail="Login por e-mail temporariamente indisponível.")
@@ -168,10 +168,9 @@ async def request_email_login_code(body: EmailPayload, db: AsyncSession = Depend
     await _check_cooldown(db, "email_login", identifier_hash)
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
-    tenant = await _active_tenant(db, user) if user else None
     code = f"{secrets.randbelow(1_000_000):06d}"
     challenge = AuthChallenge(
-        user_id=user.id if tenant else None,
+        user_id=user.id if user else None,
         challenge_type="email_login",
         identifier_hash=identifier_hash,
         token_hash=_token_digest("email_login", body.email, code),
@@ -189,21 +188,21 @@ async def request_email_login_code(body: EmailPayload, db: AsyncSession = Depend
     db.add(challenge)
     await db.commit()
 
-    if tenant:
-        delivery = await send_email_resend(
-            to=user.email,
-            subject="Seu código de acesso à MIRA",
-            body=(
-                f"Olá, {user.display_name}.\\n\\n"
-                f"Seu código de acesso à MIRA é {code}.\\n"
-                f"Ele expira em {_OTP_TTL_MINUTES} minutos e só pode ser usado uma vez. "
-                "Não compartilhe este código.\\n\\n"
-                "Se você não solicitou este acesso, ignore esta mensagem."
-            ),
-        )
-        if not delivery.ok:
-            logger.warning("Falha na entrega de código de acesso MIRA via Resend.")
-    return {"message": "Se houver uma conta ativa associada a este e-mail, enviaremos um código."}
+    greeting = f"Olá, {user.display_name}." if user else "Olá."
+    delivery = await send_email_resend(
+        to=body.email,
+        subject="Seu código de acesso à MIRA",
+        body=(
+            f"{greeting}\\n\\n"
+            f"Seu código de acesso à MIRA é {code}.\\n"
+            f"Ele expira em {_OTP_TTL_MINUTES} minutos e só pode ser usado uma vez. "
+            "Não compartilhe este código.\\n\\n"
+            "Se você não solicitou este acesso, ignore esta mensagem."
+        ),
+    )
+    if not delivery.ok:
+        logger.warning("Falha na entrega de código de acesso MIRA via Resend.")
+    return {"message": "Se houver uma conta ou possibilidade de cadastro para este e-mail, enviaremos um código."}
 
 
 @router.post("/email/verify")
@@ -226,7 +225,7 @@ async def verify_email_login_code(
     )
     challenge = result.scalar_one_or_none()
     now = _now()
-    if not challenge or not challenge.user_id or challenge.expires_at <= now:
+    if not challenge or challenge.expires_at <= now:
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
     if challenge.attempts >= _MAX_CHALLENGE_ATTEMPTS:
         raise HTTPException(status_code=429, detail="Limite de tentativas atingido. Solicite um novo código.")
@@ -240,6 +239,10 @@ async def verify_email_login_code(
         raise HTTPException(status_code=401, detail=_ACCESS_DENIED)
 
     challenge.consumed_at = now
+    if challenge.user_id is None:
+        await db.commit()
+        return {"onboarding_required": True, "email": body.email}
+
     user = await db.get(User, challenge.user_id)
     tenant = await _active_tenant(db, user) if user else None
     if tenant is None or (user.locked_until and user.locked_until > now):
