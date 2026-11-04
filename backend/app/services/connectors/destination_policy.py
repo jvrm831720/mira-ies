@@ -17,7 +17,7 @@ class DestinationPolicyError(ValueError):
 
 
 _LOCAL_NAMES = frozenset({"localhost", "localhost.localdomain", "metadata.google.internal"})
-_CONTROL = re.compile(r"[\\x00-\\x20\\x7f]")
+_CONTROL = re.compile(r"[\x00-\x20\x7f]")
 
 
 def _normalize_hostname(hostname: str) -> str:
@@ -71,7 +71,7 @@ def validate_tenant_destination(
         or parsed.password is not None
         or parsed.query
         or parsed.fragment
-        or "\\\\" in parsed.path
+        or "\\" in parsed.path
         or any(segment in {".", ".."} for segment in parsed.path.split("/"))
     ):
         raise DestinationPolicyError("Destino deve ser uma URL HTTP(S) válida, sem credenciais, query ou fragmento.")
