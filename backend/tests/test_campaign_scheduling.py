@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import select
@@ -62,10 +64,10 @@ async def test_schedule_and_remove_schedule_are_tenant_scoped_and_audited(
     await db_session.commit()
     await db_session.refresh(proposal)
     app.dependency_overrides[get_current_tenant] = lambda: _admin_auth(
-        institution, "scheduler-admin"
+        institution, str(uuid4())
     )
     try:
-        future = (datetime.now(timezone.utc) + timedelta(days=2)).replace(microsecond=0)
+        future = (datetime.now(ZoneInfo("America/Sao_Paulo")) + timedelta(days=2)).replace(microsecond=0)
         response = await client.post(
             f"/api/v1/agents/retention/campaigns/intelligence/proposals/{proposal.id}/schedule",
             json={
@@ -154,7 +156,7 @@ async def test_only_approved_proposals_can_be_scheduled(client, tenant, db_sessi
         institution, "scheduler-admin"
     )
     try:
-        future = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        future = (datetime.now(ZoneInfo("America/Sao_Paulo")) + timedelta(days=1)).isoformat()
         response = await client.post(
             f"/api/v1/agents/retention/campaigns/intelligence/proposals/{proposal.id}/schedule",
             json={
