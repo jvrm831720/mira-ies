@@ -34,6 +34,7 @@ class User(Base):
     phone_e164: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(32), default="coordinator", nullable=False)
+    custom_role_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_tenant_roles.id", ondelete="SET NULL"), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     auth_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     mfa_totp_secret_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -68,6 +69,7 @@ class OrganizationInvite(Base):
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="coordinator")
+    custom_role_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_tenant_roles.id", ondelete="SET NULL"), nullable=True)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     invited_by_user_id: Mapped[Optional[str]] = mapped_column(
@@ -180,3 +182,38 @@ class UserSession(Base):
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_by_user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True)
     revoke_reason: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+
+
+class TenantRole(Base):
+    """Cargo configurável por instituição. Permissões são chaves de catálogo, nunca SQL ou código."""
+    __tablename__ = "mira_tenant_roles"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_mira_tenant_roles_tenant_name"),
+        Index("ix_mira_tenant_roles_tenant_active", "tenant_id", "is_active"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    base_role: Mapped[str] = mapped_column(String(24), nullable=False, default="viewer")
+    permissions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by_user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class TenantRoleAudit(Base):
+    """Auditoria append-only de cargos, permissões e atribuições."""
+    __tablename__ = "mira_tenant_role_audit"
+    __table_args__ = (Index("ix_mira_tenant_role_audit_tenant_created", "tenant_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    actor_user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True)
+    target_user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True)
+    role_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_tenant_roles.id", ondelete="SET NULL"), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
