@@ -1,5 +1,7 @@
 """Testes puros do contrato de transporte ERP (sem rede ou banco)."""
 
+import math
+
 import httpx
 import pytest
 
@@ -134,6 +136,12 @@ async def test_absolute_and_traversal_paths_are_rejected():
             await client.get_json("../other-tenant")
     finally:
         await client.aclose()
+
+
+@pytest.mark.parametrize("timeout", [0, -1, math.nan, math.inf, -math.inf])
+def test_rest_client_rejects_non_positive_or_non_finite_timeouts(timeout):
+    with pytest.raises(ConnectorConfigurationError, match="positivo e finito"):
+        ReadOnlyRestClient(base_url="https://rm.example.test", timeout_seconds=timeout)
 
 
 def test_context_rejects_header_injection():

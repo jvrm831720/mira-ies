@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
@@ -28,6 +29,16 @@ class RMConnection:
     username: str
     password: str = field(repr=False)
     context_headers: dict[str, str]
+
+
+def _timeout_seconds(name: str, default: str) -> float:
+    try:
+        value = float(os.environ.get(name, default))
+    except ValueError:
+        raise RMJobError(f"Configuração de timeout inválida: {name}.") from None
+    if not math.isfinite(value) or value <= 0:
+        raise RMJobError(f"Configuração de timeout deve ser positiva e finita: {name}.")
+    return value
 
 
 def _assert_executor_contract_enabled() -> None:
@@ -206,8 +217,8 @@ async def execute_rm_sync_job(job, heartbeat, cancelled, attach_snapshot, before
     offset = checkpoint["next_offset"]
     max_bytes = int(os.environ.get("RM_SYNC_MAX_RESPONSE_BYTES", str(8 * 1024 * 1024)))
     timeout = httpx.Timeout(
-        connect=float(os.environ.get("RM_SYNC_CONNECT_TIMEOUT_SECONDS", "10")),
-        read=float(os.environ.get("RM_SYNC_READ_TIMEOUT_SECONDS", "60")),
+        connect=_timeout_seconds("RM_SYNC_CONNECT_TIMEOUT_SECONDS", "10"),
+        read=_timeout_seconds("RM_SYNC_READ_TIMEOUT_SECONDS", "60"),
         write=10.0, pool=10.0,
     )
     auth = httpx.BasicAuth(connection.username, connection.password)
