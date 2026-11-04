@@ -48,6 +48,10 @@ def upgrade() -> None:
         CREATE FUNCTION prevent_retention_proposal_snapshot_mutation()
         RETURNS trigger AS $$
         BEGIN
+            IF TG_OP = 'DELETE' THEN
+                RAISE EXCEPTION 'Retention campaign proposal snapshots cannot be deleted'
+                    USING ERRCODE = 'check_violation';
+            END IF;
             IF NEW.source_group_ids IS DISTINCT FROM OLD.source_group_ids
                OR NEW.source_catalog_version IS DISTINCT FROM OLD.source_catalog_version
                OR NEW.recommendation_engine IS DISTINCT FROM OLD.recommendation_engine
@@ -68,7 +72,7 @@ def upgrade() -> None:
     """)
     op.execute("""
         CREATE TRIGGER trg_retention_proposal_snapshot_immutable
-        BEFORE UPDATE ON retention_campaign_proposals
+        BEFORE UPDATE OR DELETE ON retention_campaign_proposals
         FOR EACH ROW EXECUTE FUNCTION prevent_retention_proposal_snapshot_mutation();
     """)
 
