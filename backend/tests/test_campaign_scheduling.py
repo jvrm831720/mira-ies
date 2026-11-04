@@ -128,7 +128,7 @@ async def test_schedule_and_remove_schedule_are_tenant_scoped_and_audited(
         ("2030-01-01T12:00:00", "America/Sao_Paulo", "offset UTC explícito"),
         ("2030-01-01T12:00:00-03:00", "Mars/Olympus", "Fuso IANA desconhecido"),
         ("2030-01-01T12:00:00+00:00", "America/Sao_Paulo", "offset informado"),
-        ("2000-01-01T12:00:00-03:00", "America/Sao_Paulo", "no futuro"),
+        ("2000-01-01T12:00:00-02:00", "America/Sao_Paulo", "no futuro"),
     ],
 )
 async def test_schedule_rejects_invalid_datetime_or_timezone(
