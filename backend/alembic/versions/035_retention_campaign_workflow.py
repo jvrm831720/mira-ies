@@ -57,8 +57,14 @@ def upgrade() -> None:
         CREATE FUNCTION prevent_retention_proposal_audit_mutation()
         RETURNS trigger AS $$
         BEGIN
-            RAISE EXCEPTION 'Retention campaign proposal audit events are append-only'
-                USING ERRCODE = 'check_violation';
+            -- Direct mutation is forbidden; parent cascades for tenant/proposal deletion remain valid.
+            IF EXISTS (SELECT 1 FROM tenants WHERE id = OLD.tenant_id)
+               AND EXISTS (SELECT 1 FROM retention_campaign_proposals WHERE id = OLD.proposal_id)
+            THEN
+                RAISE EXCEPTION 'Retention campaign proposal audit events are append-only'
+                    USING ERRCODE = 'check_violation';
+            END IF;
+            RETURN OLD;
         END;
         $$ LANGUAGE plpgsql;
     """)
