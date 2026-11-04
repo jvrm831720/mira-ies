@@ -30,6 +30,7 @@ def upgrade() -> None:
     op.add_column("retention_campaign_proposals", sa.Column("authorization_reference", sa.String(160), nullable=True))
     op.add_column("retention_campaign_proposals", sa.Column("authorization_attested_by", sa.String(80), nullable=True))
     op.add_column("retention_campaign_proposals", sa.Column("authorization_attested_at", sa.DateTime(timezone=True), nullable=True))
+    op.create_unique_constraint("uq_retention_campaign_proposals_id_tenant", "retention_campaign_proposals", ["id", "tenant_id"])
     op.create_check_constraint("ck_retention_proposal_revision_positive", "retention_campaign_proposals", "revision >= 1")
     op.create_check_constraint(
         "ck_retention_proposal_authorization_status",
@@ -40,13 +41,14 @@ def upgrade() -> None:
         "retention_campaign_proposal_audit_events",
         sa.Column("id", postgresql.UUID(as_uuid=False), primary_key=True),
         sa.Column("tenant_id", postgresql.UUID(as_uuid=False), sa.ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("proposal_id", postgresql.UUID(as_uuid=False), sa.ForeignKey("retention_campaign_proposals.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("proposal_id", postgresql.UUID(as_uuid=False), nullable=False),
         sa.Column("actor_user_id", postgresql.UUID(as_uuid=False), nullable=True),
         sa.Column("event_type", sa.String(40), nullable=False),
         sa.Column("revision", sa.Integer(), nullable=False),
         sa.Column("details", postgresql.JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
         sa.CheckConstraint("revision >= 1", name="ck_retention_proposal_audit_revision_positive"),
+        sa.ForeignKeyConstraint(["proposal_id", "tenant_id"], ["retention_campaign_proposals.id", "retention_campaign_proposals.tenant_id"], ondelete="CASCADE", name="fk_retention_proposal_audit_proposal_tenant"),
     )
     op.create_index(
         "ix_retention_proposal_audit_tenant_proposal",
@@ -91,6 +93,7 @@ def downgrade() -> None:
     op.drop_table("retention_campaign_proposal_audit_events")
     op.drop_constraint("ck_retention_proposal_authorization_status", "retention_campaign_proposals", type_="check")
     op.drop_constraint("ck_retention_proposal_revision_positive", "retention_campaign_proposals", type_="check")
+    op.drop_constraint("uq_retention_campaign_proposals_id_tenant", "retention_campaign_proposals", type_="unique")
     for column in (
         "authorization_attested_at", "authorization_attested_by", "authorization_reference",
         "authorization_basis", "authorization_status", "approved_at", "approved_by",
