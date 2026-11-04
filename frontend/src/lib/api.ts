@@ -59,6 +59,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const isAuthRoute =
     path === "/api/v1/auth/login/password" ||
     path.startsWith("/api/v1/auth/whatsapp/") ||
+    path.startsWith("/api/v1/auth/email/") ||
     path.startsWith("/api/v1/auth/password/") ||
     path.startsWith("/api/v1/auth/mfa/login/") ||
     path.startsWith("/api/v1/org/invites/accept");
@@ -231,6 +232,18 @@ export const api = {
   confirmMfa: (code: string) => request<AuthResponse & { enabled: boolean; recovery_codes: string[] }>("/api/v1/auth/mfa/confirm", { method: "POST", body: JSON.stringify({ code }) }),
   regenerateMfaRecoveryCodes: (code: string) => request<import("@/types/api").MfaRecoveryCodes>("/api/v1/auth/mfa/recovery-codes/regenerate", { method: "POST", body: JSON.stringify({ code }) }),
   disableMfa: (code: string) => request<AuthResponse & { enabled: boolean }>("/api/v1/auth/mfa/disable", { method: "POST", body: JSON.stringify({ code }) }),
+
+  requestEmailCode: (email: string) =>
+    request<AuthActionResponse>("/api/v1/auth/email/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  verifyEmailCode: (email: string, code: string) =>
+    request<AuthResponse | import("@/types/api").MfaLoginChallenge>("/api/v1/auth/email/verify", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    }),
 
   requestWhatsappCode: (phone: string) =>
     request<AuthActionResponse>("/api/v1/auth/whatsapp/request", {
