@@ -261,7 +261,7 @@ def _permission_for_request(request: Request, fallback_role: str = "viewer") -> 
     path = request.url.path.removeprefix("/api/v1")
     method = request.method.upper()
     parts = path.strip("/").split("/") if path.strip("/") else []
-    if path.startswith("/auth/mfa") or path.startswith("/org/me"):
+    if path.startswith("/auth/mfa") or path == "/org/me" or path.startswith("/org/me/"):
         return "access.viewer"
     if path.startswith("/org/roles") or path.startswith("/org/role-audit"):
         return "permissions.manage"
