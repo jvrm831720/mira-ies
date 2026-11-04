@@ -63,7 +63,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const response = await api.verifyEmailCode(email.trim(), code);
-      if ("mfa_enrollment_required" in response && response.mfa_enrollment_required) {
+      if ("onboarding_required" in response && response.onboarding_required) {\n        router.replace(`/onboarding?email=${encodeURIComponent(response.email)}`);\n        return;\n      }\n      if ("mfa_enrollment_required" in response && response.mfa_enrollment_required) {
         setMfaTicket(response.challenge_token);
         const enrollment = await api.beginRequiredMfaEnrollment(response.challenge_token);
         setMfaEnrollment(enrollment);
