@@ -488,6 +488,7 @@ export type OrgMember = {
   email: string;
   display_name?: string | null;
   role: MemberRole;
+  custom_role_id?: string | null;
   status: string;
   phone?: string | null;
   created_at?: string | null;
@@ -997,3 +998,15 @@ export type RetentionCampaignProposalAudit = {
     details: Record<string, unknown>; created_at: string;
   }>;
 };
+
+
+export type TenantRole = {
+  id: string; name: string; description?: string | null;
+  base_role: Exclude<MemberRole, "admin">; permissions: string[];
+  is_active: boolean; members_count: number;
+};
+export type TenantRoleCatalogResponse = { permissions: Array<{ key: string; label: string }> };
+export type TenantRolesResponse = { roles: TenantRole[] };
+export type TenantRoleMembersResponse = { role: TenantRole; members: Array<{ id: string; display_name: string; email: string; status: string }> };
+export type TenantRoleAuditResponse = { events: Array<{ id: string; event_type: string; actor_user_id?: string | null; target_user_id?: string | null; role_id?: string | null; details: Record<string, unknown>; created_at: string }> };
+export type TenantRolePayload = { name: string; description?: string; base_role: Exclude<MemberRole, "admin">; permissions: string[] };

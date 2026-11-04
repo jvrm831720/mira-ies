@@ -180,6 +180,8 @@ export type SponteSyncJob = {
 
 export type OrgMeResponse = {
   role?: string;
+  permissions?: string[] | null;
+  custom_role_id?: string | null;
   tenant_name?: string;
   tenant_id?: string;
   tenant_slug?: string;
@@ -551,6 +553,29 @@ export const api = {
     ),
 
   listMembers: () => request<MembersResponse>("/api/v1/org/members"),
+
+  tenantRoleCatalog: () => request<import("@/types/api").TenantRoleCatalogResponse>("/api/v1/org/roles/catalog"),
+  tenantRoles: () => request<import("@/types/api").TenantRolesResponse>("/api/v1/org/roles"),
+  createTenantRole: (body: import("@/types/api").TenantRolePayload) =>
+    request<{ role: import("@/types/api").TenantRole }>("/api/v1/org/roles", { method: "POST", body: JSON.stringify(body) }),
+  updateTenantRole: (id: string, body: import("@/types/api").TenantRolePayload) =>
+    request<{ role: import("@/types/api").TenantRole }>(`/api/v1/org/roles/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  duplicateTenantRole: (id: string) =>
+    request<{ role: import("@/types/api").TenantRole }>(`/api/v1/org/roles/${encodeURIComponent(id)}/duplicate`, { method: "POST" }),
+  deactivateTenantRole: (id: string) =>
+    request<{ deactivated: boolean }>(`/api/v1/org/roles/${encodeURIComponent(id)}/deactivate`, { method: "POST" }),
+  tenantRoleMembers: (id: string) =>
+    request<import("@/types/api").TenantRoleMembersResponse>(`/api/v1/org/roles/${encodeURIComponent(id)}/members`),
+  assignTenantRole: (userId: string, customRoleId: string | null) =>
+    request<{ member_id: string; custom_role_id: string | null; sessions_invalidated: boolean }>(
+      `/api/v1/org/members/${encodeURIComponent(userId)}/role`,
+      { method: "POST", body: JSON.stringify({ custom_role_id: customRoleId }) }
+    ),
+  memberEffectivePermissions: (userId: string) =>
+    request<{ member_id: string; legacy_role: string; permissions: string[]; custom_role?: import("@/types/api").TenantRole | null }>(
+      `/api/v1/org/members/${encodeURIComponent(userId)}/permissions`
+    ),
+  tenantRoleAudit: () => request<import("@/types/api").TenantRoleAuditResponse>("/api/v1/org/role-audit"),
 
   listInvites: () => request<InvitesResponse>("/api/v1/org/invites"),
 
