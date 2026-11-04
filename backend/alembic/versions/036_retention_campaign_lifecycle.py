@@ -72,12 +72,21 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Preserve proposals if an operator rolls back while operational states exist.
-    op.execute(
-        "UPDATE retention_campaign_proposals "
-        "SET status = 'approved' "
-        "WHERE status IN ('scheduled', 'running', 'paused', 'completed', 'cancelled', 'failed')"
-    )
+    # Never silently turn a completed/cancelled campaign back into an approvable proposal.
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM retention_campaign_proposals
+                WHERE status IN ('scheduled', 'running', 'paused', 'completed', 'cancelled', 'failed')
+            ) THEN
+                RAISE EXCEPTION
+                    'Cannot downgrade campaign lifecycle while operational campaigns exist';
+            END IF;
+        END
+        $$;
+    """)
     op.drop_index(
         "ix_retention_campaign_proposals_tenant_scheduled",
         table_name="retention_campaign_proposals",
