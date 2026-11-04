@@ -315,6 +315,8 @@ async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession =
         "tenant_slug": auth.tenant_slug,
         "user_id": auth.user_id,
         "role": auth.role or (user.role if user else "admin"),
+        "custom_role_id": auth.custom_role_id,
+        "permissions": sorted(auth.permissions) if auth.permissions is not None else None,
         "display_name": user.display_name if user else None,
         "email": user.email if user else None,
         "onboarding_completed": bool(completed_at),
