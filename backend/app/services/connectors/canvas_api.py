@@ -93,10 +93,6 @@ class CanvasApiClient:
         self,
         config: CanvasConfig,
         *,
-    def __init__(
-        self,
-        config: CanvasConfig,
-        *,
         _destination_authorization: object | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
