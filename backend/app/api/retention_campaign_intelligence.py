@@ -8,6 +8,7 @@ from app.api.student_groups import _build_summary
 from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
 from app.services.campaign_opportunities import build_campaign_opportunities
+from app.student_groups.catalog import GROUP_CATALOG_VERSION
 
 router = APIRouter(
     prefix="/agents/retention/campaigns/intelligence",
@@ -35,7 +36,7 @@ async def list_campaign_opportunities(
     return {
         "tenant_id": auth.tenant_id,
         "generated_at": summary["evaluated_at"],
-        "catalog_version": "1.0.0",
+        "catalog_version": GROUP_CATALOG_VERSION,
         "recommendation_engine": "signals-and-rules-v1",
         "is_ai_generated_copy": False,
         "students_evaluated": summary["evaluated"],
