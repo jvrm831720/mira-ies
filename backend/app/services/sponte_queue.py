@@ -441,6 +441,7 @@ async def _run_sync(job_id: str, redis: Redis):
         ))).scalar_one_or_none()
         if not connection:
             raise RuntimeError("Configure uma conexão Sponte ativa.")
+        await authorize_tenant_destination(session, tenant_id=tenant_id, connector_key="sponte", url=SPONTE_BASE_URL)
         api_key = decrypt_api_token(connection.encrypted_api_key)
         client_code = connection.client_code
         initial_date = connection.initial_extraction_date
