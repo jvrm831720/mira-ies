@@ -49,10 +49,10 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _require_admin(auth: AuthContext) -> str:
+def _require_admin(auth: AuthContext, *, recent: bool = False) -> str:
     if not auth.user_id or auth.role != "admin" or getattr(auth, "custom_role_id", None):
         raise HTTPException(status_code=403, detail="Apenas um administrador institucional pode administrar cargos.")
-    if auth.aal < 2 or not auth.authenticated_at or int(_now().timestamp()) - auth.authenticated_at > 600:
+    if recent and (auth.aal < 2 or not auth.authenticated_at or int(_now().timestamp()) - auth.authenticated_at > 600):
         raise HTTPException(status_code=403, detail="Confirme novamente sua identidade com MFA antes desta operação.")
     return auth.user_id
 
@@ -160,7 +160,7 @@ async def list_roles(auth: AuthContext = Depends(get_current_tenant), db: AsyncS
 @router.post("/roles", status_code=status.HTTP_201_CREATED)
 async def create_role(body: RolePayload, auth: AuthContext = Depends(get_current_tenant),
                       db: AsyncSession = Depends(get_db)):
-    actor = _require_admin(auth)
+    actor = _require_admin(auth, recent=True)
     _validate_permission_ceiling(body.base_role, body.permissions)
     duplicate = await db.execute(select(TenantRole.id).where(
         TenantRole.tenant_id == auth.tenant_id, func.lower(TenantRole.name) == body.name.lower()
@@ -183,7 +183,7 @@ async def create_role(body: RolePayload, auth: AuthContext = Depends(get_current
 @router.patch("/roles/{role_id}")
 async def update_role(role_id: str, body: RolePayload, auth: AuthContext = Depends(get_current_tenant),
                       db: AsyncSession = Depends(get_db)):
-    _require_admin(auth)
+    _require_admin(auth, recent=True)
     _validate_permission_ceiling(body.base_role, body.permissions)
     role = await _load_role(db, auth.tenant_id, role_id, lock=True)
     if not role.is_active:
@@ -207,7 +207,7 @@ async def update_role(role_id: str, body: RolePayload, auth: AuthContext = Depen
 @router.post("/roles/{role_id}/duplicate", status_code=status.HTTP_201_CREATED)
 async def duplicate_role(role_id: str, auth: AuthContext = Depends(get_current_tenant),
                          db: AsyncSession = Depends(get_db)):
-    actor = _require_admin(auth)
+    actor = _require_admin(auth, recent=True)
     source = await _load_role(db, auth.tenant_id, role_id)
     if not source.is_active:
         raise HTTPException(status_code=409, detail="Não é possível duplicar um cargo desativado.")
@@ -230,7 +230,7 @@ async def duplicate_role(role_id: str, auth: AuthContext = Depends(get_current_t
 @router.post("/roles/{role_id}/deactivate")
 async def deactivate_role(role_id: str, auth: AuthContext = Depends(get_current_tenant),
                           db: AsyncSession = Depends(get_db)):
-    _require_admin(auth)
+    _require_admin(auth, recent=True)
     role = await _load_role(db, auth.tenant_id, role_id, lock=True)
     assigned = await db.execute(select(func.count(User.id)).where(
         User.tenant_id == auth.tenant_id, User.custom_role_id == role.id, User.is_active.is_(True)
@@ -260,7 +260,7 @@ async def role_members(role_id: str, auth: AuthContext = Depends(get_current_ten
 @router.post("/members/{user_id}/role")
 async def assign_member_role(user_id: str, body: dict, auth: AuthContext = Depends(get_current_tenant),
                              db: AsyncSession = Depends(get_db)):
-    _require_admin(auth)
+    _require_admin(auth, recent=True)
     role_id = body.get("custom_role_id")
     if role_id is not None and not isinstance(role_id, str):
         raise HTTPException(status_code=422, detail="custom_role_id inválido.")
