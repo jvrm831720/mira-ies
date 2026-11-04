@@ -118,12 +118,13 @@ async def test_sponte_connection(
     if not connection or not connection.is_enabled:
         raise HTTPException(status_code=404, detail="Configure a conexão Sponte antes de testar.")
     try:
-        await authorize_tenant_destination(db, tenant_id=auth.tenant_id, connector_key="sponte", url=SPONTE_BASE_URL)
+        client = await SponteApiClient.for_tenant(
+            db, tenant_id=auth.tenant_id,
+            api_key=decrypt_api_token(connection.encrypted_api_key),
+            client_code=connection.client_code,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail="Destino Sponte não aprovado para este tenant.") from exc
-    client = SponteApiClient(
-        decrypt_api_token(connection.encrypted_api_key), connection.client_code
-    )
     try:
         result = await client.test_connection()
         connection.status = "connected"
