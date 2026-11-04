@@ -43,6 +43,18 @@ PERMISSION_CATALOG = {
     "critical.manage": "Executar operações críticas",
 }
 BASE_ROLE_RANK = {"viewer": 1, "operator": 2, "coordinator": 3}
+DEFAULT_ROLE_PERMISSIONS = {
+    "viewer": ["access.viewer", "dashboard.view", "students.view"],
+    "operator": ["access.viewer", "access.operator", "dashboard.view", "students.view",
+        "students.create", "students.edit", "campaigns.view", "campaigns.create",
+        "campaigns.edit", "members.view", "data.view"],
+    "coordinator": ["access.viewer", "access.operator", "access.coordinator", "dashboard.view",
+        "students.view", "students.sensitive.view", "students.create", "students.edit",
+        "campaigns.view", "campaigns.create", "campaigns.edit", "campaigns.approve",
+        "campaigns.execute", "members.view", "members.manage", "data.view", "data.import",
+        "audit.view"],
+    "admin": list(PERMISSION_CATALOG.keys()) if "PERMISSION_CATALOG" in globals() else [],
+}
 
 
 def _now() -> datetime:
@@ -324,10 +336,17 @@ async def member_effective_permissions(user_id: str, auth: AuthContext = Depends
     if not user:
         raise HTTPException(status_code=404, detail="Membro não encontrado nesta instituição.")
     role = await _load_role(db, auth.tenant_id, user.custom_role_id) if user.custom_role_id else None
-    permissions = sorted(role.permissions or []) if role and role.is_active else []
+    if role:
+        base_rank = BASE_ROLE_RANK.get(role.base_role, 0)
+        permissions = sorted(
+            permission for permission in (role.permissions or [])
+            if _PERMISSION_CEILING.get(permission, 99) <= base_rank
+        ) if role.is_active else []
+    else:
+        permissions = sorted(DEFAULT_ROLE_PERMISSIONS.get(user.role, DEFAULT_ROLE_PERMISSIONS["viewer"]))
     return {"member_id": user.id, "legacy_role": user.role,
             "custom_role": _role_dict(role) if role else None,
-            "permissions": permissions, "custom_role_active": bool(role and role.is_active)}
+            "permissions": permissions, "custom_role_active": bool(role.is_active) if role else True}
 
 
 @router.get("/role-audit")
