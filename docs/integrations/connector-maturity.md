@@ -20,7 +20,7 @@ operacional com um cliente.
 | SophiA Gestão Escolar | Cliente nativo da API, fila/worker, snapshots e isolamento por tenant. Credenciais e ambiente institucional ainda não homologados. | Suporte técnico implementado |
 | JACAD | Conector de API e sincronização em background. Homologação real depende de instalação e credenciais do cliente. | Suporte técnico implementado |
 | Sponte | Conector da API Sponte BI, extração paginada e sincronização em background. Homologação real depende do cliente. | Suporte técnico implementado |
-| GVDASA / GVcollege | Cliente WebAPI read-only, contratos de views por tenant, OData restrito e manifesto de prontidão. Sem credenciais ou views reais de cliente. | Suporte técnico implementado |
+| GVDASA / GVcollege | Cliente WebAPI read-only e contratos configuráveis. Wave 3 adiciona somente descoberta local de fixtures sintéticas e normalização em dry-run; não faz descoberta remota nem persistência. Sem credenciais ou views reais de cliente. | Suporte técnico implementado |
 | WPensar | Transformação de payload; sem contrato público de API REST de leitura validado e sem cliente nativo pull. | Em desenvolvimento |
 | Isaac / Marlim | Cliente read-only parcial para conciliação financeira documentada; sem persistência, vínculo com cobrança/aluno ou homologação. | Suporte técnico implementado |
 | Moodle | Cliente nativo Web Services REST read-only; funções dependem da configuração e permissões da instalação. Sem homologação institucional. | Suporte técnico implementado |
