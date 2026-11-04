@@ -14,7 +14,7 @@ from typing import Callable
 from fastapi import APIRouter, Depends, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import Redis
 
@@ -302,6 +302,9 @@ async def require_admin_permission(permission: str, credentials: HTTPAuthorizati
     permissions = _ROLE_PERMISSIONS.get(admin.role, set())
     if "*" not in permissions and permission not in permissions:
         raise HTTPException(status_code=403, detail="Permissão insuficiente.")
+    if permission == "governance:write" and int(claims.get("mfa_at", 0)) < int(time.time()) - 300:
+        raise HTTPException(status_code=401, detail="MFA recente obrigatório para alterar políticas de dados.")
+    await db.execute(text("SELECT set_config('app.is_mira_admin', 'true', true)"))
     return admin
 
 
