@@ -44,3 +44,38 @@ class RetentionCampaign(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class RetentionCampaignProposal(Base):
+    """Draft proposal with a database-enforced immutable audience snapshot."""
+
+    __tablename__ = "retention_campaign_proposals"
+    __table_args__ = (
+        Index("ix_retention_campaign_proposals_tenant_created", "tenant_id", "created_at"),
+        Index("ix_retention_campaign_proposals_tenant_status", "tenant_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    source_group_ids: Mapped[list] = mapped_column(JSONB, nullable=False)
+    source_catalog_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    recommendation_engine: Mapped[str] = mapped_column(String(60), nullable=False)
+    source_evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    strategy: Mapped[str] = mapped_column(Text, nullable=False)
+    recommended_channels: Mapped[list] = mapped_column(JSONB, nullable=False)
+    cadence_days: Mapped[list] = mapped_column(JSONB, nullable=False)
+    message_brief: Mapped[str] = mapped_column(Text, nullable=False)
+    audience_snapshot: Mapped[list] = mapped_column(JSONB, nullable=False)
+    audience_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    audience_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    outreach_eligible_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    blocked_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    internal_action_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
