@@ -95,6 +95,21 @@ async def test_postgres_destination_rls_and_append_only_audit(db_session):
             "UPDATE tenant_connector_destinations SET is_enabled = false WHERE id = :id"
         ), {"id": destination_b_id})
         assert result.rowcount == 0
+        with pytest.raises(DBAPIError):
+            await db_session.execute(text("""
+                INSERT INTO tenant_connector_destinations
+                    (id, tenant_id, connector_key, hostname, scheme, port,
+                     is_enabled, approval_reason)
+                VALUES (:id, :tenant_id, 'canvas', 'forged.b.example',
+                        'https', 443, true, 'Cross-tenant approval attempt')
+            """), {"id": str(uuid.uuid4()), "tenant_id": tenant_b.id})
+        await db_session.rollback()
+        await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
+        cross_tenant_audit_update = await db_session.execute(text(
+            "UPDATE tenant_connector_destination_audit SET reason = 'tampered' WHERE id = :id"
+        ), {"id": audit_b_id})
+        assert cross_tenant_audit_update.rowcount == 0
+
         # Tenant A can revoke its own destination and append a revocation event.
         await db_session.execute(text(
             "UPDATE tenant_connector_destinations SET is_enabled = false WHERE id = :id"
