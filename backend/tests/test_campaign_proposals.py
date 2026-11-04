@@ -67,3 +67,49 @@ def test_audience_hash_changes_when_membership_or_eligibility_changes():
     first = [{"student_id": "s1", "eligible_channels": ["email"]}]
     second = [{"student_id": "s1", "eligible_channels": []}]
     assert hash_audience_snapshot(first) != hash_audience_snapshot(second)
+
+
+
+def test_deduplication_preserves_hard_blocks_across_overlapping_groups():
+    snapshot = deduplicate_audience_members([
+        {
+            "student_id": "student-a",
+            "matched_group_ids": ["risk_critical"],
+            "eligible_channels": ["email", "whatsapp"],
+            "blocked_reasons": [],
+            "internal_action_only": False,
+        },
+        {
+            "student_id": "student-a",
+            "matched_group_ids": ["multiple_active_signals"],
+            "eligible_channels": [],
+            "blocked_reasons": ["global_opt_out", "preference_blocked:email"],
+            "internal_action_only": False,
+        },
+    ])
+
+    assert len(snapshot) == 1
+    assert snapshot[0]["matched_group_ids"] == ["multiple_active_signals", "risk_critical"]
+    assert snapshot[0]["eligible_channels"] == []
+    assert "global_opt_out" in snapshot[0]["blocked_reasons"]
+
+
+def test_deduplication_applies_channel_specific_blocks_after_union():
+    snapshot = deduplicate_audience_members([
+        {
+            "student_id": "student-a",
+            "matched_group_ids": ["risk_critical"],
+            "eligible_channels": ["email", "whatsapp"],
+            "blocked_reasons": [],
+            "internal_action_only": False,
+        },
+        {
+            "student_id": "student-a",
+            "matched_group_ids": ["multiple_active_signals"],
+            "eligible_channels": [],
+            "blocked_reasons": ["preference_blocked:email", "invalid_whatsapp_contact"],
+            "internal_action_only": False,
+        },
+    ])
+
+    assert snapshot[0]["eligible_channels"] == []
