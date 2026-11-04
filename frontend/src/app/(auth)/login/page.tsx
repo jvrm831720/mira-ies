@@ -119,14 +119,14 @@ export default function LoginPage() {
           </div>
 
           <div className="mx-auto flex w-full max-w-[390px] flex-1 flex-col justify-center py-14">
-            <h1 className="text-[32px] font-semibold leading-[1.15] tracking-[-0.045em] text-neutral-950">
+            <h1 className="text-[18px] font-semibold leading-6 tracking-[-0.045em] text-neutral-950">
               {isEmailStep ? "Vamos começar." : isCodeStep ? "Verifique seu e-mail." : mode === "mfa-enroll" ? "Configure seu autenticador." : "Verificação em duas etapas."}
             </h1>
-            <p className="mt-3 text-[15px] leading-6 text-neutral-500">
+            <p className="mt-3 text-[14px] leading-5 text-neutral-500">
               {isEmailStep
                 ? "Acesse a MIRA para acompanhar indicadores, identificar alunos em risco e orientar ações de permanência estudantil."
                 : isCodeStep
-                  ? <>Enviamos um código de verificação para <span className="font-medium text-neutral-800">{email}</span>. Digite os seis dígitos abaixo para continuar.</>
+                  ? <>Se este e-mail estiver associado a uma conta ativa, enviaremos um código para <span className="font-medium text-neutral-800">{email}</span>. Digite os seis dígitos abaixo para continuar.</>
                   : mode === "mfa-enroll"
                     ? "A segurança da MIRA exige autenticação multifator para sua conta."
                     : "Informe o código do aplicativo autenticador para concluir o acesso."}
@@ -159,7 +159,7 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between text-[13px]">
                     <span className="text-neutral-500">Não recebeu o código?</span>
                     <button type="button" onClick={() => void requestCode()} disabled={loading || resendSeconds > 0} className="font-medium text-neutral-900 disabled:cursor-not-allowed disabled:text-neutral-400">
-                      {resendSeconds > 0 ? `Reenviar em 00:${String(resendSeconds).padStart(2, "0")}` : "Reenviar código"}
+                      {resendSeconds > 0 ? `Reenviar em ${String(Math.floor(resendSeconds / 60)).padStart(2, "0")}:${String(resendSeconds % 60).padStart(2, "0")}` : "Reenviar código"}
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -208,12 +208,12 @@ export default function LoginPage() {
           <Image src="/login-art.svg" alt="" fill priority className="object-cover opacity-90" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-black/10" />
           <div className="absolute bottom-[10%] left-[10%] right-[10%]">
-            <p className="max-w-[440px] text-[22px] font-medium leading-[1.45] tracking-[-0.025em] text-white">
+            <p className="max-w-[440px] text-[18px] font-medium leading-[1.45] tracking-[-0.025em] text-white">
               “A permanência estudantil começa com decisões mais claras, ações no momento certo e acompanhamento contínuo.”
             </p>
             <div className="mt-6 space-y-1">
-              <p className="text-sm font-semibold text-white">MIRA</p>
-              <p className="text-sm text-white/70">Inteligência para permanência estudantil</p>
+              <p className="text-[13px] font-semibold text-white">MIRA</p>
+              <p className="text-[13px] text-white/70">Inteligência para permanência estudantil</p>
             </div>
           </div>
         </aside>
