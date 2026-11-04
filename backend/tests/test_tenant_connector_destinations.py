@@ -48,3 +48,19 @@ def test_adversarial_hostnames_are_rejected(host: str):
 
 def test_hostname_normalizes_idna_and_trailing_dot():
     assert normalize_hostname("SIS.IES-A.EXAMPLE.") == "sis.ies-a.example"
+
+
+def test_direct_client_construction_requires_authorization_in_production(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.services.connectors import tenant_destinations
+
+    monkeypatch.setattr(
+        tenant_destinations, "get_settings",
+        lambda: SimpleNamespace(app_env="production"),
+    )
+    with pytest.raises(DestinationPolicyError, match="Use uma factory"):
+        tenant_destinations.require_destination_authorization(None)
+
+    token = tenant_destinations._destination_authorization_token()
+    tenant_destinations.require_destination_authorization(token)
