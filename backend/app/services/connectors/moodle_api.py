@@ -116,10 +116,6 @@ class MoodleApiClient:
         self,
         config: MoodleConfig,
         *,
-    def __init__(
-        self,
-        config: MoodleConfig,
-        *,
         _destination_authorization: object | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
