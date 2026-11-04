@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import ipaddress
+import math
 import os
 from typing import Any
 from urllib.parse import urlsplit
@@ -49,6 +50,8 @@ class SophiaApiConfig:
     timeout_seconds: float = 25.0
 
     def validated_base_url(self) -> str:
+        if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+            raise ValueError("SophiA timeout must be positive and finite.")
         parsed = urlsplit(self.base_url.strip())
         host = (parsed.hostname or "").lower()
         if (

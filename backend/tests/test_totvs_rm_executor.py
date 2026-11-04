@@ -4,9 +4,22 @@ import httpx
 import pytest
 
 from app.services.connectors.totvs_rm_executor import (
-    _assert_executor_contract_enabled, _normalize_roster_record, _read_page, _validate_context, _validate_endpoint,
+    _assert_executor_contract_enabled, _normalize_roster_record, _read_page, _timeout_seconds,
+    _validate_context, _validate_endpoint,
 )
 from app.services.connectors.totvs_rm_sync_orchestrator import RMJobError, RMTransientJobError
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "-inf", "not-a-number"])
+def test_rm_timeout_environment_rejects_invalid_values(monkeypatch, value):
+    monkeypatch.setenv("RM_SYNC_CONNECT_TIMEOUT_SECONDS", value)
+    with pytest.raises(RMJobError, match="timeout"):
+        _timeout_seconds("RM_SYNC_CONNECT_TIMEOUT_SECONDS", "10")
+
+
+def test_rm_timeout_environment_accepts_positive_finite_value(monkeypatch):
+    monkeypatch.setenv("RM_SYNC_CONNECT_TIMEOUT_SECONDS", "3.5")
+    assert _timeout_seconds("RM_SYNC_CONNECT_TIMEOUT_SECONDS", "10") == 3.5
 
 
 def test_endpoint_requires_https_and_explicit_host_allowlist(monkeypatch):
