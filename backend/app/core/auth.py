@@ -137,6 +137,7 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
 
 
 async def get_current_tenant(
+    request: Request,
     x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
     authorization: Optional[str] = Header(default=None),
     db: AsyncSession = Depends(get_db),
@@ -157,7 +158,9 @@ async def get_current_tenant(
             raw_key = parts[0].strip()
 
     if session_token:
-        return await _auth_session_token(session_token, db)
+        auth = await _auth_session_token(session_token, db)
+        _enforce_custom_request_permission(request, auth)
+        return auth
 
     if not raw_key:
         raise HTTPException(
@@ -248,20 +251,31 @@ def require_roles(*allowed: str):
     return _dep
 
 
-def _permission_for_request(request: Request, fallback_role: str) -> str:
+def _permission_for_request(request: Request, fallback_role: str = "viewer") -> str:
     path = request.url.path.removeprefix("/api/v1")
     method = request.method.upper()
+    parts = path.strip("/").split("/") if path.strip("/") else []
+    if path.startswith("/auth/mfa") or path == "/org/me":
+        return "access.viewer"
+    if path.startswith("/org/roles") or path.startswith("/org/role-audit"):
+        return "permissions.manage"
+    if path.startswith("/org/members") and len(parts) >= 3 and parts[2] == "role":
+        return "permissions.manage"
     if path.startswith("/students"):
         if method in {"GET", "HEAD"}:
-            return "students.view"
+            return "students.sensitive.view" if len(parts) >= 2 else "students.view"
         if method in {"PATCH", "PUT"}:
             return "students.edit"
         if method == "DELETE":
             return "students.delete"
-    if path.startswith("/upload") or path.startswith("/connectors") and method in {"POST", "PUT", "PATCH"}:
+        if method == "POST":
+            return "students.create"
+    if path.startswith("/risk"):
+        return "students.view"
+    if path.startswith("/upload"):
         return "data.import"
-    if path.startswith("/connectors"):
-        return "data.view"
+    if path.startswith("/connectors") or path.startswith("/integrations"):
+        return "data.import" if method in {"POST", "PUT", "PATCH"} else "data.view"
     if path.startswith("/agents/retention/campaigns"):
         if path.endswith("/approve"):
             return "campaigns.approve"
@@ -275,11 +289,29 @@ def _permission_for_request(request: Request, fallback_role: str) -> str:
             return "campaigns.edit"
         if method == "DELETE":
             return "campaigns.delete"
+    if path.startswith("/agents/retention"):
+        return "campaigns.view" if method in {"GET", "HEAD"} else "campaigns.execute"
     if path.startswith("/org/members"):
         return "members.view" if method == "GET" else "members.manage"
     if path.startswith("/org/invites"):
         return "members.view" if method == "GET" else "members.manage"
+    if path.startswith("/outcomes") or path.startswith("/results"):
+        return "audit.view" if method in {"GET", "HEAD"} else "critical.manage"
+    if path.startswith("/work") or path.startswith("/students/"):
+        return "students.view" if method in {"GET", "HEAD"} else "students.edit"
+    if path.startswith("/billing") or path.startswith("/settings"):
+        return "settings.manage"
+    if method in {"POST", "PUT", "PATCH", "DELETE"}:
+        return "critical.manage"
     return f"access.{fallback_role}"
+
+
+def _enforce_custom_request_permission(request: Request, auth: AuthContext) -> None:
+    if auth.permissions is None:
+        return
+    required = _permission_for_request(request)
+    if required not in auth.permissions:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão para esta ação.")
 
 
 def require_min_role(min_role: str):
