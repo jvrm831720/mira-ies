@@ -36,7 +36,12 @@ def _normalize_hostname(hostname: str) -> str:
         raise DestinationPolicyError("Hostname IDNA inválido.") from exc
     if normalized in _LOCAL_NAMES or normalized.endswith((".localhost", ".local", ".internal", ".test", ".invalid")):
         raise DestinationPolicyError("Hostname local ou reservado não é permitido.")
-    if len(normalized) > 253 or any(\n        not label\n        or len(label) > 63\n        or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)\n        for label in normalized.split(".")\n    ):
+    if len(normalized) > 253 or any(
+        not label
+        or len(label) > 63
+        or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+        for label in normalized.split(".")
+    ):
         raise DestinationPolicyError("Hostname inválido.")
     return normalized
 
@@ -63,6 +68,9 @@ def validate_tenant_destination(
         port = parsed.port
     except ValueError as exc:
         raise DestinationPolicyError("URL de destino inválida.") from exc
+    decoded_path = parsed.path
+    for _ in range(4):
+        decoded_path = unquote(decoded_path)
     expected_scheme = {"https"} | ({"http"} if allow_http else set())
     if (
         parsed.scheme.lower() not in expected_scheme
@@ -71,8 +79,8 @@ def validate_tenant_destination(
         or parsed.password is not None
         or parsed.query
         or parsed.fragment
-        or "\\" in parsed.path
-        or any(segment in {".", ".."} for segment in parsed.path.split("/"))
+        or "\\" in decoded_path
+        or any(segment in {".", ".."} for segment in decoded_path.split("/"))
     ):
         raise DestinationPolicyError("Destino deve ser uma URL HTTP(S) válida, sem credenciais, query ou fragmento.")
     host = _normalize_hostname(parsed.hostname)
