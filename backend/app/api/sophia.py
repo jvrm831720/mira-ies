@@ -15,7 +15,6 @@ from app.models.sophia_connection import TenantSophiaConnection, TenantSophiaStu
 from app.models.student import Student
 from app.services.connectors.sophia_api import SophiaApiClient, SophiaApiConfig, SophiaApiError
 from app.services.connectors.sophia_secrets import decrypt_sophia_secret, encrypt_sophia_secret
-from app.services.connectors.tenant_destinations import authorize_tenant_destination
 
 router = APIRouter(prefix="/integrations/sophia", tags=["Integração SophiA"])
 
