@@ -63,7 +63,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const response = await api.verifyEmailCode(email.trim(), code);
-      if ("onboarding_required" in response && response.onboarding_required) {\n        router.replace(`/onboarding?email=${encodeURIComponent(response.email)}`);\n        return;\n      }\n      if ("mfa_enrollment_required" in response && response.mfa_enrollment_required) {
+      if ("onboarding_required" in response && response.onboarding_required) {
+        router.replace(`/onboarding?email=${encodeURIComponent(response.email)}`);
+        return;
+      }
+      if ("mfa_enrollment_required" in response && response.mfa_enrollment_required) {
         setMfaTicket(response.challenge_token);
         const enrollment = await api.beginRequiredMfaEnrollment(response.challenge_token);
         setMfaEnrollment(enrollment);
@@ -94,8 +98,8 @@ export default function LoginPage() {
         ? await api.confirmRequiredMfaEnrollment(mfaTicket, code)
         : await api.verifyMfaLogin(mfaTicket, code);
       setAccessToken(response.access_token);
-      if (mode === "mfa-enroll" && "recovery_codes" in response) {
-        setRecoveryCodes(response.recovery_codes);
+      if (mode === "mfa-enroll" && "recovery_codes" in response && Array.isArray(response.recovery_codes)) {
+        setRecoveryCodes(response.recovery_codes.filter((item): item is string => typeof item === "string"));
         setCode("");
       } else {
         router.replace("/");
