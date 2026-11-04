@@ -19,18 +19,18 @@ def deduplicate_audience_members(records: list[dict[str, Any]]) -> list[dict[str
         current["matched_group_ids"] = sorted(
             set(current.get("matched_group_ids", [])) | set(record.get("matched_group_ids", []))
         )
-        # A single global opt-out or recent contact always wins when duplicate
-        # memberships are merged. Eligible channels are intersected, not unioned,
-        # so a group cannot weaken a more restrictive snapshot.
+        # Channel eligibility is already checked against the same student-level
+        # preferences and contact data. Union channels recommended by different
+        # groups; global blocks remain in blocked_reasons and are applied upstream.
         current["eligible_channels"] = sorted(
-            set(current.get("eligible_channels", [])) & set(record.get("eligible_channels", []))
+            set(current.get("eligible_channels", [])) | set(record.get("eligible_channels", []))
         )
         current["blocked_reasons"] = sorted(
             set(current.get("blocked_reasons", [])) | set(record.get("blocked_reasons", []))
         )
-        if record.get("internal_action_only"):
-            current["internal_action_only"] = True
-            current["eligible_channels"] = []
+        current["internal_action_only"] = bool(
+            current.get("internal_action_only") and record.get("internal_action_only")
+        )
     return [merged[key] for key in sorted(merged)]
 
 
