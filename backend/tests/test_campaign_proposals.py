@@ -7,7 +7,6 @@ def test_audience_snapshot_deduplicates_students_and_merges_groups_and_channels(
     snapshot = deduplicate_audience_members([
         {
             "student_id": "student-b",
-            "matricula": "B",
             "matched_group_ids": ["risk_critical"],
             "eligible_channels": ["whatsapp"],
             "blocked_reasons": [],
@@ -15,7 +14,6 @@ def test_audience_snapshot_deduplicates_students_and_merges_groups_and_channels(
         },
         {
             "student_id": "student-b",
-            "matricula": "B",
             "matched_group_ids": ["multiple_active_signals"],
             "eligible_channels": ["email"],
             "blocked_reasons": [],
@@ -23,7 +21,6 @@ def test_audience_snapshot_deduplicates_students_and_merges_groups_and_channels(
         },
         {
             "student_id": "student-a",
-            "matricula": "A",
             "matched_group_ids": ["missing_score"],
             "eligible_channels": [],
             "blocked_reasons": ["internal_data_quality_action"],
@@ -42,7 +39,6 @@ def test_internal_only_membership_does_not_suppress_a_confirmed_outreach_group()
     snapshot = deduplicate_audience_members([
         {
             "student_id": "student-a",
-            "matricula": "A",
             "matched_group_ids": ["missing_score"],
             "eligible_channels": [],
             "blocked_reasons": ["internal_data_quality_action"],
@@ -50,7 +46,6 @@ def test_internal_only_membership_does_not_suppress_a_confirmed_outreach_group()
         },
         {
             "student_id": "student-a",
-            "matricula": "A",
             "matched_group_ids": ["risk_critical"],
             "eligible_channels": ["email"],
             "blocked_reasons": [],
