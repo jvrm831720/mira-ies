@@ -11,6 +11,10 @@ from app.models.retention_campaign import RetentionCampaignProposal, RetentionCa
 async def test_proposal_review_attestation_and_approval_are_audited(
     client, tenant, db_session
 ):
+    from app.main import app
+
+    from app.main import app
+
     institution, _api_key = tenant
     creator = User(
         tenant_id=institution.id,
@@ -78,7 +82,7 @@ async def test_proposal_review_attestation_and_approval_are_audited(
         tenant=institution, tenant_id=institution.id, tenant_slug=institution.slug,
         user_id=reviewer.id, role="coordinator", aal=2,
     )}
-    client._transport.app.dependency_overrides[get_current_tenant] = lambda: current_auth["value"]
+    app.dependency_overrides[get_current_tenant] = lambda: current_auth["value"]
     try:
         response = await client.post(
             f"/api/v1/agents/retention/campaigns/intelligence/proposals/{proposal.id}/review"
