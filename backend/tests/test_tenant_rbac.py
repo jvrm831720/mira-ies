@@ -1,9 +1,11 @@
+from types import SimpleNamespace
+
 import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
 from app.api.tenant_rbac import RolePayload, _validate_permission_ceiling
-from app.core.auth import _permission_for_request
+from app.core.auth import _enforce_custom_request_permission, _permission_for_request
 
 
 def _request(path: str, method: str = "GET") -> Request:
@@ -66,3 +68,15 @@ def test_custom_role_always_retains_minimum_application_access():
 def test_member_role_assignment_requires_permission_management():
     assert _permission_for_request(_request("/api/v1/org/members/123/role", "POST")) == "permissions.manage"
     assert _permission_for_request(_request("/api/v1/org/members/123/permissions", "GET")) == "permissions.manage"
+
+
+def test_custom_permission_is_enforced_for_authenticated_requests():
+    request = _request("/api/v1/students", "GET")
+    with pytest.raises(HTTPException) as exc:
+        _enforce_custom_request_permission(request, SimpleNamespace(permissions=frozenset({"access.viewer"})))
+    assert exc.value.status_code == 403
+    _enforce_custom_request_permission(request, SimpleNamespace(permissions=frozenset({"students.view"})))
+
+
+def test_dashboard_summary_does_not_require_student_detail_permission():
+    assert _permission_for_request(_request("/api/v1/risk/summary")) == "dashboard.view"
