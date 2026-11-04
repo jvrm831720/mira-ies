@@ -76,7 +76,7 @@ function CampaignProposalsContent() {
     setAuthorizationBasis(selected.authorization_basis ?? "");
     setAuthorizationReference(selected.authorization_reference ?? "");
     setAttested(false);
-  }, [selected?.id, selected?.revision]);
+  }, [selected]);
 
   const auditQuery = useQuery({
     queryKey: ["retention-campaign-proposal-audit", selectedId],
