@@ -136,3 +136,18 @@ def test_registry_list_connectors_is_deduplicated_and_sorted():
     keys = [(c.category, c.name) for c in items]
     assert keys == sorted(keys)
     assert "generic" in ids and "jacad" in ids and "moodle" in ids
+
+
+
+def test_moodle_does_not_treat_account_creation_as_last_login():
+    records = MoodleConnector().transform([
+        {"id": "M2", "fullname": "Conta Antiga", "timecreated": 1_700_000_000},
+    ])
+    assert records[0]["dias_sem_login"] is None
+
+
+def test_canvas_does_not_treat_profile_update_as_last_activity():
+    records = CanvasConnector().transform([
+        {"sis_user_id": "C2", "name": "Perfil Atualizado", "updated_at": "2026-11-04T12:00:00Z"},
+    ])
+    assert records[0]["dias_sem_login"] is None

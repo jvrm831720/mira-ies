@@ -155,3 +155,9 @@ async def test_rejects_invalid_pagination_limit_and_non_list_payload():
             await client.get_all("courses", max_pages=0)
         with pytest.raises(CanvasContractError, match="lista JSON"):
             await client.get_all("courses")
+
+
+
+def test_canvas_config_repr_does_not_expose_access_token():
+    config = CanvasConfig("https://school.example.edu", "secret-token")
+    assert "secret-token" not in repr(config)

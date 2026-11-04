@@ -163,7 +163,7 @@ async def webhook_erp(
     connector_id: str, request: Request, auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db), auto_score: bool = Query(True),
 ):
-    allowed = {"jacad", "sponte", "sophia", "gvcollege", "wpensar", "isaac"}
+    allowed = {"jacad", "sponte", "sophia", "gvcollege", "wpensar"}
     cid = connector_id.lower()
     if cid not in allowed:
         raise HTTPException(status_code=404, detail=f"Webhook ERP nao suportado: {connector_id}")
