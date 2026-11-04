@@ -157,6 +157,8 @@ async def create_invite(
         ))).scalar_one_or_none()
         if not custom_role:
             raise HTTPException(status_code=404, detail="Cargo personalizado não encontrado ou desativado.")
+        if auth.role != "admin" and auth.permissions is None:
+            raise HTTPException(status_code=403, detail="Somente administradores ou delegados podem convidar para cargos personalizados.")
         if body.role == "admin":
             raise HTTPException(status_code=422, detail="Convites com cargo personalizado não podem conceder admin.")
         if auth.custom_role_id and (
