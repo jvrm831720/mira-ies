@@ -26,6 +26,13 @@
 
 O corpo do POST recebe `scheduled_for` em ISO 8601 com offset explícito e `schedule_timezone` com nome IANA, por exemplo `America/Sao_Paulo`.
 
+## Integração com o ciclo de jobs de retenção
+
+- O agendamento desta wave persiste metadados na proposta de campanha; ele não cria um job de execução.
+- Os controles de pausa, retomada e cancelamento da fila de retenção operam sobre jobs já criados pelo fluxo de enfileiramento. Eles não alteram o estado de agendamento da proposta.
+- Não existe conversão automática entre uma proposta agendada e um job da fila nesta wave.
+- Uma futura ligação entre esses ciclos exige simulação, idempotência e revalidação de elegibilidade, com os gates próprios da Wave 1.4C.
+
 ## Próxima etapa
 
 Depois da revisão e CI desta wave, a Wave 1.4C pode implementar execução simulada, idempotência e revalidação de elegibilidade. Execução real permanece fora do escopo.
