@@ -75,6 +75,28 @@ def _role_dict(role: TenantRole, members_count: int = 0) -> dict:
     }
 
 
+_PERMISSION_CEILING = {
+    "access.viewer": 1, "dashboard.view": 1, "students.view": 1,
+    "access.operator": 2, "students.create": 2, "students.edit": 2,
+    "campaigns.view": 2, "campaigns.create": 2, "campaigns.edit": 2,
+    "members.view": 2, "data.view": 2,
+    "access.coordinator": 3, "data.import": 3, "audit.view": 3,
+    "students.sensitive.view": 3, "campaigns.approve": 3,
+    "campaigns.execute": 3, "members.manage": 3,
+    "permissions.manage": 4, "settings.manage": 4,
+    "students.delete": 4, "campaigns.delete": 4, "critical.manage": 4,
+}
+
+
+def _validate_permission_ceiling(base_role: str, permissions: list[str]) -> None:
+    ceiling = BASE_ROLE_RANK[base_role]
+    if any(_PERMISSION_CEILING.get(permission, 99) > ceiling for permission in permissions):
+        raise HTTPException(
+            status_code=422,
+            detail="O cargo personalizado não pode conceder permissões acima do seu cargo-base.",
+        )
+
+
 class RolePayload(BaseModel):
     name: str = Field(min_length=2, max_length=80)
     description: Optional[str] = Field(default=None, max_length=500)
@@ -139,6 +161,7 @@ async def list_roles(auth: AuthContext = Depends(get_current_tenant), db: AsyncS
 async def create_role(body: RolePayload, auth: AuthContext = Depends(get_current_tenant),
                       db: AsyncSession = Depends(get_db)):
     actor = _require_admin(auth)
+    _validate_permission_ceiling(body.base_role, body.permissions)
     duplicate = await db.execute(select(TenantRole.id).where(
         TenantRole.tenant_id == auth.tenant_id, func.lower(TenantRole.name) == body.name.lower()
     ))
@@ -161,6 +184,7 @@ async def create_role(body: RolePayload, auth: AuthContext = Depends(get_current
 async def update_role(role_id: str, body: RolePayload, auth: AuthContext = Depends(get_current_tenant),
                       db: AsyncSession = Depends(get_db)):
     _require_admin(auth)
+    _validate_permission_ceiling(body.base_role, body.permissions)
     role = await _load_role(db, auth.tenant_id, role_id, lock=True)
     if not role.is_active:
         raise HTTPException(status_code=409, detail="Reative o cargo antes de editá-lo.")
