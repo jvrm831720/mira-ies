@@ -7,6 +7,7 @@ from app.models.data_governance import TenantDataUsePolicy
 from app.models.institutional_training_authorization import InstitutionalTrainingAuthorization
 from app.models.eligible_contribution import EligibleContribution
 from app.models.training_run import TrainingDatasetSnapshot, TrainingRun
+from app.models.mira_base_lifecycle import MiraBaseLifecycleEvent
 from app.models.risk_assessment import RiskAssessment
 from app.models.work_activity import WorkActivity, WorkActivityEvent
 from app.models.jacad_connection import TenantJacadConnection
@@ -22,7 +23,7 @@ __all__ = [
     "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User",
     "RetentionCampaign", "RetentionCampaignProposal", "RetentionCampaignProposalAuditEvent",
     "TenantDataUsePolicy", "InstitutionalTrainingAuthorization", "EligibleContribution",
-    "TrainingDatasetSnapshot", "TrainingRun",
+    "TrainingDatasetSnapshot", "TrainingRun", "MiraBaseLifecycleEvent",
     "RiskAssessment", "WorkActivity", "WorkActivityEvent",
     "TenantJacadConnection", "TenantSponteConnection",
     "TenantSophiaConnection", "TenantSophiaStudentLink",
