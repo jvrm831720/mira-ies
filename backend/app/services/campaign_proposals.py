@@ -31,6 +31,24 @@ def deduplicate_audience_members(records: list[dict[str, Any]]) -> list[dict[str
         current["internal_action_only"] = bool(
             current.get("internal_action_only") and record.get("internal_action_only")
         )
+        hard_blocks = {"global_opt_out", "recent_intervention"}
+        if hard_blocks.intersection(current["blocked_reasons"]):
+            current["eligible_channels"] = []
+        for channel in ("email", "whatsapp", "sms"):
+            if f"preference_blocked:{channel}" in current["blocked_reasons"]:
+                current["eligible_channels"] = [
+                    item for item in current["eligible_channels"] if item != channel
+                ]
+        if "invalid_email" in current["blocked_reasons"]:
+            current["eligible_channels"] = [
+                item for item in current["eligible_channels"] if item != "email"
+            ]
+        if "invalid_whatsapp_contact" in current["blocked_reasons"]:
+            current["eligible_channels"] = [
+                item for item in current["eligible_channels"] if item != "whatsapp"
+            ]
+        if current["internal_action_only"]:
+            current["eligible_channels"] = []
     return [merged[key] for key in sorted(merged)]
 
 
