@@ -1,13 +1,13 @@
 """Central de Trabalho: atividades operacionais atribuíveis (não InterventionLog)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthContext, require_min_role
@@ -15,8 +15,11 @@ from app.db.session import get_db
 from app.models.auth import User
 from app.models.intervention import InterventionLog
 from app.models.student import Student
+from app.models.retention_campaign import RetentionCampaign
 from app.models.work_activity import (
     WORK_ACTIVITY_TYPES,
+    WORK_ORIGINS,
+    WORK_PRIORITIES,
     WORK_STATUSES,
     WorkActivity,
     WorkActivityEvent,
@@ -66,6 +69,9 @@ def _serialize(activity: WorkActivity, assignee: Optional[User] = None) -> dict:
         "description": activity.description,
         "activity_type": activity.activity_type,
         "status": activity.status,
+        "priority": activity.priority,
+        "origin_type": activity.origin_type,
+        "campaign_id": activity.campaign_id,
         "assignee_user_id": activity.assignee_user_id,
         "assignee": (
             {
@@ -203,6 +209,8 @@ class CreateActivityBody(BaseModel):
     intervention_log_id: Optional[str] = None
     assignee_user_id: Optional[str] = None
     due_at: Optional[datetime] = None
+    priority: Literal["low", "normal", "high", "urgent"] = "normal"
+    campaign_id: Optional[str] = None
 
 
 class PatchActivityBody(BaseModel):
@@ -213,6 +221,7 @@ class PatchActivityBody(BaseModel):
     due_at: Optional[datetime] = None
     clear_due: bool = False
     status: Optional[Literal["open", "in_progress", "completed", "cancelled"]] = None
+    priority: Optional[Literal["low", "normal", "high", "urgent"]] = None
     student_id: Optional[str] = None
     clear_student: bool = False
     intervention_log_id: Optional[str] = None
@@ -224,12 +233,26 @@ class ResultRecordedBody(BaseModel):
     kind: Optional[Literal["done", "unreachable", "deferred", "referred"]] = None
 
 
+class CampaignActivityGenerationBody(BaseModel):
+    campaign_id: str
+    generation_key: str = Field(min_length=1, max_length=120)
+    student_ids: list[str] = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=4000)
+    activity_type: Literal["follow_up", "contact", "review", "other"] = "follow_up"
+    priority: Literal["low", "normal", "high", "urgent"] = "normal"
+    assignee_user_id: Optional[str] = None
+    due_at: Optional[datetime] = None
+
+
 @router.get("/activities")
 async def list_activities(
     status_filter: Optional[str] = Query(None, alias="status"),
     assignee: Optional[str] = Query(
         None, description="user_id, 'me' ou 'unassigned'"
     ),
+    origin_type: Optional[str] = Query(None, description="manual ou campaign"),
+    priority: Optional[str] = Query(None, description="low, normal, high ou urgent"),
     student_id: Optional[str] = Query(None),
     intervention_log_id: Optional[str] = Query(None),
     overdue_only: bool = Query(False),
@@ -245,6 +268,14 @@ async def list_activities(
         if status_filter not in WORK_STATUSES:
             raise HTTPException(status_code=422, detail=f"status inválido: {status_filter}")
         q = q.where(WorkActivity.status == status_filter)
+    if origin_type:
+        if origin_type not in WORK_ORIGINS:
+            raise HTTPException(status_code=422, detail=f"origin_type inválido: {origin_type}")
+        q = q.where(WorkActivity.origin_type == origin_type)
+    if priority:
+        if priority not in WORK_PRIORITIES:
+            raise HTTPException(status_code=422, detail=f"priority inválida: {priority}")
+        q = q.where(WorkActivity.priority == priority)
     if assignee == "me":
         if not auth.user_id:
             return {"count": 0, "activities": []}
@@ -263,7 +294,17 @@ async def list_activities(
             WorkActivity.due_at < _now(),
             WorkActivity.status.in_(["open", "in_progress"]),
         )
-    q = q.order_by(WorkActivity.due_at.asc().nullslast(), WorkActivity.created_at.desc()).limit(limit)
+    priority_rank = case(
+        (WorkActivity.priority == "urgent", 4),
+        (WorkActivity.priority == "high", 3),
+        (WorkActivity.priority == "normal", 2),
+        else_=1,
+    )
+    q = q.order_by(
+        priority_rank.desc(),
+        WorkActivity.due_at.asc().nullslast(),
+        WorkActivity.created_at.desc(),
+    ).limit(limit)
     rows = (await db.execute(q)).scalars().all()
     assignees = await _load_assignees(
         db, auth.tenant_id, {r.assignee_user_id for r in rows if r.assignee_user_id}
@@ -308,6 +349,62 @@ async def list_my_activities(
     }
 
 
+@router.get("/activities/summary")
+async def work_activity_summary(
+    auth: AuthContext = Depends(require_min_role("operator")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Contadores sem limite de listagem para enxergar backlog e gargalos reais."""
+    now = _now()
+    active = WorkActivity.status.in_(["open", "in_progress"])
+    row = (
+        await db.execute(
+            select(
+                func.count(case((active, WorkActivity.id))).label("pending"),
+                func.count(
+                    case(
+                        (
+                            active
+                            & WorkActivity.due_at.is_not(None)
+                            & (WorkActivity.due_at < now),
+                            WorkActivity.id,
+                        )
+                    )
+                ).label("overdue"),
+                func.count(
+                    case(
+                        (
+                            (WorkActivity.status == "completed")
+                            & (WorkActivity.completed_at >= now - timedelta(days=7)),
+                            WorkActivity.id,
+                        )
+                    )
+                ).label("completed_7d"),
+                func.count(
+                    case((active & WorkActivity.assignee_user_id.is_(None), WorkActivity.id))
+                ).label("unassigned"),
+                func.count(
+                    case(
+                        (active & (WorkActivity.origin_type == "campaign"), WorkActivity.id)
+                    )
+                ).label("campaign_pending"),
+                func.count(
+                    case((active & (WorkActivity.priority == "urgent"), WorkActivity.id))
+                ).label("urgent_pending"),
+            ).where(WorkActivity.tenant_id == auth.tenant_id)
+        )
+    ).one()
+    return {
+        "pending": int(row.pending or 0),
+        "overdue": int(row.overdue or 0),
+        "completed_7d": int(row.completed_7d or 0),
+        "unassigned": int(row.unassigned or 0),
+        "campaign_pending": int(row.campaign_pending or 0),
+        "urgent_pending": int(row.urgent_pending or 0),
+        "as_of": _iso(now),
+    }
+
+
 @router.post("/activities", status_code=201)
 async def create_activity(
     body: CreateActivityBody,
@@ -316,6 +413,9 @@ async def create_activity(
 ):
     if body.activity_type not in WORK_ACTIVITY_TYPES:
         raise HTTPException(status_code=422, detail="activity_type inválido")
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="title não pode ser vazio.")
 
     student_id = _parse_uuid_param(body.student_id, "student_id") if body.student_id else None
     intervention_log_id = (
@@ -330,6 +430,47 @@ async def create_activity(
         intervention_log_id=intervention_log_id,
     )
 
+    campaign_id = _parse_uuid_param(body.campaign_id, "campaign_id") if body.campaign_id else None
+    log_campaign_id = None
+    if intervention_log_id:
+        log_campaign_id = (
+            await db.execute(
+                select(InterventionLog.campaign_id).where(
+                    InterventionLog.id == intervention_log_id,
+                    InterventionLog.tenant_id == auth.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if campaign_id and log_campaign_id and str(campaign_id) != str(log_campaign_id):
+            raise HTTPException(
+                status_code=422,
+                detail="A campanha informada não corresponde à campanha da intervenção vinculada.",
+            )
+        if not campaign_id and log_campaign_id:
+            try:
+                possible_campaign_id = str(UUID(str(log_campaign_id)))
+            except (ValueError, TypeError, AttributeError):
+                possible_campaign_id = None
+            if possible_campaign_id:
+                campaign_exists = await db.execute(
+                    select(RetentionCampaign.id).where(
+                        RetentionCampaign.id == possible_campaign_id,
+                        RetentionCampaign.tenant_id == auth.tenant_id,
+                    )
+                )
+                if campaign_exists.scalar_one_or_none():
+                    campaign_id = possible_campaign_id
+
+    if campaign_id:
+        campaign_exists = await db.execute(
+            select(RetentionCampaign.id).where(
+                RetentionCampaign.id == campaign_id,
+                RetentionCampaign.tenant_id == auth.tenant_id,
+            )
+        )
+        if not campaign_exists.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Campanha não encontrada neste tenant.")
+
     assignee = None
     if body.assignee_user_id:
         assignee = await _require_tenant_member(db, auth.tenant_id, body.assignee_user_id)
@@ -338,10 +479,13 @@ async def create_activity(
         tenant_id=auth.tenant_id,
         student_id=student_id,
         intervention_log_id=intervention_log_id,
-        title=body.title.strip(),
+        title=title,
         description=(body.description or "").strip() or None,
         activity_type=body.activity_type,
         status="open",
+        priority=body.priority,
+        origin_type="campaign" if campaign_id else "manual",
+        campaign_id=campaign_id,
         assignee_user_id=assignee.id if assignee else None,
         created_by_user_id=auth.user_id,
         due_at=body.due_at,
@@ -356,6 +500,9 @@ async def create_activity(
         event_type="created",
         payload={
             "title": activity.title,
+            "priority": activity.priority,
+            "origin_type": activity.origin_type,
+            "campaign_id": activity.campaign_id,
             "assignee_user_id": activity.assignee_user_id,
             "due_at": _iso(activity.due_at),
             "student_id": activity.student_id,
@@ -367,12 +514,123 @@ async def create_activity(
     return _serialize(activity, assignee)
 
 
+@router.post("/activities/campaign-generated")
+async def generate_campaign_activities(
+    body: CampaignActivityGenerationBody,
+    auth: AuthContext = Depends(require_min_role("operator")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cria tarefas humanas para uma audiência explícita, idempotente por campanha/aluno.
+
+    Campanhas só devem chamar esta operação quando uma regra exigir ação humana. Uma
+    simulação ou dry-run de comunicação, por si só, não gera tarefas operacionais.
+    """
+    campaign_id = _parse_uuid_param(body.campaign_id, "campaign_id")
+    campaign = await db.execute(
+        select(RetentionCampaign).where(
+            RetentionCampaign.id == campaign_id,
+            RetentionCampaign.tenant_id == auth.tenant_id,
+        ).with_for_update()
+    )
+    if not campaign.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Campanha não encontrada neste tenant.")
+
+    generation_key = body.generation_key.strip()
+    if not generation_key:
+        raise HTTPException(status_code=422, detail="generation_key não pode ser vazio.")
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="title não pode ser vazio.")
+    student_ids = list(dict.fromkeys(_parse_uuid_param(value, "student_ids") for value in body.student_ids))
+    students = await db.execute(
+        select(Student.id).where(
+            Student.tenant_id == auth.tenant_id,
+            Student.id.in_(student_ids),
+        )
+    )
+    valid_student_ids = set(students.scalars().all())
+    if valid_student_ids != set(student_ids):
+        raise HTTPException(status_code=404, detail="Um ou mais alunos não foram encontrados neste tenant.")
+
+    assignee = None
+    if body.assignee_user_id:
+        assignee = await _require_tenant_member(db, auth.tenant_id, body.assignee_user_id)
+
+    source_keys = {
+        student_id: f"campaign:{campaign_id}:g:{generation_key}:{student_id}"
+        for student_id in student_ids
+    }
+    existing_result = await db.execute(
+        select(WorkActivity).where(
+            WorkActivity.tenant_id == auth.tenant_id,
+            WorkActivity.source_key.in_(list(source_keys.values())),
+        )
+    )
+    existing_rows = list(existing_result.scalars().all())
+    existing_keys = {row.source_key for row in existing_rows}
+    created_rows: list[WorkActivity] = []
+    for student_id in student_ids:
+        source_key = source_keys[student_id]
+        if source_key in existing_keys:
+            continue
+        activity = WorkActivity(
+            tenant_id=auth.tenant_id,
+            student_id=student_id,
+            title=title,
+            description=(body.description or "").strip() or None,
+            activity_type=body.activity_type,
+            status="open",
+            priority=body.priority,
+            origin_type="campaign",
+            campaign_id=campaign_id,
+            source_key=source_key,
+            assignee_user_id=assignee.id if assignee else None,
+            created_by_user_id=auth.user_id,
+            due_at=body.due_at,
+        )
+        db.add(activity)
+        await db.flush()
+        await _append_event(
+            db,
+            tenant_id=auth.tenant_id,
+            activity_id=activity.id,
+            actor_user_id=auth.user_id,
+            event_type="created",
+            payload={
+                "title": activity.title,
+                "origin_type": "campaign",
+                "campaign_id": campaign_id,
+                "generation_key": generation_key,
+                "student_id": student_id,
+                "priority": activity.priority,
+                "assignee_user_id": activity.assignee_user_id,
+                "due_at": _iso(activity.due_at),
+            },
+        )
+        created_rows.append(activity)
+
+    await db.commit()
+    rows = existing_rows + created_rows
+    assignees = await _load_assignees(
+        db, auth.tenant_id, {row.assignee_user_id for row in rows if row.assignee_user_id}
+    )
+    return {
+        "campaign_id": campaign_id,
+        "generation_key": generation_key,
+        "count": len(rows),
+        "created_count": len(created_rows),
+        "reused_count": len(existing_rows),
+        "activities": [_serialize(row, assignees.get(row.assignee_user_id or "")) for row in rows],
+    }
+
+
 @router.get("/activities/{activity_id}")
 async def get_activity(
     activity_id: str,
     auth: AuthContext = Depends(require_min_role("operator")),
     db: AsyncSession = Depends(get_db),
 ):
+    activity_id = _parse_uuid_param(activity_id, "activity_id")
     activity = await db.get(WorkActivity, activity_id)
     if not activity or activity.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
@@ -391,6 +649,7 @@ async def patch_activity(
     auth: AuthContext = Depends(require_min_role("operator")),
     db: AsyncSession = Depends(get_db),
 ):
+    activity_id = _parse_uuid_param(activity_id, "activity_id")
     activity = await db.get(WorkActivity, activity_id)
     if not activity or activity.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
@@ -412,6 +671,7 @@ async def patch_activity(
             or body.clear_assignee
             or body.due_at
             or body.clear_due
+            or body.priority is not None
             or relation_touch
         ):
             raise HTTPException(
@@ -419,11 +679,42 @@ async def patch_activity(
                 detail="Atividade concluída ou cancelada não pode ser editada.",
             )
 
+    changed_fields: list[str] = []
     if body.title is not None:
-        activity.title = body.title.strip()
+        next_title = body.title.strip()
+        if not next_title:
+            raise HTTPException(status_code=422, detail="title não pode ser vazio.")
+        if next_title != activity.title:
+            activity.title = next_title
+            changed_fields.append("title")
 
     if body.description is not None:
-        activity.description = body.description.strip() or None
+        next_description = body.description.strip() or None
+        if next_description != activity.description:
+            activity.description = next_description
+            changed_fields.append("description")
+
+    if changed_fields:
+        await _append_event(
+            db,
+            tenant_id=auth.tenant_id,
+            activity_id=activity.id,
+            actor_user_id=auth.user_id,
+            event_type="details_changed",
+            payload={"fields": changed_fields},
+        )
+
+    if body.priority is not None and body.priority != activity.priority:
+        previous_priority = activity.priority
+        activity.priority = body.priority
+        await _append_event(
+            db,
+            tenant_id=auth.tenant_id,
+            activity_id=activity.id,
+            actor_user_id=auth.user_id,
+            event_type="priority_changed",
+            payload={"from": previous_priority, "to": body.priority},
+        )
 
     # Relation updates
     next_student = activity.student_id
@@ -444,6 +735,11 @@ async def patch_activity(
             student_id=next_student,
             intervention_log_id=next_log,
         )
+        if activity.source_key and next_student != activity.student_id:
+            raise HTTPException(
+                status_code=422,
+                detail="O aluno de uma atividade gerada por campanha não pode ser alterado.",
+            )
         if next_student != activity.student_id or next_log != activity.intervention_log_id:
             prev_s, prev_l = activity.student_id, activity.intervention_log_id
             activity.student_id = next_student
@@ -462,15 +758,16 @@ async def patch_activity(
 
     if body.clear_assignee:
         prev = activity.assignee_user_id
-        activity.assignee_user_id = None
-        await _append_event(
-            db,
-            tenant_id=auth.tenant_id,
-            activity_id=activity.id,
-            actor_user_id=auth.user_id,
-            event_type="assignee_changed",
-            payload={"from": prev, "to": None},
-        )
+        if prev is not None:
+            activity.assignee_user_id = None
+            await _append_event(
+                db,
+                tenant_id=auth.tenant_id,
+                activity_id=activity.id,
+                actor_user_id=auth.user_id,
+                event_type="assignee_changed",
+                payload={"from": prev, "to": None},
+            )
     elif body.assignee_user_id is not None:
         member = await _require_tenant_member(db, auth.tenant_id, body.assignee_user_id)
         prev = activity.assignee_user_id
@@ -487,26 +784,28 @@ async def patch_activity(
 
     if body.clear_due:
         prev = _iso(activity.due_at)
-        activity.due_at = None
-        await _append_event(
-            db,
-            tenant_id=auth.tenant_id,
-            activity_id=activity.id,
-            actor_user_id=auth.user_id,
-            event_type="due_changed",
-            payload={"from": prev, "to": None},
-        )
+        if prev is not None:
+            activity.due_at = None
+            await _append_event(
+                db,
+                tenant_id=auth.tenant_id,
+                activity_id=activity.id,
+                actor_user_id=auth.user_id,
+                event_type="due_changed",
+                payload={"from": prev, "to": None},
+            )
     elif body.due_at is not None:
         prev = _iso(activity.due_at)
-        activity.due_at = body.due_at
-        await _append_event(
-            db,
-            tenant_id=auth.tenant_id,
-            activity_id=activity.id,
-            actor_user_id=auth.user_id,
-            event_type="due_changed",
-            payload={"from": prev, "to": _iso(body.due_at)},
-        )
+        if prev != _iso(body.due_at):
+            activity.due_at = body.due_at
+            await _append_event(
+                db,
+                tenant_id=auth.tenant_id,
+                activity_id=activity.id,
+                actor_user_id=auth.user_id,
+                event_type="due_changed",
+                payload={"from": prev, "to": _iso(body.due_at)},
+            )
 
     if body.status is not None and body.status != activity.status:
         allowed = _ALLOWED_TRANSITIONS.get(activity.status, set())
@@ -553,6 +852,7 @@ async def record_activity_result(
     db: AsyncSession = Depends(get_db),
 ):
     """Registra resultado operacional via WorkActivityEvent (não altera status nem InterventionLog.outcome)."""
+    activity_id = _parse_uuid_param(activity_id, "activity_id")
     activity = await db.get(WorkActivity, activity_id)
     if not activity or activity.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
@@ -605,6 +905,7 @@ async def list_activity_events(
     auth: AuthContext = Depends(require_min_role("operator")),
     db: AsyncSession = Depends(get_db),
 ):
+    activity_id = _parse_uuid_param(activity_id, "activity_id")
     activity = await db.get(WorkActivity, activity_id)
     if not activity or activity.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")

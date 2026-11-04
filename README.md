@@ -10,7 +10,7 @@ MVP SaaS que une **Análise Preditiva de Evasão** + **Sistema Multiagente de Re
 Motor Preditivo → Agente Orquestrador → WhatsApp | E-mail | SMS
 ```
 
-Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção, `docs/RETENTION_RULE_ENGINE.md` para o contrato das campanhas, templates, auditoria e testes, e `docs/AUTH.md` para os fluxos de autenticação Mira.
+Ver `docs/AGENTES.md` para a arquitetura completa do sistema multiagente de retenção, `docs/RETENTION_RULE_ENGINE.md` para o contrato das campanhas, templates, auditoria e testes, `docs/WORK_ACTIVITIES.md` para a Central de Trabalho e geração de tarefas de campanha, e `docs/AUTH.md` para os fluxos de autenticação Mira.
 
 ---
 
@@ -100,6 +100,8 @@ curl http://localhost:8000/api/v1/risk/critical
 | GET | `/api/v1/agents/retention/dead-letter` | Lista jobs que excederam retries |
 | GET | `/api/v1/agents/retention/logs` | Histórico de intervenções |
 | GET | `/api/v1/agents/retention/preview/{id}` | Mensagem sem enviar |
+| GET | `/api/v1/work/activities/summary` | Indicadores consolidados da fila humana |
+| POST | `/api/v1/work/activities/campaign-generated` | Gera tarefas humanas idempotentes para uma audiência de campanha |
 | POST | `/api/v1/agents/webhooks/{provider}/{tenant_id}` | Atualiza entrega via webhook HMAC |
 | POST | `/api/v1/auth/login/password` | Login por e-mail e senha |
 | POST | `/api/v1/auth/whatsapp/request` | Solicita código de login WhatsApp |

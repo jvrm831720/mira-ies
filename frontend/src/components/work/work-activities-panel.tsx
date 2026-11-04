@@ -9,6 +9,8 @@ import {
   FileText,
   History,
   Loader2,
+  Play,
+  RotateCcw,
   UserPlus,
   XCircle,
 } from "lucide-react";
@@ -49,6 +51,18 @@ const TYPE_LABEL: Record<string, string> = {
   other: "Outro",
 };
 
+const PRIORITY_LABEL: Record<string, string> = {
+  low: "Baixa",
+  normal: "Normal",
+  high: "Alta",
+  urgent: "Urgente",
+};
+
+const ORIGIN_LABEL: Record<string, string> = {
+  manual: "Equipe",
+  campaign: "Campanha",
+};
+
 const EVENT_LABEL: Record<string, string> = {
   created: "Criação",
   assignee_changed: "Responsável",
@@ -57,6 +71,9 @@ const EVENT_LABEL: Record<string, string> = {
   completed: "Conclusão",
   cancelled: "Cancelamento",
   result_recorded: "Resultado operacional",
+  priority_changed: "Prioridade",
+  details_changed: "Detalhes",
+  relations_changed: "Vínculos",
 };
 
 const RESULT_KIND_LABEL: Record<WorkResultKind, string> = {
@@ -81,11 +98,15 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
   const qc = useQueryClient();
   const [view, setView] = useState<"all" | "mine" | "overdue">("all");
   const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [originFilter, setOriginFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [activityType, setActivityType] = useState("follow_up");
+  const [createPriority, setCreatePriority] = useState("normal");
   const [assigneeId, setAssigneeId] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [linkStudentId, setLinkStudentId] = useState<string | null>(null);
@@ -102,24 +123,52 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
     retry: false,
   });
 
-  const listParams = useMemo(() => {
-    if (view === "mine") return { assignee: "me" as const, limit: 100 };
-    if (view === "overdue") return { overdue_only: true, limit: 100 };
-    if (assigneeFilter === "unassigned") return { assignee: "unassigned", limit: 100 };
-    if (assigneeFilter) return { assignee: assigneeFilter, limit: 100 };
-    return { limit: 100 };
-  }, [view, assigneeFilter]);
-
-  const activitiesQuery = useQuery({
-    queryKey: ["work-activities", listParams],
-    queryFn: () => (view === "mine" ? workApi.mine(100) : workApi.list(listParams)),
+  const summaryQuery = useQuery({
+    queryKey: ["work-activity-summary"],
+    queryFn: () => workApi.summary(),
     retry: false,
   });
 
-  const selectedActivity = useMemo(
+  const listParams = useMemo(() => {
+    const params: {
+      assignee?: string;
+      status?: string;
+      origin_type?: string;
+      priority?: string;
+      overdue_only?: boolean;
+      limit: number;
+    } = { limit: 100 };
+    if (view === "mine") params.assignee = "me";
+    else if (view === "overdue") params.overdue_only = true;
+    else if (assigneeFilter === "unassigned") params.assignee = "unassigned";
+    else if (assigneeFilter) params.assignee = assigneeFilter;
+    if (statusFilter) params.status = statusFilter;
+    if (originFilter) params.origin_type = originFilter;
+    if (priorityFilter) params.priority = priorityFilter;
+    return params;
+  }, [view, assigneeFilter, statusFilter, originFilter, priorityFilter]);
+
+  const activitiesQuery = useQuery({
+    queryKey: ["work-activities", listParams],
+    queryFn: () =>
+      view === "mine" && !statusFilter && !originFilter && !priorityFilter
+        ? workApi.mine(100)
+        : workApi.list(listParams),
+    retry: false,
+  });
+
+  const listedActivity = useMemo(
     () => (activitiesQuery.data?.activities ?? []).find((a) => a.id === selectedId) ?? null,
     [activitiesQuery.data?.activities, selectedId]
   );
+
+  const selectedActivityQuery = useQuery({
+    queryKey: ["work-activity", selectedId],
+    queryFn: () => workApi.get(selectedId!),
+    enabled: Boolean(selectedId && !listedActivity),
+    retry: false,
+  });
+  const selectedActivity = listedActivity ?? selectedActivityQuery.data ?? null;
 
   const eventsQuery = useQuery({
     queryKey: ["work-activity-events", selectedId],
@@ -157,6 +206,11 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
   });
 
   useEffect(() => {
+    const activityId = new URLSearchParams(window.location.search).get("activity");
+    if (activityId) setSelectedId(activityId);
+  }, []);
+
+  useEffect(() => {
     if (!createDraft) return;
     setShowCreate(true);
     setTitle(createDraft.suggested_title || "");
@@ -172,6 +226,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
         .join("\n") || ""
     );
     setActivityType("contact");
+    setCreatePriority(createDraft.status === "failed" ? "high" : "normal");
     setLinkStudentId(createDraft.student_id ?? null);
     setLinkLogId(createDraft.intervention_log_id);
     setDraftMeta(createDraft);
@@ -184,6 +239,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
     setTitle("");
     setDescription("");
     setActivityType("follow_up");
+    setCreatePriority("normal");
     setAssigneeId("");
     setDueAt("");
     setLinkStudentId(null);
@@ -198,6 +254,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
         title: title.trim(),
         description: description.trim() || null,
         activity_type: activityType as "follow_up" | "contact" | "review" | "other",
+        priority: createPriority as "low" | "normal" | "high" | "urgent",
         assignee_user_id: assigneeId || null,
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
         student_id: linkStudentId || null,
@@ -206,6 +263,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
     onSuccess: (created) => {
       resetCreateForm();
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
+      void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
       if (created?.id) setSelectedId(created.id);
     },
     onError: (err: Error) => setFormError(err.message),
@@ -222,6 +280,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
       void qc.invalidateQueries({ queryKey: ["work-activity-events"] });
+      void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
     },
   });
 
@@ -237,6 +296,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
       setResultError(null);
       void qc.invalidateQueries({ queryKey: ["work-activity-events"] });
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
+      void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
     },
     onError: (err: Error) => setResultError(err.message),
   });
@@ -253,8 +313,8 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
               Atividades operacionais
             </h2>
             <p className="mt-1 text-sm text-[#667085]">
-              Atribuição, prazos e histórico · vínculo opcional com aluno e InterventionLog · isolado
-              por tenant
+              Trabalho humano separado de envios automatizados · prioridade, prazos e histórico ·
+              vínculo opcional com aluno e campanha
             </p>
           </div>
           <button
@@ -272,6 +332,22 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
           >
             <UserPlus className="h-4 w-4" /> Nova atividade
           </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Resumo da fila">
+          {[
+            { label: "Pendentes", value: summaryQuery.data?.pending },
+            { label: "Atrasadas", value: summaryQuery.data?.overdue, warning: true },
+            { label: "Sem responsável", value: summaryQuery.data?.unassigned, warning: true },
+            { label: "Urgentes", value: summaryQuery.data?.urgent_pending, warning: true },
+            { label: "De campanhas", value: summaryQuery.data?.campaign_pending },
+            { label: "Concluídas · 7d", value: summaryQuery.data?.completed_7d },
+          ].map((metric) => (
+            <div key={metric.label} className="rounded-xl border border-[#EAECF0] bg-[#FCFCFD] px-3 py-2.5">
+              <p className="text-[11px] font-medium text-[#667085]">{metric.label}</p>
+              <p className={cn("mt-1 text-lg font-semibold tabular-nums", metric.warning && Number(metric.value) > 0 ? "text-[#B42318]" : "text-[#101828]")}>{summaryQuery.isError || metric.value == null ? "—" : metric.value.toLocaleString("pt-BR")}</p>
+            </div>
+          ))}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -319,6 +395,40 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
               ))}
             </select>
           )}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filtrar por status"
+            className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm text-[#344054]"
+          >
+            <option value="">Todos os status</option>
+            <option value="open">Aberta</option>
+            <option value="in_progress">Em andamento</option>
+            <option value="completed">Concluída</option>
+            <option value="cancelled">Cancelada</option>
+          </select>
+          <select
+            value={originFilter}
+            onChange={(e) => setOriginFilter(e.target.value)}
+            aria-label="Filtrar por origem"
+            className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm text-[#344054]"
+          >
+            <option value="">Todas as origens</option>
+            <option value="manual">Equipe</option>
+            <option value="campaign">Campanha</option>
+          </select>
+          <select
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+            aria-label="Filtrar por prioridade"
+            className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm text-[#344054]"
+          >
+            <option value="">Todas as prioridades</option>
+            <option value="urgent">Urgente</option>
+            <option value="high">Alta</option>
+            <option value="normal">Normal</option>
+            <option value="low">Baixa</option>
+          </select>
         </div>
 
         {showCreate && (
@@ -376,6 +486,19 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                   <option value="contact">Contato</option>
                   <option value="review">Revisão</option>
                   <option value="other">Outro</option>
+                </select>
+              </label>
+              <label className="block text-xs font-medium text-[#475467]">
+                Prioridade
+                <select
+                  value={createPriority}
+                  onChange={(e) => setCreatePriority(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm"
+                >
+                  <option value="urgent">Urgente</option>
+                  <option value="high">Alta</option>
+                  <option value="normal">Normal</option>
+                  <option value="low">Baixa</option>
                 </select>
               </label>
               <label className="block text-xs font-medium text-[#475467]">
@@ -503,9 +626,16 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                       </button>
                       <p className="mt-0.5 text-xs text-[#667085]">
                         {TYPE_LABEL[item.activity_type] ?? item.activity_type}
+                        {` · ${ORIGIN_LABEL[item.origin_type] ?? item.origin_type}`}
+                        {` · prioridade ${PRIORITY_LABEL[item.priority] ?? item.priority}`}
                         {item.intervention_log_id ? " · vinculada a log" : ""}
                         {item.student_id ? " · com aluno" : ""}
                       </p>
+                      {item.campaign_id && (
+                        <p className="mt-1 text-[10px] font-medium text-[#3538CD]">
+                          Campanha · {item.campaign_id.slice(0, 8)}…
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-3.5">
                       <span
@@ -544,6 +674,39 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                       <div className="flex flex-wrap gap-1">
                         {item.status !== "completed" && item.status !== "cancelled" && (
                           <>
+                            {item.status === "open" ? (
+                              <button
+                                type="button"
+                                title="Iniciar atividade"
+                                aria-label={`Iniciar ${item.title}`}
+                                disabled={patchMut.isPending}
+                                onClick={() =>
+                                  patchMut.mutate({
+                                    id: item.id,
+                                    body: { status: "in_progress" as WorkActivityStatus },
+                                  })
+                                }
+                                className="rounded-lg border border-[#D0D5DD] bg-white p-1.5 text-[#344054]"
+                              >
+                                <Play className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                title="Retomar como aberta"
+                                aria-label={`Retomar ${item.title}`}
+                                disabled={patchMut.isPending}
+                                onClick={() =>
+                                  patchMut.mutate({
+                                    id: item.id,
+                                    body: { status: "open" as WorkActivityStatus },
+                                  })
+                                }
+                                className="rounded-lg border border-[#D0D5DD] bg-white p-1.5 text-[#344054]"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               title="Concluir"
@@ -572,6 +735,25 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                             >
                               <XCircle className="h-4 w-4" />
                             </button>
+                            <select
+                              aria-label="Alterar prioridade"
+                              value={item.priority}
+                              disabled={patchMut.isPending}
+                              onChange={(e) =>
+                                patchMut.mutate({
+                                  id: item.id,
+                                  body: {
+                                    priority: e.target.value as "low" | "normal" | "high" | "urgent",
+                                  },
+                                })
+                              }
+                              className="h-8 rounded-lg border border-[#D0D5DD] bg-white px-2 text-xs"
+                            >
+                              <option value="urgent">Urgente</option>
+                              <option value="high">Alta</option>
+                              <option value="normal">Normal</option>
+                              <option value="low">Baixa</option>
+                            </select>
                             <select
                               aria-label="Atribuir responsável"
                               value={item.assignee_user_id ?? ""}
@@ -622,7 +804,9 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                 <p className="text-sm font-semibold text-[#101828]">{selectedActivity.title}</p>
                 <p className="mt-0.5 text-xs text-[#667085]">
                   {TYPE_LABEL[selectedActivity.activity_type] ?? selectedActivity.activity_type} ·{" "}
-                  {STATUS_LABEL[selectedActivity.status] ?? selectedActivity.status}
+                  {STATUS_LABEL[selectedActivity.status] ?? selectedActivity.status} ·{" "}
+                  {ORIGIN_LABEL[selectedActivity.origin_type] ?? selectedActivity.origin_type} ·{" "}
+                  prioridade {PRIORITY_LABEL[selectedActivity.priority] ?? selectedActivity.priority}
                 </p>
               </div>
               <button
@@ -649,6 +833,10 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                 {selectedActivity.assignee?.display_name ||
                   selectedActivity.assignee?.email ||
                   "Sem responsável"}
+              </InfoBlock>
+              <InfoBlock label="Origem">
+                {ORIGIN_LABEL[selectedActivity.origin_type] ?? selectedActivity.origin_type}
+                {selectedActivity.campaign_id ? ` · campanha ${selectedActivity.campaign_id.slice(0, 8)}…` : ""}
               </InfoBlock>
               <InfoBlock label="Prazo">{formatDate(selectedActivity.due_at)}</InfoBlock>
               <InfoBlock label="Criada em">{formatDate(selectedActivity.created_at)}</InfoBlock>

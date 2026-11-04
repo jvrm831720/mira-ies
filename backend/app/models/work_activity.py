@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,8 @@ def utc_now() -> datetime:
 # Status do trabalho operacional — não confundir com status de InterventionLog.
 WORK_STATUSES = ("open", "in_progress", "completed", "cancelled")
 WORK_ACTIVITY_TYPES = ("follow_up", "contact", "review", "other")
+WORK_PRIORITIES = ("low", "normal", "high", "urgent")
+WORK_ORIGINS = ("manual", "campaign")
 
 
 class WorkActivity(Base):
@@ -29,10 +31,21 @@ class WorkActivity(Base):
 
     __tablename__ = "work_activities"
     __table_args__ = (
+        CheckConstraint("priority IN ('low', 'normal', 'high', 'urgent')", name="ck_work_activities_priority"),
+        CheckConstraint("origin_type IN ('manual', 'campaign')", name="ck_work_activities_origin_type"),
         Index("ix_work_activities_tenant_status", "tenant_id", "status"),
         Index("ix_work_activities_tenant_assignee", "tenant_id", "assignee_user_id"),
         Index("ix_work_activities_tenant_due", "tenant_id", "due_at"),
         Index("ix_work_activities_tenant_student", "tenant_id", "student_id"),
+        Index("ix_work_activities_tenant_origin_status", "tenant_id", "origin_type", "status"),
+        Index("ix_work_activities_tenant_priority_due", "tenant_id", "priority", "due_at"),
+        Index(
+            "uq_work_activities_tenant_source_key",
+            "tenant_id",
+            "source_key",
+            unique=True,
+            postgresql_where=text("source_key IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
@@ -50,6 +63,12 @@ class WorkActivity(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     activity_type: Mapped[str] = mapped_column(String(40), nullable=False, default="follow_up")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    priority: Mapped[str] = mapped_column(String(20), nullable=False, default="normal")
+    origin_type: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
+    campaign_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("retention_campaigns.id", ondelete="SET NULL"), nullable=True
+    )
+    source_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     assignee_user_id: Mapped[Optional[str]] = mapped_column(
         UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True

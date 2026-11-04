@@ -97,7 +97,9 @@ function humanSummary(item: WorkTimelineItem): string {
     }
     const title = refs.title != null ? String(refs.title) : null;
     const status = refs.status != null ? String(refs.status) : null;
-    if (title) return status ? `Atividade [${status}] ${title}` : `Atividade: ${title}`;
+    const origin = refs.origin_type === "campaign" ? "de campanha" : "da equipe";
+    const priority = refs.priority != null ? ` · prioridade ${String(refs.priority)}` : "";
+    if (title) return status ? `Atividade ${origin} [${status}] ${title}${priority}` : `Atividade: ${title}${priority}`;
   }
   if (item.source === "engagement_event") {
     const et = refs.event_type != null ? String(refs.event_type) : null;
