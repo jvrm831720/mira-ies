@@ -193,10 +193,10 @@ async def request_email_login_code(body: EmailPayload, db: AsyncSession = Depend
         to=body.email,
         subject="Seu código de acesso à MIRA",
         body=(
-            f"{greeting}\\n\\n"
-            f"Seu código de acesso à MIRA é {code}.\\n"
+            f"{greeting}\n\n"
+            f"Seu código de acesso à MIRA é {code}.\n"
             f"Ele expira em {_OTP_TTL_MINUTES} minutos e só pode ser usado uma vez. "
-            "Não compartilhe este código.\\n\\n"
+            "Não compartilhe este código.\n\n"
             "Se você não solicitou este acesso, ignore esta mensagem."
         ),
     )
