@@ -13,6 +13,7 @@ from app.models.sophia_connection import TenantSophiaConnection, TenantSophiaStu
 from app.models.sophia_sync import SophiaSyncJob, SophiaSyncJobEvent, SophiaStudentResource
 from app.models.rm_sync import RmSyncScope, RmSyncRun, RmSyncPage, RmSyncRecord
 from app.models.rm_sync_jobs import RmSyncJob, RmSyncJobEvent
+from app.models.connector_destination import TenantConnectorDestination, TenantConnectorDestinationAudit
 
 __all__ = [
     "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
@@ -24,5 +25,5 @@ __all__ = [
     "TenantSophiaConnection", "TenantSophiaStudentLink",
     "SophiaSyncJob", "SophiaSyncJobEvent", "SophiaStudentResource",
     "RmSyncScope", "RmSyncRun", "RmSyncPage", "RmSyncRecord",
-    "RmSyncJob", "RmSyncJobEvent",
+    "RmSyncJob", "RmSyncJobEvent", "TenantConnectorDestination", "TenantConnectorDestinationAudit",
 ]
