@@ -240,7 +240,7 @@ export const api = {
     }),
 
   verifyEmailCode: (email: string, code: string) =>
-    request<AuthResponse | import("@/types/api").MfaLoginChallenge>("/api/v1/auth/email/verify", {
+    request<AuthResponse | import("@/types/api").MfaLoginChallenge | { onboarding_required: true; email: string }>("/api/v1/auth/email/verify", {
       method: "POST",
       body: JSON.stringify({ email, code }),
     }),
