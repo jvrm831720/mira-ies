@@ -48,6 +48,9 @@ jobs:
           test "$(printf '%s\n' "$heads" | grep -c '(head)')" -eq 1
           head_revision="$(printf '%s\n' "$heads" | awk 'NR == 1 { print $1 }')"
           test "${#head_revision}" -le 32
+      - name: Apply Alembic migrations on disposable CI database
+        working-directory: backend
+        run: PYTHONPATH=. alembic upgrade head
       - name: Lint (ruff)
         working-directory: backend
         run: ruff check app
