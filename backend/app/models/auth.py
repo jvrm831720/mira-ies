@@ -71,7 +71,7 @@ class OrganizationInvite(Base):
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="coordinator")
-    custom_role_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_tenant_roles.id", ondelete="SET NULL"), nullable=True)
+    custom_role_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), nullable=True)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     invited_by_user_id: Mapped[Optional[str]] = mapped_column(
