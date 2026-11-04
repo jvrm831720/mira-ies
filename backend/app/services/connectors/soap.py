@@ -18,7 +18,11 @@ from app.services.connectors.transport import (
     ConnectorTransportError,
     ERPRequestContext,
 )
-from app.services.connectors.tenant_destinations import authorize_tenant_destination
+from app.services.connectors.tenant_destinations import (
+    _destination_authorization_token,
+    authorize_tenant_destination,
+    require_destination_authorization,
+)
 
 
 SOAP_ENV = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -58,6 +62,8 @@ class TotvsReadOnlySoapClient:
             endpoint=approved, username=username, password=password,
             context=context, timeout_seconds=timeout_seconds,
             allow_insecure_http=allow_insecure_http, transport=transport,
+            _destination_authorization=_destination_authorization_token(),
+            _destination_authorization=_destination_authorization_token(),
         )
 
     def __init__(
@@ -70,7 +76,9 @@ class TotvsReadOnlySoapClient:
         timeout_seconds: float = 20.0,
         allow_insecure_http: bool = False,
         transport: httpx.AsyncBaseTransport | None = None,
+        _destination_authorization: object | None = None,
     ) -> None:
+        require_destination_authorization(_destination_authorization)
         parsed = urlsplit(endpoint)
         if parsed.scheme not in {"https", "http"} or not parsed.netloc:
             raise ConnectorConfigurationError("Endpoint SOAP deve usar HTTP ou HTTPS.")
