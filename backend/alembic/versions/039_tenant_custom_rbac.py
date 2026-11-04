@@ -45,6 +45,19 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_mira_tenant_role_audit_tenant_created", "mira_tenant_role_audit", ["tenant_id", "created_at"])
+    op.execute("""
+        CREATE FUNCTION reject_mira_role_audit_mutation() RETURNS trigger
+        LANGUAGE plpgsql AS $
+        BEGIN
+            RAISE EXCEPTION 'mira_tenant_role_audit is append-only';
+        END;
+        $
+    """)
+    op.execute("""
+        CREATE TRIGGER trg_mira_tenant_role_audit_append_only
+        BEFORE UPDATE OR DELETE ON mira_tenant_role_audit
+        FOR EACH ROW EXECUTE FUNCTION reject_mira_role_audit_mutation()
+    """)
     for table in ("mira_tenant_roles", "mira_tenant_role_audit"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
@@ -56,6 +69,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DROP TRIGGER IF EXISTS trg_mira_tenant_role_audit_append_only ON mira_tenant_role_audit")
+    op.execute("DROP FUNCTION IF EXISTS reject_mira_role_audit_mutation()")
+    op.drop_constraint("fk_mira_org_invites_custom_role", "mira_org_invites", type_="foreignkey")
+    op.drop_column("mira_org_invites", "custom_role_id")
+    op.drop_constraint("fk_mira_users_custom_role", "mira_users", type_="foreignkey")
+    op.drop_column("mira_users", "custom_role_id")
     for table in ("mira_tenant_role_audit", "mira_tenant_roles"):
         op.execute(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY")
         op.execute(f"DROP POLICY IF EXISTS {table}_tenant_isolation ON {table}")
@@ -64,7 +83,3 @@ def downgrade() -> None:
     op.drop_table("mira_tenant_role_audit")
     op.drop_index("ix_mira_tenant_roles_tenant_active", table_name="mira_tenant_roles")
     op.drop_table("mira_tenant_roles")
-    op.drop_constraint("fk_mira_org_invites_custom_role", "mira_org_invites", type_="foreignkey")
-    op.drop_column("mira_org_invites", "custom_role_id")
-    op.drop_constraint("fk_mira_users_custom_role", "mira_users", type_="foreignkey")
-    op.drop_column("mira_users", "custom_role_id")
