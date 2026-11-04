@@ -196,8 +196,8 @@ async def create_campaign_proposal(
                     blocked_reasons.add("no_permitted_channel")
             raw_members.append({
                 "student_id": student.id,
-                "matricula": student.matricula,
                 "matched_group_ids": matched,
+                "global_opt_out": bool(student.communication_opt_out),
                 "eligible_channels": sorted(allowed_channels),
                 "blocked_reasons": sorted(blocked_reasons),
                 "internal_action_only": internal_only,
