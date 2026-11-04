@@ -21,7 +21,8 @@ operacional com um cliente.
 | JACAD | Conector de API e sincronização em background. Homologação real depende de instalação e credenciais do cliente. | Suporte técnico implementado |
 | Sponte | Conector da API Sponte BI, extração paginada e sincronização em background. Homologação real depende do cliente. | Suporte técnico implementado |
 | GVDASA / GVcollege | Cliente WebAPI read-only, contratos de views por tenant, OData restrito e manifesto de prontidão. Sem credenciais ou views reais de cliente. | Suporte técnico implementado |
-| WPensar / Isaac | Suporte a transformação de payload; sem cliente nativo de API e sincronização pull. | Em desenvolvimento |
+| WPensar | Transformação de payload; sem contrato público de API REST de leitura validado e sem cliente nativo pull. | Em desenvolvimento |
+| Isaac / Marlim | Cliente read-only parcial para conciliação financeira documentada; sem persistência, vínculo com cobrança/aluno ou homologação. | Suporte técnico implementado |
 | Moodle | Suporte a webhook/transformação; sem cliente nativo pull. | Em desenvolvimento |
 | Canvas | Suporte a webhook/transformação; sem cliente nativo pull. | Em desenvolvimento |
 | JSON genérico | Transformação de payload e rota de ingestão genérica. Não equivale a conector nativo de ERP. | Suporte técnico implementado |
