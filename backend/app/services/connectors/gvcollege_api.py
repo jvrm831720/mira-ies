@@ -18,7 +18,11 @@ from urllib.parse import quote, urlsplit
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.connectors.tenant_destinations import authorize_tenant_destination
+from app.services.connectors.tenant_destinations import (
+    _destination_authorization_token,
+    authorize_tenant_destination,
+    require_destination_authorization,
+)
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -180,15 +184,22 @@ class GvcollegeWebAPIClient:
         trusted_config = replace(
             config, base_url=approved_url, allowed_hosts=frozenset({approved_host})
         )
-        return cls(trusted_config, auth_headers=auth_headers, transport=transport)
+                return cls(trusted_config, auth_headers=auth_headers, transport=transport, _destination_authorization=_destination_authorization_token())
 
     def __init__(
         self,
         config: GvcollegeInstitutionConfig,
         *,
         auth_headers: Mapping[str, str] | None = None,
+    def __init__(
+        self,
+        config: GvcollegeInstitutionConfig,
+        *,
+        auth_headers: Mapping[str, str] | None = None,
+        _destination_authorization: object | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
+        require_destination_authorization(_destination_authorization)
         self.config = config
         self._auth_headers = dict(auth_headers or {})
         forbidden_headers = {
