@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -248,18 +248,48 @@ def require_roles(*allowed: str):
     return _dep
 
 
+def _permission_for_request(request: Request, fallback_role: str) -> str:
+    path = request.url.path.removeprefix("/api/v1")
+    method = request.method.upper()
+    if path.startswith("/students"):
+        if method in {"GET", "HEAD"}:
+            return "students.view"
+        if method in {"PATCH", "PUT"}:
+            return "students.edit"
+        if method == "DELETE":
+            return "students.delete"
+    if path.startswith("/upload") or path.startswith("/connectors") and method in {"POST", "PUT", "PATCH"}:
+        return "data.import"
+    if path.startswith("/connectors"):
+        return "data.view"
+    if path.startswith("/agents/retention/campaigns"):
+        if path.endswith("/approve"):
+            return "campaigns.approve"
+        if path.endswith("/execute") or path.endswith("/schedule"):
+            return "campaigns.execute"
+        if method == "GET":
+            return "campaigns.view"
+        if method == "POST":
+            return "campaigns.create"
+        if method in {"PATCH", "PUT"}:
+            return "campaigns.edit"
+        if method == "DELETE":
+            return "campaigns.delete"
+    if path.startswith("/org/members"):
+        return "members.view" if method == "GET" else "members.manage"
+    if path.startswith("/org/invites"):
+        return "members.view" if method == "GET" else "members.manage"
+    return f"access.{fallback_role}"
+
+
 def require_min_role(min_role: str):
     """Exige rank >= min_role (admin passa em tudo)."""
     threshold = ROLE_RANK.get(min_role, 99)
 
-    async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+    async def _dep(request: Request, auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
         if auth.permissions is not None:
-            allowed = any(
-                permission in auth.permissions
-                and ROLE_RANK.get(permission.removeprefix("access."), 0) >= threshold
-                for permission in auth.permissions
-                if permission.startswith("access.")
-            )
+            required_permission = _permission_for_request(request, min_role)
+            allowed = required_permission in auth.permissions
             if not allowed:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão para esta ação.")
             return auth
