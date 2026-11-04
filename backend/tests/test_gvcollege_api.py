@@ -165,3 +165,42 @@ async def test_rejects_uncontracted_view_fields_and_raw_filter_operator():
             )
     finally:
         await client.aclose()
+
+
+def test_auth_headers_cannot_override_transport_routing():
+    for header in ("Host", "Content-Length", "Transfer-Encoding", "Connection"):
+        with pytest.raises(GvcollegeConfigurationError):
+            GvcollegeWebAPIClient(make_config(), auth_headers={header: "attacker.example"})
+
+
+def test_auth_headers_reject_non_text_values_and_line_breaks():
+    with pytest.raises(GvcollegeConfigurationError):
+        GvcollegeWebAPIClient(make_config(), auth_headers={"Authorization": "Bearer x" + chr(13) + chr(10) + "Host: evil"})
+    with pytest.raises(GvcollegeConfigurationError):
+        GvcollegeWebAPIClient(make_config(), auth_headers={"Authorization": 123})
+
+
+def test_odata_filter_rejects_non_finite_numeric_values():
+    contract = make_config().views["pessoa"]
+    for value in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(GvcollegeConfigurationError, match="finito"):
+            ODataFilter("codigo", "eq", value).render(contract)
+
+
+def test_configuration_rejects_unapproved_port_and_path_prefix():
+    with pytest.raises(GvcollegeConfigurationError):
+        make_config(base_url="https://erp.instituicao.edu.br:8443")
+    with pytest.raises(GvcollegeConfigurationError):
+        make_config(base_url="https://erp.instituicao.edu.br/custom-prefix")
+
+
+def test_configuration_rejects_non_finite_timeout_and_invalid_response_limit():
+    with pytest.raises(GvcollegeConfigurationError):
+        make_config(timeout_seconds=float("nan"))
+    with pytest.raises(GvcollegeConfigurationError):
+        make_config(max_response_bytes=True)
+
+
+def test_auth_header_name_must_follow_http_token_syntax():
+    with pytest.raises(GvcollegeConfigurationError):
+        GvcollegeWebAPIClient(make_config(), auth_headers={"Bad Header": "value"})
