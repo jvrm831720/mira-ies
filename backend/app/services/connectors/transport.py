@@ -8,11 +8,14 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
+from sqlalchemy.ext.asyncio import AsyncSession
 import math
 from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 
 
 class ConnectorConfigurationError(ValueError):
@@ -52,6 +55,29 @@ class ERPRequestContext:
 
 class ReadOnlyRestClient:
     """Cliente REST que expõe exclusivamente GET e não segue redirects."""
+
+    @classmethod
+    async def for_tenant(
+        cls,
+        db: AsyncSession,
+        *,
+        tenant_id: str,
+        base_url: str,
+        username: str | None = None,
+        password: str | None = None,
+        context: ERPRequestContext | None = None,
+        timeout_seconds: float = 20.0,
+        allow_insecure_http: bool = False,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "ReadOnlyRestClient":
+        approved = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="rest", url=base_url
+        )
+        return cls(
+            base_url=approved, username=username, password=password,
+            context=context, timeout_seconds=timeout_seconds,
+            allow_insecure_http=allow_insecure_http, transport=transport,
+        )
 
     def __init__(
         self,
