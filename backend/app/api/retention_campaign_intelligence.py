@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.channels.email import is_valid_email
 from app.agents.channels.whatsapp import normalize_phone_br
 from app.api.student_groups import _build_summary
-from app.core.auth import AuthContext, get_current_tenant, require_min_role
+from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
 from app.models.intervention import InterventionLog
 from app.models.retention_campaign import RetentionCampaignProposal
