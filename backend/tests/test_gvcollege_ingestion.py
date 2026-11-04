@@ -150,3 +150,52 @@ def test_preview_limits_issue_details_and_reports_truncation():
     assert preview.issues_total == 3
     assert len(preview.issues) == 1
     assert preview.issues_truncated is True
+
+
+def test_dry_run_rejects_blank_required_string():
+    report = dry_run_gvcollege_ingestion(
+        "synthetic_students_v1",
+        [{"matricula": "SYN-0010", "nome": ""}],
+        tenant_id=TENANT,
+        ingested_at=INGESTED_AT,
+    )
+    assert report.rows_rejected == 1
+    assert "required_field_blank" in {issue.code for issue in report.issues}
+
+
+def test_rejected_row_does_not_reserve_duplicate_source_id():
+    report = dry_run_gvcollege_ingestion(
+        "synthetic_students_v1",
+        [
+            {"matricula": "SYN-0011", "nome": None},
+            {"matricula": "SYN-0011", "nome": "Aluno Sintético 011"},
+        ],
+        tenant_id=TENANT,
+        ingested_at=INGESTED_AT,
+    )
+    assert report.rows_accepted == 1
+    assert report.rows_rejected == 1
+    assert report.records[0].source_record_id == "SYN-0011"
+    assert "duplicate_source_record_id" not in {issue.code for issue in report.issues}
+
+
+def test_dry_run_rejects_integer_outside_signed_64_bit_range():
+    report = dry_run_gvcollege_ingestion(
+        "synthetic_students_v1",
+        [{"matricula": "SYN-0012", "nome": "Aluno Sintético 012", "semestre": 2**80}],
+        tenant_id=TENANT,
+        ingested_at=INGESTED_AT,
+    )
+    assert report.rows_rejected == 1
+    assert "invalid_field_type" in {issue.code for issue in report.issues}
+
+
+def test_dry_run_rejects_non_string_source_field_names_without_crashing():
+    report = dry_run_gvcollege_ingestion(
+        "synthetic_students_v1",
+        [{1: "unexpected", "matricula": "SYN-0013", "nome": "Aluno Sintético 013"}],
+        tenant_id=TENANT,
+        ingested_at=INGESTED_AT,
+    )
+    assert report.rows_rejected == 1
+    assert "invalid_source_field_name" in {issue.code for issue in report.issues}
