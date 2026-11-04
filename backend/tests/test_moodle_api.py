@@ -120,3 +120,31 @@ async def test_user_lookup_rejects_empty_values_and_invalid_field():
 def test_moodle_config_repr_does_not_expose_token():
     config = MoodleConfig("https://campus.example.edu", "secret-token")
     assert "secret-token" not in repr(config)
+
+
+@pytest.mark.asyncio
+async def test_for_tenant_uses_persisted_destination(monkeypatch):
+    async def authorize(db, *, tenant_id, connector_key, url):
+        assert tenant_id == "tenant-a"
+        assert connector_key == "moodle"
+        assert url == "https://untrusted-config.example"
+        return "https://approved.example"
+
+    monkeypatch.setattr(
+        "app.services.connectors.moodle_api.authorize_tenant_destination", authorize
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "approved.example"
+        return httpx.Response(200, json={"sitename": "Approved"})
+
+    client = await MoodleApiClient.for_tenant(
+        object(),
+        tenant_id="tenant-a",
+        config=MoodleConfig("https://untrusted-config.example", "token"),
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        assert (await client.get_site_info())["sitename"] == "Approved"
+    finally:
+        await client.close()
