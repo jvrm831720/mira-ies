@@ -45,6 +45,17 @@ def upgrade() -> None:
         )
     """)
     op.execute("CREATE INDEX ix_tenant_connector_destination_audit_tenant_created ON tenant_connector_destination_audit (tenant_id, created_at DESC)")
+    op.execute("""
+        CREATE FUNCTION reject_connector_destination_audit_mutation()
+        RETURNS trigger LANGUAGE plpgsql AS $
+        BEGIN RAISE EXCEPTION 'connector destination audit is append-only'; END;
+        $
+    """)
+    op.execute("""
+        CREATE TRIGGER tenant_connector_destination_audit_append_only
+        BEFORE UPDATE OR DELETE ON tenant_connector_destination_audit
+        FOR EACH ROW EXECUTE FUNCTION reject_connector_destination_audit_mutation()
+    """)
     for table in ("tenant_connector_destinations", "tenant_connector_destination_audit"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
@@ -57,4 +68,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS tenant_connector_destination_audit")
+    op.execute("DROP FUNCTION IF EXISTS reject_connector_destination_audit_mutation()")
     op.execute("DROP TABLE IF EXISTS tenant_connector_destinations")
