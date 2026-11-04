@@ -19,7 +19,7 @@ from app.core.config import get_settings
 from app.core.mira_security import hash_password
 from app.core.security import hash_api_key
 from app.db.session import get_db
-from app.models.auth import OrganizationInvite, TenantRole, User
+from app.models.auth import OrganizationInvite, TenantRole, TenantRoleAudit, User
 from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
@@ -192,6 +192,13 @@ async def create_invite(
         expires_at=_now() + timedelta(days=_INVITE_TTL_DAYS),
     )
     db.add(invite)
+    db.add(TenantRoleAudit(
+        tenant_id=auth.tenant_id,
+        actor_user_id=auth.user_id,
+        role_id=custom_role.id if custom_role else None,
+        event_type="member.role_invited",
+        details={"invite_id": invite.id, "base_role": invite.role, "custom_role_id": invite.custom_role_id},
+    ))
     await db.commit()
     await db.refresh(invite)
 
