@@ -21,8 +21,7 @@ from app.models.sponte_connection import TenantSponteConnection
 from app.models.student import Student, UploadBatch
 from app.services.connectors import get_connector
 from app.services.connectors.jacad_api import decrypt_api_token
-from app.services.connectors.sponte_api import SponteApiClient, SponteQuotaDeferred, SPONTE_BASE_URL
-from app.services.connectors.tenant_destinations import authorize_tenant_destination
+from app.services.connectors.sponte_api import SponteApiClient, SponteQuotaDeferred
 from app.services.connectors.sponte_mapping import (
     aluno_id, build_student_payloads, compact_row, pick, record_id,
 )
@@ -441,17 +440,15 @@ async def _run_sync(job_id: str, redis: Redis):
         ))).scalar_one_or_none()
         if not connection:
             raise RuntimeError("Configure uma conexão Sponte ativa.")
-        await authorize_tenant_destination(session, tenant_id=tenant_id, connector_key="sponte", url=SPONTE_BASE_URL)
         api_key = decrypt_api_token(connection.encrypted_api_key)
         client_code = connection.client_code
         initial_date = connection.initial_extraction_date
         watermarks = dict(connection.sync_watermarks or {})
-
-    credential_scope = hashlib.sha256(api_key.encode()).hexdigest()[:20]
-    client = SponteApiClient(
-        api_key, client_code,
-        request_guard=lambda: _request_guard(redis, credential_scope),
-    )
+        credential_scope = hashlib.sha256(api_key.encode()).hexdigest()[:20]
+        client = await SponteApiClient.for_tenant(
+            session, tenant_id=tenant_id, api_key=api_key, client_code=client_code,
+            request_guard=lambda: _request_guard(redis, credential_scope),
+        )
     affected_key = f"{_key(job_id)}:affected"
     semaphore = asyncio.Semaphore(settings.sponte_sync_concurrency)
     try:
