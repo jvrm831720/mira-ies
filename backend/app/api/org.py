@@ -139,6 +139,10 @@ async def create_invite(
 ):
     settings = get_settings()
 
+    if body.role == "admin" and auth.role != "admin":
+        raise HTTPException(status_code=403, detail="Somente um administrador pode conceder o papel admin.")
+    if body.custom_role_id and body.role == "admin":
+        raise HTTPException(status_code=422, detail="Um convite não pode combinar admin com cargo personalizado.")
     custom_role = None
     if body.custom_role_id:
         custom_role = (await db.execute(select(TenantRole).where(
