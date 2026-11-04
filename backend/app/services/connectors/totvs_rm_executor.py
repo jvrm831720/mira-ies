@@ -16,7 +16,9 @@ from urllib.parse import urlsplit
 import httpx
 from sqlalchemy import select, text
 
+from app.core.auth import _set_tenant_rls_context
 from app.db.session import AsyncSessionLocal
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 from app.models.rm_sync import RmSyncScope
 from app.services.connectors.totvs_rm_snapshot_repository import RMPostgresSnapshotRepository
 from app.services.connectors.totvs_rm_snapshot_sync import RMSourceSyncContract, RMSnapshotScope
@@ -179,7 +181,17 @@ async def execute_rm_sync_job(job, heartbeat, cancelled, attach_snapshot, before
         raise RMJobError("Executor nativo aceita somente full_snapshot.")
     coligada_id = scope_data["coligada_id"]
     connection = _resolve_connection(tenant_id, coligada_id, scope_data["source_name"])
-    endpoint = f"{_validate_endpoint(connection.base_url)}/rest/EduAlunoData"
+    # Destination approval is loaded from the tenant-scoped registry, never from
+    # job payloads or the secret provider's caller-controlled allowlist.
+    async with AsyncSessionLocal() as destination_session:
+        await _set_tenant_rls_context(destination_session, tenant_id)
+        approved_base_url = await authorize_tenant_destination(
+            destination_session,
+            tenant_id=tenant_id,
+            connector_key="totvs_rm",
+            url=connection.base_url,
+        )
+    endpoint = f"{approved_base_url}/rest/EduAlunoData"
     context = _validate_context(connection.context_headers, coligada_id)
     page_size = int((job.get("request") or {}).get("page_size", 500))
     if not 1 <= page_size <= 1000:
