@@ -161,3 +161,31 @@ async def test_rejects_invalid_pagination_limit_and_non_list_payload():
 def test_canvas_config_repr_does_not_expose_access_token():
     config = CanvasConfig("https://school.example.edu", "secret-token")
     assert "secret-token" not in repr(config)
+
+
+@pytest.mark.asyncio
+async def test_for_tenant_uses_persisted_destination(monkeypatch):
+    async def authorize(db, *, tenant_id, connector_key, url):
+        assert tenant_id == "tenant-a"
+        assert connector_key == "canvas"
+        assert url == "https://untrusted-config.example"
+        return "https://approved.example"
+
+    monkeypatch.setattr(
+        "app.services.connectors.canvas_api.authorize_tenant_destination", authorize
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "approved.example"
+        return httpx.Response(200, json=[])
+
+    client = await CanvasApiClient.for_tenant(
+        object(),
+        tenant_id="tenant-a",
+        config=CanvasConfig("https://untrusted-config.example", "token"),
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        assert await client.list_courses() == []
+    finally:
+        await client.close()
