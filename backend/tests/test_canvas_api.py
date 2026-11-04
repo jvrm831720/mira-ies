@@ -107,6 +107,28 @@ async def test_bounded_pagination_follows_same_origin_next_link():
 
 
 @pytest.mark.asyncio
+async def test_pagination_limit_raises_instead_of_returning_partial_results():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        return httpx.Response(
+            200,
+            json=[{"id": 1}],
+            headers={"Link": '</api/v1/courses?page=2>; rel="next"'},
+        )
+
+    async with CanvasApiClient(
+        CanvasConfig("https://school.example.edu", "token"),
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        with pytest.raises(CanvasContractError, match="limite de páginas"):
+            await client.get_all("courses", max_pages=1)
+
+    assert calls == ["/api/v1/courses"]
+
+
+@pytest.mark.asyncio
 async def test_pagination_rejects_external_links():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
