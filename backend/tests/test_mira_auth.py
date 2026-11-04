@@ -314,22 +314,28 @@ async def test_email_otp_rejects_invalid_codes_and_enforces_attempt_limit(
     monkeypatch.setattr(settings, "resend_api_key", "test-key")
     monkeypatch.setattr(settings, "email_from", "MIRA <no-reply@example.test>")
 
+    sent: list[str] = []
+
     async def fake_send(*, to: str, subject: str, body: str):
+        sent.append(body)
         return SendResult(ok=True, channel="email", provider="resend")
 
     import app.api.auth as auth_api
     monkeypatch.setattr(auth_api, "send_email_resend", fake_send)
     await client.post("/api/v1/auth/email/request", json={"email": user.email})
+    actual_code = re.search(r"\\b(\\d{6})\\b", sent[0])
+    assert actual_code
+    wrong_code = f"{(int(actual_code.group(1)) + 1) % 1_000_000:06d}"
 
-    for attempt in range(5):
+    for _attempt in range(5):
         response = await client.post(
             "/api/v1/auth/email/verify",
-            json={"email": user.email, "code": "000000"},
+            json={"email": user.email, "code": wrong_code},
         )
         assert response.status_code == 401
 
     blocked = await client.post(
         "/api/v1/auth/email/verify",
-        json={"email": user.email, "code": "000000"},
+        json={"email": user.email, "code": wrong_code},
     )
-    assert blocked.status_code in (401, 429)
+    assert blocked.status_code == 401
