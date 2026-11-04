@@ -43,11 +43,11 @@ class TenantConnectorDestinationAudit(Base):
     __tablename__ = "tenant_connector_destination_audit"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     destination_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     connector_key: Mapped[str] = mapped_column(String(40), nullable=False)
     hostname: Mapped[str] = mapped_column(String(253), nullable=False)
     action: Mapped[str] = mapped_column(String(16), nullable=False)
     reason: Mapped[str] = mapped_column(String(500), nullable=False)
-    actor_user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True)
+    actor_user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, nullable=False)
