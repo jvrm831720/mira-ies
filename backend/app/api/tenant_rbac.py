@@ -134,7 +134,7 @@ class RolePayload(BaseModel):
     @field_validator("permissions")
     @classmethod
     def valid_permissions(cls, value: list[str]) -> list[str]:
-        normalized = sorted(set(value))
+        normalized = sorted(set(value) | {"access.viewer"})
         unknown = set(normalized) - set(PERMISSION_CATALOG)
         if unknown:
             raise ValueError("A lista contém permissões desconhecidas.")
