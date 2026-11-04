@@ -279,7 +279,8 @@ async def assign_member_role(user_id: str, body: dict, auth: AuthContext = Depen
     if new_role:
         target.role = new_role.base_role
     else:
-        target.role = "coordinator"
+        # Revogar um cargo personalizado nunca eleva o membro.
+        target.role = "viewer"
     target.auth_version += 1
     _audit(db, auth, "member.role_assigned" if new_role else "member.role_revoked",
            role_id=new_role.id if new_role else old_role_id, target_user_id=target.id,
