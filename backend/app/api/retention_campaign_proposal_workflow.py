@@ -131,6 +131,8 @@ async def edit_proposal(
         if field not in body.model_fields_set:
             continue
         value = getattr(body, field)
+        if isinstance(value, str):
+            value = value.strip()
         if value is None:
             raise HTTPException(status_code=422, detail=f"O campo {field} não pode ser nulo.")
         if field == "recommended_channels":
@@ -208,10 +210,13 @@ async def request_proposal_changes(
         raise HTTPException(status_code=409, detail="Somente propostas em revisão podem receber solicitação de ajustes.")
     if actor_id == proposal.created_by:
         raise HTTPException(status_code=403, detail="O criador não pode revisar a própria proposta.")
+    note = body.note.strip()
+    if not note:
+        raise HTTPException(status_code=422, detail="A justificativa não pode ficar vazia.")
     proposal.status = "changes_requested"
     proposal.revision += 1
     proposal.updated_at = datetime.now(timezone.utc)
-    _audit(db, proposal, actor_id, "proposal.changes_requested", {"note": body.note})
+    _audit(db, proposal, actor_id, "proposal.changes_requested", {"note": note})
     await db.commit()
     await db.refresh(proposal)
     return _serialize(proposal)
@@ -232,9 +237,13 @@ async def attest_communication_authorization(
         raise HTTPException(status_code=409, detail="A autorização só pode ser atestada durante a revisão.")
     if actor_id == proposal.created_by:
         raise HTTPException(status_code=403, detail="O criador não pode atestar a autorização da própria proposta.")
+    basis = body.basis.strip()
+    evidence_reference = body.evidence_reference.strip()
+    if not basis or not evidence_reference:
+        raise HTTPException(status_code=422, detail="Base e referência documental não podem ficar vazias.")
     proposal.authorization_status = "institution_attested"
-    proposal.authorization_basis = body.basis.strip()
-    proposal.authorization_reference = body.evidence_reference.strip()
+    proposal.authorization_basis = basis
+    proposal.authorization_reference = evidence_reference
     proposal.authorization_attested_by = actor_id
     proposal.authorization_attested_at = datetime.now(timezone.utc)
     proposal.revision += 1
