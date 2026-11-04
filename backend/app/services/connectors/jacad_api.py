@@ -8,6 +8,12 @@ from urllib.parse import urlsplit
 from collections.abc import Awaitable, Callable
 
 import httpx
+
+from app.services.connectors.tenant_destinations import (
+    _destination_authorization_token,
+    authorize_tenant_destination,
+    require_destination_authorization,
+)
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.config import get_settings
@@ -61,7 +67,29 @@ def decrypt_api_token(value: str) -> str:
 
 
 class JacadApiClient:
-    def __init__(self, base_url: str, api_token: str, *, timeout: float = 25.0, transport: httpx.AsyncBaseTransport | None = None, request_guard: Callable[[], Awaitable[None]] | None = None):
+    @classmethod
+    async def for_tenant(
+        cls,
+        db,
+        *,
+        tenant_id: str,
+        base_url: str,
+        api_token: str,
+        timeout: float = 25.0,
+        transport: httpx.AsyncBaseTransport | None = None,
+        request_guard: Callable[[], Awaitable[None]] | None = None,
+    ) -> "JacadApiClient":
+        approved = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="jacad", url=base_url
+        )
+        return cls(
+            approved, api_token, timeout=timeout, transport=transport,
+            request_guard=request_guard,
+            _destination_authorization=_destination_authorization_token(),
+        )
+
+    def __init__(self, base_url: str, api_token: str, *, timeout: float = 25.0, transport: httpx.AsyncBaseTransport | None = None, request_guard: Callable[[], Awaitable[None]] | None = None, _destination_authorization: object | None = None):
+        require_destination_authorization(_destination_authorization)
         self.base_url = validate_jacad_base_url(base_url)
         if not api_token or len(api_token) > 40:
             raise ValueError("O token de acesso JACAD deve ter entre 1 e 40 caracteres.")
