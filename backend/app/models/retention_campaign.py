@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -53,6 +53,7 @@ class RetentionCampaignProposal(Base):
     __table_args__ = (
         Index("ix_retention_campaign_proposals_tenant_created", "tenant_id", "created_at"),
         Index("ix_retention_campaign_proposals_tenant_status", "tenant_id", "status"),
+        UniqueConstraint("id", "tenant_id", name="uq_retention_campaign_proposals_id_tenant"),
     )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
@@ -79,3 +80,43 @@ class RetentionCampaignProposal(Base):
     created_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    reviewed_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    authorization_status: Mapped[str] = mapped_column(String(32), nullable=False, default="not_verified")
+    authorization_basis: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    authorization_reference: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    authorization_attested_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    authorization_attested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    
+class RetentionCampaignProposalAuditEvent(Base):
+    """Append-only audit trail for proposal editing, review and approval."""
+
+    __tablename__ = "retention_campaign_proposal_audit_events"
+    __table_args__ = (
+        Index("ix_retention_proposal_audit_tenant_proposal", "tenant_id", "proposal_id", "created_at"),
+        ForeignKeyConstraint(
+            ["proposal_id", "tenant_id"],
+            ["retention_campaign_proposals.id", "retention_campaign_proposals.tenant_id"],
+            ondelete="CASCADE",
+            name="fk_retention_proposal_audit_proposal_tenant",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    proposal_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), nullable=False
+    )
+    actor_user_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), nullable=True
+    )
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)

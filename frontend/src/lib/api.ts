@@ -455,6 +455,52 @@ export const api = {
   retentionPreview: (studentId: string) =>
     request<PreviewMessage>(`/api/v1/agents/retention/preview/${studentId}`),
 
+
+  retentionCampaignProposals: () =>
+    request<import("@/types/api").RetentionCampaignProposalsResponse>(
+      "/api/v1/agents/retention/campaigns/intelligence/proposals"
+    ),
+
+  updateRetentionCampaignProposal: (id: string, body: Partial<Pick<
+    import("@/types/api").RetentionCampaignProposal,
+    "title" | "objective" | "strategy" | "recommended_channels" | "cadence_days" | "message_brief"
+  >>) =>
+    request<import("@/types/api").RetentionCampaignProposal>(
+      `/api/v1/agents/retention/campaigns/intelligence/proposals/${encodeURIComponent(id)}`,
+      { method: "PATCH", body: JSON.stringify(body) }
+    ),
+
+  reviewRetentionCampaignProposal: (id: string) =>
+    request<import("@/types/api").RetentionCampaignProposal>(
+      `/api/v1/agents/retention/campaigns/intelligence/proposals/${encodeURIComponent(id)}/review`,
+      { method: "POST" }
+    ),
+
+  requestRetentionCampaignProposalChanges: (id: string, note: string) =>
+    request<import("@/types/api").RetentionCampaignProposal>(
+      `/api/v1/agents/retention/campaigns/intelligence/proposals/${encodeURIComponent(id)}/request-changes`,
+      { method: "POST", body: JSON.stringify({ note }) }
+    ),
+
+  attestRetentionCampaignProposalAuthorization: (id: string, body: {
+    basis: string; evidence_reference: string; attestation: boolean;
+  }) =>
+    request<import("@/types/api").RetentionCampaignProposal>(
+      `/api/v1/agents/retention/campaigns/intelligence/proposals/${encodeURIComponent(id)}/authorization-attestation`,
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+
+  approveRetentionCampaignProposal: (id: string) =>
+    request<import("@/types/api").RetentionCampaignProposal>(
+      `/api/v1/agents/retention/campaigns/intelligence/proposals/${encodeURIComponent(id)}/approve`,
+      { method: "POST" }
+    ),
+
+  retentionCampaignProposalAudit: (id: string) =>
+    request<import("@/types/api").RetentionCampaignProposalAudit>(
+      `/api/v1/agents/retention/campaigns/intelligence/proposals/${encodeURIComponent(id)}/audit`
+    ),
+
   listMembers: () => request<MembersResponse>("/api/v1/org/members"),
 
   listInvites: () => request<InvitesResponse>("/api/v1/org/invites"),

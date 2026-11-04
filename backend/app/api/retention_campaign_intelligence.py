@@ -58,9 +58,19 @@ def _serialize_proposal(proposal: RetentionCampaignProposal) -> dict[str, Any]:
         "created_by": proposal.created_by,
         "created_at": proposal.created_at,
         "updated_at": proposal.updated_at,
+        "revision": proposal.revision,
+        "reviewed_by": proposal.reviewed_by,
+        "reviewed_at": proposal.reviewed_at,
+        "approved_by": proposal.approved_by,
+        "approved_at": proposal.approved_at,
+        "authorization_status": proposal.authorization_status,
+        "authorization_basis": proposal.authorization_basis,
+        "authorization_reference": proposal.authorization_reference,
+        "authorization_attested_by": proposal.authorization_attested_by,
+        "authorization_attested_at": proposal.authorization_attested_at,
         "execution_enabled": False,
-        "communication_authorization_status": "not_verified",
-        "authorization_review_required": True,
+        "communication_authorization_status": proposal.authorization_status,
+        "authorization_review_required": proposal.authorization_status != "institution_attested",
     }
 
 

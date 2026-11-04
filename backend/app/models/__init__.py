@@ -1,7 +1,7 @@
 from app.models.student import UploadBatch, Student
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.models.auth import AuthChallenge, MfaAuditEvent, MfaLoginChallenge, MfaRecoveryCode, MfaTenantPolicy, OrganizationInvite, User, UserSession
-from app.models.retention_campaign import RetentionCampaign, RetentionCampaignProposal
+from app.models.retention_campaign import RetentionCampaign, RetentionCampaignProposal, RetentionCampaignProposalAuditEvent
 from app.models.data_governance import TenantDataUsePolicy
 from app.models.institutional_training_authorization import InstitutionalTrainingAuthorization
 from app.models.risk_assessment import RiskAssessment
@@ -17,7 +17,7 @@ __all__ = [
     "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact",
     "AuthChallenge", "MfaLoginChallenge", "MfaRecoveryCode", "MfaAuditEvent",
     "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User",
-    "RetentionCampaign", "RetentionCampaignProposal", "TenantDataUsePolicy", "InstitutionalTrainingAuthorization",
+    "RetentionCampaign", "RetentionCampaignProposal", "RetentionCampaignProposalAuditEvent", "TenantDataUsePolicy", "InstitutionalTrainingAuthorization",
     "RiskAssessment", "WorkActivity", "WorkActivityEvent",
     "TenantJacadConnection", "TenantSponteConnection",
     "TenantSophiaConnection", "TenantSophiaStudentLink",
