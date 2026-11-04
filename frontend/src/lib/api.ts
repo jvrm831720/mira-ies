@@ -356,6 +356,29 @@ export const api = {
       }
     ),
 
+  retentionJobStatus: (jobId: string) =>
+    request<import("@/types/api").RetentionJob>(
+      `/api/v1/agents/retention/jobs/${encodeURIComponent(jobId)}`
+    ),
+
+  pauseRetentionJob: (jobId: string) =>
+    request<import("@/types/api").RetentionJob>(
+      `/api/v1/agents/retention/jobs/${encodeURIComponent(jobId)}/pause`,
+      { method: "POST" }
+    ),
+
+  resumeRetentionJob: (jobId: string) =>
+    request<import("@/types/api").RetentionJob>(
+      `/api/v1/agents/retention/jobs/${encodeURIComponent(jobId)}/resume`,
+      { method: "POST" }
+    ),
+
+  cancelRetentionJob: (jobId: string) =>
+    request<import("@/types/api").RetentionJob>(
+      `/api/v1/agents/retention/jobs/${encodeURIComponent(jobId)}/cancel`,
+      { method: "POST" }
+    ),
+
   consentAudit: (id: string, limit = 10) =>
     request<ConsentAuditResponse>(`/api/v1/students/${id}/consent-audit?limit=${limit}`),
 
@@ -459,6 +482,17 @@ export const api = {
   retentionCampaignProposals: () =>
     request<import("@/types/api").RetentionCampaignProposalsResponse>(
       "/api/v1/agents/retention/campaigns/intelligence/proposals"
+    ),
+
+  retentionCampaignOpportunities: () =>
+    request<import("@/types/api").RetentionCampaignOpportunitiesResponse>(
+      "/api/v1/agents/retention/campaigns/intelligence/opportunities"
+    ),
+
+  createRetentionCampaignProposal: (groupIds: string[]) =>
+    request<import("@/types/api").RetentionCampaignProposal>(
+      "/api/v1/agents/retention/campaigns/intelligence/proposals",
+      { method: "POST", body: JSON.stringify({ group_ids: groupIds }) }
     ),
 
   updateRetentionCampaignProposal: (id: string, body: Partial<Pick<

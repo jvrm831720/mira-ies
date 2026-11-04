@@ -37,6 +37,17 @@ class FakeRedis:
     async def rpush(self, key, *values):
         self.lists.setdefault(key, []).extend(str(v) for v in values)
         return len(self.lists[key])
+    async def lrem(self, key, count, value):
+        values = self.lists.get(key, [])
+        removed = 0
+        remaining = []
+        for item in values:
+            if item == value and (count == 0 or removed < abs(count)):
+                removed += 1
+            else:
+                remaining.append(item)
+        self.lists[key] = remaining
+        return removed
     async def zadd(self, key, mapping):
         self.zsets.setdefault(key, {}).update({k: float(v) for k, v in mapping.items()})
     async def zrangebyscore(self, key, *, min, max, start=0, num=None):
@@ -158,3 +169,56 @@ async def test_job_status_lookup_never_returns_another_tenants_job():
     await redis.hset(queue._job_key("tenant-boundary"), mapping=_job_mapping(tenant_id="tenant-a"))
     assert (await queue.get_job("tenant-boundary", tenant_id="tenant-a", redis=redis))["tenant_id"] == "tenant-a"
     assert await queue.get_job("tenant-boundary", tenant_id="tenant-b", redis=redis) is None
+
+
+@pytest.mark.asyncio
+async def test_queued_job_can_be_paused_and_resumed_without_duplicate_queue_entry(monkeypatch):
+    redis = FakeRedis()
+    settings = queue.get_settings()
+    monkeypatch.setattr(queue, "redis_client", lambda: redis)
+    job_id = "pause-resume"
+    await redis.hset(queue._job_key(job_id), mapping=_job_mapping())
+    await redis.rpush(settings.retention_queue_name, job_id)
+
+    paused = await queue.transition_retention_job(job_id, tenant_id="tenant-a", action="pause")
+    assert paused["status"] == "paused"
+    assert redis.lists[settings.retention_queue_name] == []
+
+    resumed = await queue.transition_retention_job(job_id, tenant_id="tenant-a", action="resume")
+    assert resumed["status"] == "queued"
+    assert redis.lists[settings.retention_queue_name] == [job_id]
+
+    repeated = await queue.transition_retention_job(job_id, tenant_id="tenant-a", action="resume")
+    assert repeated["status"] == "queued"
+    assert redis.lists[settings.retention_queue_name] == [job_id]
+
+
+@pytest.mark.asyncio
+async def test_cancel_removes_queued_job_and_is_tenant_scoped(monkeypatch):
+    redis = FakeRedis()
+    settings = queue.get_settings()
+    monkeypatch.setattr(queue, "redis_client", lambda: redis)
+    job_id = "cancel-boundary"
+    await redis.hset(queue._job_key(job_id), mapping=_job_mapping(tenant_id="tenant-a"))
+    await redis.rpush(settings.retention_queue_name, job_id)
+
+    assert await queue.transition_retention_job(job_id, tenant_id="tenant-b", action="cancel") is None
+    cancelled = await queue.transition_retention_job(job_id, tenant_id="tenant-a", action="cancel")
+    assert cancelled["status"] == "cancelled"
+    assert redis.lists[settings.retention_queue_name] == []
+
+    repeated = await queue.transition_retention_job(job_id, tenant_id="tenant-a", action="cancel")
+    assert repeated["status"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_running_job_cancel_is_cooperative(monkeypatch):
+    redis = FakeRedis()
+    monkeypatch.setattr(queue, "redis_client", lambda: redis)
+    job_id = "cancel-running"
+    mapping = _job_mapping()
+    mapping["status"] = "running"
+    await redis.hset(queue._job_key(job_id), mapping=mapping)
+
+    requested = await queue.transition_retention_job(job_id, tenant_id="tenant-a", action="cancel")
+    assert requested["status"] == "cancel_requested"
