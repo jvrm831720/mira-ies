@@ -97,6 +97,9 @@ curl http://localhost:8000/api/v1/risk/critical
 | POST | `/api/v1/agents/retention/run` | Roda o Orquestrador (dry-run por padrão) |
 | POST | `/api/v1/agents/retention/enqueue` | Enfileira uma execução com retry Redis |
 | GET | `/api/v1/agents/retention/jobs/{id}` | Consulta o status de um job enfileirado |
+| POST | `/api/v1/agents/retention/jobs/{id}/pause` | Pausa um job enfileirado, agendado ou em retry |
+| POST | `/api/v1/agents/retention/jobs/{id}/resume` | Retoma um job pausado |
+| POST | `/api/v1/agents/retention/jobs/{id}/cancel` | Cancela um job ou solicita cancelamento cooperativo |
 | GET | `/api/v1/agents/retention/dead-letter` | Lista jobs que excederam retries |
 | GET | `/api/v1/agents/retention/logs` | Histórico de intervenções |
 | GET | `/api/v1/agents/retention/preview/{id}` | Mensagem sem enviar |

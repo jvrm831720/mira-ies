@@ -8,13 +8,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.rules import decide_channels
-from app.core.auth import AuthContext, get_current_tenant
+from app.core.auth import AuthContext, get_current_tenant, require_min_role
 from app.db.session import get_db
 from app.models.intervention import InterventionLog
 from app.models.student import Student
 from app.services.consent import is_communication_allowed
 from app.services.engagement import recommend_send_time
-from app.services.retention_queue import get_job
+from app.services.retention_queue import (
+    RetentionJobLifecycleError,
+    get_job,
+    transition_retention_job,
+)
 from app.api.agents_common import router, _VALID_CHANNELS
 
 
@@ -30,6 +34,45 @@ async def retention_job_status(
     if not job:
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return job
+
+
+async def _transition_retention_job(job_id: str, action: str, auth: AuthContext):
+    try:
+        job = await transition_retention_job(job_id, tenant_id=auth.tenant_id, action=action)
+    except RetentionJobLifecycleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Fila de retenção indisponível") from exc
+    if not job:
+        raise HTTPException(status_code=404, detail="Job não encontrado")
+    return job
+
+
+@router.post("/agents/retention/jobs/{job_id}/pause")
+async def pause_retention_job(
+    job_id: str,
+    auth: AuthContext = Depends(require_min_role("operator")),
+):
+    """Pause a queued, scheduled or retrying execution before it reaches the worker."""
+    return await _transition_retention_job(job_id, "pause", auth)
+
+
+@router.post("/agents/retention/jobs/{job_id}/resume")
+async def resume_retention_job(
+    job_id: str,
+    auth: AuthContext = Depends(require_min_role("operator")),
+):
+    """Resume a paused execution by putting it back on the ready queue."""
+    return await _transition_retention_job(job_id, "resume", auth)
+
+
+@router.post("/agents/retention/jobs/{job_id}/cancel")
+async def cancel_retention_job(
+    job_id: str,
+    auth: AuthContext = Depends(require_min_role("operator")),
+):
+    """Cancel a queued execution or request cancellation for one already running."""
+    return await _transition_retention_job(job_id, "cancel", auth)
 
 
 @router.get("/agents/retention/send-time/{student_id}")

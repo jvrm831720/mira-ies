@@ -438,6 +438,23 @@ export type RetentionRunResult = {
   by_channel?: Record<string, Partial<Record<string, number>>>;
 };
 
+export type RetentionJob = {
+  id: string;
+  tenant_id?: string;
+  status: "scheduled" | "queued" | "running" | "retrying" | "paused" | "cancel_requested" | "cancelled" | "completed" | "failed" | "dead_letter";
+  attempt?: number;
+  max_attempts?: number;
+  created_at?: number;
+  updated_at?: number;
+  scheduled_for?: number;
+  paused_at?: number;
+  resumed_at?: number;
+  cancel_requested_at?: number;
+  cancelled_at?: number;
+  result?: RetentionRunResult;
+  last_error?: string;
+};
+
 export type InterventionLog = {
   id: string;
   student_id?: string | null;
@@ -830,6 +847,30 @@ export type RetentionCampaignProposal = {
   authorization_attested_at?: string | null; execution_enabled: false;
 };
 export type RetentionCampaignProposalsResponse = { count: number; proposals: RetentionCampaignProposal[] };
+export type RetentionCampaignOpportunity = {
+  group_id: string;
+  group_name: string;
+  matched_count: number;
+  indeterminate_count: number;
+  estimated_reach: { upper_bound: number; unit: string; validated_contacts: boolean; note: string };
+  objective: string;
+  strategy: string;
+  recommended_channels: string[];
+  cadence_days: number[];
+  message_brief: string;
+  safeguards: string[];
+};
+export type RetentionCampaignOpportunitiesResponse = {
+  generated_at: string;
+  catalog_version: string;
+  recommendation_engine: string;
+  is_ai_generated_copy: boolean;
+  students_evaluated: number;
+  total_active_students: number;
+  opportunities_count: number;
+  opportunities: RetentionCampaignOpportunity[];
+  notes: string[];
+};
 export type RetentionCampaignProposalAudit = {
   proposal_id: string; count: number; events: Array<{
     id: string; event_type: string; actor_user_id?: string | null; revision: number;

@@ -99,7 +99,7 @@ const groups: NavGroup[] = [
       {
         href: "/retencao",
         label: "Intervenções",
-        description: "Ações de retenção",
+        description: "Planejamento, aprovação e execução",
         icon: Workflow,
         match: "prefix",
       },
