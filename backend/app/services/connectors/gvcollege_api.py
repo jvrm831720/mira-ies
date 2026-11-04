@@ -184,7 +184,7 @@ class GvcollegeWebAPIClient:
         trusted_config = replace(
             config, base_url=approved_url, allowed_hosts=frozenset({approved_host})
         )
-                return cls(trusted_config, auth_headers=auth_headers, transport=transport, _destination_authorization=_destination_authorization_token())
+        return cls(trusted_config, auth_headers=auth_headers, transport=transport, _destination_authorization=_destination_authorization_token())
 
     def __init__(
         self,
