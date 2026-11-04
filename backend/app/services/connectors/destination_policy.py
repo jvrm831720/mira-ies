@@ -9,7 +9,7 @@ from __future__ import annotations
 import ipaddress
 import re
 from collections.abc import Mapping
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 
 class DestinationPolicyError(ValueError):
@@ -36,7 +36,7 @@ def _normalize_hostname(hostname: str) -> str:
         raise DestinationPolicyError("Hostname IDNA inválido.") from exc
     if normalized in _LOCAL_NAMES or normalized.endswith((".localhost", ".local", ".internal", ".test", ".invalid")):
         raise DestinationPolicyError("Hostname local ou reservado não é permitido.")
-    if len(normalized) > 253 or any(not label or len(label) > 63 for label in normalized.split(".")):
+    if len(normalized) > 253 or any(\n        not label\n        or len(label) > 63\n        or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)\n        for label in normalized.split(".")\n    ):
         raise DestinationPolicyError("Hostname inválido.")
     return normalized
 
