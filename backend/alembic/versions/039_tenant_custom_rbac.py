@@ -49,6 +49,9 @@ def upgrade() -> None:
         CREATE FUNCTION reject_mira_role_audit_mutation() RETURNS trigger
         LANGUAGE plpgsql AS $
         BEGIN
+            IF pg_trigger_depth() > 1 THEN
+                IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+            END IF;
             RAISE EXCEPTION 'mira_tenant_role_audit is append-only';
         END;
         $
