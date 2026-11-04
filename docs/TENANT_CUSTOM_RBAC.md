@@ -21,7 +21,7 @@ As chaves são versionáveis e independentes dos rótulos da interface:
 - administração: `settings.manage`, `audit.view`, `critical.manage`;
 - dados: `data.view`, `data.import`.
 
-As rotas que usam `require_min_role` passam a resolver a permissão específica por recurso e método para sessões com cargo personalizado. Rotas ainda não mapeadas usam a chave `access.<nível>`; novos endpoints devem adotar `require_permission` ou adicionar um mapeamento explícito antes de liberar a funcionalidade.
+A autenticação central resolve a permissão específica por recurso e método em toda requisição autenticada com cargo personalizado. Rotas conhecidas usam chaves por módulo/ação; rotas de leitura ainda não mapeadas exigem `access.viewer` e mutações não mapeadas exigem `critical.manage` (falha fechada por padrão). Novos endpoints devem adotar `require_permission` ou adicionar um mapeamento explícito antes de liberar a funcionalidade.
 
 ## API
 
@@ -41,7 +41,8 @@ As rotas que usam `require_min_role` passam a resolver a permissão específica 
 - Todas as consultas e mutações filtram por `tenant_id`; as tabelas novas usam RLS com `FORCE ROW LEVEL SECURITY`.
 - Cargos não podem ser atribuídos entre instituições.
 - A atribuição invalida sessões anteriores via `auth_version`.
-- Mutação de cargo e atribuição exigem administrador humano, MFA AAL2 recente e sessão válida.
+- Mutação de cargo e atribuição exigem administrador humano ou delegado com `permissions.manage`, MFA AAL2 recente e sessão válida.
+- Delegados só podem criar, editar, duplicar, desativar e atribuir cargos com permissões contidas no próprio conjunto efetivo; não podem elevar o cargo-base do destinatário.
 - Usuários administrativos principais não podem receber cargo personalizado pela API.
 - Convites não podem conceder `admin` a não administradores; concessão de admin exige MFA recente.
 - Um cargo atribuído não pode ser desativado enquanto houver membros ativos associados.
