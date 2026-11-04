@@ -145,7 +145,7 @@ async def test_whatsapp_otp_is_followed_by_required_totp(
         json={"phone": phone},
     )
     assert requested.status_code == 202
-    code_match = re.search(r"\b(\d{6})\b", sent[0])
+    code_match = re.search("[0-9]{6}", sent[0])
     assert code_match
 
     verified = await client.post(
@@ -234,3 +234,125 @@ async def test_password_reset_revokes_sessions_and_preserves_required_totp(
     assert new_login.json()["mfa_required"] is True
     reauthenticated = await _complete_totp_login(client, new_login.json(), secret)
     assert reauthenticated["access_token"]
+
+
+async def test_email_otp_login_sends_code_and_requires_mfa(
+    client, db_session, tenant_factory, monkeypatch
+):
+    tenant, _key = await tenant_factory(slug="email-otp-login")
+    user, _secret = await _create_user(db_session, tenant, email="email-otp@example.test")
+    settings = get_settings()
+    monkeypatch.setattr(settings, "resend_api_key", "test-key")
+    monkeypatch.setattr(settings, "email_from", "MIRA <no-reply@example.test>")
+    sent: list[str] = []
+
+    async def fake_send(*, to: str, subject: str, body: str):
+        assert to == user.email
+        assert subject == "Seu código de acesso à MIRA"
+        sent.append(body)
+        return SendResult(ok=True, channel="email", provider="resend")
+
+    import app.api.auth as auth_api
+    monkeypatch.setattr(auth_api, "send_email_resend", fake_send)
+
+    requested = await client.post(
+        "/api/v1/auth/email/request",
+        json={"email": " EMAIL-OTP@example.test "},
+    )
+    assert requested.status_code == 202
+    assert "possibilidade de cadastro" in requested.json()["message"]
+    code_match = re.search("[0-9]{6}", sent[0])
+    assert code_match
+
+    verified = await client.post(
+        "/api/v1/auth/email/verify",
+        json={"email": user.email, "code": code_match.group(1)},
+    )
+    assert verified.status_code == 200, verified.text
+    assert verified.json()["mfa_enrollment_required"] is True
+    assert "access_token" not in verified.json()
+
+    replay = await client.post(
+        "/api/v1/auth/email/verify",
+        json={"email": user.email, "code": code_match.group(1)},
+    )
+    assert replay.status_code == 401
+
+
+async def test_email_otp_request_routes_verified_unknown_email_to_onboarding(
+    client, monkeypatch
+):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "resend_api_key", "test-key")
+    monkeypatch.setattr(settings, "email_from", "MIRA <no-reply@example.test>")
+    sent: list[str] = []
+
+    async def fake_send(*, to: str, subject: str, body: str):
+        assert to == "new-user@example.test"
+        sent.append(body)
+        return SendResult(ok=True, channel="email", provider="resend")
+
+    import app.api.auth as auth_api
+    monkeypatch.setattr(auth_api, "send_email_resend", fake_send)
+
+    requested = await client.post(
+        "/api/v1/auth/email/request",
+        json={"email": "new-user@example.test"},
+    )
+    assert requested.status_code == 202
+    assert len(sent) == 1
+    code_match = re.search("[0-9]{6}", sent[0])
+    assert code_match
+
+    verified = await client.post(
+        "/api/v1/auth/email/verify",
+        json={"email": "new-user@example.test", "code": code_match.group(1)},
+    )
+    assert verified.status_code == 200, verified.text
+    assert verified.json() == {
+        "onboarding_required": True,
+        "email": "new-user@example.test",
+    }
+    assert "access_token" not in verified.json()
+
+    replay = await client.post(
+        "/api/v1/auth/email/verify",
+        json={"email": "new-user@example.test", "code": code_match.group(1)},
+    )
+    assert replay.status_code == 401
+
+
+async def test_email_otp_rejects_invalid_codes_and_enforces_attempt_limit(
+    client, db_session, tenant_factory, monkeypatch
+):
+    tenant, _key = await tenant_factory(slug="email-otp-attempts")
+    user, _secret = await _create_user(db_session, tenant, email="otp-attempts@example.test")
+    settings = get_settings()
+    monkeypatch.setattr(settings, "resend_api_key", "test-key")
+    monkeypatch.setattr(settings, "email_from", "MIRA <no-reply@example.test>")
+
+    sent: list[str] = []
+
+    async def fake_send(*, to: str, subject: str, body: str):
+        sent.append(body)
+        return SendResult(ok=True, channel="email", provider="resend")
+
+    import app.api.auth as auth_api
+    monkeypatch.setattr(auth_api, "send_email_resend", fake_send)
+    await client.post("/api/v1/auth/email/request", json={"email": user.email})
+    actual_code = re.search("[0-9]{6}", sent[0])
+    assert actual_code
+    wrong_code = f"{(int(actual_code.group(1)) + 1) % 1_000_000:06d}"
+
+    for _attempt in range(5):
+        response = await client.post(
+            "/api/v1/auth/email/verify",
+            json={"email": user.email, "code": wrong_code},
+        )
+        assert response.status_code == 401
+
+    blocked = await client.post(
+        "/api/v1/auth/email/verify",
+        json={"email": user.email, "code": wrong_code},
+    )
+    assert blocked.status_code == 401
