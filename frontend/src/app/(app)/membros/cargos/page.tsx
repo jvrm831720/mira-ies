@@ -36,7 +36,7 @@ export default function CustomRolesPage() {
   const [selectedMember, setSelectedMember] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
 
-  const isAdmin = me.data?.role === "admin";
+  const canManageRoles = me.data?.role === "admin" || me.data?.permissions?.includes("permissions.manage") === true;
   const roleList = roles.data?.roles ?? [];
   const memberList = members.data?.members ?? [];
   const labels = useMemo(() => new Map((catalog.data?.permissions ?? []).map((p) => [p.key, p.label])), [catalog.data]);
@@ -90,7 +90,7 @@ export default function CustomRolesPage() {
   }
 
   if (me.isLoading) return <main className="p-8 text-sm text-muted-foreground">Carregando permissões…</main>;
-  if (!isAdmin) return <main className="mx-auto max-w-3xl p-8"><Card><CardHeader><CardTitle>Acesso restrito</CardTitle><CardDescription>Somente administradores institucionais podem configurar cargos.</CardDescription></CardHeader><CardContent><Link href="/membros"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar para membros</Button></Link></CardContent></Card></main>;
+  if (!canManageRoles) return <main className="mx-auto max-w-3xl p-8"><Card><CardHeader><CardTitle>Acesso restrito</CardTitle><CardDescription>Você não tem permissão para configurar cargos nesta instituição.</CardDescription></CardHeader><CardContent><Link href="/membros"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar para membros</Button></Link></CardContent></Card></main>;
 
   return (
     <>
