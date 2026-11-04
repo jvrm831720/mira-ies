@@ -110,7 +110,7 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
                 "access.coordinator": 3, "data.import": 3, "audit.view": 3,
                 "students.sensitive.view": 3, "campaigns.approve": 3,
                 "campaigns.execute": 3,
-                "members.manage": 4, "permissions.manage": 4, "settings.manage": 4,
+                "members.manage": 3, "permissions.manage": 3, "settings.manage": 3,
                 "students.delete": 4, "campaigns.delete": 4, "critical.manage": 4,
             }
             custom_permissions = frozenset(
