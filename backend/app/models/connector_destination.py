@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,6 +22,8 @@ class TenantConnectorDestination(Base):
             "tenant_id", "connector_key", "hostname", "port",
             name="uq_tenant_connector_destination",
         ),
+        CheckConstraint("scheme = 'https'", name="ck_tenant_connector_destination_scheme"),
+        CheckConstraint("port = 443", name="ck_tenant_connector_destination_port"),
         Index("ix_tenant_connector_destinations_tenant_connector", "tenant_id", "connector_key", "is_enabled"),
     )
 
@@ -41,6 +43,12 @@ class TenantConnectorDestination(Base):
 
 class TenantConnectorDestinationAudit(Base):
     __tablename__ = "tenant_connector_destination_audit"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('approved', 'revoked')",
+            name="ck_tenant_connector_destination_audit_action",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
