@@ -31,7 +31,6 @@ CONNECTOR_REGISTRY: dict[str, object] = {
     "sophia": _sophia,
     "gvcollege": _gvcollege,
     "wpensar": _wpensar,
-    "isaac": _wpensar,
     "moodle": _moodle,
     "canvas": _canvas,
     "generic": _generic,
