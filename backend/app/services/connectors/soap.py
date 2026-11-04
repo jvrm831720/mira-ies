@@ -7,6 +7,8 @@ métodos genéricos de POST nem permite escolher operações SOAP arbitrárias.
 from __future__ import annotations
 
 from urllib.parse import urlsplit
+
+from sqlalchemy.ext.asyncio import AsyncSession
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -16,6 +18,7 @@ from app.services.connectors.transport import (
     ConnectorTransportError,
     ERPRequestContext,
 )
+from app.services.connectors.tenant_destinations import authorize_tenant_destination
 
 
 SOAP_ENV = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -33,6 +36,29 @@ def _context_string(context: ERPRequestContext) -> str:
 
 class TotvsReadOnlySoapClient:
     """Cliente SOAP 1.1 que permite somente DataServer ReadRecord."""
+
+    @classmethod
+    async def for_tenant(
+        cls,
+        db: AsyncSession,
+        *,
+        tenant_id: str,
+        endpoint: str,
+        username: str,
+        password: str,
+        context: ERPRequestContext,
+        timeout_seconds: float = 20.0,
+        allow_insecure_http: bool = False,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "TotvsReadOnlySoapClient":
+        approved = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="totvs_rm_soap", url=endpoint
+        )
+        return cls(
+            endpoint=approved, username=username, password=password,
+            context=context, timeout_seconds=timeout_seconds,
+            allow_insecure_http=allow_insecure_http, transport=transport,
+        )
 
     def __init__(
         self,
