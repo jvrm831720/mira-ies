@@ -204,3 +204,45 @@ def test_configuration_rejects_non_finite_timeout_and_invalid_response_limit():
 def test_auth_header_name_must_follow_http_token_syntax():
     with pytest.raises(GvcollegeConfigurationError):
         GvcollegeWebAPIClient(make_config(), auth_headers={"Bad Header": "value"})
+
+
+@pytest.mark.asyncio
+async def test_for_tenant_replaces_caller_allowlist_with_persisted_destination(monkeypatch):
+    async def authorize(db, *, tenant_id, connector_key, url):
+        assert tenant_id == "tenant-a"
+        assert connector_key == "gvcollege"
+        assert url == "https://erp.instituicao.edu.br"
+        return "https://approved.example"
+
+    monkeypatch.setattr(
+        "app.services.connectors.gvcollege_api.authorize_tenant_destination", authorize
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "approved.example"
+        return httpx.Response(200, json=[{"codigo": 1}])
+
+    client = await GvcollegeWebAPIClient.for_tenant(
+        object(),
+        tenant_id="tenant-a",
+        config=make_config(allowed_hosts=frozenset({"attacker.example"})),
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        assert await client.fetch_page("pessoa") == [{"codigo": 1}]
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_for_tenant_rejects_mismatched_config_tenant(monkeypatch):
+    async def unexpected(*args, **kwargs):
+        raise AssertionError("destination lookup must not run for a mismatched tenant")
+
+    monkeypatch.setattr(
+        "app.services.connectors.gvcollege_api.authorize_tenant_destination", unexpected
+    )
+    with pytest.raises(GvcollegeConfigurationError, match="Tenant da configuração"):
+        await GvcollegeWebAPIClient.for_tenant(
+            object(), tenant_id="tenant-b", config=make_config()
+        )
