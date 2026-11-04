@@ -111,10 +111,12 @@ async def test_jacad_connection(
     if not connection or not connection.is_enabled:
         raise HTTPException(status_code=404, detail="Configure a conexão JACAD antes de testar.")
     try:
-        await authorize_tenant_destination(db, tenant_id=auth.tenant_id, connector_key="jacad", url=connection.base_url)
+        client = await JacadApiClient.for_tenant(
+            db, tenant_id=auth.tenant_id, base_url=connection.base_url,
+            api_token=decrypt_api_token(connection.encrypted_api_token),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail="Destino JACAD não aprovado para este tenant.") from exc
-    client = JacadApiClient(connection.base_url, decrypt_api_token(connection.encrypted_api_token))
     try:
         result = await client.test_connection(org_id=connection.default_org_id)
         connection.status = "connected"
