@@ -53,7 +53,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "campaigns.view", "campaigns.create", "campaigns.edit", "campaigns.approve",
         "campaigns.execute", "members.view", "members.manage", "data.view", "data.import",
         "audit.view"],
-    "admin": list(PERMISSION_CATALOG.keys()) if "PERMISSION_CATALOG" in globals() else [],
+    "admin": list(PERMISSION_CATALOG.keys()),
 }
 
 
