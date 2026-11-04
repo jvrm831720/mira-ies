@@ -100,6 +100,8 @@ def _serialize(proposal: RetentionCampaignProposal) -> dict[str, Any]:
         "authorization_reference": proposal.authorization_reference,
         "authorization_attested_by": proposal.authorization_attested_by,
         "authorization_attested_at": proposal.authorization_attested_at,
+        "scheduled_for": proposal.scheduled_for,
+        "schedule_timezone": proposal.schedule_timezone,
         "execution_enabled": False,
     }
 
