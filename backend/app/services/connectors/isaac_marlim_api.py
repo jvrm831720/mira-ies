@@ -12,6 +12,13 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.services.connectors.tenant_destinations import (
+    _destination_authorization_token,
+    authorize_tenant_destination,
+    require_destination_authorization,
+)
 
 
 ISAAC_MARLIM_BASE_URLS = {
@@ -118,12 +125,36 @@ def _parse_transactions(
 class IsaacMarlimApiClient:
     """Client restricted to the documented, read-only reconciliation endpoint."""
 
+    @classmethod
+    async def for_tenant(
+        cls,
+        db: AsyncSession,
+        *,
+        tenant_id: str,
+        config: IsaacMarlimConfig,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> "IsaacMarlimApiClient":
+        approved = await authorize_tenant_destination(
+            db, tenant_id=tenant_id, connector_key="isaac_marlim",
+            url=config.base_url(),
+        )
+        # Environment determines a fixed official endpoint; the registry still
+        # has to approve its exact host before the client can be constructed.
+        if approved.rstrip("/") != config.base_url().rstrip("/"):
+            raise ValueError("Destino Isaac/Marlim autorizado diverge do endpoint oficial do ambiente.")
+        return cls(
+            config, transport=transport,
+            _destination_authorization=_destination_authorization_token(),
+        )
+
     def __init__(
         self,
         config: IsaacMarlimConfig,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        _destination_authorization: object | None = None,
     ) -> None:
+        require_destination_authorization(_destination_authorization)
         self.config = config
         self._client = httpx.AsyncClient(
             base_url=config.base_url(),
