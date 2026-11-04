@@ -5,7 +5,6 @@ Este módulo é puro: não recebe sessão de banco, não faz HTTP e não executa
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
