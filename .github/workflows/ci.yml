@@ -81,12 +81,14 @@ jobs:
         run: |
           # Revision 002's legacy create_all materializes tables from today's ORM metadata,
           # including objects owned by later revisions. Build that baseline, mark history
-          # through 038, then remove only 039/040 objects so those real migrations create them.
+          # through 038, then remove objects owned by 039+ so those real migrations create them.
           PYTHONPATH=. alembic upgrade 006_safe_agent_delivery
           PYTHONPATH=. alembic stamp 038_high_risk_confirmation
           psql "$MIRA_TEST_PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
           DROP TABLE IF EXISTS mira_tenant_role_audit, mira_tenant_roles,
-            tenant_connector_destination_audit, tenant_connector_destinations CASCADE;
+            tenant_connector_destination_audit, tenant_connector_destinations,
+            eligible_contributions, training_dataset_snapshots, training_runs,
+            mira_base_lifecycle_events CASCADE;
           ALTER TABLE mira_users DROP COLUMN IF EXISTS custom_role_id CASCADE;
           ALTER TABLE mira_org_invites DROP COLUMN IF EXISTS custom_role_id CASCADE;
           SQL
