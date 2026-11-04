@@ -22,6 +22,17 @@ const GROUPS: Array<{ label: string; keys: string[] }> = [
 ];
 
 const EMPTY: TenantRolePayload = { name: "", description: "", base_role: "viewer", permissions: ["access.viewer", "dashboard.view"] };
+const BASE_RANK = { viewer: 1, operator: 2, coordinator: 3 } as const;
+const PERMISSION_RANK: Record<string, number> = {
+  "access.viewer": 1, "dashboard.view": 1, "students.view": 1,
+  "access.operator": 2, "students.create": 2, "students.edit": 2,
+  "campaigns.view": 2, "campaigns.create": 2, "campaigns.edit": 2,
+  "members.view": 2, "data.view": 2,
+  "access.coordinator": 3, "data.import": 3, "audit.view": 3,
+  "students.sensitive.view": 3, "campaigns.approve": 3, "campaigns.execute": 3,
+  "members.manage": 3, "permissions.manage": 3, "settings.manage": 3,
+  "students.delete": 3, "campaigns.delete": 3, "critical.manage": 3,
+};
 
 export default function CustomRolesPage() {
   const qc = useQueryClient();
@@ -114,11 +125,11 @@ export default function CustomRolesPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1"><label className="text-xs font-medium">Nome</label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Analista de permanência" maxLength={80} /></div>
-                <div className="space-y-1"><label className="text-xs font-medium">Cargo-base (limite de privilégio)</label><select value={form.base_role} onChange={(e) => setForm({ ...form, base_role: e.target.value as TenantRolePayload["base_role"] })} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="viewer">Consulta</option><option value="operator">Operação</option><option value="coordinator">Coordenação</option></select></div>
+                <div className="space-y-1"><label className="text-xs font-medium">Cargo-base (limite de privilégio)</label><select value={form.base_role} onChange={(e) => { const base_role = e.target.value as TenantRolePayload["base_role"]; setForm((current) => ({ ...current, base_role, permissions: current.permissions.filter((permission) => (PERMISSION_RANK[permission] ?? 99) <= BASE_RANK[base_role]) })); }} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="viewer">Consulta</option><option value="operator">Operação</option><option value="coordinator">Coordenação</option></select></div>
               </div>
               <div className="space-y-1"><label className="text-xs font-medium">Descrição</label><Input value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Responsabilidades deste cargo" maxLength={500} /></div>
               <div className="space-y-4">
-                {GROUPS.map((group) => <section key={group.label} className="space-y-2"><h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</h3><div className="grid gap-2 sm:grid-cols-2">{group.keys.map((key) => <label key={key} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"><input type="checkbox" checked={form.permissions.includes(key)} onChange={(e) => togglePermission(key, e.target.checked)} className="h-4 w-4 accent-primary" /><span>{labels.get(key) || key}</span></label>)}</div></section>)}
+                {GROUPS.map((group) => <section key={group.label} className="space-y-2"><h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</h3><div className="grid gap-2 sm:grid-cols-2">{group.keys.map((key) => <label key={key} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"><input type="checkbox" checked={form.permissions.includes(key)} disabled={key === "access.viewer" || (PERMISSION_RANK[key] ?? 99) > BASE_RANK[form.base_role]} onChange={(e) => togglePermission(key, e.target.checked)} className="h-4 w-4 accent-primary" /><span>{labels.get(key) || key}</span></label>)}</div></section>)}
               </div>
               <div className="flex flex-wrap gap-2"><Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name.trim() || !form.permissions.length}>{saveMutation.isPending ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}{editingId ? "Salvar alterações" : "Criar cargo"}</Button>{editingId && <Button variant="outline" onClick={resetForm}>Cancelar edição</Button>}</div>
             </CardContent>
