@@ -55,8 +55,8 @@ async def resolve_institutional_training_authorization(
         select(InstitutionalTrainingAuthorization)
         .where(InstitutionalTrainingAuthorization.tenant_id == tenant_id)
         .order_by(
-            InstitutionalTrainingAuthorization.effective_at.desc(),
             InstitutionalTrainingAuthorization.created_at.desc(),
+            InstitutionalTrainingAuthorization.effective_at.desc(),
         )
     )
     records = list(result.scalars().all())
@@ -117,8 +117,8 @@ async def resolve_training_policy(
         select(TenantDataUsePolicy)
         .where(TenantDataUsePolicy.tenant_id == tenant_id)
         .order_by(
-            TenantDataUsePolicy.effective_at.desc(),
             TenantDataUsePolicy.created_at.desc(),
+            TenantDataUsePolicy.effective_at.desc(),
         )
     )
     policies = list(result.scalars().all())
