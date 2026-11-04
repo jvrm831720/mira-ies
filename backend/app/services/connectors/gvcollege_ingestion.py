@@ -188,7 +188,8 @@ def dry_run_gvcollege_ingestion(
                 ))
                 continue
             if (
-                value == ""
+                isinstance(value, str)
+                and not value.strip()
                 and not field.nullable
                 and field.value_type == GvcollegeValueType.STRING
             ):
