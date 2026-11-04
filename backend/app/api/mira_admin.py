@@ -175,7 +175,7 @@ class SharedDataPolicyPayload(BaseModel):
 
 
 class InstitutionalAuthorizationPayload(BaseModel):
-    tenant_id: str = Field(min_length=36, max_length=36)
+    tenant_id: UUID
     contract_reference: str = Field(min_length=1, max_length=160)
     contract_version: str = Field(min_length=1, max_length=80)
     effective_at: datetime
