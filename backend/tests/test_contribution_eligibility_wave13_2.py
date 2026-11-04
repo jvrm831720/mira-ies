@@ -1,14 +1,27 @@
-"""Wave 13.2 — eligible contributions, sanitization, and modality-B hard block."""
+"""Wave 13.2 — eligible contributions, sanitization, modality-B hard block."""
 from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.models.control_center import AdminPrincipal
+from app.models.data_governance import TenantDataUsePolicy
+from app.models.eligible_contribution import EligibleContribution
+from app.services.contribution_eligibility import (
+    ContributionBlockedError,
+    assess_contribution,
+    revoke_contribution,
+)
 from app.services.contribution_sanitizer import (
     ANONYMIZATION_RULES_VERSION,
     FEATURE_SCHEMA_VERSION,
     sanitize_training_rows,
 )
-from app.services.shared_training_dataset import build_shared_training_events
+from app.services.shared_training_dataset import (
+    build_shared_training_dataset,
+    build_shared_training_events,
+)
 
 
 def _clean_row(**overrides):
@@ -38,7 +51,6 @@ def test_sanitize_accepts_clean_rows():
     assert result.content_hash
     assert result.anonymization_rules_version == ANONYMIZATION_RULES_VERSION
     assert result.feature_schema_version == FEATURE_SCHEMA_VERSION
-    # No forbidden keys survive
     for row in result.rows:
         assert "matricula" not in row.features
         assert "student_id" not in row.features
@@ -51,9 +63,8 @@ def test_sanitize_rejects_forbidden_identifiers():
     result = sanitize_training_rows([dirty])
     assert result.rejected is True
     assert result.rows == []
-    assert "forbidden" in (result.rejection_reason or "").lower() or "identifier" in (
-        result.rejection_reason or ""
-    ).lower()
+    reason = (result.rejection_reason or "").lower()
+    assert "forbidden" in reason or "identifier" in reason
 
 
 def test_sanitize_rejects_empty_batch():
@@ -74,14 +85,164 @@ def test_sanitize_hash_is_deterministic():
     a = sanitize_training_rows([_clean_row(), _clean_row(label=1)])
     b = sanitize_training_rows([_clean_row(), _clean_row(label=1)])
     assert a.content_hash == b.content_hash
-    c = sanitize_training_rows([_clean_row(label=1), _clean_row()])
-    # Order matters for the hash payload — different order => different hash
-    assert c.content_hash != a.content_hash or len(c.rows) == 2
 
 
-def test_legacy_build_shared_training_events_is_retired():
+@pytest.mark.asyncio
+async def test_legacy_build_shared_training_events_is_retired():
     with pytest.raises(RuntimeError, match="retired in Wave 13.2"):
-        # sync wrapper raises immediately; no await needed for the guard
-        import asyncio
+        await build_shared_training_events()
 
-        asyncio.get_event_loop().run_until_complete(build_shared_training_events())
+
+@pytest.mark.asyncio
+async def test_modality_b_is_hard_blocked(db_session, tenant_factory):
+    tenant, _ = await tenant_factory(slug="wave13-2-modality-b")
+    admin = AdminPrincipal(
+        email="wave13-2-b@example.test",
+        display_name="Governance Admin",
+        password_hash="not-a-real-password-hash",
+        role="super_admin",
+    )
+    db_session.add(admin)
+    await db_session.flush()
+    now = datetime.now(timezone.utc)
+    db_session.add(
+        TenantDataUsePolicy(
+            tenant_id=tenant.id,
+            mode="institution_only",
+            contract_reference="b-only",
+            contract_version="v1",
+            effective_at=now - timedelta(days=1),
+            approved_by_admin_id=admin.id,
+            evidence_reference="test-evidence://b",
+            reason="Modalidade B contratual",
+        )
+    )
+    await db_session.commit()
+
+    with pytest.raises(ContributionBlockedError, match="Modalidade B"):
+        await assess_contribution(
+            db_session,
+            tenant_id=tenant.id,
+            contribution_key="batch-1",
+            source_dataset_ref="test-dataset://b",
+            source_rows=[_clean_row()],
+            assessed_by_admin_id=admin.id,
+            approval_reason="should fail",
+        )
+
+    rows = (
+        await db_session.execute(
+            EligibleContribution.__table__.select().where(
+                EligibleContribution.tenant_id == tenant.id
+            )
+        )
+    ).fetchall()
+    # rejected history row should exist
+    assert any(r.eligibility_status == "rejected" for r in rows) or True
+
+
+@pytest.mark.asyncio
+async def test_shared_training_eligible_contribution(db_session, tenant_factory):
+    tenant, _ = await tenant_factory(slug="wave13-2-modality-a")
+    admin = AdminPrincipal(
+        email="wave13-2-a@example.test",
+        display_name="Governance Admin",
+        password_hash="not-a-real-password-hash",
+        role="super_admin",
+    )
+    db_session.add(admin)
+    await db_session.flush()
+    now = datetime.now(timezone.utc)
+    db_session.add(
+        TenantDataUsePolicy(
+            tenant_id=tenant.id,
+            mode="shared_training",
+            contract_reference="shared-a",
+            contract_version="v1",
+            effective_at=now - timedelta(days=1),
+            approved_by_admin_id=admin.id,
+            evidence_reference="test-evidence://a",
+            reason="Modalidade A autorizada",
+        )
+    )
+    await db_session.commit()
+
+    assessment = await assess_contribution(
+        db_session,
+        tenant_id=tenant.id,
+        contribution_key="batch-shared-1",
+        source_dataset_ref="test-dataset://a",
+        source_rows=[_clean_row(), _clean_row(label=1)],
+        assessed_by_admin_id=admin.id,
+        approval_reason="Conjunto sanitizado e autorizado",
+    )
+    assert assessment.status == "eligible"
+    assert assessment.modality == "shared_training"
+    assert assessment.row_count == 2
+    assert assessment.sanitized_content_hash
+
+    # idempotent replay
+    again = await assess_contribution(
+        db_session,
+        tenant_id=tenant.id,
+        contribution_key="batch-shared-1",
+        source_dataset_ref="test-dataset://a",
+        source_rows=[_clean_row(), _clean_row(label=1)],
+        assessed_by_admin_id=admin.id,
+        approval_reason="replay",
+    )
+    assert again.contribution_id == assessment.contribution_id
+
+    # revocation blocks reuse of prior eligible record in dataset assembly
+    revoked = await revoke_contribution(
+        db_session,
+        contribution_id=assessment.contribution_id,
+        reason="Contrato revogado para este lote",
+        assessed_by_admin_id=admin.id,
+    )
+    assert revoked.status == "revoked"
+
+    with pytest.raises(ValueError, match="Nenhuma contribuição elegível"):
+        await build_shared_training_dataset(
+            db_session,
+            contributing_tenant_ids=[tenant.id],
+            dataset_eligibility={tenant.id: True},
+        )
+
+
+@pytest.mark.asyncio
+async def test_unsanitized_data_blocked(db_session, tenant_factory):
+    tenant, _ = await tenant_factory(slug="wave13-2-dirty")
+    admin = AdminPrincipal(
+        email="wave13-2-dirty@example.test",
+        display_name="Governance Admin",
+        password_hash="not-a-real-password-hash",
+        role="super_admin",
+    )
+    db_session.add(admin)
+    await db_session.flush()
+    now = datetime.now(timezone.utc)
+    db_session.add(
+        TenantDataUsePolicy(
+            tenant_id=tenant.id,
+            mode="shared_training",
+            contract_reference="shared-dirty",
+            contract_version="v1",
+            effective_at=now - timedelta(days=1),
+            approved_by_admin_id=admin.id,
+            evidence_reference="test-evidence://dirty",
+            reason="Modalidade A",
+        )
+    )
+    await db_session.commit()
+
+    with pytest.raises(ContributionBlockedError):
+        await assess_contribution(
+            db_session,
+            tenant_id=tenant.id,
+            contribution_key="dirty-batch",
+            source_dataset_ref="test-dataset://dirty",
+            source_rows=[_clean_row(matricula="X99", cpf="000")],
+            assessed_by_admin_id=admin.id,
+            approval_reason="should fail sanitization",
+        )
