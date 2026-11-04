@@ -34,13 +34,13 @@ def upgrade() -> None:
     op.execute("""
         CREATE TABLE tenant_connector_destination_audit (
             id UUID PRIMARY KEY,
-            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            tenant_id UUID NOT NULL,
             destination_id UUID NULL,
             connector_key VARCHAR(40) NOT NULL,
             hostname VARCHAR(253) NOT NULL,
             action VARCHAR(16) NOT NULL CHECK (action IN ('approved', 'revoked')),
             reason VARCHAR(500) NOT NULL,
-            actor_user_id UUID NULL REFERENCES mira_users(id) ON DELETE SET NULL,
+            actor_user_id UUID NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
