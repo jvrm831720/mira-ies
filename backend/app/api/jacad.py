@@ -13,7 +13,6 @@ from app.core.auth import AuthContext, require_min_role, _set_tenant_rls_context
 from app.db.session import get_db
 from app.models.jacad_connection import TenantJacadConnection
 from app.services.jacad_queue import enqueue_jacad_sync, get_active_jacad_job, get_jacad_job, retry_jacad_sync
-from app.services.connectors.tenant_destinations import authorize_tenant_destination
 from app.services.connectors.jacad_api import (
     JacadApiClient,
     JacadConnectionError,
