@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -5,7 +6,7 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 from app.api.tenant_rbac import RolePayload, _validate_permission_ceiling
-from app.core.auth import _enforce_custom_request_permission, _permission_for_request
+from app.core.auth import _enforce_custom_request_permission, _permission_for_request, require_roles
 
 
 def _request(path: str, method: str = "GET") -> Request:
@@ -80,3 +81,20 @@ def test_custom_permission_is_enforced_for_authenticated_requests():
 
 def test_dashboard_summary_does_not_require_student_detail_permission():
     assert _permission_for_request(_request("/api/v1/risk/summary")) == "dashboard.view"
+
+
+
+def test_custom_role_require_roles_checks_explicit_access_tier():
+    dependency = require_roles("coordinator")
+    allowed = SimpleNamespace(
+        permissions=frozenset({"access.viewer", "access.operator", "access.coordinator"}),
+        role="coordinator",
+    )
+    denied = SimpleNamespace(
+        permissions=frozenset({"access.viewer"}),
+        role="coordinator",
+    )
+    assert asyncio.run(dependency(allowed)) is allowed
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(dependency(denied))
+    assert exc.value.status_code == 403
