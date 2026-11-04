@@ -14,6 +14,7 @@
 - O motor canônico de grupos é reutilizado; somente estado `TRUE` entra no snapshot.
 - Alunos presentes em vários grupos aparecem uma única vez, com todos os grupos confirmados.
 - Opt-out global bloqueia contato.
+- A elegibilidade calculada representa somente contato tecnicamente válido e preferências operacionais; não comprova consentimento nem base legal. Toda proposta declara `communication_authorization_status=not_verified` e exige revisão da instituição antes de qualquer futura aprovação.
 - Preferências de canal/finalidade são aplicadas por `is_communication_allowed`.
 - E-mail e telefone são validados sem persistir os valores de contato no snapshot.
 - Intervenções `sent`, `sending` ou `unknown` nos últimos sete dias bloqueiam novos contatos nesta proposta.
@@ -23,6 +24,8 @@
 ## Limites
 - A proposta é um rascunho; não tem aprovação, agendamento nem execução.
 - Nenhuma integração de canal é chamada e nenhum envio é possível por estes endpoints.
+- Listagem e leitura também exigem papel `coordinator` ou superior.
+- A proposta não constitui autorização legal para comunicação; a comprovação de base legal/consentimento ainda não existe neste modelo.
 - O snapshot armazena somente o identificador interno do aluno e metadados de elegibilidade; não persiste matrícula, telefone, e-mail ou conteúdo de mensagem.
 - A janela de supressão de sete dias é uma regra conservadora inicial, ainda configurável em wave posterior.
 - O snapshot é consistente com a avaliação da requisição; mudanças concorrentes na base são detectadas por contagem e exigem nova geração.
