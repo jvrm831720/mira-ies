@@ -7,9 +7,9 @@ No seller creation, payment creation, refunds, or other write operations.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from datetime import datetime, timezone
 from typing import Any, Literal
-from urllib.parse import urlsplit
 
 import httpx
 
@@ -45,8 +45,8 @@ class IsaacMarlimConfig:
             raise ValueError("API key Isaac/Marlim obrigatória.")
         if len(self.api_key) > 4096:
             raise ValueError("API key Isaac/Marlim excede o limite permitido.")
-        if self.timeout_seconds <= 0:
-            raise ValueError("Timeout deve ser positivo.")
+        if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+            raise ValueError("Timeout deve ser positivo e finito.")
         return ISAAC_MARLIM_BASE_URLS[self.environment]
 
 
@@ -152,10 +152,12 @@ class IsaacMarlimApiClient:
     ) -> IsaacMarlimConciliation:
         if date_created.tzinfo is None or date_created.utcoffset() is None:
             raise ValueError("date_created deve conter timezone explícito.")
-        if page < 1:
-            raise ValueError("page deve ser maior ou igual a 1.")
-        if not 1 <= count <= 100:
-            raise ValueError("count deve estar entre 1 e 100.")
+        if isinstance(page, bool) or not isinstance(page, int) or page < 1:
+            raise ValueError("page deve ser um inteiro maior ou igual a 1.")
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 100:
+            raise ValueError("count deve ser um inteiro entre 1 e 100.")
+        if not isinstance(with_transactions, bool):
+            raise ValueError("with_transactions deve ser booleano.")
 
         request_body = {
             "date_created": date_created.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
@@ -197,9 +199,9 @@ class IsaacMarlimApiClient:
 
         return IsaacMarlimConciliation(
             reference_date=reference_date,
-            paid_transactions_amount_cents=_amount(payload.get("paid_transactions_amount", 0), "paid_transactions_amount"),
-            refunded_transactions_amount_cents=_amount(payload.get("refunded_transactions_amount", 0), "refunded_transactions_amount"),
-            transfer_estimated_amount_cents=_amount(payload.get("transfer_estimated_amount", 0), "transfer_estimated_amount"),
+            paid_transactions_amount_cents=_amount(payload.get("paid_transactions_amount"), "paid_transactions_amount"),
+            refunded_transactions_amount_cents=_amount(payload.get("refunded_transactions_amount"), "refunded_transactions_amount"),
+            transfer_estimated_amount_cents=_amount(payload.get("transfer_estimated_amount"), "transfer_estimated_amount"),
             transactions=tuple(transactions),
             page=page,
             count=count,
