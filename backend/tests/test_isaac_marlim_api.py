@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 
 import httpx
 import pytest
@@ -13,12 +14,15 @@ from app.services.connectors.isaac_marlim_api import (
 
 def _response(request: httpx.Request) -> httpx.Response:
     assert request.method == "POST"
-    assert request.url.host == "sandbox.api.isaac.marlim.co"
-    assert request.url.path == "/v1/conciliation"
+    assert request.url.host == "sandbox.api.marlim.co"
+    assert request.url.path == "/v3/conciliation"
     assert request.headers["api_key"] == "sandbox-test-key"
-    assert request.read() == (
-        b'{"date_created":"2026-11-04T12:00:00Z","with_transactions":true,"page":2,"count":50}'
-    )
+    assert json.loads(request.read()) == {
+        "date_created": "2026-11-04T12:00:00Z",
+        "with_transactions": True,
+        "page": 2,
+        "count": 50,
+    }
     return httpx.Response(200, json={
         "transfer_reference_date": "2026-11-04",
         "paid_transactions_amount": 12500,
@@ -70,8 +74,8 @@ async def test_fetch_conciliation_reads_sanitized_payment_events():
 
 
 def test_config_uses_fixed_official_environment_hosts():
-    assert IsaacMarlimConfig("key", "sandbox").base_url() == "https://sandbox.api.isaac.marlim.co"
-    assert IsaacMarlimConfig("key", "production").base_url() == "https://api.isaac.marlim.co"
+    assert IsaacMarlimConfig("key", "sandbox").base_url() == "https://sandbox.api.marlim.co"
+    assert IsaacMarlimConfig("key", "production").base_url() == "https://api.marlim.co"
 
 
 def test_config_rejects_missing_key():
@@ -82,7 +86,7 @@ def test_config_rejects_missing_key():
 @pytest.mark.asyncio
 async def test_authentication_failure_is_sanitized():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(401, json={"message": "bad key", "secret": "do-not-leak"})
+        return httpx.Response(403, json={"message": "forbidden", "secret": "do-not-leak"})
 
     client = IsaacMarlimApiClient(
         IsaacMarlimConfig("secret-key", "sandbox"),
@@ -104,6 +108,19 @@ async def test_rejects_naive_datetime_before_request():
     try:
         with pytest.raises(ValueError, match="timezone"):
             await client.fetch_conciliation(date_created=datetime(2026, 11, 4))
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_rejects_count_above_documented_v3_limit():
+    client = IsaacMarlimApiClient(IsaacMarlimConfig("key", "sandbox"))
+    try:
+        with pytest.raises(ValueError, match="1000"):
+            await client.fetch_conciliation(
+                date_created=datetime(2026, 11, 4, tzinfo=timezone.utc),
+                count=1001,
+            )
     finally:
         await client.close()
 
