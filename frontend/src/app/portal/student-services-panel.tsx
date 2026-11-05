@@ -38,6 +38,11 @@ const categories = [
   { value: "academic_review", label: "Revisão acadêmica" },
   { value: "other", label: "Outro assunto" },
 ];
+const financeStates: Record<string, string> = {
+  open: "Em aberto", overdue: "Vencido", partially_paid: "Pagamento parcial informado",
+  reported_paid: "Pagamento informado (não confirmado)", cancelled: "Cancelado",
+  disputed: "Em disputa", unknown: "Situação não verificada",
+};
 function brazilMoney(raw: Financial) {
   const n = Number(raw.amount);
   return raw.currency === "BRL" && Number.isFinite(n)
@@ -174,7 +179,7 @@ export function StudentServicesPanel() {
           </form>
           <ul className="divide-y divide-[#EAECF0]">
             {requests.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-[12px]">
-              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="text-[#667085]">{item.status}</p></div>
+              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="text-[#667085]">{financeStates[item.status] || item.status}</p><p className="text-[11px] text-[#98A2B3]">Origem: {item.source}</p></div>
               <button type="button" onClick={() => openHistory(item)} className="text-[#2563EB]">Histórico</button>
             </li>)}
           </ul>
