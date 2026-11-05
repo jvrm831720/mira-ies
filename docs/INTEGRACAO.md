@@ -1,60 +1,60 @@
-# Guia de integração (patch no repositório mira-ies)
+# Integração do Smart Import na MIRA
 
-O pacote espelha os caminhos do repositório. Copie cada arquivo para o mesmo
-caminho e aplique os 4 ajustes abaixo.
+## Situação na branch `feat/smart-import-adaptive-schema`
 
-## 1. `backend/app/main.py` — registrar os routers
+O pacote foi **integrado ao código**. Não é necessário copiar arquivos manualmente.
 
-```python
-from app.api import (
-    ...,  # imports existentes
-    smart_import, custom_fields,
-)
-# junto dos demais include_router:
-app.include_router(smart_import.router, prefix="/api/v1", tags=["Importacao Inteligente"])
-app.include_router(custom_fields.router, prefix="/api/v1", tags=["Campos Customizados"])
-```
+- `/importar` usa `SmartImportWizard` como fluxo principal.
+- `/importar/multiplos` preserva o importador legado para múltiplas bases.
+- `backend/app/main.py` registra os routers de importação e campos personalizados.
+- `Student.custom_fields` usa JSONB e está registrado no metadata do SQLAlchemy.
+- A migration `054_smart_import_custom_fields` depende de `053_merge_heads`.
+- Não foi feita migração em nenhum banco de produção nem deploy.
 
-## 2. `backend/app/models/student.py` — coluna JSONB
+## APIs
 
-```python
-# junto das demais colunas de Student:
-custom_fields: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
-```
+| Método | Caminho | Comportamento |
+| --- | --- | --- |
+| POST | `/api/v1/import/preview` | Dry-run, mapeamento automático/manual, erros de linha |
+| POST | `/api/v1/import/apply` | Escrita idempotente por matrícula |
+| GET | `/api/v1/custom-fields` | Lista somente campos do tenant |
+| POST | `/api/v1/custom-fields` | Cria uma definição de campo |
+| PATCH | `/api/v1/custom-fields/{id}` | Atualiza ou desativa |
+| DELETE | `/api/v1/custom-fields/{id}` | Exclui somente se não houver valores em alunos |
 
-(A migration `054` já cria a coluna com `server_default='{}'`; em development o
-`create_all` usa o model, por isso o model precisa do campo.)
+O acesso exige autenticação. Para sessões humanas, a permissão é `data.import`; chaves institucionais de API verificadas também são aceitas, preservando o contrato das integrações.
 
-## 3. Alembic — conferir a cabeça
+## Verificações obrigatórias antes do merge
 
-```bash
-cd backend
-alembic heads        # se não for 053_merge_heads, ajuste down_revision na 054
-alembic upgrade head
-```
+O GitHub Actions pode estar indisponível por limite de execução. Nesse caso, **não inferir sucesso de checks ausentes**.
 
-## 4. Expor `custom_fields` na ficha/lista do aluno (opcional, recomendado)
-
-No endpoint de detalhe do aluno (e na lista), inclua no dict de resposta:
-
-```python
-"custom_fields": s.custom_fields or {},
-```
-
-## Testes
+Com PostgreSQL descartável/local configurado (nunca produção):
 
 ```bash
 cd backend
-pytest tests/test_smart_import.py -q
+python -m pip install -r requirements.txt
+PYTHONPATH=. alembic heads
+PYTHONPATH=. alembic upgrade head
+ruff check app
+PYTHONPATH=. pytest tests/test_smart_import.py tests/test_smart_import_endpoints.py -q
+PYTHONPATH=. pytest -q
 ```
 
-## Endpoints novos
+Frontend:
 
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/api/v1/import/preview` | Dry-run: mapeamento fuzzy + validação linha a linha |
-| POST | `/api/v1/import/apply` | Upsert idempotente (header `Idempotency-Key`) |
-| GET | `/api/v1/custom-fields` | Lista campos customizados do tenant |
-| POST | `/api/v1/custom-fields` | Cria campo (papel operator+) |
-| PATCH | `/api/v1/custom-fields/{id}` | Edita label/opções/flags/desativa |
-| DELETE | `/api/v1/custom-fields/{id}` | Exclui se sem uso (senão 409) |
+```bash
+cd frontend
+npm ci
+npm run lint
+npm test
+npx tsc --noEmit
+npm run build
+```
+
+A validação deve usar o **HEAD definitivo**, sem aproveitar resultado de commit anterior. O teste do backend depende de PostgreSQL real, conforme `backend/tests/conftest.py`, e precisa de um usuário sem superpoderes e sem `BYPASSRLS` para as validações de isolamento.
+
+## Limites importantes
+
+- A coluna customizada é acessada pelo motor de importação, mas sua exibição na ficha individual do aluno exige revisão de permissões para dados pessoais antes de ser adicionada.
+- A importação não representa consentimento para contato. Opt-outs afirmativos são preservados e auditados.
+- Sem deploy ou execução de `alembic upgrade head` no banco real até aprovação operacional.
