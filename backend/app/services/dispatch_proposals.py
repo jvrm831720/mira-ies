@@ -7,7 +7,6 @@ retention campaign. Individual channel authorization is still mandatory.
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import select, text
@@ -36,10 +35,12 @@ async def materialize_proposal(
         raise LookupError("Proposta não encontrada neste workspace.")
     if (
         proposal.status != "approved"
+        or proposal.created_by is None
         or proposal.approved_by is None or proposal.approved_at is None
         or proposal.created_by == proposal.approved_by
         or proposal.authorization_status != "institution_attested"
         or proposal.authorization_attested_by is None
+        or proposal.authorization_attested_by == proposal.created_by
         or not proposal.authorization_reference
         or len(proposal.authorization_reference) < 8
     ):
