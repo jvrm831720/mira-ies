@@ -7,21 +7,24 @@ import unicodedata
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.mfa import create_login_challenge
+from app.core.config import get_settings
+from app.core.mfa_policy import user_requires_mfa
 from app.core.mira_security import hash_password
 from app.core.security import hash_api_key
 from app.core.user_sessions import create_user_session
-from app.api.mfa import create_login_challenge
-from app.core.mfa_policy import user_requires_mfa
 from app.db.session import get_db
 from app.models.auth import AuthChallenge, User
 from app.models.organization import Membership, ModuleEntitlement, Organization
 from app.models.tenant import Tenant
+from app.services.onboarding_enrichment import lookup_company, normalize_public_website, scrape_website
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 _MODULES = ("permanence", "data", "workspace", "mira_plan")
@@ -143,6 +146,81 @@ class CompleteOnboardingPayload(BaseModel):
         if value and not re.match(r"^https?://[^/\s]+", value, re.I):
             raise ValueError("Informe um site válido.")
         return value
+
+
+class EnrichOnboardingPayload(BaseModel):
+    onboarding_token: str = Field(min_length=20, max_length=256)
+    email: str = Field(min_length=5, max_length=255)
+    cnpj: str = Field(default="", max_length=32)
+    website: str = Field(default="", max_length=255)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized):
+            raise ValueError("Informe um e-mail válido.")
+        return normalized
+
+    @field_validator("cnpj")
+    @classmethod
+    def validate_cnpj(cls, value: str) -> str:
+        digits = re.sub(r"\D", "", value)
+        if digits and not _valid_cnpj(digits):
+            raise ValueError("Informe um CNPJ válido antes de consultar.")
+        return digits
+
+    @field_validator("website")
+    @classmethod
+    def validate_website(cls, value: str) -> str:
+        if not value.strip():
+            return ""
+        try:
+            return normalize_public_website(value)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+
+
+@router.post("/enrich")
+async def enrich_onboarding(
+    body: EnrichOnboardingPayload,
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch public institution hints after email verification; never persist them here."""
+    challenge = (
+        await db.execute(
+            select(AuthChallenge)
+            .where(
+                AuthChallenge.challenge_type == "onboarding_provision",
+                AuthChallenge.identifier_hash == hash_api_key(f"mira:challenge:onboarding:{body.email}"),
+                AuthChallenge.token_hash == _token_digest(body.email, body.onboarding_token),
+                AuthChallenge.consumed_at.is_(None),
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if not challenge or challenge.expires_at <= _now():
+        raise HTTPException(status_code=401, detail="Sua validação expirou. Confirme seu e-mail novamente.")
+
+    result = {"company": None, "website": None, "warnings": []}
+    if body.cnpj:
+        try:
+            result["company"] = await lookup_company(body.cnpj)
+        except LookupError as exc:
+            result["warnings"].append(str(exc))
+        except (httpx.HTTPError, TypeError, ValueError):
+            result["warnings"].append("Não foi possível consultar o CNPJ agora. Você pode preencher os dados manualmente.")
+
+    if body.website:
+        api_key = get_settings().firecrawl_api_key
+        if not api_key:
+            result["warnings"].append("A consulta de site ainda não está configurada no servidor.")
+        else:
+            try:
+                result["website"] = await scrape_website(body.website, api_key)
+            except (httpx.HTTPError, LookupError, TypeError, ValueError):
+                result["warnings"].append("Não foi possível ler o site agora. Você pode continuar e preencher os dados manualmente.")
+    return result
 
 
 @router.post("/complete", status_code=201)

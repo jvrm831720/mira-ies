@@ -681,3 +681,271 @@ textarea {
     padding-inline: 20px;
   }
 }
+
+/* First-run onboarding: Attio-inspired dark frame, isolated from the product shell. */
+.mira-onboarding-page {
+  --onboarding-bg: #101112;
+  --onboarding-panel: #101112;
+  --onboarding-panel-raised: #14161a;
+  --onboarding-border: #292c32;
+  --onboarding-text: #f1f2f3;
+  --onboarding-muted: #a0a3aa;
+  --onboarding-blue: #3577f1;
+  min-height: 100svh;
+  overflow-x: hidden;
+  padding: 32px 24px 48px;
+  background: var(--onboarding-bg);
+  color: var(--onboarding-text);
+}
+
+.mira-onboarding-header {
+  position: relative;
+  display: flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+}
+
+.mira-onboarding-header img {
+  width: 84px;
+  height: auto;
+}
+
+.mira-onboarding-security {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #858a93;
+  font-size: 11px;
+}
+
+.mira-onboarding-frame {
+  display: grid;
+  grid-template-columns: minmax(390px, 0.37fr) minmax(0, 0.63fr);
+  width: min(100%, 1392px);
+  min-height: 620px;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid var(--onboarding-border);
+  border-radius: 16px;
+  background: var(--onboarding-panel);
+}
+
+.mira-onboarding-form {
+  min-width: 0;
+  border-right: 1px solid var(--onboarding-border);
+  background: var(--onboarding-panel);
+}
+
+.mira-onboarding-form-inner {
+  max-width: 540px;
+  padding-right: clamp(24px, 3vw, 42px);
+  padding-left: clamp(24px, 3vw, 42px);
+}
+
+.mira-onboarding-form-inner > .mb-8 {
+  margin-bottom: 20px;
+}
+
+.mira-onboarding-form-inner > .mb-7 {
+  margin-bottom: 16px;
+}
+
+.mira-onboarding-form-inner .animate-in .mt-8 {
+  margin-top: 20px;
+}
+
+.mira-onboarding-preview {
+  min-width: 0;
+  background:
+    radial-gradient(ellipse at 90% 100%, rgb(37 49 75 / 17%), transparent 50%),
+    linear-gradient(135deg, #11151d 0%, #11151d 52%, #121722 100%);
+  color: var(--onboarding-text);
+}
+
+.mira-onboarding-page h1 {
+  color: var(--onboarding-text);
+  font-size: clamp(20px, 1.55vw, 23px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.mira-onboarding-page .bg-white {
+  background-color: var(--onboarding-panel-raised) !important;
+}
+
+.mira-onboarding-page .bg-neutral-50 {
+  background-color: #14161a !important;
+}
+
+.mira-onboarding-page .bg-neutral-50\/60 {
+  background-color: rgb(255 255 255 / 2%) !important;
+}
+
+.mira-onboarding-page .bg-neutral-100 {
+  background-color: #1b1e23 !important;
+}
+
+.mira-onboarding-page .bg-neutral-200 {
+  background-color: #292c32 !important;
+}
+
+.mira-onboarding-page .bg-neutral-950 {
+  background-color: #0b0c0d !important;
+}
+
+.mira-onboarding-page .text-neutral-950,
+.mira-onboarding-page .text-neutral-900,
+.mira-onboarding-page .text-neutral-800 {
+  color: #f1f2f3 !important;
+}
+
+.mira-onboarding-page .text-neutral-700,
+.mira-onboarding-page .text-neutral-600 {
+  color: #c7cad0 !important;
+}
+
+.mira-onboarding-page .text-neutral-500 {
+  color: #a0a3aa !important;
+}
+
+.mira-onboarding-page .text-neutral-400 {
+  color: #858a93 !important;
+}
+
+.mira-onboarding-page .text-neutral-300 {
+  color: #737983 !important;
+}
+
+.mira-onboarding-page .border-neutral-100,
+.mira-onboarding-page .border-neutral-200 {
+  border-color: var(--onboarding-border) !important;
+}
+
+.mira-onboarding-page input,
+.mira-onboarding-page select,
+.mira-onboarding-page textarea {
+  border-color: #34373e;
+  border-radius: 7px;
+  background-color: #14161a;
+  color: var(--onboarding-text);
+  box-shadow: none;
+}
+
+.mira-onboarding-page input,
+.mira-onboarding-page select {
+  height: 38px;
+  padding-inline: 12px;
+}
+
+.mira-onboarding-page label {
+  color: #d5d7db;
+  font-size: 12px;
+}
+
+.mira-onboarding-page input::placeholder,
+.mira-onboarding-page textarea::placeholder {
+  color: #858a93;
+  opacity: 1;
+}
+
+.mira-onboarding-page input:focus,
+.mira-onboarding-page input:focus-visible,
+.mira-onboarding-page select:focus,
+.mira-onboarding-page textarea:focus,
+.mira-onboarding-page textarea:focus-visible {
+  border-color: var(--onboarding-blue);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(53 119 241 / 22%);
+}
+
+.mira-onboarding-page option {
+  background: #14161a;
+  color: var(--onboarding-text);
+}
+
+.mira-onboarding-page button {
+  border-radius: 7px;
+}
+
+.mira-onboarding-page button.bg-neutral-950 {
+  border-color: var(--onboarding-blue) !important;
+  background: var(--onboarding-blue) !important;
+  color: #fff !important;
+}
+
+.mira-onboarding-page button.bg-neutral-950:hover:not(:disabled) {
+  border-color: #266df0 !important;
+  background: #266df0 !important;
+}
+
+.mira-onboarding-page button.border,
+.mira-onboarding-page button[class*="border-[var(--border-subtle)]"] {
+  border-color: #34373e;
+  background-color: #15171b;
+  color: #e6e8ec;
+}
+
+.mira-onboarding-page button.border:hover:not(:disabled),
+.mira-onboarding-page button[class*="border-[var(--border-subtle)]"]:hover:not(:disabled) {
+  border-color: #4a4e57;
+  background-color: #1b1e23;
+}
+
+.mira-onboarding-page button:focus-visible,
+.mira-onboarding-page a:focus-visible,
+.mira-onboarding-page summary:focus-visible {
+  outline: 2px solid #78a6ff;
+  outline-offset: 3px;
+}
+
+.mira-onboarding-page nav.bg-\[\#fcfcfc\] {
+  background: #111317;
+}
+
+@media (max-width: 1023px) {
+  .mira-onboarding-page {
+    padding: 24px 14px 36px;
+  }
+
+  .mira-onboarding-header {
+    margin-bottom: 20px;
+  }
+
+  .mira-onboarding-security {
+    right: 2px;
+    font-size: 0;
+  }
+
+  .mira-onboarding-frame {
+    display: block;
+    min-height: 0;
+  }
+
+  .mira-onboarding-form {
+    min-height: 640px;
+    border-right: 0;
+  }
+
+  .mira-onboarding-form-inner {
+    max-width: 620px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mira-onboarding-page {
+    padding-inline: 10px;
+  }
+
+  .mira-onboarding-security {
+    display: none;
+  }
+
+  .mira-onboarding-form {
+    min-height: 680px;
+  }
+}

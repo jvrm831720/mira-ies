@@ -17,6 +17,58 @@ export type CompleteOnboardingPayload = {
   data_sources: string[];
 };
 
+export type CompanyEnrichment = {
+  cnpj: string;
+  legal_name: string | null;
+  trade_name: string | null;
+  status: string | null;
+  primary_activity: string | null;
+  address: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+export type WebsiteEnrichment = {
+  url: string;
+  title: string | null;
+  description: string | null;
+  markdown: string;
+  truncated: boolean;
+  source: string;
+};
+
+export type OnboardingEnrichment = {
+  company: CompanyEnrichment | null;
+  website: WebsiteEnrichment | null;
+  warnings: string[];
+};
+
+export async function enrichOnboarding(payload: {
+  onboarding_token: string;
+  email: string;
+  cnpj: string;
+  website: string;
+}): Promise<OnboardingEnrichment> {
+  const base =
+    process.env.NODE_ENV === "development"
+      ? process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      : "";
+  const response = await fetch(`${base}/api/v1/onboarding/enrich`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = body.detail;
+    const message = Array.isArray(detail)
+      ? detail.map((item: { msg?: string }) => item.msg || "Dados inválidos").join(", ")
+      : detail || body.message || `Erro ${response.status}`;
+    throw new Error(String(message));
+  }
+  return body as OnboardingEnrichment;
+}
+
 export type OnboardingMfaChallenge =
   | { mfa_enrollment_required: true; challenge_token: string }
   | { mfa_required: true; challenge_token: string };

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
-import { completeOrganizationOnboarding } from "@/lib/onboarding-api";
+import { completeOrganizationOnboarding, enrichOnboarding, type OnboardingEnrichment } from "@/lib/onboarding-api";
 
 type FormState = {
   firstName: string;
@@ -66,6 +66,8 @@ function OnboardingExperience() {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [enrichmentLoading, setEnrichmentLoading] = useState(false);
+  const [enrichment, setEnrichment] = useState<OnboardingEnrichment | null>(null);
   const [error, setError] = useState("");
   const [mfaTicket, setMfaTicket] = useState("");
   const [mfaEnrollment, setMfaEnrollment] = useState<{ secret: string; qr_code: string } | null>(null);
@@ -85,6 +87,7 @@ function OnboardingExperience() {
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+    if (key === "cnpj" || key === "website") setEnrichment(null);
     setError("");
   }
 
@@ -102,6 +105,43 @@ function OnboardingExperience() {
     if (step === 1) return form.organizationName.trim().length >= 2;
     if (step === 2) return true;
     return true;
+  }
+
+  async function enrichInstitution() {
+    setError("");
+    if (!onboardingToken) {
+      setError("Sua validação de e-mail não está mais disponível. Volte ao acesso e confirme seu e-mail novamente.");
+      return;
+    }
+    if (!form.cnpj.trim() && !form.website.trim()) {
+      setError("Informe um CNPJ ou site para consultar fontes públicas.");
+      return;
+    }
+    setEnrichmentLoading(true);
+    setEnrichment(null);
+    try {
+      const result = await enrichOnboarding({
+        onboarding_token: onboardingToken,
+        email,
+        cnpj: form.cnpj.replace(/\D/g, ""),
+        website: form.website.trim(),
+      });
+      setEnrichment(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível consultar fontes públicas.");
+    } finally {
+      setEnrichmentLoading(false);
+    }
+  }
+
+  function applyCompanySuggestion() {
+    if (!enrichment?.company) return;
+    setForm((current) => ({
+      ...current,
+      organizationName: enrichment.company?.legal_name || current.organizationName,
+      tradeName: enrichment.company?.trade_name || current.tradeName,
+      cnpj: enrichment.company?.cnpj || current.cnpj,
+    }));
   }
 
   async function finish() {
@@ -222,15 +262,15 @@ function OnboardingExperience() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fafafa] text-neutral-950 lg:h-screen lg:overflow-hidden">
-      <header className="flex h-[68px] items-center justify-between border-b border-neutral-200 bg-white px-5 lg:px-8">
-        <Image src="/mira-logo.svg" alt="MIRA" width={94} height={25} className="brightness-0" priority />
-        <div className="flex items-center gap-2 text-xs text-neutral-400"><LockKeyhole className="h-3.5 w-3.5" /> Configuração segura</div>
+    <main className="mira-onboarding-page min-h-screen lg:h-screen lg:overflow-hidden">
+      <header className="mira-onboarding-header">
+        <Image src="/mira-logo.svg" alt="MIRA" width={94} height={25} className="brightness-0 invert" priority />
+        <div className="mira-onboarding-security"><LockKeyhole className="h-3.5 w-3.5" /> Configuração segura</div>
       </header>
 
-      <div className="grid min-h-[calc(100vh-68px)] lg:h-[calc(100vh-68px)] lg:grid-cols-[minmax(420px,0.9fr)_minmax(560px,1.1fr)]">
-        <section className="flex min-h-[700px] flex-col border-r border-neutral-200 bg-white lg:min-h-0">
-          <div className="mx-auto flex w-full max-w-[620px] flex-1 flex-col px-6 pb-8 pt-8 sm:px-10 lg:overflow-y-auto lg:px-14 lg:pt-10">
+      <div className="mira-onboarding-frame grid min-h-[calc(100vh-150px)] lg:h-[calc(100vh-150px)]">
+        <section className="mira-onboarding-form flex min-h-[700px] flex-col lg:min-h-0">
+          <div className="mira-onboarding-form-inner mx-auto flex w-full max-w-[620px] flex-1 flex-col px-6 pb-8 pt-8 sm:px-10 lg:overflow-y-auto lg:px-10 lg:pt-10">
             <div className="mb-8 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-medium text-neutral-500"><Sparkles className="h-4 w-4 text-neutral-800" /> Configuração da MIRA</div>
               <span className="text-xs text-neutral-400">{step + 1} de 4</span>
@@ -241,12 +281,12 @@ function OnboardingExperience() {
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-400">MIRA · Assistente de configuração</div>
                 <p className="text-[13px] leading-5 text-neutral-700">
                   {step === 0
-                    ? `Olá${form.firstName ? `, ${form.firstName}` : ""}! Vou te acompanhar na configuração da sua instituição. Vamos preparar seu espaço de trabalho em poucos passos.`
+                    ? `Olá${form.firstName ? `, ${form.firstName}` : ""}! Vou acompanhar sua configuração e ajudar a preparar o espaço da instituição.`
                     : step === 1
-                      ? "Agora, quero identificar sua instituição e preparar o ambiente com as informações corretas."
+                      ? "Vamos identificar a instituição com os dados que você informar e fontes públicas, se desejar."
                       : step === 2
-                        ? "Com os dados iniciais, vamos entender o contexto da sua operação para organizar a MIRA de forma mais útil."
-                        : "Com base nas suas respostas, preparei uma estrutura inicial. Revise os módulos e indique onde estão seus dados."}
+                        ? "Conte como a instituição funciona para ajustarmos a MIRA à sua operação."
+                        : "Revise a estrutura inicial e indique onde estão seus dados."}
                 </p>
               </div>
             </div>
@@ -278,12 +318,42 @@ function OnboardingExperience() {
                   <Field label="Nome de exibição" hint="Opcional"><Input value={form.tradeName} onChange={(e) => update("tradeName", e.target.value)} placeholder="Como sua instituição é conhecida" className="h-11" /></Field>
                   <Field label="Site institucional" hint="Opcional"><Input value={form.website} onChange={(e) => update("website", e.target.value)} placeholder="www.sua instituicao.edu.br" className="h-11" /></Field>
                   <Field label="CNPJ" hint="Opcional nesta etapa"><Input value={form.cnpj} onChange={(e) => update("cnpj", e.target.value.replace(/[^\d./-]/g, "").slice(0, 18))} placeholder="00.000.000/0000-00" className="h-11" /></Field>
+                  <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                    <p className="text-xs leading-5 text-neutral-500">Se quiser, consulte dados cadastrais públicos e o conteúdo do site. Nada será aplicado ao formulário sem sua confirmação.</p>
+                    <Button type="button" variant="outline" onClick={() => void enrichInstitution()} disabled={enrichmentLoading || (!form.cnpj.trim() && !form.website.trim())} className="mt-3 h-10">
+                      {enrichmentLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Consultando fontes…</> : <>Consultar fontes públicas <ArrowRight className="ml-2 h-4 w-4" /></>}
+                    </Button>
+                    {enrichment && <div className="mt-4 space-y-3 border-t border-neutral-200 pt-4">
+                      {enrichment.warnings.map((warning) => <p key={warning} role="status" className="text-xs leading-5 text-amber-700">{warning}</p>)}
+                      {enrichment.company && <div className="rounded-lg border border-neutral-200 bg-white p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-400">Minha Receita · dados cadastrais públicos</p>
+                        <dl className="mt-2 space-y-1 text-xs leading-5 text-neutral-600">
+                          {enrichment.company.legal_name && <div><dt className="inline font-medium text-neutral-800">Razão social: </dt><dd className="inline">{enrichment.company.legal_name}</dd></div>}
+                          {enrichment.company.trade_name && <div><dt className="inline font-medium text-neutral-800">Nome fantasia: </dt><dd className="inline">{enrichment.company.trade_name}</dd></div>}
+                          {enrichment.company.status && <div><dt className="inline font-medium text-neutral-800">Situação: </dt><dd className="inline">{enrichment.company.status}</dd></div>}
+                          {enrichment.company.primary_activity && <div><dt className="inline font-medium text-neutral-800">Atividade principal: </dt><dd className="inline">{enrichment.company.primary_activity}</dd></div>}
+                          {enrichment.company.address && <div><dt className="inline font-medium text-neutral-800">Endereço cadastral: </dt><dd className="inline">{enrichment.company.address}</dd></div>}
+                        </dl>
+                        <Button type="button" variant="ghost" onClick={applyCompanySuggestion} className="mt-2 h-9 px-2 text-xs">Aplicar razão social, nome fantasia e CNPJ</Button>
+                      </div>}
+                      {enrichment.website && <div className="rounded-lg border border-neutral-200 bg-white p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-400">Site institucional · Firecrawl</p>
+                        {enrichment.website.title && <p className="mt-2 text-sm font-medium text-neutral-800">{enrichment.website.title}</p>}
+                        {enrichment.website.description && <p className="mt-1 text-xs leading-5 text-neutral-600">{enrichment.website.description}</p>}
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-xs font-medium text-neutral-600">Revisar conteúdo extraído em Markdown</summary>
+                          <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-neutral-50 p-2 text-[10px] leading-4 text-neutral-600">{enrichment.website.markdown || "Nenhum conteúdo textual foi encontrado."}</pre>
+                          {enrichment.website.truncated && <p className="mt-1 text-[10px] text-neutral-400">Prévia limitada; o conteúdo completo foi reduzido para exibição.</p>}
+                        </details>
+                      </div>}
+                    </div>}
+                  </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Quantidade aproximada de alunos"><select value={form.studentRange} onChange={(e) => update("studentRange", e.target.value)} className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-neutral-500"><option value="">Selecione</option><option value="under_1000">Até 1.000</option><option value="1000_5000">1.000 a 5.000</option><option value="5000_15000">5.000 a 15.000</option><option value="15000_50000">15.000 a 50.000</option><option value="over_50000">Mais de 50.000</option></select></Field>
                     <Field label="Unidades ou campi"><select value={form.campuses} onChange={(e) => update("campuses", e.target.value)} className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-neutral-500"><option value="">Selecione</option><option value="1">1 unidade</option><option value="2_5">2 a 5</option><option value="6_20">6 a 20</option><option value="over_20">Mais de 20</option></select></Field>
                   </div>
                 </div>
-                <p className="mt-5 text-xs leading-5 text-neutral-400">O CNPJ não é obrigatório para conhecer a MIRA. Ele poderá ser validado e complementado posteriormente.</p>
+                <p className="mt-5 text-xs leading-5 text-neutral-400">O CNPJ não é obrigatório. Sugestões de fontes públicas devem ser conferidas por você antes de aplicar.</p>
               </div>
             )}
 
@@ -294,7 +364,7 @@ function OnboardingExperience() {
                 <p className="mt-3 max-w-md text-sm leading-6 text-neutral-500">Revise o perfil inicial e conte um pouco sobre a operação. Você poderá ajustar essas informações depois.</p>
                 <div className="mt-7 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                   <div className="flex items-center gap-2 text-sm font-medium"><Building2 className="h-4 w-4 text-neutral-500" /> {institutionLabel}</div>
-                  <p className="mt-2 text-xs leading-5 text-neutral-500">Perfil inicial criado com as informações que você forneceu. A MIRA não consulta fontes externas nesta etapa.</p>
+                  <p className="mt-2 text-xs leading-5 text-neutral-500">Perfil inicial baseado nas informações fornecidas e, se você consultou, nas sugestões públicas que revisou e aplicou.</p>
                 </div>
                 <div className="mt-6 space-y-5">
                   <Field label="Tipo de instituição">
@@ -363,7 +433,7 @@ function OnboardingExperience() {
           <p className="px-6 pb-5 text-center text-[11px] text-neutral-400">Seus dados são usados para configurar seu ambiente institucional na MIRA.</p>
         </section>
 
-        <aside className="hidden min-h-0 flex-col bg-[#f7f7f7] p-7 lg:flex xl:p-10">
+        <aside className="mira-onboarding-preview hidden min-h-0 flex-col p-7 lg:flex xl:p-10">
           <div className="mb-6 flex items-center justify-between">
             <div><p className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-400">Prévia do workspace</p><p className="mt-1 text-sm font-medium text-neutral-800">{institutionLabel}</p></div>
             <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] text-neutral-500">Visualização</span>
