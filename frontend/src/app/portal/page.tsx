@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { StudentServicesPanel } from "./student-services-panel";
 import {
   ArrowRight, BookOpen, CheckCircle2, GraduationCap, LockKeyhole,
   LogOut, ShieldCheck, Wallet, CalendarDays, AlertCircle, Loader2,
@@ -447,6 +448,8 @@ export default function StudentPortalPage() {
             </p>}
         </div>
       </section>
+
+      <StudentServicesPanel />
 
       <div className="flex items-start gap-3 rounded-xl border border-[#E4E7EC] bg-white p-5">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#2563EB]" />
