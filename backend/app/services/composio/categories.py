@@ -42,6 +42,12 @@ DATA_ANALYSIS_TOOLKITS: dict[str, dict[str, str]] = {
 }
 
 
+SUPPORT_TOOLKITS: dict[str, dict[str, str]] = {
+    "zendesk": {"name": "Zendesk", "kind": "helpdesk"},
+    "zoho_desk": {"name": "Zoho Desk", "kind": "helpdesk"},
+}
+
+
 PRODUCTIVITY_TOOLKITS: dict[str, dict[str, str]] = {
     "asana": {"name": "Asana", "kind": "project_management"},
     "trello": {"name": "Trello", "kind": "kanban"},
@@ -59,6 +65,7 @@ def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
         ("documents", "Documentos e arquivos", DOCUMENT_TOOLKITS),
         ("productivity", "Produtividade e tarefas", PRODUCTIVITY_TOOLKITS),
         ("data_analysis", "Dados, planilhas e análise", DATA_ANALYSIS_TOOLKITS),
+        ("support", "Atendimento e suporte", SUPPORT_TOOLKITS),
     ):
         metadata = toolkits.get(slug)
         if metadata:
@@ -117,6 +124,23 @@ def data_analysis_category() -> dict[str, Any]:
         "composio_toolkits": [
             {"slug": slug, **metadata}
             for slug, metadata in DATA_ANALYSIS_TOOLKITS.items()
+        ],
+        "native_channels": [],
+    }
+
+
+def support_category() -> dict[str, Any]:
+    """Return customer support toolkits without enabling any toolkit."""
+    return {
+        "slug": "support",
+        "name": "Atendimento e suporte",
+        "description": (
+            "Consulta e gestão de tickets, solicitações, filas, conversas "
+            "e histórico de atendimento em plataformas de suporte."
+        ),
+        "composio_toolkits": [
+            {"slug": slug, **metadata}
+            for slug, metadata in SUPPORT_TOOLKITS.items()
         ],
         "native_channels": [],
     }
