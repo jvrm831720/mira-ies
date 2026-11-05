@@ -7,6 +7,7 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,7 @@ from app.models.composio_connection import (
 )
 from app.services.composio.client import (
     create_connect_link,
+    get_connected_account,
     list_connected_accounts_for_user,
     revoke_connected_account,
 )
@@ -36,6 +38,23 @@ def _normalize_toolkit(slug: str) -> str:
     if not value or len(value) > 80 or not value.replace("_", "").replace("-", "").isalnum():
         raise ValueError("Toolkit slug inválido.")
     return value
+
+
+def _server_callback_url(settings) -> str:
+    """Only server-configured callback is allowed — never client-supplied URLs."""
+    configured = (settings.composio_callback_url or "").strip()
+    if not configured:
+        raise ValueError("COMPOSIO_CALLBACK_URL não configurado no backend.")
+    parsed = urlparse(configured)
+    if parsed.scheme == "https" and parsed.netloc:
+        return configured
+    if (
+        settings.app_env == "development"
+        and parsed.scheme == "http"
+        and parsed.hostname in {"localhost", "127.0.0.1"}
+    ):
+        return configured
+    raise ValueError("COMPOSIO_CALLBACK_URL deve ser HTTPS (ou localhost em development).")
 
 
 async def _require_enabled_toolkit_policy(
@@ -60,6 +79,47 @@ async def _require_enabled_toolkit_policy(
     return policy
 
 
+def _verify_remote_account(
+    *,
+    connected_account_id: str,
+    expected_user_id: str,
+    expected_toolkit: str,
+) -> dict[str, Any]:
+    """Confirm the account exists at Composio and belongs to this tenant identity."""
+    remote = get_connected_account(connected_account_id)
+    if remote is None:
+        # Fallback: list by user and match id (some SDK versions lack get-by-id).
+        for item in list_connected_accounts_for_user(expected_user_id):
+            if item.get("connected_account_id") == connected_account_id:
+                remote = item
+                break
+    if remote is None:
+        raise ConnectionDenied("Conta conectada não encontrada na Composio.")
+
+    remote_user = remote.get("user_id")
+    if remote_user and remote_user != expected_user_id:
+        raise ConnectionDenied("Conta conectada não pertence à identidade deste tenant.")
+
+    # When user_id is absent on the object, require the account to appear in the user's list.
+    if not remote_user:
+        owned_ids = {
+            item["connected_account_id"]
+            for item in list_connected_accounts_for_user(expected_user_id)
+        }
+        if connected_account_id not in owned_ids:
+            raise ConnectionDenied("Conta conectada não pertence à identidade deste tenant.")
+
+    remote_toolkit = (remote.get("toolkit_slug") or "").lower()
+    if remote_toolkit and remote_toolkit != expected_toolkit:
+        raise ConnectionDenied("Toolkit da conta remota diverge do toolkit autorizado no state.")
+
+    status = (remote.get("status") or "active").lower()
+    if status in {"revoked", "expired", "disabled"}:
+        raise ConnectionDenied(f"Conta remota não está ativa (status={status}).")
+
+    return remote
+
+
 async def start_connect_link(
     db: AsyncSession,
     *,
@@ -67,7 +127,6 @@ async def start_connect_link(
     actor_user_id: str | None,
     toolkit_slug: str,
     auth_config_id: str,
-    callback_url: str | None = None,
 ) -> dict[str, Any]:
     """Create a one-time Connect Link after policy and allowlist checks."""
     settings = require_composio_configuration()
@@ -79,15 +138,7 @@ async def start_connect_link(
     await _require_enabled_toolkit_policy(db, tenant_id=tenant_id, toolkit_slug=slug)
     session = await ensure_tenant_session(db, tenant_id=tenant_id, actor_user_id=actor_user_id)
 
-    effective_callback = (callback_url or settings.composio_callback_url or "").strip() or None
-    if effective_callback and not effective_callback.startswith("https://"):
-        # Allow http only for local development callbacks.
-        if not (
-            settings.app_env == "development"
-            and effective_callback.startswith("http://localhost")
-        ):
-            raise ValueError("callback_url deve ser HTTPS (ou localhost em development).")
-
+    callback_base = _server_callback_url(settings)
     state_token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
     oauth_state = TenantComposioOAuthState(
@@ -102,11 +153,8 @@ async def start_connect_link(
     db.add(oauth_state)
     await db.flush()
 
-    # Append state to callback so the return path can bind the tenant safely.
-    link_callback = effective_callback
-    if link_callback:
-        sep = "&" if "?" in link_callback else "?"
-        link_callback = f"{link_callback}{sep}state={state_token}"
+    sep = "&" if "?" in callback_base else "?"
+    link_callback = f"{callback_base}{sep}state={state_token}"
 
     link = create_connect_link(
         user_id=session.composio_user_id,
@@ -131,19 +179,25 @@ async def complete_connect_callback(
     *,
     tenant_id: str,
     state_token: str,
-    connected_account_id: str | None = None,
+    connected_account_id: str,
 ) -> dict[str, Any]:
-    """Consume one-time state and register the connected account if provided."""
+    """Atomically consume state and register account only after remote verification."""
     require_composio_configuration()
     token = (state_token or "").strip()
+    account_id = (connected_account_id or "").strip()
     if not token:
         raise ValueError("state obrigatório.")
+    if not account_id:
+        raise ValueError("connected_account_id obrigatório.")
 
+    # Atomic claim: lock the row so concurrent completes cannot both succeed.
     result = await db.execute(
-        select(TenantComposioOAuthState).where(
+        select(TenantComposioOAuthState)
+        .where(
             TenantComposioOAuthState.tenant_id == tenant_id,
             TenantComposioOAuthState.state_token == token,
         )
+        .with_for_update()
     )
     row = result.scalar_one_or_none()
     now = datetime.now(timezone.utc)
@@ -156,46 +210,59 @@ async def complete_connect_callback(
         await db.commit()
         raise ConnectionDenied("State OAuth expirado.")
 
+    # Mark consumed before external verification so the token cannot be replayed.
     row.status = "consumed"
     row.consumed_at = now
+    await db.flush()
 
-    account_payload: dict[str, Any] | None = None
-    account_id = (connected_account_id or "").strip() or None
-    if account_id:
-        existing = await db.execute(
-            select(TenantComposioAccount).where(
-                TenantComposioAccount.tenant_id == tenant_id,
-                TenantComposioAccount.connected_account_id == account_id,
-            )
+    session = await ensure_tenant_session(db, tenant_id=tenant_id, actor_user_id=row.created_by_user_id)
+    try:
+        remote = _verify_remote_account(
+            connected_account_id=account_id,
+            expected_user_id=session.composio_user_id,
+            expected_toolkit=row.toolkit_slug,
         )
-        account = existing.scalar_one_or_none()
-        if account is None:
-            account = TenantComposioAccount(
-                tenant_id=tenant_id,
-                toolkit_slug=row.toolkit_slug,
-                connected_account_id=account_id,
-                auth_config_id=row.auth_config_id,
-                status="active",
-                connected_by_user_id=row.created_by_user_id,
-                connected_at=now,
-            )
-            db.add(account)
-        else:
-            account.status = "active"
-            account.disconnected_at = None
-            account.auth_config_id = row.auth_config_id
-            account.updated_at = now
-        account_payload = {
-            "connected_account_id": account.connected_account_id,
-            "toolkit_slug": account.toolkit_slug,
-            "status": account.status,
-        }
+    except ConnectionDenied:
+        row.status = "failed"
+        await db.commit()
+        raise
+
+    existing = await db.execute(
+        select(TenantComposioAccount).where(
+            TenantComposioAccount.tenant_id == tenant_id,
+            TenantComposioAccount.connected_account_id == account_id,
+        )
+    )
+    account = existing.scalar_one_or_none()
+    if account is None:
+        account = TenantComposioAccount(
+            tenant_id=tenant_id,
+            toolkit_slug=row.toolkit_slug,
+            connected_account_id=account_id,
+            auth_config_id=row.auth_config_id,
+            display_name=remote.get("display_name"),
+            status="active",
+            connected_by_user_id=row.created_by_user_id,
+            connected_at=now,
+        )
+        db.add(account)
+    else:
+        account.status = "active"
+        account.disconnected_at = None
+        account.auth_config_id = row.auth_config_id
+        account.display_name = remote.get("display_name") or account.display_name
+        account.updated_at = now
 
     await db.commit()
     return {
         "ok": True,
         "toolkit_slug": row.toolkit_slug,
-        "account": account_payload,
+        "account": {
+            "connected_account_id": account.connected_account_id,
+            "toolkit_slug": account.toolkit_slug,
+            "status": account.status,
+            "verified_remote": True,
+        },
     }
 
 
@@ -269,6 +336,7 @@ async def revoke_tenant_account(
     connected_account_id: str,
     revoke_remote: bool = True,
 ) -> dict[str, Any]:
+    """Disable local use immediately; report remote revoke status honestly."""
     require_composio_configuration()
     account_id = (connected_account_id or "").strip()
     if not account_id:
@@ -284,21 +352,36 @@ async def revoke_tenant_account(
     if row is None:
         raise ConnectionDenied("Conta conectada não encontrada neste tenant.")
 
+    remote_status = "skipped"
+    remote_error: str | None = None
     if revoke_remote:
         try:
             revoke_connected_account(account_id)
-        except Exception:
-            # Still mark local as revoked so policy stays fail-closed.
-            pass
+            remote_status = "revoked"
+        except Exception as exc:
+            remote_status = "failed"
+            remote_error = type(exc).__name__
 
+    # Local always blocked so agents cannot use the account even if remote revoke failed.
     now = datetime.now(timezone.utc)
-    row.status = "revoked"
+    row.status = "revoked" if remote_status == "revoked" else "error"
     row.disconnected_at = now
     row.updated_at = now
+    # Preserve a non-secret breadcrumb of remote outcome in metadata.
+    meta = dict(row.account_metadata or {})
+    meta["last_revoke"] = {
+        "remote_status": remote_status,
+        "at": now.isoformat(),
+        "error": remote_error,
+    }
+    row.account_metadata = meta
     await db.commit()
+
     return {
         "connected_account_id": row.connected_account_id,
         "toolkit_slug": row.toolkit_slug,
         "status": row.status,
+        "local_disabled": True,
+        "remote_status": remote_status,
         "disconnected_at": row.disconnected_at.isoformat(),
     }

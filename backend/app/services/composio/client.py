@@ -148,6 +148,33 @@ def create_connect_link(
     }
 
 
+def _normalize_account_row(item: Any) -> dict[str, Any] | None:
+    row = _as_dict(item)
+    account_id = (
+        row.get("id")
+        or row.get("nanoid")
+        or row.get("connected_account_id")
+        or getattr(item, "id", None)
+    )
+    if not isinstance(account_id, str) or not account_id.strip():
+        return None
+    toolkit = row.get("toolkit_slug") or row.get("toolkit")
+    if isinstance(toolkit, dict):
+        toolkit = toolkit.get("slug")
+    if not toolkit:
+        toolkit = row.get("appName") or row.get("app_name")
+    status = row.get("status") or getattr(item, "status", None) or "active"
+    user_id = row.get("user_id") or row.get("userId") or row.get("entity_id")
+    return {
+        "connected_account_id": account_id.strip(),
+        "toolkit_slug": str(toolkit).strip().lower() if toolkit else "unknown",
+        "auth_config_id": row.get("auth_config_id") or row.get("authConfigId"),
+        "display_name": row.get("display_name") or row.get("alias") or row.get("name"),
+        "status": str(status).strip().lower(),
+        "user_id": str(user_id).strip() if user_id else None,
+    }
+
+
 def list_connected_accounts_for_user(user_id: str) -> list[dict[str, Any]]:
     """List remote connected accounts for one opaque Composio user id."""
     client = get_composio_client()
@@ -160,38 +187,34 @@ def list_connected_accounts_for_user(user_id: str) -> list[dict[str, Any]]:
 
     normalized: list[dict[str, Any]] = []
     for item in items or []:
-        row = _as_dict(item)
-        account_id = (
-            row.get("id")
-            or row.get("nanoid")
-            or row.get("connected_account_id")
-            or getattr(item, "id", None)
-        )
-        if not isinstance(account_id, str) or not account_id.strip():
-            continue
-        toolkit = (
-            row.get("toolkit_slug")
-            or row.get("toolkit")
-            or (row.get("toolkit") or {}).get("slug")
-            if isinstance(row.get("toolkit"), dict)
-            else row.get("appName")
-            or row.get("app_name")
-        )
-        if isinstance(toolkit, dict):
-            toolkit = toolkit.get("slug")
-        status = row.get("status") or getattr(item, "status", None) or "active"
-        normalized.append({
-            "connected_account_id": account_id.strip(),
-            "toolkit_slug": str(toolkit).strip().lower() if toolkit else "unknown",
-            "auth_config_id": row.get("auth_config_id") or row.get("authConfigId"),
-            "display_name": row.get("display_name") or row.get("alias") or row.get("name"),
-            "status": str(status).strip().lower(),
-        })
+        row = _normalize_account_row(item)
+        if row:
+            normalized.append(row)
     return normalized
 
 
+def get_connected_account(connected_account_id: str) -> dict[str, Any] | None:
+    """Fetch one connected account by id from Composio; None if missing."""
+    client = get_composio_client()
+    accounts = client.connected_accounts
+    item = None
+    if hasattr(accounts, "get"):
+        try:
+            item = accounts.get(connected_account_id)
+        except Exception:
+            item = None
+    if item is None and hasattr(accounts, "retrieve"):
+        try:
+            item = accounts.retrieve(connected_account_id)
+        except Exception:
+            item = None
+    if item is None:
+        return None
+    return _normalize_account_row(item)
+
+
 def revoke_connected_account(connected_account_id: str) -> None:
-    """Revoke/delete a connected account at Composio (best-effort)."""
+    """Revoke/delete a connected account at Composio. Raises on failure."""
     client = get_composio_client()
     accounts = client.connected_accounts
     if hasattr(accounts, "revoke"):

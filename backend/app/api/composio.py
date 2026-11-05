@@ -39,12 +39,11 @@ class ToolkitPolicyPayload(BaseModel):
 class StartConnectPayload(BaseModel):
     toolkit_slug: str = Field(min_length=1, max_length=80)
     auth_config_id: str = Field(min_length=1, max_length=80)
-    callback_url: str | None = Field(default=None, max_length=500)
 
 
 class CompleteConnectPayload(BaseModel):
     state: str = Field(min_length=8, max_length=128)
-    connected_account_id: str | None = Field(default=None, max_length=120)
+    connected_account_id: str = Field(min_length=1, max_length=120)
 
 
 def _catalog_error(exc: Exception) -> HTTPException:
@@ -205,7 +204,6 @@ async def start_connection(
             actor_user_id=auth.user_id,
             toolkit_slug=body.toolkit_slug,
             auth_config_id=body.auth_config_id,
-            callback_url=body.callback_url,
         )
     except Exception as exc:
         raise _catalog_error(exc) from exc
