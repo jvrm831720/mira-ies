@@ -26,6 +26,7 @@ from app.models.student import Student
 from app.services.consent import apply_preference_changes
 from app.services.dispatch_core import audit, bind_tenant, classify_reply
 from app.services.dispatch_delivery import encrypt_destination, normalize_destination
+from app.services.dispatch_ingress_security import verify as verify_source
 
 router = APIRouter(prefix="/dispatch", tags=["Dispatch Integration"])
 
@@ -48,6 +49,7 @@ class ObligationSync(BaseModel):
 
 
 class ContactSync(BaseModel):
+    source: str = Field(min_length=3,max_length=80)
     subject_ref: str = Field(min_length=1, max_length=160)
     channel: Literal["email", "sms"]
     recipient: str = Field(min_length=5, max_length=255)
@@ -78,11 +80,16 @@ def _verified_observation(observed: datetime) -> None:
 @router.post("/integrations/obligations")
 async def upsert_obligation(
     body: ObligationSync,
+    request: Request,
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     """One authoritative source per debt; only higher source versions can mutate it."""
     _require_connector(auth)
+    await verify_source(
+        db, tenant_id=auth.tenant_id,source=body.source,
+        scope="financial",request=request,
+    )
     _verified_observation(body.observed_at)
     if body.status=="open" and (body.balance is None or body.balance<=0):
         raise HTTPException(status_code=422,detail="Obrigação aberta precisa de saldo positivo.")
@@ -148,10 +155,15 @@ async def upsert_obligation(
 @router.post("/integrations/contacts")
 async def upsert_external_contact(
     body: ContactSync,
+    request: Request,
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     _require_connector(auth)
+    await verify_source(
+        db, tenant_id=auth.tenant_id,source=body.source,
+        scope="contacts",request=request,
+    )
     dest = normalize_destination(body.channel, body.recipient)
     if not dest:
         raise HTTPException(status_code=422, detail="Contato inválido.")
@@ -192,11 +204,16 @@ async def upsert_external_contact(
 @router.post("/integrations/payments")
 async def reconcile_payment(
     body: PaymentSync,
+    request: Request,
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     """Idempotent financial facts from authoritative connectors, never from replies."""
     _require_connector(auth)
+    await verify_source(
+        db, tenant_id=auth.tenant_id,source=body.source,
+        scope="financial",request=request,
+    )
     _verified_observation(body.observed_at)
     if body.new_status=="paid" and body.balance!=0:
         raise HTTPException(status_code=422,detail="Pagamento integral exige saldo zero.")
@@ -275,6 +292,7 @@ async def reconcile_payment(
 
 
 class UncertainOutcomeReconciliation(BaseModel):
+    source: str = Field(min_length=3,max_length=80)
     item_id: str = Field(min_length=1, max_length=80)
     provider: Literal["resend", "twilio"]
     status: Literal["sent", "failed"]
@@ -285,11 +303,16 @@ class UncertainOutcomeReconciliation(BaseModel):
 @router.post("/integrations/unknown-outcomes/reconcile")
 async def reconcile_unknown_provider_outcome(
     body: UncertainOutcomeReconciliation,
+    request: Request,
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     """A verified connector may resolve an UNKNOWN; never auto-requeue it."""
     _require_connector(auth)
+    await verify_source(
+        db, tenant_id=auth.tenant_id,source=body.source,
+        scope="delivery",request=request,
+    )
     if body.status == "sent" and not body.provider_message_id:
         raise HTTPException(status_code=422, detail="Envio confirmado precisa de ID do provedor.")
     await bind_tenant(db, auth.tenant_id)
