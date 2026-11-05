@@ -60,6 +60,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     path === "/api/v1/auth/login/password" ||
     path.startsWith("/api/v1/auth/whatsapp/") ||
     path.startsWith("/api/v1/auth/email/") ||
+    path.startsWith("/api/v1/auth/onboarding/") ||
     path.startsWith("/api/v1/auth/password/") ||
     path.startsWith("/api/v1/auth/mfa/login/") ||
     path === "/api/v1/org/invites/accept";
@@ -273,6 +274,24 @@ export const api = {
     request<AuthResponse | import("@/types/api").MfaLoginChallenge | { onboarding_required: true; email: string }>("/api/v1/auth/email/verify", {
       method: "POST",
       body: JSON.stringify({ email, code }),
+    }),
+
+
+  saveOnboardingDraft: (onboarding_token: string, current_step: number, draft: Record<string, unknown>) =>
+    request<{ saved: boolean; current_step: number }>("/api/v1/auth/onboarding/draft", {
+      method: "POST",
+      body: JSON.stringify({ onboarding_token, current_step, draft }),
+    }),
+
+  completeSelfServeOnboarding: (onboarding_token: string, draft: {
+    person: { first_name: string; last_name: string; job_title?: string };
+    institution: { legal_name: string; trade_name: string; cnpj: string; website_url?: string; workspace_slug: string; country_code: string };
+    context: { description: string; institution_type: string; student_count_band: string; campus_count: string; systems: string[]; goals: string[] };
+    workspace: { objects: string[] };
+  }) =>
+    request<AuthResponse | import("@/types/api").MfaLoginChallenge>("/api/v1/auth/onboarding/complete", {
+      method: "POST",
+      body: JSON.stringify({ onboarding_token, ...draft }),
     }),
 
   requestWhatsappCode: (phone: string) =>
