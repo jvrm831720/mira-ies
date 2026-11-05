@@ -84,6 +84,7 @@ jobs:
           psql "$MIRA_TEST_PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
           DROP TABLE IF EXISTS mira_tenant_role_audit, mira_tenant_roles,
             student_feature_observations, tenant_integration_data_sources,
+            tenant_composio_oauth_states,
             tenant_composio_toolkit_policies, tenant_composio_tool_audit,
             tenant_composio_accounts, tenant_composio_sessions,
             tenant_connector_destination_audit, tenant_connector_destinations,
