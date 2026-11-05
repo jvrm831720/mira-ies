@@ -35,7 +35,7 @@ Use seu código de acesso para continuar na MIRA. Válido por {ttl_minutes} minu
 <tr><td align="center" style="padding:0 0 30px;">
 <span style="font-family:Arial,Helvetica,sans-serif;color:#101112;font-size:29px;letter-spacing:-1.5px;font-weight:700;">mira</span>
 </td></tr>
-<tr><td style="background-color:#ffffff;padding:46px 42px;border:1px solid #e6e7ea;">
+<tr><td style="background-color:#ffffff;padding:46px 42px;border:1px solid #e6e7ea;border-top:3px solid #3577f1;">
 <p style="margin:0 0 24px;font-size:16px;line-height:24px;color:#101112;">Olá,</p>
 <h1 style="margin:0 0 20px;font-size:27px;line-height:34px;letter-spacing:-0.7px;font-weight:600;color:#101112;">Seu código de acesso.</h1>
 <p style="margin:0 0 28px;font-size:16px;line-height:26px;color:#505967;">Use o código abaixo para continuar seu acesso à MIRA.</p>
