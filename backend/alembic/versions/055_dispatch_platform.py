@@ -123,6 +123,35 @@ def upgrade() -> None:
     )
     """)
     op.execute("""
+    CREATE TABLE dispatch_source_credentials (
+        id UUID PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        source VARCHAR(80) NOT NULL,
+        scope VARCHAR(30) NOT NULL CHECK (
+            scope IN ('authorization','financial','contacts','delivery')
+        ),
+        secret_ciphertext TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'disabled'
+            CHECK (status IN ('disabled','active')),
+        configured_by VARCHAR(80) NOT NULL,
+        approved_by VARCHAR(80),
+        approved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (tenant_id,source,scope)
+    )
+    """)
+    op.execute("""
+    CREATE TABLE dispatch_source_nonces (
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        source VARCHAR(80) NOT NULL,
+        scope VARCHAR(30) NOT NULL,
+        nonce VARCHAR(80) NOT NULL,
+        consumed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (tenant_id,source,scope,nonce)
+    )
+    """)
+    op.execute("CREATE INDEX ix_dispatch_nonce_retention ON dispatch_source_nonces(consumed_at)")
+    op.execute("""
     CREATE TABLE dispatch_obligations (
         id UUID PRIMARY KEY,
         tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -276,7 +305,7 @@ def upgrade() -> None:
     )
     """)
     for table in (
-        "dispatch_campaigns","dispatch_approved_templates","dispatch_authorizations","dispatch_provider_accounts","dispatch_obligations","dispatch_external_contacts",
+        "dispatch_campaigns","dispatch_approved_templates","dispatch_authorizations","dispatch_provider_accounts","dispatch_source_credentials","dispatch_source_nonces","dispatch_obligations","dispatch_external_contacts",
         "dispatch_items","dispatch_events","dispatch_rate_buckets","dispatch_inbound","dispatch_payment_events","dispatch_worker_heartbeats","dispatch_suppressions",
     ):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
@@ -308,6 +337,6 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS dispatch_events_append_only()")
     for table in (
         "dispatch_suppressions","dispatch_worker_heartbeats","dispatch_payment_events","dispatch_inbound","dispatch_rate_buckets","dispatch_events","dispatch_items",
-        "dispatch_external_contacts","dispatch_obligations","dispatch_provider_accounts","dispatch_authorizations","dispatch_approved_templates","dispatch_campaigns",
+        "dispatch_external_contacts","dispatch_obligations","dispatch_source_nonces","dispatch_source_credentials","dispatch_provider_accounts","dispatch_authorizations","dispatch_approved_templates","dispatch_campaigns",
     ):
         op.execute(f"DROP TABLE IF EXISTS {table}")
