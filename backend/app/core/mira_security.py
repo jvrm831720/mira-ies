@@ -7,6 +7,7 @@ import hmac
 import json
 import secrets
 import time
+from typing import Optional
 
 from app.core.config import get_settings
 
@@ -45,7 +46,15 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
 
 
-def issue_access_token(*, user_id: str, tenant_id: str, auth_version: int, session_id: str, aal: int = 1) -> tuple[str, int]:
+def issue_access_token(
+    *,
+    user_id: str,
+    tenant_id: str,
+    auth_version: int,
+    session_id: str,
+    aal: int = 1,
+    membership_id: Optional[str] = None,
+) -> tuple[str, int]:
     now = int(time.time())
     claims = {
         "iss": "mira",
@@ -58,6 +67,8 @@ def issue_access_token(*, user_id: str, tenant_id: str, auth_version: int, sessi
         "iat": now,
         "exp": now + _TOKEN_TTL_SECONDS,
     }
+    if membership_id:
+        claims["mid"] = membership_id
     header = {"alg": "HS256", "typ": "JWT"}
     unsigned = f"{_b64url(json.dumps(header, separators=(',', ':')).encode())}.{_b64url(json.dumps(claims, separators=(',', ':')).encode())}"
     secret = get_settings().secret_key.encode("utf-8")

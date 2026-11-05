@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.mira_security import TOKEN_TTL_SECONDS, issue_access_token
 from app.models.auth import User, UserSession
 from app.models.tenant import Tenant
+from app.services.membership import ensure_membership
 
 
 def _device_label(user_agent: str | None) -> str:
@@ -30,7 +31,7 @@ def _device_label(user_agent: str | None) -> str:
     return f"{browser} · {platform}"
 
 
-def create_user_session(
+async def create_user_session(
     db: AsyncSession,
     user: User,
     tenant: Tenant,
@@ -38,11 +39,22 @@ def create_user_session(
     *,
     aal: int = 1,
 ) -> tuple[str, int]:
-    """Registra a sessão antes de emitir o JWT que a referencia."""
+    """Registra a sessão, garante Membership (dual-write) e emite JWT com mid."""
     now = datetime.now(timezone.utc)
     user_agent = request.headers.get("user-agent", "")[:1000] if request else ""
     ip_address = request.client.host[:64] if request and request.client else None
     session_id = str(uuid4())
+
+    membership = await ensure_membership(
+        db,
+        user=user,
+        tenant_id=tenant.id,
+        role=user.role or "coordinator",
+        custom_role_id=user.custom_role_id,
+        origin="session",
+        status="active" if user.is_active else "suspended",
+    )
+
     session = UserSession(
         id=session_id,
         tenant_id=tenant.id,
@@ -61,4 +73,5 @@ def create_user_session(
         auth_version=user.auth_version,
         session_id=session_id,
         aal=aal,
+        membership_id=membership.id,
     )
