@@ -126,11 +126,11 @@ async def _finalize(
     await bind_tenant(db, tenant_id)
     row = (await db.execute(text("""
         UPDATE dispatch_items
-        SET status=:status, last_error=:reason,
+        SET status=CAST(:status AS varchar), last_error=:reason,
             provider=COALESCE(:provider,provider),
             provider_message_id=COALESCE(:provider_id,provider_message_id),
-            next_attempt_at=:next_attempt,
-            sent_at=CASE WHEN :status='sent' THEN now() ELSE sent_at END,
+            next_attempt_at=CAST(:next_attempt AS timestamptz),
+            sent_at=CASE WHEN CAST(:status AS varchar)='sent' THEN now() ELSE sent_at END,
             lease_token=NULL,lease_until=NULL,lease_owner=NULL,updated_at=now()
         WHERE tenant_id=:tenant AND id=:id AND lease_token=:token
           AND status IN ('leased','sending')
