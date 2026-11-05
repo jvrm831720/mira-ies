@@ -23,7 +23,7 @@ from app.models.auth import OrganizationInvite, TenantRole, TenantRoleAudit, Use
 from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
-from app.models.organization import Membership
+from app.models.organization import Membership, Organization
 from app.models.tenant import Tenant
 from app.services.membership import ensure_membership, get_membership_for_tenant, list_active_memberships
 
@@ -499,7 +499,19 @@ async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession =
     """Perfil da sessão atual (papel + instituição + onboarding)."""
     user = await db.get(User, auth.user_id) if auth.user_id else None
     completed_at = getattr(user, "onboarding_completed_at", None) if user else None
+    # Resolved server-side; the frontend must not infer workspace type from its name.
+    if auth.tenant.organization_id:
+        profile_result = await db.execute(select(Organization.operation_profile).where(
+            Organization.id == auth.tenant.organization_id,
+        ))
+        operation_profile = profile_result.scalar_one_or_none() or "unknown"
+    else:
+        segment = (auth.tenant.segment or "").strip().lower()
+        operation_profile = "institution" if segment in (
+            "institution", "higher_education", "university", "ies",
+        ) else (segment or "unknown")
     return {
+        "operation_profile": operation_profile,
         "tenant_id": auth.tenant_id,
         "tenant_name": auth.tenant.name,
         "tenant_slug": auth.tenant_slug,
