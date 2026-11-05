@@ -103,6 +103,29 @@ async def create_campaign(
         raise _error(exc) from exc
 
 
+class ApprovedRetentionExecution(BaseModel):
+    proposal_id: str = Field(min_length=1, max_length=80)
+    template_id: str = Field(min_length=1, max_length=80)
+
+
+@router.post("/campaigns/from-retention-proposal", status_code=201)
+async def materialize_retention_proposal(
+    body: ApprovedRetentionExecution,
+    auth: AuthContext = Depends(require_permission("campaigns.execute")),
+    db: AsyncSession = Depends(get_db),
+):
+    """An approved MIRA proposal creates ONE outbox execution, not new approval."""
+    from app.services.dispatch_proposals import materialize_proposal
+    try:
+        return await materialize_proposal(
+            db, tenant_id=auth.tenant_id, actor=_actor(auth),
+            proposal_id=body.proposal_id, template_id=body.template_id,
+        )
+    except (LookupError, ValueError) as exc:
+        await db.rollback()
+        raise _error(exc) from exc
+
+
 @router.get("/campaigns/{campaign_id}")
 async def campaign_detail(
     campaign_id: str,
