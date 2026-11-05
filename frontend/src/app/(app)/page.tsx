@@ -167,7 +167,7 @@ export default function CommandCenterPage() {
     <>
       <Header title="Visão geral" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        <section className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <section className="flex flex-col gap-3 border-b border-[#E4E7EC] pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#111827] sm:text-[24px]">
               Visão geral
@@ -199,10 +199,10 @@ export default function CommandCenterPage() {
               value={q}
               onChange={(event) => setQ(event.target.value)}
               placeholder="Buscar aluno"
-              className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white pl-10 pr-3 text-[13px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+              className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white pl-10 pr-3 text-[13px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
             />
             {searchHits.length > 0 && (
-              <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] shadow-lg">
+              <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-lg border border-[#E5E7EB] bg-[#F8F9FA] shadow-lg">
                 {searchHits.map((student) => (
                   <li key={student.id}>
                     <button
@@ -234,14 +234,14 @@ export default function CommandCenterPage() {
               type="button"
               onClick={() => void refreshDashboard()}
               disabled={isRefreshing}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F8F9FA] disabled:opacity-60"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
               Atualizar
             </button>
             <Link
               href="/importar"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#2563EB] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1D4ED8]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-4 text-[13px] font-medium text-white transition hover:bg-[#101112]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar
@@ -374,7 +374,7 @@ export default function CommandCenterPage() {
                     </span>
                   </div>
                   <div
-                    className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-[#F8FAFC]"
+                    className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-[#F8F9FA]"
                     role="img"
                     aria-label={
                       riskTotal > 0
@@ -439,7 +439,7 @@ export default function CommandCenterPage() {
                   </div>
                   <Link
                     href="/alunos"
-                    className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#2563EB] hover:text-[#1D4ED8]"
+                    className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#266DF0] hover:text-[#1F5DD1]"
                   >
                     Revisar alunos sem score
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -466,7 +466,7 @@ export default function CommandCenterPage() {
 
         {isEmpty ? (
           <section className="rounded-xl border border-[#E5E7EB] bg-white px-5 py-10 text-center sm:py-14">
-            <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#F8FAFC] text-[#2563EB]">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#F8F9FA] text-[#266DF0]">
               <Upload className="h-5 w-5" />
             </span>
             <h2 className="mt-4 text-[16px] font-semibold tracking-[-0.02em] text-[#111827]">
@@ -477,7 +477,7 @@ export default function CommandCenterPage() {
             </p>
             <Link
               href="/importar"
-              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[#2563EB] px-4 text-[13px] font-semibold text-white hover:bg-[#1D4ED8]"
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[#266DF0] px-4 text-[13px] font-semibold text-white hover:bg-[#1F5DD1]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar alunos
@@ -510,7 +510,7 @@ export default function CommandCenterPage() {
               href="/trabalho"
               className="group flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#CBD5E1] hover:shadow-sm"
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8FAFC] text-[#667085]">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8F9FA] text-[#667085]">
                 <ClipboardList className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
@@ -525,7 +525,7 @@ export default function CommandCenterPage() {
               href="/retencao"
               className="group flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#CBD5E1] hover:shadow-sm"
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8FAFC] text-[#667085]">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8F9FA] text-[#667085]">
                 <MessageSquareHeart className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
@@ -567,7 +567,7 @@ function MetricCard({
   const tones = {
     neutral: "text-[#667085]",
     coral: "text-[#B42318]",
-    indigo: "text-[#2563EB]",
+    indigo: "text-[#266DF0]",
     amber: "text-[#B54708]",
   };
   const body = (
@@ -583,7 +583,7 @@ function MetricCard({
     </>
   );
   const cls =
-    "block rounded-xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#D0D5DD] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]";
+    "block rounded-xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#D0D5DD] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]";
   if (href) {
     return (
       <Link href={href} data-mira-card="true" className={cls}>
