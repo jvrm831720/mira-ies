@@ -28,6 +28,10 @@ export type DispatchCampaign = {
   name: string;
   purpose: "retention" | "academic" | "service" | "collections";
   delivery_mode: "individual" | "targeted" | "bulk";
+  source_kind?: "manual" | "native" | "composio" | "retention_proposal";
+  source_ref?: string | null;
+  source_tool_slug?: string | null;
+  origin_proposal_id?: string | null;
   channel: "email" | "sms" | "whatsapp";
   status: "draft" | "approved" | "scheduled" | "running" | "paused" | "completed" | "cancelled";
   template_ref: string;
@@ -58,9 +62,30 @@ export type DispatchPaymentResults = {
 export type CampaignDraft = {
   name: string; purpose: "retention" | "academic" | "service" | "collections";
   delivery_mode: "targeted" | "bulk";
+  source_kind?: "manual" | "native" | "composio";
+  source_ref?: string | null;
+  source_tool_slug?: string | null;
   channel: "email" | "sms" | "whatsapp";
   template_ref: string; template_body: string;
   per_minute_limit?: number;
+};
+
+export type DispatchSource = {
+  kind: "manual" | "native" | "composio";
+  reference: string | null;
+  name: string;
+  toolkit?: string;
+  category: "workspace" | "native" | "composio";
+  connected: boolean;
+  can_bind: boolean;
+  tools: string[];
+  automatic_ingestion: boolean;
+  note: string;
+};
+
+export type DispatchSourceList = {
+  items: DispatchSource[];
+  composio_tool_execution_enabled: boolean;
 };
 
 export type DispatchTemplate = {
@@ -115,6 +140,7 @@ export const dispatchApi = {
     }),
   disableProvider: (provider: "resend" | "twilio") =>
     request<{ status: string }>(`/providers/${provider}/disable`, { method: "POST" }),
+  sources: () => request<DispatchSourceList>("/sources"),
   campaigns: () => request<{ items: DispatchCampaign[] }>("/campaigns"),
   detail: (id: string) => request<{ campaign: DispatchCampaign; items: Array<{
     id: string; status: string; subject_ref: string; subject_type: string;
@@ -130,6 +156,13 @@ export const dispatchApi = {
     `/campaigns/${encodeURIComponent(campaignId)}/targets`,
     { method: "POST", body: JSON.stringify({ targets }) },
   ),
+  materializeRetentionProposal: (proposalId: string, templateId: string) =>
+    request<{ id: string; status: string; selected_count: number; deduplicated: boolean }>(
+      "/campaigns/from-retention-proposal", {
+        method: "POST",
+        body: JSON.stringify({ proposal_id: proposalId, template_id: templateId }),
+      },
+    ),
   stageProposal: (campaignId: string, proposalId: string) =>
     request<{ created: number; duplicates: number }>(
       `/campaigns/${encodeURIComponent(campaignId)}/targets/from-proposal`,
