@@ -9,7 +9,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,6 +43,10 @@ class TenantIntegrationDataSource(Base):
         CheckConstraint(
             "source_key ~ '^[a-z0-9][a-z0-9_.-]{0,79}$'",
             name="ck_integration_data_source_key",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(feature_keys) = 'array'",
+            name="ck_integration_feature_keys_array",
         ),
         Index("ix_tenant_integration_data_sources_enabled", "tenant_id", "is_enabled"),
     )
@@ -61,9 +75,19 @@ class StudentFeatureObservation(Base):
     __tablename__ = "student_feature_observations"
     __table_args__ = (
         UniqueConstraint("tenant_id", "observation_key", name="uq_student_feature_observation_key"),
+        ForeignKeyConstraint(
+            ("tenant_id", "student_id"),
+            ("students.tenant_id", "students.id"),
+            ondelete="CASCADE",
+            name="fk_feature_observation_tenant_student",
+        ),
         CheckConstraint(
             "source_kind IN ('native_connector', 'composio', 'upload', 'system')",
             name="ck_feature_observation_source_kind",
+        ),
+        CheckConstraint(
+            "source_key ~ '^[a-z0-9][a-z0-9_.-]{0,79}$'",
+            name="ck_feature_observation_source_key",
         ),
         CheckConstraint(
             "feature_key ~ '^[a-z][a-z0-9_]{1,63}$'",
@@ -72,6 +96,16 @@ class StudentFeatureObservation(Base):
         CheckConstraint(
             "value_type IN ('number', 'text', 'boolean', 'categorical')",
             name="ck_feature_observation_value_type",
+        ),
+        CheckConstraint(
+            "student_id IS NOT NULL OR subject_ref IS NOT NULL",
+            name="ck_feature_observation_subject_required",
+        ),
+        CheckConstraint(
+            "(value_type = 'number' AND value_number IS NOT NULL AND value_text IS NULL AND value_boolean IS NULL) OR "
+            "(value_type IN ('text', 'categorical') AND value_text IS NOT NULL AND value_number IS NULL AND value_boolean IS NULL) OR "
+            "(value_type = 'boolean' AND value_boolean IS NOT NULL AND value_number IS NULL AND value_text IS NULL)",
+            name="ck_feature_observation_typed_value",
         ),
         Index("ix_feature_obs_tenant_student_feature", "tenant_id", "student_id", "feature_key"),
         Index("ix_feature_obs_tenant_source_time", "tenant_id", "source_kind", "source_key", "observed_at"),
@@ -82,9 +116,7 @@ class StudentFeatureObservation(Base):
     tenant_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
-    student_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("students.id", ondelete="CASCADE"), nullable=True
-    )
+    student_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     subject_ref: Mapped[str | None] = mapped_column(String(160), nullable=True)
     observation_key: Mapped[str] = mapped_column(String(200), nullable=False)
     source_kind: Mapped[str] = mapped_column(String(32), nullable=False)
