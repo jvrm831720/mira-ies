@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,10 +19,17 @@ router = APIRouter(prefix="/integrations/omie", tags=["Integração Omie"])
 
 
 class OmieConfigurePayload(BaseModel):
-    app_hash: str = Field(min_length=1, max_length=160)
+    app_hash: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9_-]+$")
     access_token: str = Field(min_length=16, max_length=4096)
     refresh_token: str = Field(min_length=16, max_length=4096)
     token_expires_at: datetime | None = None
+
+    @field_validator("access_token", "refresh_token")
+    @classmethod
+    def reject_control_characters(cls, value: str) -> str:
+        if any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise ValueError("Token Omie inválido.")
+        return value
 
 
 def _connection_response(row: TenantOmieConnection | None) -> dict[str, Any]:
@@ -154,6 +161,7 @@ async def test_omie_connection(
     try:
         # Test only read permissions; no financial mutation is exposed.
         receivable = await client.list_accounts_receivable(page=1, page_size=1)
+        await _persist_rotated_credentials(db, row, client)
         payable = await client.list_accounts_payable(page=1, page_size=1)
         await _persist_rotated_credentials(db, row, client)
         row.status = "connected"
