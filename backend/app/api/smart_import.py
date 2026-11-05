@@ -5,7 +5,7 @@ import hashlib
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from sqlalchemy import select, text
@@ -149,6 +149,7 @@ async def preview_import(
 async def apply_import(
     file: UploadFile = File(...),
     payload: str = Form(...),  # JSON string do ApplyMapping
+    auto_score: bool = Query(True),
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
     idempotency_key: str = Header(..., alias="Idempotency-Key"),
@@ -182,7 +183,7 @@ async def apply_import(
         raise HTTPException(status_code=422, detail="Arquivo vazio.")
     if len(content) > settings.max_upload_size_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Arquivo excede o limite permitido.")
-    fingerprint = hashlib.sha256(content + json.dumps(body.model_dump(), sort_keys=True).encode()).hexdigest()
+    fingerprint = hashlib.sha256(content + json.dumps({**body.model_dump(), "auto_score": auto_score}, sort_keys=True).encode()).hexdigest()
     if prior_batch is not None:
         metadata = prior_batch.columns or {}
         if metadata.get("fingerprint") != fingerprint:
@@ -239,9 +240,53 @@ async def apply_import(
     except ValueError as exc:
         await db.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # Mesmo contrato do upload legado: scoring após commit; falta de dados
+    # produz status indeterminado, jamais risco favorável artificial.
+    scoring_result: dict[str, Any] | None = None
+    if auto_score and result["created"] + result["updated"] > 0:
+        try:
+            from app.ml.scoring import score_batch
+            scoring_result = await score_batch(
+                db, deterministic_batch_id, force=True,
+                tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
+            )
+        except Exception:
+            await db.rollback()
+            scoring_result = {
+                "scored": 0,
+                "error": "A importação foi gravada, mas a pontuação não foi concluída.",
+            }
+        # Armazena somente um resumo para o replay idempotente.
+        scoring_summary = {
+            "scored": scoring_result.get("scored", 0),
+            "indeterminate_count": scoring_result.get("indeterminate_count", 0),
+        }
+        if scoring_result.get("error"):
+            scoring_summary["error"] = scoring_result["error"]
+        try:
+            await db.execute(
+                text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                {"tenant_id": auth.tenant_id},
+            )
+            batch = await db.get(UploadBatch, deterministic_batch_id)
+            if batch is not None and batch.tenant_id == auth.tenant_id:
+                prior_metadata = batch.columns or {}
+                batch.columns = {
+                    **prior_metadata,
+                    "result_summary": {
+                        **(prior_metadata.get("result_summary") or {}),
+                        "scoring": scoring_summary,
+                    },
+                }
+                await db.commit()
+        except Exception:
+            await db.rollback()
+
     return {
         "batch_id": deterministic_batch_id,
         "idempotent_replay": False,
+        "scoring": scoring_result,
         "created": result["created"],
         "updated": result["updated"],
         "rejected": result["rejected"],
