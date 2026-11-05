@@ -67,7 +67,7 @@ class ApplyMapping(BaseModel):
 async def preview_import(
     file: UploadFile = File(...),
     mapping_payload: str | None = Form(default=None),
-    auth: AuthContext = Depends(require_permission("data.import")),
+    auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     """Dry-run completo: mapeamento sugerido, validação linha a linha, zero escrita."""
@@ -149,7 +149,7 @@ async def preview_import(
 async def apply_import(
     file: UploadFile = File(...),
     payload: str = Form(...),  # JSON string do ApplyMapping
-    auth: AuthContext = Depends(require_permission("data.import")),
+    auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
     idempotency_key: str = Header(..., alias="Idempotency-Key"),
 ):

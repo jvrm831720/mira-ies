@@ -48,7 +48,7 @@ def _serialize(definition):
 async def list_custom_fields(
     target: str = Query("student", max_length=50),
     include_inactive: bool = Query(False),
-    auth: AuthContext = Depends(require_permission("data.import")),
+    auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     definitions = await service.list_definitions(
@@ -60,7 +60,7 @@ async def list_custom_fields(
 @router.post("/custom-fields", status_code=201)
 async def create_custom_field(
     body: CustomFieldCreate,
-    auth: AuthContext = Depends(require_permission("data.import")),
+    auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -79,7 +79,7 @@ async def create_custom_field(
 async def update_custom_field(
     definition_id: str,
     body: CustomFieldUpdate,
-    auth: AuthContext = Depends(require_permission("data.import")),
+    auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import select
@@ -117,7 +117,7 @@ async def update_custom_field(
 @router.delete("/custom-fields/{definition_id}", status_code=204)
 async def delete_custom_field(
     definition_id: str,
-    auth: AuthContext = Depends(require_permission("data.import")),
+    auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     """Exclui a definição apenas se nenhum aluno tiver valor no campo;

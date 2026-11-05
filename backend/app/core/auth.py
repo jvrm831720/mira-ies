@@ -376,9 +376,12 @@ def require_min_role(min_role: str):
     return _dep
 
 
-def require_permission(permission: str):
-    """Exige uma permissão explícita; sessões legadas usam a matriz padrão por papel."""
+def require_permission(permission: str, *, allow_service_key: bool = False):
+    """Exige permissão explícita, com opção específica para chaves de integração."""
     async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        # A chave de API é autenticada em get_current_tenant e não representa papel humano.
+        if allow_service_key and auth.role is None and auth.permissions is None:
+            return auth
         if auth.permissions is not None:
             allowed = permission in auth.permissions
         else:
