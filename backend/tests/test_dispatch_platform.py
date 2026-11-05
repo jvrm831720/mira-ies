@@ -530,3 +530,136 @@ async def test_concurrent_workers_claim_disjoint_items(db_session, tenant):
     results = await asyncio.gather(claim("worker-a"), claim("worker-b"))
     ids = [str(item["id"]) for subset in results for item in subset]
     assert len(ids) == len(set(ids)) == 30
+
+
+@pytest.mark.asyncio
+async def test_individual_intervention_with_preapproved_template_is_idempotent(db_session, tenant):
+    from app.models.student import Student, UploadBatch
+    from app.services import dispatch_core as core
+    from app.services import dispatch_interventions as interventions
+
+    org,_ = tenant
+    batch=UploadBatch(
+        tenant_id=org.id,filename="one-to-one.csv",
+        original_filename="one-to-one.csv",status="processed",
+    )
+    db_session.add(batch)
+    await db_session.flush()
+    student=Student(
+        tenant_id=org.id,batch_id=batch.id,matricula="IND-001",
+        nome="Aluno de teste",email="single@example.test",
+        communication_preferences={"channels":{"email":True},"topics":{"retention":True}},
+    )
+    db_session.add(student)
+    await db_session.commit()
+    await seed_authorizations(db_session,org.id,[student.id],"individual-evidence-001")
+    template=await interventions.create_template(
+        db_session,tenant_id=org.id,actor="creator",
+        code="retention-one-to-one",purpose="retention",
+        channel="email",subject="Aviso de permanência",
+        body="Olá {nome}, nossa equipe está disponível.",
+    )
+    with pytest.raises(ValueError,match="pessoa diferente"):
+        await interventions.approve_template(
+            db_session,tenant_id=org.id,actor="creator",
+            template_id=str(template["id"]),evidence_ref="approval-record-01",
+        )
+    await interventions.approve_template(
+        db_session,tenant_id=org.id,actor="approver",
+        template_id=str(template["id"]),evidence_ref="approval-record-01",
+    )
+    first=await interventions.create_intervention(
+        db_session,tenant_id=org.id,actor="creator",
+        template_id=str(template["id"]),subject_type="student",
+        subject_ref=student.id,evidence_ref="individual-evidence-001",
+        idempotency_key="message-request-001",
+    )
+    assert first["status"]=="running" and first["deduplicated"] is False
+    duplicate=await interventions.create_intervention(
+        db_session,tenant_id=org.id,actor="creator",
+        template_id=str(template["id"]),subject_type="student",
+        subject_ref=student.id,evidence_ref="individual-evidence-001",
+        idempotency_key="message-request-001",
+    )
+    assert duplicate["id"]==first["id"]
+    assert duplicate["deduplicated"] is True
+    with pytest.raises(ValueError,match="Idempotency-Key"):
+        await interventions.create_intervention(
+            db_session,tenant_id=org.id,actor="creator",
+            template_id=str(template["id"]),subject_type="student",
+            subject_ref=student.id,evidence_ref="other-evidence-999",
+            idempotency_key="message-request-001",
+        )
+    await core.bind_tenant(db_session,org.id)
+    number=(await db_session.execute(text("""
+        SELECT count(*) FROM dispatch_items WHERE tenant_id=:tenant
+          AND campaign_id=:id
+    """),{"tenant":org.id,"id":first["id"]})).scalar_one()
+    assert number==1
+
+
+@pytest.mark.asyncio
+async def test_contact_revocation_is_permanent_until_new_explicit_evidence(db_session,tenant):
+    from app.services.dispatch_interventions import sync_authorization,verified_authorization
+
+    org,_=tenant
+    now=datetime.now(timezone.utc)
+    kwargs={
+        "db":db_session,"tenant_id":org.id,"source":"test_registry",
+        "subject_type":"student","subject_ref":"unit-subject",
+        "channel":"email","purpose":"retention",
+        "evidence_ref":"permission-evidence-1",
+        "expires_at":now+timedelta(days=7),
+    }
+    grant=await sync_authorization(status="granted",verified_at=now,**kwargs)
+    assert grant["accepted"]
+    assert await verified_authorization(
+        db_session,tenant_id=org.id,subject_type="student",
+        subject_ref="unit-subject",channel="email",purpose="retention",
+        evidence_ref="permission-evidence-1",
+    )
+    revoke=await sync_authorization(status="revoked",verified_at=now+timedelta(seconds=1),**kwargs)
+    assert revoke["accepted"]
+    assert not await verified_authorization(
+        db_session,tenant_id=org.id,subject_type="student",
+        subject_ref="unit-subject",channel="email",purpose="retention",
+        evidence_ref="permission-evidence-1",
+    )
+    with pytest.raises(ValueError,match="anterior"):
+        await sync_authorization(status="granted",verified_at=now,**kwargs)
+
+
+@pytest.mark.asyncio
+async def test_workspace_provider_credentials_are_encrypted_and_separated(db_session, tenant_factory, monkeypatch):
+    from cryptography.fernet import Fernet
+    from app.core.config import get_settings
+    from app.services import dispatch_providers as providers
+
+    a,_=await tenant_factory("provider-a","Provider A")
+    b,_=await tenant_factory("provider-b","Provider B")
+    monkeypatch.setattr(get_settings(),"dispatch_provider_encryption_key",
+                        Fernet.generate_key().decode())
+    raw={
+        "api_key":"re_key-for-example",
+        "from_email":"message@example.test",
+        "webhook_secret":"whsec_for-example",
+    }
+    first=await providers.configure_provider(
+        db_session,tenant_id=a.id,provider="resend",actor="admin-a",data=raw,
+    )
+    assert first["status"]=="disabled"
+    # Another tenant must never read secrets, even with the same provider name.
+    assert await providers.load_provider(
+        db_session,tenant_id=b.id,provider="resend",require_active=False,
+    ) is None
+    assert await providers.load_provider(
+        db_session,tenant_id=a.id,provider="resend",require_active=False,
+    )==raw
+    from app.services.dispatch_core import bind_tenant
+    await bind_tenant(db_session,a.id)
+    cipher=(await db_session.execute(text("""
+        SELECT credentials_ciphertext FROM dispatch_provider_accounts
+        WHERE tenant_id=:tenant
+    """),{"tenant":a.id})).scalar_one()
+    assert "re_key-for-example" not in cipher
+    assert "whsec_for-example" not in cipher
