@@ -197,6 +197,7 @@ async def native_status(auth: AuthContext = Depends(get_current_tenant), db: Asy
     return {
         "native_academic_enabled": get_settings().native_academic_enabled,
         "student_portal_enabled": get_settings().student_portal_enabled,
+        "native_academic_catalog_enabled": get_settings().native_academic_catalog_enabled,
         "backend": "mira_postgresql",
         "frappe_runtime_required": False,
     }

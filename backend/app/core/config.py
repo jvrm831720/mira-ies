@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Native Education / student self-service. Gated until migration and security tests.
     native_academic_enabled: bool = False
     student_portal_enabled: bool = False
+    native_academic_catalog_enabled: bool = False
 
     # Composio integration (fail-closed; no SDK calls until explicitly activated)
     composio_enabled: bool = False
