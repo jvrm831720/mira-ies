@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     firecrawl_api_key: str | None = None
     # Tool execution remains explicitly disabled until Wave 3.1 is validated.
     composio_tool_execution_enabled: bool = False
+    # Composio read-only execution for MIRA Dispatch; requires both flags and an explicit tool allowlist.
+    dispatch_composio_ingestion_enabled: bool = False
+    dispatch_composio_ingestion_read_tools: str = ""
+    dispatch_composio_data_key: str | None = None
 
     # Scoring
     shap_on_batch: bool = False

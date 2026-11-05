@@ -208,6 +208,16 @@ async def list_sources(db: AsyncSession, *, tenant_id: str) -> dict:
                 if can_bind else "Conexão ou política ainda não habilitada para uso."
             ),
         })
-    return {"items": records, "composio_tool_execution_enabled": bool(
-        settings.composio_tool_execution_enabled and composio_is_configured(settings)
-    )}
+    return {
+        "items": records,
+        "composio_tool_execution_enabled": bool(
+            settings.composio_tool_execution_enabled and composio_is_configured(settings)
+        ),
+        "composio_ingestion_enabled": bool(
+            settings.composio_tool_execution_enabled
+            and settings.dispatch_composio_ingestion_enabled
+            and settings.dispatch_composio_ingestion_read_tools.strip()
+            and settings.dispatch_composio_data_key
+            and composio_is_configured(settings)
+        ),
+    }

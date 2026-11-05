@@ -94,6 +94,11 @@ async def dispatch_schema(_prepare_test_database):
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    extra_path = migration_path.with_name("056_dispatch_composio_ingestion.py")
+    extra_spec = importlib.util.spec_from_file_location("dispatch_composio_test_migration", extra_path)
+    assert extra_spec and extra_spec.loader
+    extra = importlib.util.module_from_spec(extra_spec)
+    extra_spec.loader.exec_module(extra)
 
     async with engine.begin() as conn:
         present = await conn.scalar(text("SELECT to_regclass('public.dispatch_campaigns')"))
@@ -103,6 +108,13 @@ async def dispatch_schema(_prepare_test_database):
                 with Operations.context(ctx):
                     module.upgrade()
             await conn.run_sync(_upgrade)
+        other = await conn.scalar(text("SELECT to_regclass('public.dispatch_source_observations')"))
+        if not other:
+            def _upgrade_composio(connection):
+                ctx = MigrationContext.configure(connection)
+                with Operations.context(ctx):
+                    extra.upgrade()
+            await conn.run_sync(_upgrade_composio)
     yield
 
 

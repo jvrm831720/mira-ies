@@ -97,6 +97,7 @@ async def _prepare_test_database():
         from sqlalchemy import text
         await sa_conn.execute(text("""
             DROP TABLE IF EXISTS
+              dispatch_source_import_runs, dispatch_source_observations,
               dispatch_suppressions, dispatch_worker_heartbeats, dispatch_payment_events, dispatch_inbound,
               dispatch_provider_accounts, dispatch_authorizations, dispatch_approved_templates,
               dispatch_source_nonces, dispatch_source_credentials,
@@ -122,6 +123,7 @@ async def _clean_tables():
         if exists:
             await conn.execute(text("""
                 TRUNCATE TABLE
+                  dispatch_source_import_runs, dispatch_source_observations,
                   dispatch_inbound, dispatch_payment_events, dispatch_events,
                   dispatch_items, dispatch_worker_heartbeats, dispatch_suppressions,
                   dispatch_rate_buckets, dispatch_external_contacts,
