@@ -93,8 +93,15 @@ async def revoke_document(
         raise HTTPException(status_code=404, detail="Emissão não encontrada.")
     if item.revoked_at is not None:
         raise HTTPException(status_code=409, detail="Emissão já revogada.")
+    document = (await db.execute(select(StudentDocument).where(
+        StudentDocument.tenant_id == auth.tenant_id,
+        StudentDocument.id == item.document_id,
+    ).with_for_update())).scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=409, detail="Documento de origem indisponível.")
     item.revoked_at = datetime.now(timezone.utc)
     item.revoked_by_user_id = auth.user_id
+    document.publication_status = "revoked"
     await db.commit()
     return {"document_id": str(document_id), "valid": False, "revoked": True}
 
