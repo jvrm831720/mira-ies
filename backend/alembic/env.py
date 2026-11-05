@@ -28,6 +28,7 @@ import app.models.rm_sync  # noqa: F401
 import app.models.rm_sync_jobs  # noqa: F401
 import app.models.connector_destination  # noqa: F401
 import app.models.composio_connection  # noqa: F401
+import app.models.integration_features  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
@@ -35,8 +36,6 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 settings = get_settings()
-# Alembic's ConfigParser treats percent signs as interpolation markers.
-# Escape encoded URL characters (for example, %23 for #) before storing the URL.
 config.set_main_option(
     "sqlalchemy.url",
     settings.database_url_sync.replace("%", "%%"),

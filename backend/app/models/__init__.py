@@ -20,6 +20,7 @@ from app.models.composio_connection import (
     TenantComposioToolAudit,
     TenantComposioToolkitPolicy,
 )
+from app.models.integration_features import TenantIntegrationDataSource, StudentFeatureObservation
 
 __all__ = [
     "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
@@ -33,4 +34,5 @@ __all__ = [
     "RmSyncScope", "RmSyncRun", "RmSyncPage", "RmSyncRecord",
     "RmSyncJob", "RmSyncJobEvent", "TenantConnectorDestination", "TenantConnectorDestinationAudit",
     "TenantComposioSession", "TenantComposioAccount", "TenantComposioToolAudit", "TenantComposioToolkitPolicy",
+    "TenantIntegrationDataSource", "StudentFeatureObservation",
 ]
