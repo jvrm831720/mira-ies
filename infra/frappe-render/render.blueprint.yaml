@@ -1,0 +1,85 @@
+# MIRA-owned Frappe/ERPNext/Education — isolated STAGING stack.
+# This Blueprint creates NEW private services and requires explicit approval.
+# Never apply it to the existing mira-api-testes service or existing databases.
+services:
+  - type: pserv
+    name: mira-education-mariadb-staging
+    runtime: image
+    image:
+      url: docker.io/library/mariadb:11.8
+    region: virginia
+    plan: 1c-2g
+    dockerCommand: mariadbd --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --skip-character-set-client-handshake --innodb-snapshot-isolation=OFF
+    disk:
+      name: mira-education-db-data
+      mountPath: /var/lib/mysql
+      sizeGB: 10
+    envVars:
+      - key: PORT
+        value: "3306"
+      - key: MARIADB_ROOT_PASSWORD
+        generateValue: true
+      - key: MARIADB_ROOT_HOST
+        value: "%"
+      - key: MARIADB_AUTO_UPGRADE
+        value: "1"
+
+  - type: keyvalue
+    name: mira-education-queue-staging
+    region: virginia
+    plan: 256mb
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+    persistenceMode: journal-snapshot
+
+  - type: keyvalue
+    name: mira-education-cache-staging
+    region: virginia
+    plan: 256mb
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+    persistenceMode: off
+
+  - type: pserv
+    name: mira-education-engine-staging
+    runtime: docker
+    repo: https://github.com/jvrm831720/mira-ies
+    branch: infra/mira-frappe-render-staging
+    autoDeployTrigger: off
+    region: virginia
+    plan: 2c-4g
+    dockerfilePath: infra/frappe-render/Dockerfile
+    dockerContext: .
+    disk:
+      name: mira-education-sites
+      mountPath: /home/frappe/frappe-bench/sites
+      sizeGB: 10
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: MIRA_EDUCATION_SITE_NAME
+        value: ies-sandbox.internal
+      - key: MIRA_PERSISTENT_SITES_PATH
+        value: /home/frappe/frappe-bench/sites
+      - key: MIRA_MARIADB_HOST
+        fromService:
+          type: pserv
+          name: mira-education-mariadb-staging
+          property: host
+      - key: MIRA_MARIADB_ROOT_PASSWORD
+        fromService:
+          type: pserv
+          name: mira-education-mariadb-staging
+          envVarKey: MARIADB_ROOT_PASSWORD
+      - key: MIRA_REDIS_QUEUE
+        fromService:
+          type: keyvalue
+          name: mira-education-queue-staging
+          property: connectionString
+      - key: MIRA_REDIS_CACHE
+        fromService:
+          type: keyvalue
+          name: mira-education-cache-staging
+          property: connectionString
+      - key: MIRA_FRAPPE_ADMIN_PASSWORD
+        generateValue: true
