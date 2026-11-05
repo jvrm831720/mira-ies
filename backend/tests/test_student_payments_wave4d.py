@@ -169,6 +169,7 @@ async def test_workspace_composio_multiple_profiles_and_idempotent_drafts(
         db_session, tenant_id=tenant, provider_id=second.id,
         expected_revision=1, value=True,
     )
+    second_provider_id = second.id
     key = "draft-2026-0000001"
     draft = await payments.create_draft(
         db_session, tenant_id=tenant, user_id=actor, provider_id=first.id,
@@ -188,7 +189,7 @@ async def test_workspace_composio_multiple_profiles_and_idempotent_drafts(
         )
     await db_session.rollback()
     separate = await payments.create_draft(
-        db_session, tenant_id=tenant, user_id=actor, provider_id=second.id,
+        db_session, tenant_id=tenant, user_id=actor, provider_id=second_provider_id,
         observation_id=observation, method="pix", idempotency_key=key,
     )
     assert separate["id"] != draft["id"]
@@ -263,6 +264,7 @@ async def test_cross_tenant_provider_and_observation_rejected(
     provider = await payments.change_provider_enabled(
         db_session, tenant_id=tenant_a, provider_id=provider.id, expected_revision=1, value=True,
     )
+    provider_id = provider.id
     with pytest.raises(payments.PaymentDenied, match="Obrigação"):
         await payments.create_draft(
             db_session, tenant_id=tenant_a, user_id=actor, provider_id=provider.id,
@@ -272,6 +274,6 @@ async def test_cross_tenant_provider_and_observation_rejected(
     # The other tenant also cannot use the provider ID from tenant A.
     with pytest.raises(payments.PaymentDenied, match="Provedor"):
         await payments.create_draft(
-            db_session, tenant_id=tenant_b, user_id=actor, provider_id=provider.id,
+            db_session, tenant_id=tenant_b, user_id=actor, provider_id=provider_id,
             observation_id=obs_a, method="pix", idempotency_key="isolated-other-draft",
         )
