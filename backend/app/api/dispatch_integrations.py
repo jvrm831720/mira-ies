@@ -109,6 +109,7 @@ async def upsert_obligation(
             if (existing["status"]==body.status and existing["balance"]==body.balance
                   and existing["evidence_ref"]==body.evidence_ref
                   and existing["verified_at"]==body.observed_at):
+                await db.commit()  # reserve signed request nonce
                 return {"accepted":True,"replayed":True,"status":body.status}
             raise HTTPException(status_code=409,detail="Versão da origem duplicada com conteúdo divergente.")
         if body.source_version<existing["source_version"]:
