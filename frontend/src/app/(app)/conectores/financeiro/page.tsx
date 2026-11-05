@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import {
@@ -64,7 +64,7 @@ function parseStatusMap(raw: string) {
 }
 
 function Panel({ title, subtitle, children }: {
-  title: string; subtitle?: string; children: React.ReactNode;
+  title: string; subtitle?: string; children: ReactNode;
 }) {
   return (
     <section className="rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
