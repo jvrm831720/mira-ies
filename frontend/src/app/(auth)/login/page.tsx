@@ -3,7 +3,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "@/components/ui/icons";
+import { VerificationCodeInput } from "@/components/auth/verification-code-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
@@ -125,7 +125,7 @@ export default function LoginPage() {
         </header>
 
         <div className="auth-login-card">
-          <section className="auth-login-form-panel" aria-label="Acesso à MIRA">
+          <section className={`auth-login-form-panel${isCodeStep ? " auth-login-form-panel--code" : ""}`} aria-label="Acesso à MIRA">
             <div className="auth-login-content">
               <h1 className="auth-login-heading">
                 {isEmailStep ? "Vamos começar." : isCodeStep ? "Verifique seu e-mail." : mode === "mfa-enroll" ? "Configure seu autenticador." : "Verificação em duas etapas."}
@@ -134,14 +134,14 @@ export default function LoginPage() {
                 {isEmailStep
                   ? "Acesse a MIRA para acompanhar indicadores, identificar alunos em risco e orientar ações de permanência estudantil."
                   : isCodeStep
-                    ? <>Se este e-mail estiver associado a uma conta ativa, enviaremos um código para <span className="font-medium text-neutral-800">{email}</span>. Digite os seis dígitos abaixo para continuar.</>
+                    ? <>Enviamos um código de verificação para <span className="auth-code-email">{email}</span>. Digite os seis dígitos abaixo para continuar.</>
                     : mode === "mfa-enroll"
                       ? "A segurança da MIRA exige autenticação multifator para sua conta."
                       : "Informe o código do aplicativo autenticador para concluir o acesso."}
               </p>
 
               <div className="auth-login-form-stack">
-                {error && <p role="alert" aria-live="assertive" className="auth-login-error">{error}</p>}
+                {error && <p id="auth-login-error" role="alert" aria-live="assertive" className="auth-login-error">{error}</p>}
 
                 {isEmailStep && (
                   <form onSubmit={requestCode} className="space-y-4">
@@ -159,25 +159,28 @@ export default function LoginPage() {
                 )}
 
                 {isCodeStep && (
-                  <form onSubmit={verifyCode} className="space-y-5">
-                    <div className="space-y-2">
-                      <label htmlFor="email-code" className="auth-login-label">Código de verificação</label>
-                      <Input id="email-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required className="auth-login-input h-12 rounded-lg px-4 text-center text-xl tracking-[0.45em]" />
-                    </div>
-                    <div className="flex items-center justify-between gap-3 text-[13px]">
-                      <span className="auth-login-muted">Não recebeu o código?</span>
-                      <button type="button" onClick={() => void requestCode()} disabled={loading || resendSeconds > 0} className="auth-login-text-button">
-                        {resendSeconds > 0 ? `Reenviar em ${String(Math.floor(resendSeconds / 60)).padStart(2, "0")}:${String(resendSeconds % 60).padStart(2, "0")}` : "Reenviar código"}
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button type="button" variant="outline" onClick={() => { setMode("email"); setCode(""); setError(null); }} className="auth-login-secondary h-12 rounded-lg">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-                      </Button>
-                      <Button type="submit" disabled={loading || code.length !== 6} className="auth-login-primary h-12 rounded-lg">
-                        {loading ? "Verificando…" : "Confirmar"}
-                      </Button>
-                    </div>
+                  <form id="mira-email-code-form" onSubmit={verifyCode} className="auth-code-form">
+                    <VerificationCodeInput
+                      value={code}
+                      onChange={(nextCode) => { setCode(nextCode); setError(null); }}
+                      disabled={loading}
+                      invalid={Boolean(error)}
+                    />
+                    <p id="auth-code-hint" className="auth-code-resend">
+                      Não recebeu o código?{" "}
+                      {resendSeconds > 0 ? (
+                        <span className="auth-code-countdown">
+                          Reenviar em{" "}
+                          <span role="timer" aria-live="off">
+                            {String(Math.floor(resendSeconds / 60)).padStart(2, "0")}:{String(resendSeconds % 60).padStart(2, "0")}
+                          </span>
+                        </span>
+                      ) : (
+                        <button type="button" onClick={() => void requestCode()} disabled={loading} className="auth-login-text-button">
+                          Reenviar código
+                        </button>
+                      )}
+                    </p>
                   </form>
                 )}
 
@@ -209,7 +212,28 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <p className="auth-login-footer">Acesso protegido e vinculado à sua instituição.</p>
+            {isCodeStep ? (
+              <div className="auth-code-actions">
+                <button
+                  type="button"
+                  disabled={loading}
+                  className="auth-code-back"
+                  onClick={() => { setMode("email"); setCode(""); setError(null); }}
+                >
+                  Voltar
+                </button>
+                <Button
+                  type="submit"
+                  form="mira-email-code-form"
+                  disabled={loading || code.length !== 6}
+                  className="auth-login-primary auth-code-confirm"
+                >
+                  {loading ? "Verificando…" : "Confirmar"}
+                </Button>
+              </div>
+            ) : (
+              <p className="auth-login-footer">Acesso protegido e vinculado à sua instituição.</p>
+            )}
           </section>
 
           <aside className="auth-login-testimonial" aria-label="Depoimento da MIRA">
