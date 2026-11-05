@@ -48,3 +48,6 @@ data/model_artifacts/
 
 # Isolated, disposable Frappe Bench created from pinned vendor sources
 .local/frappe-bench/
+
+# Local Frappe sandbox secrets (never commit)
+infra/frappe-render/.env.local
