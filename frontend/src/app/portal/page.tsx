@@ -252,12 +252,16 @@ export default function StudentPortalPage() {
         </span>
       </div>
 
-      <section className="grid gap-3 md:grid-cols-4" aria-label="Resumo acadêmico">
+      <section className="grid gap-3 md:grid-cols-3" aria-label="Resumo acadêmico">
         {[
           ["Curso", value(student.course)],
           ["Matrícula", student.registration],
           ["Semestre", student.semester != null ? student.semester + "º" : "Não informado"],
           ["Unidade", value(student.campus)],
+          ["Presença agregada", student.attendance_percentage != null
+            ? student.attendance_percentage + "%" : "Não informado"],
+          ["Média acadêmica", student.grade_average != null
+            ? String(student.grade_average) : "Não informado"],
         ].map(([label, item]) =>
           <div key={label} className="rounded-xl border border-[#E4E7EC] bg-white p-5">
             <p className="text-[11px] text-[#667085]">{label}</p>
@@ -265,6 +269,9 @@ export default function StudentPortalPage() {
           </div>
         )}
       </section>
+      <p className="-mt-4 text-[11px] text-[#98A2B3]">
+        Frequência e média são resumos informados pela instituição; dados ausentes não representam situação favorável.
+      </p>
 
       <div className="overflow-hidden rounded-xl border border-[#E4E7EC] bg-white">
         <div className="border-b border-[#E4E7EC] p-5 md:p-7">
