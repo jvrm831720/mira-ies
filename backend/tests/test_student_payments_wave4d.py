@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.models.composio_connection import TenantComposioAccount
 from app.models.finance_reconciliation import FinanceSourceProfile, FinanceIngestionBatch, FinanceObservation
 from app.models.student import Student, UploadBatch
-from app.models.student_payments import PaymentProviderProfile, StudentPaymentEvidence
+from app.models.student_payments import AsaasWorkspaceDestination, PaymentProviderProfile, StudentPaymentEvidence
 from app.services import student_payments as payments
 
 
@@ -139,6 +139,10 @@ async def make_source(db, factory, slug, user_id, *, account="xero-test-account"
         mapping_version=1,
     )
     db.add(obs)
+    db.add(AsaasWorkspaceDestination(
+        tenant_id=tenant.id, wallet_id=str(uuid4()), status="pending",
+        confirmed_by_user_id=user_id,
+    ))
     await db.commit()
     return tenant.id, source.id, student.id, obs.id
 

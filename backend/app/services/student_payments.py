@@ -171,7 +171,11 @@ async def create_draft(db: AsyncSession, *, tenant_id: str, user_id: str, provid
             db, tenant_id, source, provider.connection_kind, provider.provider_slug,
         ) != provider.connected_account_id:
             raise PaymentDenied("Conexão Composio foi revogada ou desativada.")
-    request_hash = _request_hash(provider_id, observation_id, method)
+    destination = await get_destination(db, tenant_id)
+    if destination is None:
+        raise PaymentDenied("Cadastre a carteira Asaas de destino deste workspace.")
+    request_hash = hashlib.sha256((_request_hash(provider_id, observation_id, method)
+                                   + ":" + destination.wallet_id).encode()).hexdigest()
     old = (await db.execute(select(StudentPaymentIntent).where(
         StudentPaymentIntent.tenant_id == tenant_id,
         StudentPaymentIntent.provider_id == provider_id,
@@ -203,6 +207,7 @@ async def create_draft(db: AsyncSession, *, tenant_id: str, user_id: str, provid
     amount = draft_amount(obs)
     result = StudentPaymentIntent(
         tenant_id=tenant_id, provider_id=provider.id, financial_observation_id=obs.id,
+        destination_wallet_id=destination.wallet_id,
         student_id=obs.student_id, method=method, amount=amount, currency="BRL",
         idempotency_key=idempotency_key, request_hash=request_hash,
         status="draft", created_by=user_id,
@@ -216,6 +221,7 @@ def describe_draft(item: StudentPaymentIntent, *, deduplicated: bool = False) ->
     return {
         "id": item.id, "provider_id": item.provider_id,
         "financial_observation_id": item.financial_observation_id,
+        "destination_wallet_id": item.destination_wallet_id,
         "student_id": item.student_id, "method": item.method,
         "amount": str(item.amount), "currency": item.currency,
         "status": "draft", "environment": "sandbox",

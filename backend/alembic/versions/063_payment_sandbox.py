@@ -88,6 +88,7 @@ def upgrade():
         pk(), tenant(),
         sa.Column("provider_id", U, nullable=False),
         sa.Column("financial_observation_id", U, nullable=False),
+        sa.Column("destination_wallet_id", U, nullable=False),
         sa.Column("student_id", U, nullable=False),
         sa.Column("method", sa.String(16), nullable=False),
         sa.Column("amount", sa.Numeric(12, 2), nullable=False),

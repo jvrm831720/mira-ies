@@ -59,6 +59,7 @@ class StudentPaymentIntent(Base):
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
     provider_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     financial_observation_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    destination_wallet_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     student_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     method: Mapped[str] = mapped_column(String(16), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
