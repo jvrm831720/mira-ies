@@ -316,10 +316,18 @@ async def run_round(*, owner: str, max_batch: int = 10, parallel: int = 3) -> di
 
     async def guarded(tenant_id: str, record: dict) -> None:
         async with semaphore:
-            result = await process_item(
-                tenant_id=tenant_id, item_id=str(record["id"]),
-                token=str(record["lease_token"]), owner=owner,
-            )
+            try:
+                result = await process_item(
+                    tenant_id=tenant_id, item_id=str(record["id"]),
+                    token=str(record["lease_token"]), owner=owner,
+                )
+            except Exception:
+                # Failure before provider execution leaves a leased item recoverable.
+                # Failure after sending leaves a fenced 'sending' item, later UNKNOWN.
+                logger.exception("dispatch_item_processing_failed", extra={
+                    "item_id": str(record["id"]), "tenant_id": tenant_id,
+                })
+                result = "worker_error"
             summary[result] = summary.get(result, 0) + 1
 
     for tenant_id in await active_tenants():
