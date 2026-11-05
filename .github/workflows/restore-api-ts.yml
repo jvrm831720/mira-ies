@@ -1,0 +1,30 @@
+name: restore-api-ts
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "docs/_restore_api/api.ts.zlib.b64"
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decompress api.ts
+        run: |
+          python3 - <<'PY'
+          import zlib, base64
+          from pathlib import Path
+          b64 = Path("docs/_restore_api/api.ts.zlib.b64").read_text().strip()
+          data = zlib.decompress(base64.b64decode(b64))
+          Path("frontend/src/lib/api.ts").write_bytes(data)
+          print("restored", len(data), "bytes")
+          PY
+      - name: Commit restore
+        run: |
+          git config user.name "mira-bot"
+          git config user.email "bot@mira.local"
+          git add frontend/src/lib/api.ts
+          git diff --cached --quiet || git commit -m "fix: restore frontend/src/lib/api.ts from compressed snapshot"
+          git push
