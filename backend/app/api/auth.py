@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.channels.whatsapp import normalize_phone_br
 from app.agents.providers.whatsapp import send_whatsapp
 from app.agents.providers.resend_provider import send_email_resend
+from app.core.access_email_template import access_code_email
 from app.core.config import get_settings
 from app.core.mira_security import hash_password, verify_password
 from app.core.security import hash_api_key
@@ -196,17 +197,12 @@ async def request_email_login_code(body: EmailPayload, db: AsyncSession = Depend
     db.add(challenge)
     await db.commit()
 
-    greeting = f"Olá, {user.display_name}." if user else "Olá."
+    text_body, html_body = access_code_email(code, ttl_minutes=_OTP_TTL_MINUTES)
     delivery = await send_email_resend(
         to=body.email,
         subject="Seu código de acesso à MIRA",
-        body=(
-            f"{greeting}\n\n"
-            f"Seu código de acesso à MIRA é {code}.\n"
-            f"Ele expira em {_OTP_TTL_MINUTES} minutos e só pode ser usado uma vez. "
-            "Não compartilhe este código.\n\n"
-            "Se você não solicitou este acesso, ignore esta mensagem."
-        ),
+        body=text_body,
+        html=html_body,
     )
     if not delivery.ok:
         logger.warning("Falha na entrega de código de acesso MIRA via Resend.")
