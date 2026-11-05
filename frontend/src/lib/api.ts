@@ -180,6 +180,7 @@ export type SponteSyncJob = {
 };
 
 export type OrgMeResponse = {
+  operation_profile?: string;
   role?: string;
   permissions?: string[] | null;
   custom_role_id?: string | null;
