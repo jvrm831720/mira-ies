@@ -17,6 +17,9 @@ def composio_user_id_for_tenant(tenant_id: str) -> str:
     normalized = str(tenant_id).strip().lower()
     if not normalized:
         raise ValueError("tenant_id é obrigatório")
-    secret = get_settings().secret_key.encode("utf-8")
+    configured_secret = get_settings().composio_identity_secret
+    if not configured_secret:
+        raise RuntimeError("COMPOSIO_IDENTITY_SECRET é obrigatório para derivar identidades estáveis.")
+    secret = configured_secret.encode("utf-8")
     digest = hmac.new(secret, normalized.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"mira_tenant_{digest[:40]}"
