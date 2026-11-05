@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Composio integration (fail-closed; no SDK calls until explicitly activated)
     composio_enabled: bool = False
     composio_api_key: str | None = None
+    composio_identity_secret: str | None = None
     composio_callback_url: str | None = None
     composio_allowed_toolkits: str = ""
 
