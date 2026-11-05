@@ -22,7 +22,14 @@ class OmieConfigurePayload(BaseModel):
     app_hash: str = Field(min_length=1, max_length=160, pattern=r"^[A-Za-z0-9_-]+$")
     access_token: str = Field(min_length=16, max_length=4096)
     refresh_token: str = Field(min_length=16, max_length=4096)
-    token_expires_at: datetime | None = None
+    token_expires_at: datetime
+
+    @field_validator("token_expires_at")
+    @classmethod
+    def require_timezone_aware_expiry(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Informe token_expires_at com fuso horário.")
+        return value
 
     @field_validator("access_token", "refresh_token")
     @classmethod
@@ -122,9 +129,7 @@ async def configure_omie_connection(
     auth: AuthContext = Depends(require_permission("settings.manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    expires_at = body.token_expires_at or (datetime.now(timezone.utc) + timedelta(hours=24))
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    expires_at = body.token_expires_at.astimezone(timezone.utc)
     if expires_at <= datetime.now(timezone.utc):
         raise HTTPException(status_code=422, detail="O token informado já está expirado.")
 
