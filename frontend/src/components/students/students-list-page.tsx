@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { StudentDrawer } from "@/components/students/student-drawer";
-import { MetricCard } from "@/components/students/students-list-metric-card";
 import {
   KNOWN_GROUP_IDS,
   initials,
@@ -201,12 +200,12 @@ export function StudentsListPage() {
     <>
       <Header title="Alunos" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        <section className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <section className="flex flex-col gap-3 border-b border-[#e4e7ec] pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#111827] sm:text-[24px]">
+            <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#1c1d1f] sm:text-[24px]">
               Alunos
             </h1>
-            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
+            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#6f7988]">
               Consulte a base, priorize por risco, grupo ou cobertura de dados e abra a ficha.
             </p>
           </div>
@@ -220,14 +219,14 @@ export function StudentsListPage() {
                 if (groupId) void groupMembers.refetch();
               }}
               disabled={isRefreshing}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-3.5 text-[13px] font-medium text-[#1c1d1f] transition hover:bg-[#f4f5f6] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
               Atualizar
             </button>
             <Link
               href="/importar"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#2563EB] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#266df0] px-4 text-[13px] font-semibold text-white transition hover:bg-[#407ff2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar
@@ -263,24 +262,24 @@ export function StudentsListPage() {
           />
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white">
-          <div className="border-b border-[#E5E7EB] p-4 sm:p-5">
+        <section className="overflow-hidden rounded-xl border border-[#e4e7ec] bg-white">
+          <div className="border-b border-[#e4e7ec] p-4 sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <label className="relative block min-w-0 flex-1">
                 <span className="sr-only">Buscar por nome, matrícula ou curso</span>
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9fa1a7]" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar por nome, matrícula ou curso"
-                  className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white pl-10 pr-9 text-[13px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                  className="h-10 w-full rounded-lg border border-[#e4e7ec] bg-white pl-10 pr-9 text-[13px] text-[#1c1d1f] outline-none placeholder:text-[#9fa1a7] focus:border-[#266df0] focus:ring-2 focus:ring-[#266df0]/15"
                 />
                 {query ? (
                   <button
                     type="button"
                     onClick={() => setQuery("")}
                     aria-label="Limpar busca"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#98A2B3] hover:bg-[#F8FAFC] hover:text-[#111827]"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#9fa1a7] hover:bg-[#f4f5f6] hover:text-[#1c1d1f]"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -293,7 +292,7 @@ export function StudentsListPage() {
                   <select
                     value={risk}
                     onChange={(e) => setRisk(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    className="h-10 w-full rounded-lg border border-[#e4e7ec] bg-white px-3 text-[13px] text-[#2e3238] outline-none focus:border-[#266df0] focus:ring-2 focus:ring-[#266df0]/15"
                   >
                     <option value="">Todas as classificações</option>
                     <option value="critico">Crítico</option>
@@ -306,7 +305,7 @@ export function StudentsListPage() {
                   <select
                     value={course}
                     onChange={(e) => setCourse(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    className="h-10 w-full rounded-lg border border-[#e4e7ec] bg-white px-3 text-[13px] text-[#2e3238] outline-none focus:border-[#266df0] focus:ring-2 focus:ring-[#266df0]/15"
                   >
                     <option value="">Todos os cursos</option>
                     {courses.map((item) => (
@@ -321,7 +320,7 @@ export function StudentsListPage() {
                   <select
                     value={groupId}
                     onChange={(e) => applyGroup(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    className="h-10 w-full rounded-lg border border-[#e4e7ec] bg-white px-3 text-[13px] text-[#2e3238] outline-none focus:border-[#266df0] focus:ring-2 focus:ring-[#266df0]/15"
                   >
                     <option value="">Todos os grupos</option>
                     {(groupsCatalog.data?.groups || []).map((g) => (
@@ -336,7 +335,7 @@ export function StudentsListPage() {
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as StudentSort)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    className="h-10 w-full rounded-lg border border-[#e4e7ec] bg-white px-3 text-[13px] text-[#2e3238] outline-none focus:border-[#266df0] focus:ring-2 focus:ring-[#266df0]/15"
                   >
                     <option value="risk_desc">Maior score primeiro</option>
                     <option value="risk_asc">Menor score primeiro</option>
@@ -363,10 +362,10 @@ export function StudentsListPage() {
                   aria-selected={tab === value}
                   onClick={() => setTab(value)}
                   className={cn(
-                    "rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]",
+                    "rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]",
                     tab === value
-                      ? "bg-[#2563EB] text-white"
-                      : "bg-[#F8FAFC] text-[#667085] hover:bg-[#EFF6FF] hover:text-[#2563EB]"
+                      ? "bg-[#266df0] text-white"
+                      : "bg-[#f4f5f6] text-[#6f7988] hover:bg-[#EFF6FF] hover:text-[#266df0]"
                   )}
                 >
                   {label}
@@ -376,7 +375,7 @@ export function StudentsListPage() {
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-[#667085] hover:text-[#111827]"
+                  className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-[#6f7988] hover:text-[#1c1d1f]"
                 >
                   <X className="h-3.5 w-3.5" />
                   Limpar filtros
@@ -405,9 +404,9 @@ export function StudentsListPage() {
           {!studentsQuery.isLoading && !studentsQuery.isError ? (
             <>
               <div className="flex flex-col gap-2 px-4 py-3 sm:px-5">
-                <p className="text-[13px] font-semibold text-[#111827]">
+                <p className="text-[13px] font-semibold text-[#1c1d1f]">
                   Resultados
-                  <span className="ml-1 font-normal text-[#98A2B3]">
+                  <span className="ml-1 font-normal text-[#9fa1a7]">
                     ({filtered.length.toLocaleString("pt-BR")})
                     {filtered.length > visibleLimit
                       ? ` · mostrando ${visibleLimit.toLocaleString("pt-BR")}`
@@ -415,18 +414,18 @@ export function StudentsListPage() {
                   </span>
                 </p>
                 {groupId ? (
-                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] text-[#1D4ED8]">
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] text-[#407ff2]">
                     <Layers className="h-3.5 w-3.5 shrink-0" />
                     <span className="font-semibold">
                       Grupo:{" "}
                       {(groupsCatalog.data?.groups || []).find((g) => g.id === groupId)?.name || groupId}
                     </span>
-                    {groupMembers.isLoading ? <span className="text-[#667085]">Carregando integrantes…</span> : null}
+                    {groupMembers.isLoading ? <span className="text-[#6f7988]">Carregando integrantes…</span> : null}
                     {groupMembers.isError ? (
                       <span className="text-[#B42318]">Não foi possível carregar os membros do grupo.</span>
                     ) : null}
                     {groupMembers.data ? (
-                      <span className="text-[#344054]">
+                      <span className="text-[#2e3238]">
                         {groupMembers.data.size.toLocaleString("pt-BR")} com sinal ativo no grupo
                       </span>
                     ) : null}
@@ -436,7 +435,7 @@ export function StudentsListPage() {
                     >
                       Ver grupo
                     </Link>
-                    <button type="button" onClick={() => applyGroup("")} className="font-medium text-[#667085] hover:text-[#111827]">
+                    <button type="button" onClick={() => applyGroup("")} className="font-medium text-[#6f7988] hover:text-[#1c1d1f]">
                       Limpar grupo
                     </button>
                   </div>
@@ -450,78 +449,77 @@ export function StudentsListPage() {
 
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center px-5 py-14 text-center">
-                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#F8FAFC] text-[#667085]">
+                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#f4f5f6] text-[#6f7988]">
                     {hasFilters ? <Search className="h-5 w-5" /> : <Users className="h-5 w-5" />}
                   </span>
-                  <h3 className="mt-4 text-[14px] font-semibold text-[#111827]">
+                  <h3 className="mt-4 text-[14px] font-semibold text-[#1c1d1f]">
                     {hasFilters ? "Nenhum aluno encontrado" : "Sua base começa aqui"}
                   </h3>
-                  <p className="mt-1 max-w-sm text-[13px] leading-relaxed text-[#667085]">
+                  <p className="mt-1 max-w-sm text-[13px] leading-relaxed text-[#6f7988]">
                     {hasFilters
                       ? "Tente ajustar os filtros ou remover alguns critérios."
                       : "Importe uma planilha para começar a análise de risco."}
                   </p>
                 </div>
               ) : (
-                <ul className="divide-y divide-[#F2F4F7]">
-                  {visibleStudents.map((student) => {
-                    const signal = primarySignal(student);
-                    const log = latestLogs.get(student.id);
-                    return (
-                      <li key={student.id}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(student.id)}
-                          className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-[#F8FAFC] sm:px-5"
-                        >
-                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EFF6FF] text-[12px] font-semibold text-[#2563EB]">
-                            {initials(student.nome)}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="truncate text-[14px] font-semibold text-[#111827]">
-                                {student.nome || "Sem nome"}
-                              </span>
-                              <RiskBadge level={student.risk_level} />
-                            </div>
-                            <p className="mt-0.5 truncate text-[12px] text-[#667085]">
-                              {student.matricula || "—"}
-                              {student.curso ? ` · ${student.curso}` : ""}
-                              {student.risk_score != null
-                                ? ` · score ${formatScore(student.risk_score)}`
-                                : " · sem score"}
-                              {log ? ` · ${followUpLabel(log.status)}` : ""}
-                            </p>
-                            {signal.signal ? (
-                              <p className="mt-1 truncate text-[11px] text-[#344054]">{signal.signal}</p>
-                            ) : (
-                              <p className="mt-1 text-[11px] text-[#98A2B3]">{signal.empty}</p>
-                            )}
-                          </div>
-                          <ChevronRight className="h-4 w-4 shrink-0 text-[#98A2B3]" />
-                        </button>
-                        <div className="flex justify-end gap-2 px-4 pb-3 sm:px-5">
-                          <Link
-                            href={`/alunos/${student.id}`}
-                            className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#2563EB] hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Abrir ficha
-                            <ArrowRight className="h-3 w-3" />
-                          </Link>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[980px] text-left">
+                    <thead className="border-y border-[#e4e7ec] bg-white text-[11px] font-medium text-[#6f7988]">
+                      <tr>
+                        <th className="px-5 py-3 font-medium">Aluno</th>
+                        <th className="px-4 py-3 font-medium">Matrícula</th>
+                        <th className="px-4 py-3 font-medium">Curso</th>
+                        <th className="px-4 py-3 font-medium">Classificação</th>
+                        <th className="px-4 py-3 text-right font-medium">Score</th>
+                        <th className="px-4 py-3 font-medium">Acompanhamento</th>
+                        <th className="w-10 px-3 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#e4e7ec]">
+                      {visibleStudents.map((student) => {
+                        const signal = primarySignal(student);
+                        const log = latestLogs.get(student.id);
+                        return (
+                          <tr key={student.id} className="group transition-colors hover:bg-[#f4f5f6]">
+                            <td className="px-5 py-3">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f4f5f6] text-[11px] font-semibold text-[#505967]">
+                                  {initials(student.nome)}
+                                </span>
+                                <div className="min-w-0">
+                                  <Link href={`/alunos/${student.id}`} className="block truncate text-[13px] font-medium text-[#1c1d1f] hover:text-[#266df0]">
+                                    {student.nome || "Sem nome"}
+                                  </Link>
+                                  <p className="mt-0.5 max-w-[280px] truncate text-[11px] text-[#9fa1a7]">
+                                    {signal.signal || signal.empty}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-[12px] tabular-nums text-[#505967]">{student.matricula || "—"}</td>
+                            <td className="max-w-[220px] truncate px-4 py-3 text-[12px] text-[#505967]">{student.curso || "—"}</td>
+                            <td className="px-4 py-3"><RiskBadge level={student.risk_level} /></td>
+                            <td className="px-4 py-3 text-right text-[12px] font-medium tabular-nums text-[#1c1d1f]">{student.risk_score != null ? formatScore(student.risk_score) : "—"}</td>
+                            <td className="px-4 py-3 text-[12px] text-[#6f7988]">{log ? followUpLabel(log.status) : "Sem contato registrado"}</td>
+                            <td className="px-3 py-3 text-right">
+                              <button type="button" onClick={() => setSelectedId(student.id)} aria-label={`Visualizar ${student.nome || "aluno"}`} className="rounded-md p-1.5 text-[#9fa1a7] opacity-0 transition hover:bg-white hover:text-[#1c1d1f] group-hover:opacity-100 focus:opacity-100">
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
 
               {filtered.length > visibleLimit ? (
-                <div className="border-t border-[#E5E7EB] px-4 py-4 sm:px-5">
+                <div className="border-t border-[#e4e7ec] px-4 py-4 sm:px-5">
                   <button
                     type="button"
                     onClick={() => setVisibleLimit((n) => n + 50)}
-                    className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[13px] font-semibold text-[#344054] transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+                    className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#e4e7ec] bg-white text-[13px] font-semibold text-[#2e3238] transition hover:bg-[#f4f5f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
                   >
                     Carregar mais ({Math.min(50, filtered.length - visibleLimit)} de{" "}
                     {(filtered.length - visibleLimit).toLocaleString("pt-BR")} restantes)
