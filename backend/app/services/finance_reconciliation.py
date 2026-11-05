@@ -338,16 +338,10 @@ async def ingest_rows(
                 "unchanged": previous.unchanged_count, "deduplicated": True,
                 "settlement_confirmed": False}
     students = await _resolve_students(db, profile, canonical)
-    batch = FinanceIngestionBatch(
-        tenant_id=tenant_id, profile_id=profile.id, actor_id=actor_id, origin=origin,
-        idempotency_key=idempotency_key, payload_digest=digest,
-        mapping_version=profile.mapping_version, row_count=len(canonical),
-        imported_count=0, unchanged_count=0,
-    )
-    db.add(batch)
-    await db.flush()
-    imported, unchanged = 0, 0
     source_key = "profile_" + profile.id
+    pending = []
+    unchanged = 0
+    # Resolve every conflict BEFORE creating the immutable batch audit record.
     for entry in canonical:
         student_id = students[entry["student_ref"]]
         recorded = {**entry, "student_id": student_id}
@@ -371,7 +365,6 @@ async def ingest_rows(
         if already is not None:
             unchanged += 1
             continue
-        # Extra guard: source/external ID may not be reused for another student.
         current = (await db.execute(select(StudentFinancialReference).where(
             StudentFinancialReference.tenant_id == tenant_id,
             StudentFinancialReference.source == source_key,
@@ -379,6 +372,18 @@ async def ingest_rows(
         ))).scalar_one_or_none()
         if current and current.student_id != student_id:
             raise ReconciliationDenied("Fonte duplicou uma obrigação em dois alunos.")
+        pending.append((entry, student_id, fingerprint))
+    imported = len(pending)
+    batch = FinanceIngestionBatch(
+        tenant_id=tenant_id, profile_id=profile.id, actor_id=actor_id, origin=origin,
+        idempotency_key=idempotency_key, payload_digest=digest,
+        mapping_version=profile.mapping_version, row_count=len(canonical),
+        imported_count=imported, unchanged_count=unchanged,
+    )
+    db.add(batch)
+    await db.flush()
+    # Snapshot per profile; entries from distinct accounts never overwrite each other.
+    for entry, student_id, fingerprint in pending:
         db.add(FinanceObservation(
             tenant_id=tenant_id, profile_id=profile.id, student_id=student_id,
             batch_id=batch.id, external_id=entry["external_id"],
@@ -403,9 +408,6 @@ async def ingest_rows(
             },
         )
         await db.execute(statement)
-        imported += 1
-    batch.imported_count = imported
-    batch.unchanged_count = unchanged
     await db.commit()
     return {"batch_id": batch.id, "imported": imported, "unchanged": unchanged,
             "deduplicated": False, "settlement_confirmed": False,
