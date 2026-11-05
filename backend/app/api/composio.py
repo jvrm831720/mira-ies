@@ -22,6 +22,7 @@ from app.services.composio.categories import (
     documents_category,
     productivity_category,
     data_analysis_category,
+    support_category,
 )
 from app.services.composio.client import (
     ComposioSDKUnavailable,
@@ -112,8 +113,9 @@ async def get_catalog_categories(
             documents_category(),
             productivity_category(),
             data_analysis_category(),
+            support_category(),
         ],
-        "total": 5,
+        "total": 6,
     }
 
 
