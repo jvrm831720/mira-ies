@@ -7,7 +7,7 @@ retention campaign. Individual channel authorization is still mandatory.
 from __future__ import annotations
 
 import hashlib
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +24,11 @@ async def materialize_proposal(
 ) -> dict:
     if not actor or not proposal_id or not template_id:
         raise ValueError("Solicitante, proposta e modelo aprovado são obrigatórios.")
+    try:
+        proposal_id = str(UUID(proposal_id))
+        template_id = str(UUID(template_id))
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Identificador de proposta ou modelo inválido.") from exc
     await bind_tenant(db, tenant_id)
     proposal = (await db.execute(
         select(RetentionCampaignProposal).where(
