@@ -20,7 +20,7 @@ from app.services.dispatch_core import audit, bind_tenant
 async def templates(db: AsyncSession, tenant_id: str) -> list[dict[str, Any]]:
     await bind_tenant(db, tenant_id)
     result = await db.execute(text("""
-        SELECT id, code, version, purpose, channel, subject, status, created_by,
+        SELECT id, code, version, purpose, channel, subject, body, status, created_by,
                approved_by, approved_at, created_at
         FROM dispatch_approved_templates
         WHERE tenant_id=:tenant
