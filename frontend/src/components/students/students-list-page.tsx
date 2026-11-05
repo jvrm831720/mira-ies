@@ -216,14 +216,14 @@ export function StudentsListPage() {
                 if (groupId) void groupMembers.refetch();
               }}
               disabled={isRefreshing}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F8F9FA] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
               Atualizar
             </button>
             <Link
               href="/importar"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#2563EB] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-4 text-[13px] font-medium text-white transition hover:bg-[#101112] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar
@@ -265,14 +265,14 @@ export function StudentsListPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar por nome, matrícula ou curso"
-                  className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white pl-10 pr-9 text-[13px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                  className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white pl-10 pr-9 text-[13px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
                 />
                 {query ? (
                   <button
                     type="button"
                     onClick={() => setQuery("")}
                     aria-label="Limpar busca"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#98A2B3] hover:bg-[#F8FAFC] hover:text-[#111827]"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#98A2B3] hover:bg-[#F8F9FA] hover:text-[#111827]"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -285,7 +285,7 @@ export function StudentsListPage() {
                   <select
                     value={risk}
                     onChange={(e) => setRisk(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
                   >
                     <option value="">Todas as classificações</option>
                     <option value="critico">Crítico</option>
@@ -298,7 +298,7 @@ export function StudentsListPage() {
                   <select
                     value={course}
                     onChange={(e) => setCourse(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
                   >
                     <option value="">Todos os cursos</option>
                     {courses.map((item) => (
@@ -313,7 +313,7 @@ export function StudentsListPage() {
                   <select
                     value={groupId}
                     onChange={(e) => applyGroup(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
                   >
                     <option value="">Todos os grupos</option>
                     {(groupsCatalog.data?.groups || []).map((g) => (
@@ -328,7 +328,7 @@ export function StudentsListPage() {
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as StudentSort)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
                   >
                     <option value="risk_desc">Maior score primeiro</option>
                     <option value="risk_asc">Menor score primeiro</option>
@@ -407,7 +407,7 @@ export function StudentsListPage() {
                   </span>
                 </p>
                 {groupId ? (
-                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] text-[#1D4ED8]">
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] text-[#1F5DD1]">
                     <Layers className="h-3.5 w-3.5 shrink-0" />
                     <span className="font-semibold">
                       Grupo:{" "}
@@ -442,7 +442,7 @@ export function StudentsListPage() {
 
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center px-5 py-14 text-center">
-                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#F8FAFC] text-[#667085]">
+                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#F8F9FA] text-[#667085]">
                     {hasFilters ? <Search className="h-5 w-5" /> : <Users className="h-5 w-5" />}
                   </span>
                   <h3 className="mt-4 text-[14px] font-semibold text-[#111827]">
@@ -530,7 +530,7 @@ export function StudentsListPage() {
                   <button
                     type="button"
                     onClick={() => setVisibleLimit((n) => n + 50)}
-                    className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[13px] font-semibold text-[#344054] transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+                    className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[13px] font-semibold text-[#344054] transition hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
                   >
                     Carregar mais ({Math.min(50, filtered.length - visibleLimit)} de{" "}
                     {(filtered.length - visibleLimit).toLocaleString("pt-BR")} restantes)
