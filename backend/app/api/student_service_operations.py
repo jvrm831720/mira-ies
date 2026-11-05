@@ -206,8 +206,16 @@ async def _detail(db: AsyncSession, row: StudentServiceRequest, *, staff: bool) 
     files = (await db.execute(
         q2.order_by(StudentServiceAttachment.created_at, StudentServiceAttachment.id).limit(20)
     )).scalars().all()
+    events = (await db.execute(select(StudentServiceEvent).where(
+        StudentServiceEvent.tenant_id == row.tenant_id,
+        StudentServiceEvent.request_id == row.id,
+    ).order_by(StudentServiceEvent.occurred_at, StudentServiceEvent.id).limit(300))).scalars().all()
     return {
         "request": _queue_json(row) if staff else _request_json(row),
+        "events": [{
+            "id": e.id, "status": e.status, "actor_type": e.actor_type,
+            "note": e.note, "occurred_at": _stamp(e.occurred_at),
+        } for e in events],
         "comments": [{
             "id": c.id, "actor_type": c.actor_type, "body": c.body,
             "visibility": c.visibility, "created_at": _stamp(c.created_at),
