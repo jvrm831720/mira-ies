@@ -10,7 +10,7 @@ import {
   Database,
   Sparkles,
   UploadCloud,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";

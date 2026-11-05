@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { MessageSquare, ShieldAlert } from "lucide-react";
+import { MessageSquare, ShieldAlert } from "@/components/ui/icons";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";

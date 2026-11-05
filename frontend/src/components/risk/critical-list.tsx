@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatScore, cn } from "@/lib/utils";
 import { copy } from "@/lib/copy";
 import type { StudentRisk } from "@/types/api";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@/components/ui/icons";
 import Link from "next/link";
 
 export function CriticalList({

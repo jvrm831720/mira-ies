@@ -15,7 +15,7 @@ import {
   RefreshCw,
   ShieldAlert,
   Users,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { RiskSummary } from "@/types/api";
-import { AlertTriangle, CheckCircle2, CircleHelp, Minus } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleHelp, Minus } from "@/components/ui/icons";
 
 const segments = [
   { key: "critico", label: "Crítico", color: "var(--brand-coral)", icon: AlertTriangle },
