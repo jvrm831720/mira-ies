@@ -219,6 +219,7 @@ export default function DispatchConsolePage() {
           <p className="mt-1 text-sm text-[#85858B]">Um contato individual, um grupo de alunos ou campanhas em escala — com os mesmos controles.</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/disparos/importacoes" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Importações Composio</Link>
           <Link href="/disparos/modelos" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Modelos e aprovações</Link>
           <Link href="/disparos/provedores" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Provedores</Link>
           <button onClick={() => { setShowProposal(v => !v); setShowCreate(false); setShowIndividual(false); }} type="button"
@@ -470,6 +471,26 @@ export default function DispatchConsolePage() {
                 className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
                 Adicionar ao outbox
               </button>
+              {current.source_kind === "composio" && <>
+                <div className="rounded-lg border border-[#DBEAFE] bg-[#F7FAFF] p-3 text-xs">
+                  <p className="font-semibold text-[#1D4ED8]">Audiência da conexão Composio</p>
+                  <p className="mt-1 text-[#536276]">
+                    Importe dados na tela de conexões. Somente registros com autorização individual,
+                    contato verificado e obrigação financeira elegível entram na fila.
+                  </p>
+                  <Link href="/disparos/importacoes" className="mt-2 inline-block font-medium text-[#2563EB]">
+                    Consultar dados da conexão
+                  </Link>
+                </div>
+                <button type="button" disabled={busy}
+                  onClick={() => void execute(async () => {
+                    const result = await dispatchApi.stageFromComposio(current.id);
+                    toast.message(`${result.filtered} registro(s) não elegível(is) ignorado(s).`);
+                  }, "Registros autorizados vinculados à campanha.")}
+                  className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
+                  Vincular registros elegíveis importados
+                </button>
+              </>}
               <label className="block text-xs text-[#66666B]">Evidência institucional para aprovação
                 <input value={approvalRef} onChange={(e) => setApprovalRef(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[#DADADD] p-2" placeholder="Número do documento ou autorização" />
