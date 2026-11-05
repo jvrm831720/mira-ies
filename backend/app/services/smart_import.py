@@ -65,7 +65,9 @@ MAX_ROW_ERRORS_RETURNED = 100
 # ---------------------------------------------------------------------------
 
 def normalize_header(value: Any) -> str:
-    import unicodedata, re
+    import re
+    import unicodedata
+
     text = unicodedata.normalize("NFKD", str(value or ""))
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
