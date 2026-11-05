@@ -73,6 +73,14 @@ const groups: NavGroup[] = [
     ],
   },
   {
+    id: "academico",
+    label: "Acadêmico",
+    links: [
+      { href: "/academico", label: "Gestão acadêmica", icon: BookOpenCheck,
+        keywords: "cursos professores disciplinas turmas notas aulas calendário boletim" },
+    ],
+  },
+  {
     id: "acoes",
     label: "Ações",
     links: [
@@ -154,16 +162,23 @@ export function Sidebar() {
   const displayName = me.data?.display_name || me.data?.email || "Conta";
   const role = me.data?.role;
   const email = me.data?.email;
+  // Students and billing workspaces cannot enter academic administration.
+  const academicAllowed = me.data?.operation_profile === "institution"
+    && (me.data?.permissions
+      ? me.data.permissions.includes("students.sensitive.view")
+      : ["admin", "coordinator"].includes(me.data?.role || ""));
+  const visibleGroups = useMemo(() => groups
+    .filter((group) => group.id !== "academico" || academicAllowed), [academicAllowed]);
 
   const commandGroups = useMemo(() => {
     const q = commandQuery.trim().toLocaleLowerCase("pt-BR");
-    return groups.map((group) => ({
+    return visibleGroups.map((group) => ({
       ...group,
       links: q ? group.links.filter((link) =>
         [link.label, link.keywords || "", group.label].some((value) => value.toLocaleLowerCase("pt-BR").includes(q))
       ) : group.links,
     })).filter((group) => group.links.length > 0);
-  }, [commandQuery]);
+  }, [commandQuery, visibleGroups]);
 
   const commandResults = useMemo(() => commandGroups.flatMap((group) => group.links.map((link) => ({
     ...link,
@@ -364,7 +379,7 @@ export function Sidebar() {
 
         <nav aria-label="Navegação principal" className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3", collapsed ? "px-2" : "px-3")}>
           <div className="flex flex-col gap-4">
-            {groups.map((group) => (
+            {visibleGroups.map((group) => (
               <section key={group.id}>
                 {!collapsed && (
                   <h2 className="mb-1 px-2.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-[#929299]">
