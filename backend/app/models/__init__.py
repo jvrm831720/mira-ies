@@ -23,6 +23,7 @@ from app.models.composio_connection import (
 )
 from app.models.integration_features import TenantIntegrationDataSource, StudentFeatureObservation
 from app.models.composio_approval import TenantComposioToolApproval
+from app.models.omie_connection import TenantOmieConnection
 
 __all__ = [
     "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
@@ -37,5 +38,5 @@ __all__ = [
     "RmSyncJob", "RmSyncJobEvent", "TenantConnectorDestination", "TenantConnectorDestinationAudit",
     "TenantComposioSession", "TenantComposioAccount", "TenantComposioOAuthState",
     "TenantComposioToolAudit", "TenantComposioToolkitPolicy", "TenantComposioToolApproval",
-    "TenantIntegrationDataSource", "StudentFeatureObservation",
+    "TenantIntegrationDataSource", "StudentFeatureObservation", "TenantOmieConnection",
 ]
