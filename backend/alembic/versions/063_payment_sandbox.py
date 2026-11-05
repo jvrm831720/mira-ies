@@ -124,7 +124,7 @@ def upgrade():
             name="fk_mira_pay_evidence_intent_provider_tenant",
         ),
         sa.CheckConstraint(
-            "reported_state IN ('created','processing','paid_reported','failed','refunded_reported','chargeback_reported')",
+            "reported_state IN ('created','processing','partially_paid_reported','paid_reported','failed','refunded_reported','chargeback_reported')",
             name="ck_mira_pay_evidence_state",
         ),
         sa.CheckConstraint("reported_amount >= 0", name="ck_mira_pay_evidence_amount"),

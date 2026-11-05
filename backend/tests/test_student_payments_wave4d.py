@@ -17,7 +17,7 @@ from app.models.student_payments import PaymentProviderProfile, StudentPaymentEv
 from app.services import student_payments as payments
 
 
-def test_settings(monkeypatch, *, payments_on=True, webhooks_on=True):
+def configure(monkeypatch, *, payments_on=True, webhooks_on=True):
     monkeypatch.setattr(payments, "get_settings", lambda: SimpleNamespace(
         native_academic_enabled=True, native_academic_services_enabled=True,
         student_finance_reconciliation_enabled=True,
@@ -28,7 +28,7 @@ def test_settings(monkeypatch, *, payments_on=True, webhooks_on=True):
 
 
 def test_payment_feature_fails_closed(monkeypatch):
-    test_settings(monkeypatch, payments_on=False)
+    configure(monkeypatch, payments_on=False)
     with pytest.raises(payments.PaymentDenied):
         payments.enabled()
     with pytest.raises(payments.PaymentDenied):
@@ -62,7 +62,7 @@ def make_event_signature(raw, tenant_id, provider_id, timestamp):
 
 
 def test_sandbox_envelope_authenticity_and_replay_window(monkeypatch):
-    test_settings(monkeypatch)
+    configure(monkeypatch)
     tid, pid = str(uuid4()), str(uuid4())
     raw = b'{"event":"synthetic"}'
     stamp = str(int(datetime.now(timezone.utc).timestamp()))
@@ -147,7 +147,7 @@ async def make_source(db, factory, slug, user_id, *, account="xero-test-account"
 async def test_workspace_composio_multiple_profiles_and_idempotent_drafts(
     db_session, tenant_factory, monkeypatch,
 ):
-    test_settings(monkeypatch)
+    configure(monkeypatch)
     actor = str(uuid4())
     tenant, source, student, observation = await make_source(
         db_session, tenant_factory, "sandbox-pay-a", actor, account="account-payment-A",
@@ -198,7 +198,7 @@ async def test_workspace_composio_multiple_profiles_and_idempotent_drafts(
 async def test_sandbox_report_is_append_only_not_bank_settlement(
     db_session, tenant_factory, monkeypatch,
 ):
-    test_settings(monkeypatch)
+    configure(monkeypatch)
     actor = str(uuid4())
     tenant, source, _, obs_id = await make_source(
         db_session, tenant_factory, "sandbox-pay-b", actor, account="account-payment-B",
@@ -248,7 +248,7 @@ async def test_sandbox_report_is_append_only_not_bank_settlement(
 async def test_cross_tenant_provider_and_observation_rejected(
     db_session, tenant_factory, monkeypatch,
 ):
-    test_settings(monkeypatch)
+    configure(monkeypatch)
     actor = str(uuid4())
     tenant_a, source_a, _, obs_a = await make_source(
         db_session, tenant_factory, "sandbox-tenant-a", actor, account="account-payment-TA",

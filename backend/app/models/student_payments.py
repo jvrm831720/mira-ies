@@ -75,7 +75,7 @@ class StudentPaymentEvidence(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "provider_id", "provider_event_id", name="uq_mira_pay_event_id"),
         ForeignKeyConstraint(["tenant_id", "provider_id", "intent_id"], ["mira_student_payment_intents.tenant_id", "mira_student_payment_intents.provider_id", "mira_student_payment_intents.id"], name="fk_mira_pay_evidence_intent_provider_tenant"),
-        CheckConstraint("reported_state IN ('created','processing','paid_reported','failed','refunded_reported','chargeback_reported')", name="ck_mira_pay_evidence_state"),
+        CheckConstraint("reported_state IN ('created','processing','partially_paid_reported','paid_reported','failed','refunded_reported','chargeback_reported')", name="ck_mira_pay_evidence_state"),
         CheckConstraint("reported_amount >= 0", name="ck_mira_pay_evidence_amount"),
         CheckConstraint("currency = 'BRL'", name="ck_mira_pay_evidence_currency"),
         Index("ix_mira_pay_evidence_intent", "tenant_id", "intent_id", "received_at"),
