@@ -11,6 +11,7 @@ Replicar a engrenagem Data Import + Metadata do Frappe, adaptada à stack:
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from uuid import uuid4
 from difflib import SequenceMatcher
 from typing import Any, Optional
 
@@ -20,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.student import Student, UploadBatch
 from app.services.custom_fields import coerce_value
+from app.services.consent import apply_preference_changes
 
 # Tipos canônicos do cadastro. Aliases vêm de app.services.ingestion.COLUMN_ALIASES
 # quando disponíveis (mesma fonte do upload legado) e são enriquecidos por tenant.
@@ -43,6 +45,12 @@ STANDARD_FIELD_TYPES: dict[str, str] = {
     "presenca_percentual": "number",
     "nota_media": "number",
     "reprovacoes": "integer",
+}
+
+FIELD_MAX_LENGTH: dict[str, int] = {
+    "matricula": 50, "nome": 255, "curso": 150, "campus": 150,
+    "status_aluno": 80, "turma": 100, "forma_ingresso": 100,
+    "telefone": 30, "email": 255, "status_financeiro": 80,
 }
 
 DEFAULT_KEY_FIELD = "matricula"
@@ -118,6 +126,22 @@ def suggest_mapping(headers: list[str], catalog: list[dict[str, Any]]):
             suggestions[header] = candidates[:3]
         else:
             unmapped.append(header)
+
+    # Impede que duas colunas alimentem silenciosamente o mesmo campo.
+    accepted_fields: dict[str, str] = {}
+    for header in headers:
+        item = mapping.get(header)
+        if item is None:
+            continue
+        field = item["field"]
+        previous = accepted_fields.get(field)
+        if previous is None:
+            accepted_fields[field] = header
+        elif item["confidence"] > mapping[previous]["confidence"]:
+            suggestions[previous] = [mapping.pop(previous)]
+            accepted_fields[field] = header
+        else:
+            suggestions[header] = [mapping.pop(header)]
     return mapping, suggestions, unmapped
 
 
@@ -193,6 +217,12 @@ def validate_records(
                 continue
             entry = catalog_by_field[target["field"]]
             ok, value, error = coerce_value(row.get(header), entry["data_type"], entry.get("options"))
+            if ok and value is not None and entry["source"] == "standard":
+                max_length = FIELD_MAX_LENGTH.get(entry["field"])
+                if max_length is not None and len(str(value)) > max_length:
+                    ok, error = False, f"Valor excede {max_length} caracteres."
+            if ok and value is None and entry.get("required"):
+                ok, error = False, "Campo obrigatório sem valor."
             if not ok:
                 has_error = True
                 row_errors.append({"row": row_number, "field": target["field"], "header": header, "message": error})
@@ -232,6 +262,8 @@ async def apply_smart_import(
     fingerprint: str | None = None,
 ) -> dict[str, Any]:
     records: list[dict[str, Any]] = validated["records"]
+    if not records:
+        raise ValueError("Nenhuma linha válida para importar.")
     keys = [r["key"] for r in records]
     existing_result = await db.execute(
         select(Student).where(Student.tenant_id == tenant_id, Student.matricula.in_(keys))
@@ -242,11 +274,13 @@ async def apply_smart_import(
             raise ValueError(f"Matrícula {student.matricula} possui registros ambíguos neste tenant.")
         existing_by_key[student.matricula] = student
 
+    if not any(r["key"] in existing_by_key or r["standard"].get("nome") for r in records):
+        raise ValueError("Nenhuma linha importável: alunos novos precisam de nome.")
     now = datetime.now(timezone.utc)
     batch = UploadBatch(
         id=batch_id, tenant_id=tenant_id,
         filename=filename, original_filename=original_filename,
-        status="processed", total_rows=len(records), processed_rows=0,
+        status="processed", total_rows=len(records) + validated["key_stats"]["invalid"], processed_rows=0,
         columns={"mode": "smart_import", "key_field": key_field, "fingerprint": fingerprint,
                  "mapping": {h: m["field"] for h, m in mapping.items()}},
         processed_at=now,
@@ -265,7 +299,7 @@ async def apply_smart_import(
             continue
         if student is None:
             student = Student(
-                tenant_id=tenant_id, batch_id=batch_id,
+                id=str(uuid4()), tenant_id=tenant_id, batch_id=batch_id,
                 matricula=record["key"], nome=record["standard"].pop("nome"),
                 custom_fields={},
             )
@@ -274,15 +308,17 @@ async def apply_smart_import(
             updated += 1
         for field, value in record["standard"].items():
             if field == "communication_opt_out":
-                # Import does not constitute affirmative consent: never clear an opt-out.
+                # Importação não representa consentimento. Somente opt-out afirmativo.
                 if value:
-                    student.communication_opt_out = True
-                    student.communication_opted_out_at = now
+                    apply_preference_changes(
+                        db, tenant_id=tenant_id, student=student,
+                        opt_out=True, source="smart_import", method="csv_upload",
+                        location="/api/v1/import/apply", source_reference=batch_id,
+                        occurred_at=now,
+                    )
                 continue
             if hasattr(student, field):
                 setattr(student, field, value)
-        if "communication_opt_out" in record["standard"] and record["standard"]["communication_opt_out"]:
-            student.communication_opted_out_at = now
         if record["custom"]:
             merged = {**(student.custom_fields or {}), **record["custom"]}
             student.custom_fields = merged
