@@ -33,7 +33,7 @@ class ComposioClient:
         if toolkit_slug:
             params["toolkit_slug"] = toolkit_slug
         if search:
-            params["search"] = search
+            params["query"] = search
         return await self._request("GET", "/api/v3.1/tools", params=params)
 
     async def create_auth_link(
