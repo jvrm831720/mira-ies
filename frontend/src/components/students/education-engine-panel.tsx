@@ -61,6 +61,7 @@ export function EducationEngineStudentPanel({ studentId }: { studentId: string }
   const identity = useQuery({
     queryKey: ["org-me"], queryFn: () => api.me(), retry: false, staleTime: 60_000,
   });
+  const isInstitution = identity.data?.operation_profile === "institution";
   const allowed = identity.data?.permissions
     ? identity.data.permissions.includes("students.sensitive.view")
     : ["admin", "coordinator"].includes(identity.data?.role ?? "");
@@ -68,19 +69,19 @@ export function EducationEngineStudentPanel({ studentId }: { studentId: string }
   const profile = useQuery({
     queryKey: ["education-engine", "student", studentId, "profile"],
     queryFn: () => educationEngine.studentProfile(studentId),
-    enabled: opened && allowed,
+    enabled: opened && isInstitution && allowed,
     retry: false,
     staleTime: 30_000,
   });
   const data = useQuery({
     queryKey: ["education-engine", "student", studentId, active, offset],
     queryFn: () => educationEngine.studentRecords(studentId, active, offset),
-    enabled: opened && allowed && profile.isSuccess,
+    enabled: opened && isInstitution && allowed && profile.isSuccess,
     retry: false,
     staleTime: 30_000,
   });
 
-  if (identity.isLoading || !allowed) return null;
+  if (identity.isLoading || !isInstitution || !allowed) return null;
 
   return (
     <section className="scroll-mt-24 overflow-hidden rounded-[10px] border border-[#E4E7EC] bg-white" aria-label="Dados do motor acadêmico MIRA">
