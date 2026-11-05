@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     dispatch_trusted_authorization_sources: str = ""
     dispatch_webhook_secret: str | None = None
     dispatch_provider_encryption_key: str | None = None
+    dispatch_source_encryption_key: str | None = None
     dispatch_twilio_callback_base_url: str | None = None
     dispatch_contact_encryption_key: str | None = None
 
