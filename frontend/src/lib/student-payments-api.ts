@@ -30,6 +30,32 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+
+export type AsaasDestination = {
+  configured: boolean;
+  status: "missing" | "pending" | "verified" | "rejected";
+  wallet_id: string | null;
+  version: number | null;
+  receives_percent_of_net: 100;
+  verified_for_live: boolean;
+};
+
+export type AsaasSplitPreview = {
+  observation_id: string;
+  student_id: string;
+  source_profile_id: string;
+  gross_charge_value: string;
+  currency: "BRL";
+  method_options: Array<"PIX" | "BOLETO">;
+  split: Array<{ walletId: string; percentualValue: 100 }>;
+  split_basis: "netValue";
+  receives_percent_of_net: 100;
+  recipient_verification: string;
+  ready_for_real_charges: false;
+  charge_created: false;
+  settlement_confirmed: false;
+};
+
 export type SandboxProvider = {
   id: string; name: string; finance_profile_id: string;
   connection_kind: "composio" | "custom_pending";
@@ -65,6 +91,19 @@ function idempotency() {
 }
 
 export const studentPaymentsApi = {
+  asaasDestination: () => request<AsaasDestination>(ROOT + "/asaas/destination"),
+  saveAsaasDestination: (walletId: string, expectedVersion: number | null) =>
+    request<AsaasDestination>(ROOT + "/asaas/destination", {
+      method: "PUT",
+      body: JSON.stringify({ wallet_id: walletId, expected_version: expectedVersion,
+        confirms_ownership: true }),
+    }),
+  previewAsaasSplit: (observationId: string) => request<AsaasSplitPreview>(
+    ROOT + "/asaas/split-preview", {
+      method: "POST",
+      body: JSON.stringify({ financial_observation_id: observationId }),
+    },
+  ),
   providers: () => request<{ items: SandboxProvider[]; multiple_providers: boolean }>(ROOT + "/providers"),
   register: (payload: {
     finance_profile_id: string; name: string;
