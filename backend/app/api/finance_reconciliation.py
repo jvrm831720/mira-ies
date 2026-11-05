@@ -303,7 +303,7 @@ async def suggest_csv_headers(
     if not (file.filename or "").lower().endswith(".csv"):
         raise HTTPException(status_code=415, detail="Somente CSV UTF-8 é aceito.")
     payload = await file.read(512 * 1024 + 1)
-    if not payload or len(payload) > 512 * 1024 or b"\\x00" in payload:
+    if not payload or len(payload) > 512 * 1024 or b"\x00" in payload:
         raise HTTPException(status_code=422, detail="CSV inválido ou acima de 512 KB.")
     try:
         reader = csv.DictReader(io.StringIO(payload.decode("utf-8-sig")), strict=True)
