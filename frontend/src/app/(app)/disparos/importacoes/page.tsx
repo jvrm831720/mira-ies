@@ -90,11 +90,16 @@ export default function DispatchComposioImportsPage() {
         field_map: fieldMap,
       }, idempotencyRef.current);
       idempotencyRef.current = "";
+      toast.success(`Importação Composio concluída: ${result.total} registros lidos.`);
       if (stageCampaignId) {
-        const queue = await dispatchApi.stageFromComposio(stageCampaignId);
-        toast.success(`Consulta concluída (${result.total}). Fila: ${queue.created} novos, ${queue.filtered} sem autorização/eligibilidade.`);
-      } else {
-        toast.success(`Dados consultados: ${result.total}; novos: ${result.created}; atualizados: ${result.updated}.`);
+        try {
+          const queue = await dispatchApi.stageFromComposio(stageCampaignId);
+          toast.success(`Fila atualizada: ${queue.created} novos, ${queue.filtered} sem autorização/eligibilidade.`);
+        } catch (stageError) {
+          const reason = stageError instanceof Error ? stageError.message : "Falha ao vincular a audiência.";
+          setError(`A importação foi concluída, mas os destinatários não entraram na fila: ${reason}`);
+          toast.error("Dados importados; vínculo à fila não concluído.");
+        }
       }
       await refresh();
     } catch (cause) {
