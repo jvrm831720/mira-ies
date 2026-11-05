@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     allow_force_train: bool = True
     allow_force_activate: bool = True
 
+    # Native Education / student self-service. Gated until migration and security tests.
+    native_academic_enabled: bool = False
+    student_portal_enabled: bool = False
+
     # Composio integration (fail-closed; no SDK calls until explicitly activated)
     composio_enabled: bool = False
     composio_api_key: str | None = None
