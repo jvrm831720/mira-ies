@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Activity, ArrowLeft, ArrowRight, BookOpen, Building2, Check, CheckCircle2,
-  ChevronRight, Database, GraduationCap, Layers3, Loader2, LockKeyhole,
+  ChevronRight, GraduationCap, Layers3, Loader2, LockKeyhole,
   MapPin, ShieldCheck, Sparkles, Users,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -217,7 +217,7 @@ export function MiraOnboardingExperience({ email, initialToken }: { email: strin
     }
   }
 
-  async function confirmMfa(event: React.FormEvent) {
+  async function confirmMfa(event: FormEvent) {
     event.preventDefault();
     if (!mfaTicket || mfaCode.length !== 6) return;
     setBusy(true);
