@@ -24,6 +24,7 @@ from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
 from app.models.tenant import Tenant
+from app.services.membership import ensure_membership
 
 router = APIRouter(prefix="/org", tags=["Organização / Membros"])
 logger = logging.getLogger(__name__)
@@ -298,6 +299,16 @@ async def accept_invite(
     db.add(user)
     invite.status = "accepted"
     invite.accepted_at = now
+    await db.flush()
+    await ensure_membership(
+        db,
+        user=user,
+        tenant_id=invite.tenant_id,
+        role=user.role,
+        custom_role_id=user.custom_role_id,
+        origin="invite",
+        status="active",
+    )
     try:
         await db.commit()
     except Exception:
@@ -307,7 +318,7 @@ async def accept_invite(
 
     if await user_requires_mfa(db, user):
         return await create_login_challenge(db, user, tenant, purpose="enroll")
-    token, ttl = create_user_session(db, user, tenant, request, aal=1)
+    token, ttl = await create_user_session(db, user, tenant, request, aal=1)
     await db.commit()
     return {
         "access_token": token,
@@ -336,6 +347,7 @@ async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession =
         "permissions": sorted(auth.permissions) if auth.permissions is not None else None,
         "display_name": user.display_name if user else None,
         "email": user.email if user else None,
+        "membership_id": auth.membership_id,
         "onboarding_completed": bool(completed_at),
         "onboarding_completed_at": completed_at.isoformat() if completed_at else None,
     }
