@@ -5,6 +5,7 @@ on:
     paths:
       - "docs/_restore_api/api.ts.zlib.b64.p1"
       - "docs/_restore_api/api.ts.zlib.b64.p2"
+      - ".github/workflows/restore-api-ts.yml"
 jobs:
   restore:
     runs-on: ubuntu-latest
@@ -24,10 +25,16 @@ jobs:
           print("restored", len(data), "bytes")
           assert b"listWorkspaces" in data
           assert b"purchaseCredits" in data
+          print("integrity OK")
           PY
       - name: Commit restore
         run: |
           git config user.name "mira-bot"
           git config user.email "bot@mira.local"
           git add frontend/src/lib/api.ts
-          git diff --cached --quiet || (git commit -m "fix: restore frontend/src/lib/api.ts from compressed snapshot" && git push)
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "fix: restore frontend/src/lib/api.ts from compressed snapshot"
+            git push
+          fi
