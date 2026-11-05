@@ -234,32 +234,11 @@ export function StudentsListPage() {
           </div>
         </section>
 
-        <section aria-label="Indicadores da base" className="grid gap-3 sm:grid-cols-3">
-          <MetricCard
-            label="Alunos na base"
-            value={
-              studentsQuery.isLoading
-                ? "—"
-                : (riskSummary.data?.total_students ?? students.length).toLocaleString("pt-BR")
-            }
-            hint="Até 500 registros carregados nesta consulta"
-            icon={<Users className="h-4 w-4" />}
-            tone="neutral"
-          />
-          <MetricCard
-            label="Risco elevado"
-            value={studentsQuery.isLoading || riskSummary.isLoading ? "—" : highRisk.toLocaleString("pt-BR")}
-            hint="Crítico ou moderado"
-            icon={<AlertTriangle className="h-4 w-4" />}
-            tone="coral"
-          />
-          <MetricCard
-            label="Sem classificação"
-            value={studentsQuery.isLoading || riskSummary.isLoading ? "—" : unclassified.toLocaleString("pt-BR")}
-            hint="Sem score disponível (não é baixo risco)"
-            icon={<CircleHelp className="h-4 w-4" />}
-            tone="blue"
-          />
+        <section aria-label="Resumo da base" className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-[#e4e7ec] pb-3 text-[12px] text-[#6f7988]">
+          <span><strong className="font-semibold text-[#1c1d1f]">{studentsQuery.isLoading ? "—" : (riskSummary.data?.total_students ?? students.length).toLocaleString("pt-BR")}</strong> alunos na base</span>
+          <span><strong className="font-semibold text-[#1c1d1f]">{studentsQuery.isLoading || riskSummary.isLoading ? "—" : highRisk.toLocaleString("pt-BR")}</strong> com risco elevado</span>
+          <span><strong className="font-semibold text-[#1c1d1f]">{studentsQuery.isLoading || riskSummary.isLoading ? "—" : unclassified.toLocaleString("pt-BR")}</strong> sem classificação</span>
+          <span className="text-[#9fa1a7]">Ausência de score não significa baixo risco</span>
         </section>
 
         <section className="overflow-hidden rounded-xl border border-[#e4e7ec] bg-white">
