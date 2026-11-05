@@ -92,6 +92,15 @@ async def _prepare_test_database():
     import app.models.composio_connection  # noqa: F401
     import app.models.composio_approval  # noqa: F401
 
+    # O CI aplica Alembic antes do pytest e valida policies/triggers reais.
+    # Recriar as tabelas aqui quebraria FKs de tabelas criadas por migrations
+    # que não estão integralmente registradas em Base.metadata; também
+    # removeria RLS e outras garantias que os testes devem preservar.
+    # Restrito ao banco de teste: a conexão acima sempre usa sufixo _test.
+    if os.environ.get("MIRA_TEST_PRESERVE_MIGRATED_SCHEMA", "").lower() in {"1", "true", "yes"}:
+        yield
+        return
+
     async with db_session_module.engine.begin() as sa_conn:
         await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
         await sa_conn.run_sync(db_session_module.Base.metadata.create_all)
