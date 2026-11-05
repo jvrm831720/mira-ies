@@ -306,6 +306,9 @@ async def apply_smart_import(
             created += 1
         else:
             updated += 1
+            # A associação acompanha a importação mais recente para permitir
+            # auditoria/status e reavaliação de risco do registro atualizado.
+            student.batch_id = batch_id
         for field, value in record["standard"].items():
             if field == "communication_opt_out":
                 # Importação não representa consentimento. Somente opt-out afirmativo.
