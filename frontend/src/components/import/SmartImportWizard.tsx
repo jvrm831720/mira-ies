@@ -59,7 +59,7 @@ export function SmartImportWizard() {
   }
 
   async function confirmImport() {
-    if (!file || !preview || !confirmed || !mappingValidated || !idempotencyKey) return
+    if (!file || !preview || !confirmed || !mappingValidated || !idempotencyKey || preview.key_stats.valid < 1) return
     setBusy(true)
     setError(null)
     try {
@@ -74,6 +74,8 @@ export function SmartImportWizard() {
   }
 
   async function handleCreateField(header: string, input: { label: string; data_type: string; options?: string[]; is_pii?: boolean }) {
+    setBusy(true)
+    setConfirmed(false)
     try {
     await createCustomField({
       label: input.label,
@@ -87,6 +89,8 @@ export function SmartImportWizard() {
     if (file) await runPreview(file)  // o header agora casa por alias com o novo campo
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível criar o campo.")
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -104,6 +108,10 @@ export function SmartImportWizard() {
           className="mt-4 block w-full text-sm text-slate-600"
           onChange={(event) => {
             const selected = event.target.files?.[0] ?? null
+            if (selected && selected.size > 50 * 1024 * 1024) {
+              setError("Arquivo excede o limite de 50 MB.")
+              return
+            }
             setFile(selected)
             setConfirmed(false)
             setIdempotencyKey(selected ? crypto.randomUUID() : null)
@@ -134,6 +142,10 @@ export function SmartImportWizard() {
             <dd className="text-2xl font-semibold text-slate-900">{result.rejected}</dd>
           </div>
         </dl>
+        <div className="mt-5 flex gap-4 text-sm">
+          <a href="/importar" className="text-[#4050CD] underline">Nova importação</a>
+          <a href="/importacoes" className="text-[#4050CD] underline">Ver histórico</a>
+        </div>
         {result.row_errors.length > 0 && (
           <details className="mt-4 text-sm text-slate-600">
             <summary className="cursor-pointer">{result.row_errors.length} linhas com alerta</summary>
@@ -162,7 +174,7 @@ export function SmartImportWizard() {
         </div>
         <button
           type="button"
-          disabled={busy || !confirmed || !mappingValidated || Object.values(draft).filter((field) => field === "matricula").length !== 1}
+          disabled={busy || !confirmed || !mappingValidated || preview.key_stats.valid < 1 || Object.values(draft).filter((field) => field === "matricula").length !== 1}
           onClick={() => void confirmImport()}
           className="rounded-lg bg-[#4050CD] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
