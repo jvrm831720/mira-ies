@@ -1009,3 +1009,39 @@ async def test_signed_authorization_ingress_denies_unsigned_and_replayed_payload
         path,content=raw,headers={**headers,"X-Mira-Nonce":"changed-nonce-but-old-signature"},
     )
     assert wrong.status_code==401
+
+
+def test_composio_source_tool_binding_is_read_only():
+    from app.services.dispatch_sources import source_tool_is_read_only
+    assert source_tool_is_read_only("GMAIL_LIST_MESSAGES")
+    assert source_tool_is_read_only("HUBSPOT_SEARCH_CONTACTS")
+    assert not source_tool_is_read_only("GMAIL_SEND_EMAIL")
+    assert not source_tool_is_read_only("STRIPE_CREATE_CHARGE")
+    assert not source_tool_is_read_only("GMAIL_GET_AND_DELETE_MESSAGE")
+
+
+@pytest.mark.asyncio
+async def test_worker_eligibility_blocks_revoked_composio_source_before_provider(
+    db_session, tenant, monkeypatch,
+):
+    from app.services import dispatch_delivery, dispatch_sources
+
+    org, _ = tenant
+    async def revoked_source(*args, **kwargs):
+        return dispatch_sources.SourceState(False, "composio_account_not_active")
+    monkeypatch.setattr(dispatch_sources, "require_source", revoked_source)
+    decision = await dispatch_delivery.eligibility(
+        db_session, tenant_id=org.id,
+        campaign={
+            "status": "running", "approved_at": datetime.now(timezone.utc),
+            "authorization_ref": "institutional-evidence",
+            "purpose": "service", "channel": "email",
+            "source_kind": "composio",
+            "source_ref": "revoked-account",
+            "source_tool_slug": "GMAIL_LIST_MESSAGES",
+            "origin_snapshot_hash": None,
+        },
+        item={"subject_type": "external", "subject_ref": "irrelevant"},
+    )
+    assert not decision.allowed
+    assert decision.reason == "campaign_source_not_authorized"
