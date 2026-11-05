@@ -13,11 +13,12 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthContext, get_current_tenant, require_permission
@@ -233,25 +234,29 @@ async def import_manual_records(
         if key in seen:
             raise HTTPException(status_code=422, detail="Referência duplicada no lote.")
         seen.add(key)
-        existing = (await db.execute(select(MiraAcademicRecord).where(
-            MiraAcademicRecord.tenant_id == auth.tenant_id,
-            MiraAcademicRecord.student_id == student.id,
-            MiraAcademicRecord.kind == item.kind,
-            MiraAcademicRecord.source == "manual",
-            MiraAcademicRecord.source_record_id == item.source_record_id,
-        ).with_for_update())).scalar_one_or_none()
-        row = existing or MiraAcademicRecord(
-            tenant_id=auth.tenant_id, student_id=student.id,
-            kind=item.kind, source="manual", source_record_id=item.source_record_id,
+        fields = {
+            name: getattr(item, name) for name in (
+                "title", "academic_period", "status", "event_date", "grade",
+                "max_grade", "amount", "due_date", "currency",
+            )
+        }
+        # PostgreSQL atomic upsert, safe against concurrent ingestion workers:
+        # the unique index scopes each source reference to this exact tenant,
+        # student and record kind. No cross-tenant record is ever updated.
+        stmt = pg_insert(MiraAcademicRecord).values(
+            id=str(uuid4()),
+            tenant_id=auth.tenant_id,
+            student_id=student.id,
+            kind=item.kind,
+            source="manual",
+            source_record_id=item.source_record_id,
+            updated_at=now,
+            **fields,
+        ).on_conflict_do_update(
+            constraint="uq_mira_academic_source_record",
+            set_={**fields, "updated_at": now},
         )
-        for field in (
-            "title", "academic_period", "status", "event_date", "grade",
-            "max_grade", "amount", "due_date", "currency",
-        ):
-            setattr(row, field, getattr(item, field))
-        row.updated_at = now
-        if existing is None:
-            db.add(row)
+        await db.execute(stmt)
     await db.commit()
     return {"student_id": student.id, "records_received": len(body.records),
             "source": "manual", "live_messages_sent": False}
