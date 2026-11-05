@@ -42,6 +42,11 @@ async def create_template(
     if not code.strip() or len(code)>100 or not subject.strip() or len(subject)>160 or not body.strip() or len(body)>2000:
         raise ValueError("Modelo inválido ou acima dos limites.")
     await bind_tenant(db, tenant_id)
+    # Serialize versions for the same tenant/template code.
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+        {"key": f"dispatch:template:{tenant_id}:{code.strip()}"},
+    )
     id_ = str(uuid4())
     result = await db.execute(text("""
         INSERT INTO dispatch_approved_templates
@@ -132,7 +137,22 @@ async def sync_authorization(
         "verified": verified_at, "expiry": expires_at,
     })).scalar_one_or_none()
     if row is None:
-        raise ValueError("Evento de autorização antigo ou duplicado, sem alteração.")
+        existing = (await db.execute(text("""
+            SELECT evidence_ref,status,verified_at,expires_at,source
+            FROM dispatch_authorizations
+            WHERE tenant_id=:tenant AND subject_type=:kind AND subject_ref=:ref
+              AND channel=:channel AND purpose=:purpose
+        """), {
+            "tenant":tenant_id,"kind":subject_type,"ref":subject_ref,
+            "channel":channel,"purpose":purpose,
+        })).mappings().first()
+        if existing and (existing["evidence_ref"]==evidence_ref
+                         and existing["status"]==status
+                         and existing["verified_at"]==verified_at
+                         and existing["expires_at"]==expires_at
+                         and existing["source"]==source):
+            return {"accepted":True,"status":status,"replayed":True}
+        raise ValueError("Evento de autorização anterior ao registro atual.")
     if status != "granted":
         await db.execute(text("""
             UPDATE dispatch_items i SET status='blocked', last_error='contact_authorization_revoked',
@@ -191,6 +211,23 @@ async def create_intervention(
     if scheduled_for and scheduled_for.tzinfo is None:
         raise ValueError("Agendamento deve conter fuso horário.")
     await bind_tenant(db, tenant_id)
+    payload={
+        "actor":actor,"template_id":template_id,"subject_type":subject_type,
+        "subject_ref":subject_ref,"evidence_ref":evidence_ref,
+        "scheduled_for":scheduled_for.isoformat() if scheduled_for else None,
+    }
+    fingerprint=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
+    claim_key=hashlib.sha256(f"{tenant_id}:{idempotency_key}".encode()).hexdigest()
+    # Check before fetching current permissions: a network retry never
+    # creates another job even if consent was revoked after original submit.
+    previous=(await db.execute(text("""
+        SELECT id,request_hash,status FROM dispatch_campaigns
+        WHERE tenant_id=:tenant AND request_key=:key
+    """), {"tenant":tenant_id,"key":claim_key})).mappings().first()
+    if previous is not None:
+        if previous["request_hash"]!=fingerprint:
+            raise ValueError("Idempotency-Key já associada a outro conteúdo.")
+        return {"id":str(previous["id"]),"status":previous["status"],"deduplicated":True}
     template=(await db.execute(text("""
         SELECT * FROM dispatch_approved_templates
         WHERE tenant_id=:tenant AND id=:id AND status='approved'
@@ -229,13 +266,6 @@ async def create_intervention(
         raise ValueError("Contato não encontrado ou comunicação desautorizada.")
     now=datetime.now(timezone.utc)
     scheduled=scheduled_for if scheduled_for and scheduled_for>now else now
-    payload={
-        "actor":actor,"template_id":template_id,"subject_type":subject_type,
-        "subject_ref":subject_ref,"evidence_ref":evidence_ref,
-        "scheduled_for":scheduled.isoformat(),
-    }
-    fingerprint=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
-    claim_key=hashlib.sha256(f"{tenant_id}:{idempotency_key}".encode()).hexdigest()
     campaign_id=str(uuid4())
     created=(await db.execute(text("""
         INSERT INTO dispatch_campaigns
