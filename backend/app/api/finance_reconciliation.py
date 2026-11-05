@@ -293,6 +293,49 @@ def _parse_csv(payload: bytes) -> list[dict[str, str]]:
         raise HTTPException(status_code=422, detail="CSV inválido. Use UTF-8, cabeçalhos únicos e até 100 linhas.") from exc
 
 
+@router.post("/suggest-headers-csv")
+async def suggest_csv_headers(
+    file: UploadFile = File(...),
+    auth: AuthContext = Depends(require_permission("data.import")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _institution(auth, db)
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(status_code=415, detail="Somente CSV UTF-8 é aceito.")
+    payload = await file.read(512 * 1024 + 1)
+    if not payload or len(payload) > 512 * 1024 or b"\\x00" in payload:
+        raise HTTPException(status_code=422, detail="CSV inválido ou acima de 512 KB.")
+    try:
+        reader = csv.DictReader(io.StringIO(payload.decode("utf-8-sig")), strict=True)
+        headers = reader.fieldnames
+        if not headers or len(headers) > 48 or len(set(headers)) != len(headers):
+            raise ValueError("Cabeçalhos duplicados ou ausentes.")
+    except (UnicodeDecodeError, csv.Error, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Cabeçalho CSV inválido.") from exc
+    return {"headers": headers, "suggestions": engine.suggest_columns(headers),
+            "requires_confirmation": True, "persisted": False}
+
+
+@router.post("/profiles/{profile_id}/preview-csv")
+async def preview_csv(
+    profile_id: UUID,
+    file: UploadFile = File(...),
+    auth: AuthContext = Depends(require_permission("data.import")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _institution(auth, db)
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(status_code=415, detail="Somente CSV UTF-8 é aceito.")
+    rows = _parse_csv(await file.read(512 * 1024 + 1))
+    try:
+        profile = await engine.get_profile(db, auth.tenant_id, str(profile_id))
+        if profile.source_kind != "import":
+            raise HTTPException(status_code=409, detail="Esta origem não aceita CSV.")
+        return await engine.preview_rows(db, profile=profile, rows=rows)
+    except engine.ReconciliationDenied as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.post("/profiles/{profile_id}/import-csv", status_code=201)
 async def import_csv(
     profile_id: UUID,
