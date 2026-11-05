@@ -269,7 +269,7 @@ async def complete_connect_callback(
         select(TenantComposioAccount).where(
             TenantComposioAccount.tenant_id == tenant_id,
             TenantComposioAccount.connected_account_id == account_id,
-        )
+        ).with_for_update()
     )
     account = existing.scalar_one_or_none()
     if account is None:
@@ -318,7 +318,7 @@ async def list_tenant_accounts(
         remote = list_connected_accounts_for_user(session.composio_user_id)
         by_id = {item["connected_account_id"]: item for item in remote if item.get("connected_account_id")}
         result = await db.execute(
-            select(TenantComposioAccount).where(TenantComposioAccount.tenant_id == tenant_id)
+            select(TenantComposioAccount).where(TenantComposioAccount.tenant_id == tenant_id).with_for_update()
         )
         local_rows = {row.connected_account_id: row for row in result.scalars().all()}
         now = datetime.now(timezone.utc)
