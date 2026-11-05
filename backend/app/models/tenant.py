@@ -26,6 +26,11 @@ class Tenant(Base):
     segment: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # Phase B — link to legal Organization (nullable during dual-write)
+    organization_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("mira_organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
     api_key_hash: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, unique=True, index=True)
     webhook_secret: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
