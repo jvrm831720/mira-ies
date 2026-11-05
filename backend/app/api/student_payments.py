@@ -38,6 +38,18 @@ class ProviderEnable(BaseModel):
     expected_revision: int = Field(ge=1)
 
 
+class AsaasDestinationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    wallet_id: UUID
+    confirms_ownership: bool
+    expected_version: int | None = Field(default=None, ge=1)
+
+
+class AsaasPreviewInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    financial_observation_id: UUID
+
+
 class PaymentDraftCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     provider_id: UUID
@@ -68,6 +80,53 @@ async def _institution(auth: AuthContext, db: AsyncSession):
     except payments.PaymentDenied as exc:
         raise HTTPException(status_code=503, detail="Pagamentos em sandbox não habilitados.") from exc
     await _require_ies(db, auth)
+
+
+@router.get("/asaas/destination")
+async def asaas_destination(
+    auth: AuthContext = Depends(require_permission("settings.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _institution(auth, db)
+    return payments.destination_json(await payments.get_destination(db, auth.tenant_id))
+
+
+@router.put("/asaas/destination")
+async def asaas_destination_save(
+    body: AsaasDestinationInput,
+    auth: AuthContext = Depends(require_permission("settings.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _institution(auth, db)
+    try:
+        return await payments.save_destination(
+            db, tenant_id=auth.tenant_id, user_id=auth.user_id,
+            wallet_id=str(body.wallet_id), expected_version=body.expected_version,
+            confirms_ownership=body.confirms_ownership,
+        )
+    except payments.PaymentDenied as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Cadastro concorrente; atualize a carteira.") from exc
+
+
+@router.post("/asaas/split-preview")
+async def asaas_preview(
+    body: AsaasPreviewInput,
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _institution(auth, db)
+    try:
+        return await payments.preview_asaas_split(
+            db, tenant_id=auth.tenant_id,
+            observation_id=str(body.financial_observation_id),
+        )
+    except payments.PaymentDenied as exc:
+        await db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/providers")
