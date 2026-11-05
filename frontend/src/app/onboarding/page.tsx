@@ -235,8 +235,20 @@ function OnboardingExperience() {
               <div className="flex items-center gap-2 text-xs font-medium text-neutral-500"><Sparkles className="h-4 w-4 text-neutral-800" /> Configuração da MIRA</div>
               <span className="text-xs text-neutral-400">{step + 1} de 4</span>
             </div>
-            <div className="mb-10 flex gap-1.5" aria-label="Progresso do onboarding">
-              {STEP_LABELS.map((label, index) => <div key={label} className={`h-1 flex-1 rounded-full ${index <= progress ? "bg-neutral-950" : "bg-neutral-200"}`} />)}
+            <div className="mb-7 flex gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white"><Sparkles className="h-4 w-4" /></div>
+              <div className="min-w-0 rounded-xl rounded-tl-sm bg-neutral-50 px-4 py-3">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral-400">MIRA · Assistente de configuração</div>
+                <p className="text-[13px] leading-5 text-neutral-700">
+                  {step === 0
+                    ? `Olá${form.firstName ? `, ${form.firstName}` : ""}! Vou te acompanhar na configuração da sua instituição. Vamos preparar seu espaço de trabalho em poucos passos.`
+                    : step === 1
+                      ? "Agora, quero identificar sua instituição e preparar o ambiente com as informações corretas."
+                      : step === 2
+                        ? "Com os dados iniciais, vamos entender o contexto da sua operação para organizar a MIRA de forma mais útil."
+                        : "Com base nas suas respostas, preparei uma estrutura inicial. Revise os módulos e indique onde estão seus dados."}
+                </p>
+              </div>
             </div>
 
             {step === 0 && (
