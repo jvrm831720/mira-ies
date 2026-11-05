@@ -8,7 +8,7 @@
   --foreground: 220 10% 12%;
   --card: 0 0% 100%;
   --card-foreground: 220 10% 12%;
-  --primary: 216 87% 55%;
+  --primary: 220 4% 14%;
   --primary-foreground: 0 0% 100%;
   --secondary: 220 14% 96%;
   --secondary-foreground: 222 25% 12%;
@@ -956,6 +956,8 @@ body { background: #fff; }
   background: #fff;
   color: #1c1d1f;
   font-family: Inter, var(--font-geist-sans), sans-serif;
+  font-weight: 500;
+  font-feature-settings: "ss03" 1, "calt" 1;
 }
 .mira-page h1, .mira-page h2, .mira-page h3 {
   color: #1c1d1f;
