@@ -760,7 +760,7 @@ async def test_dispatch_source_registry_uses_existing_workspace_connections(
     )
     policy = TenantComposioToolkitPolicy(
         tenant_id=tenant_a.id, toolkit_slug="gmail",
-        is_enabled=True, tool_slugs=["GMAIL_LIST_MESSAGES"],
+        is_enabled=True, tool_slugs=["GMAIL_LIST_MESSAGES", "GMAIL_SEND_EMAIL"],
     )
     native = TenantJacadConnection(
         tenant_id=tenant_a.id, base_url="https://example.test",
@@ -805,6 +805,7 @@ async def test_dispatch_source_registry_uses_existing_workspace_connections(
     linked = [item for item in catalog["items"] if item["kind"] == "composio"]
     assert len(linked) == 1
     assert linked[0]["can_bind"]
+    assert linked[0]["tools"] == ["GMAIL_LIST_MESSAGES"]
     assert linked[0]["automatic_ingestion"] is False
     assert "test-secret-encrypted" not in str(catalog)
 
