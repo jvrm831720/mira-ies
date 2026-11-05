@@ -100,16 +100,18 @@ def _connection_output(row: TenantEducationEngineConnection | None) -> dict:
 
 
 async def _require_ies(auth: AuthContext, db: AsyncSession) -> None:
-    """Do not offer academic/fees services to a cobrança/other workspace."""
+    """Fail closed: academic data is only available to a verified IES workspace."""
     if auth.tenant.organization_id:
         found = await db.execute(select(Organization.operation_profile).where(
             Organization.id == auth.tenant.organization_id,
         ))
-        if found.scalar_one_or_none() != "institution":
-            raise HTTPException(status_code=403, detail="Recurso exclusivo de instituição de ensino.")
-    elif (auth.tenant.segment or "").strip().lower() in (
-        "billing", "collections", "cobranca", "cobrança",
-    ):
+        is_ies = found.scalar_one_or_none() == "institution"
+    else:
+        # Compatibility with legacy IES workspaces, never allow unknown segments.
+        is_ies = (auth.tenant.segment or "").strip().lower() in (
+            "institution", "higher_education", "university", "ies",
+        )
+    if not is_ies:
         raise HTTPException(status_code=403, detail="Recurso exclusivo de instituição de ensino.")
 
 
