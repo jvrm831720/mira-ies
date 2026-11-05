@@ -286,28 +286,43 @@ async def metrics(
     from datetime import datetime, timezone, timedelta
     from sqlalchemy import text
     from app.core.config import get_settings
-    items = await core.list_campaigns(db, tenant_id=auth.tenant_id, limit=100)
-    row = (await db.execute(text("""
-        SELECT max(seen_at) AS seen_at FROM dispatch_worker_heartbeats
-        WHERE tenant_id=:tenant
+
+    await core.bind_tenant(db, auth.tenant_id)
+    summary = (await db.execute(text("""
+        SELECT
+            (SELECT count(*) FROM dispatch_campaigns WHERE tenant_id=:tenant) AS campaigns,
+            count(*) FILTER (WHERE status IN ('queued','retry_wait','leased','sending')) AS queued,
+            count(*) FILTER (WHERE status IN ('sent','delivered','read','replied')) AS accepted,
+            count(*) FILTER (WHERE status='simulated') AS simulated,
+            count(*) FILTER (WHERE status IN ('blocked','failed','unknown')) AS problems,
+            count(*) FILTER (WHERE status='replied') AS replies
+        FROM dispatch_items WHERE tenant_id=:tenant
     """), {"tenant": auth.tenant_id})).mappings().one()
-    last_heartbeat = row["seen_at"]
-    settings = get_settings()
-    estimates = {
-        "email": settings.agents_cost_per_email_message_brl,
-        "sms": settings.agents_cost_per_sms_message_brl,
-        "whatsapp": settings.agents_cost_per_whatsapp_message_brl,
+    by_channel = (await db.execute(text("""
+        SELECT channel,count(*) AS volume FROM dispatch_items
+        WHERE tenant_id=:tenant
+          AND status IN ('sent','delivered','read','replied')
+        GROUP BY channel
+    """), {"tenant":auth.tenant_id})).mappings().all()
+    last = (await db.execute(text("""
+        SELECT max(seen_at) FROM dispatch_worker_heartbeats
+        WHERE tenant_id=:tenant
+    """), {"tenant":auth.tenant_id})).scalar_one()
+    settings=get_settings()
+    price={
+        "email":settings.agents_cost_per_email_message_brl,
+        "sms":settings.agents_cost_per_sms_message_brl,
+        "whatsapp":settings.agents_cost_per_whatsapp_message_brl,
     }
-    estimated_cost = sum(int(item["accepted"]) * estimates.get(item["channel"], 0) for item in items)
+    cost=sum(int(row["volume"])*price.get(row["channel"],0)
+             for row in by_channel)
     return {
-        "worker_last_seen": last_heartbeat,
-        "worker_online": bool(last_heartbeat and last_heartbeat >= datetime.now(timezone.utc) - timedelta(seconds=90)),
-        "estimated_cost_brl": round(estimated_cost, 2),
-        "campaigns": len(items),
-        "queued": sum(int(x["pending"]) for x in items),
-        "accepted": sum(int(x["accepted"]) for x in items),
-        "simulated": sum(int(x["simulated"]) for x in items),
-        "problems": sum(int(x["problems"]) for x in items),
-        "replies": sum(int(x["replied"]) for x in items),
-        "note": "Aceito/entregue não é valor recuperado; concilie resultados financeiros.",
+        **dict(summary),
+        "worker_last_seen":last,
+        "worker_online":bool(last and
+            last>=datetime.now(timezone.utc)-timedelta(seconds=90)),
+        "estimated_cost_brl":round(cost,2),
+        "live_enabled":settings.dispatch_live_enabled
+            and not settings.dispatch_dry_run_default,
+        "note":"Envio aceito não equivale a entrega nem a pagamento confirmado.",
     }
