@@ -8,31 +8,31 @@
   --foreground: 220 9% 13%;
   --card: 0 0% 100%;
   --card-foreground: 220 9% 13%;
-  --primary: 220 9% 14%;
+  --primary: 233 56% 53%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 20% 97%;
+  --secondary: 36 24% 92%;
   --secondary-foreground: 222 25% 12%;
-  --muted: 210 20% 97%;
+  --muted: 36 20% 92%;
   --muted-foreground: 215 10% 47%;
-  --accent: 216 100% 97%;
-  --accent-foreground: 216 89% 54%;
+  --accent: 233 56% 96%;
+  --accent-foreground: 233 56% 30%;
   --destructive: 4 76% 58%;
   --destructive-foreground: 0 0% 100%;
   --success: 155 55% 34%;
   --success-foreground: 0 0% 100%;
   --warning: 35 92% 48%;
   --warning-foreground: 28 77% 15%;
-  --border: 220 14% 91%;
-  --input: 220 14% 91%;
-  --ring: 216 89% 56%;
+  --border: 34 18% 86%;
+  --input: 34 18% 86%;
+  --ring: 233 56% 53%;
 
   /* ── MIRA brand (preserved) ── */
-  --brand-indigo: #266df0;
-  --brand-blue: #232529;
+  --brand-indigo: #4050cd;
+  --brand-blue: #29399f;
   --brand-coral: #f47769;
-  --brand-midnight: #1c1d1f;
-  --brand-black: #101112;
-  --brand-paper: #ffffff;
+  --brand-midnight: #17191d;
+  --brand-black: #101114;
+  --brand-paper: #f7f5ef;
 
   /* ── Attio-aligned neutrals (product light) ── */
   --color-black-0: #000000;
@@ -189,6 +189,23 @@ textarea {
 
 /* ── MIRA product surfaces (light, Attio-aligned) ── */
 .mira-page {
+  --background: 0 0% 100%;
+  --foreground: 220 9% 13%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 9% 13%;
+  --primary: 220 9% 14%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 97%;
+  --secondary-foreground: 220 9% 13%;
+  --muted: 210 20% 97%;
+  --muted-foreground: 215 10% 47%;
+  --accent: 216 100% 97%;
+  --accent-foreground: 216 89% 54%;
+  --border: 220 14% 91%;
+  --input: 220 14% 91%;
+  --ring: 216 89% 56%;
+  --brand-indigo: #266df0;
+  --brand-blue: #232529;
   color: var(--text-primary);
   background: #ffffff;
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
