@@ -22,7 +22,8 @@ from app.services.composio.categories import (
     documents_category,
     productivity_category,
     data_analysis_category,
-    support_category,\n    scheduling_category,
+    support_category,
+    scheduling_category,
 )
 from app.services.composio.client import (
     ComposioSDKUnavailable,
