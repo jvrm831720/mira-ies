@@ -4,13 +4,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthContext, require_permission
 from app.db.session import get_db
 from app.services import dispatch_interventions as intervention
+from app.services.dispatch_ingress_security import verify as verify_source
 
 router = APIRouter(prefix="/dispatch", tags=["Individual Interventions"])
 
@@ -129,11 +130,16 @@ async def submit_individual_intervention(
 @router.post("/integrations/authorizations")
 async def upsert_authorization_fact(
     body: AuthorizationFact,
+    request: Request,
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
     if auth.user_id is not None or auth.role is not None:
         raise HTTPException(status_code=403, detail="Apenas conectores autenticados podem registrar fatos.")
+    await verify_source(
+        db,tenant_id=auth.tenant_id,source=body.source,
+        scope="authorization",request=request,
+    )
     try:
         return await intervention.sync_authorization(
             db, tenant_id=auth.tenant_id,
