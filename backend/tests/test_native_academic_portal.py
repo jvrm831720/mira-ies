@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import text
 from pydantic import ValidationError
 
 from app.api.native_academic import (
@@ -55,6 +56,7 @@ def test_academic_input_has_strict_kind_boundaries():
 
 
 async def _seed_student(db, tenant, *, id_suffix="a"):
+    await db.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant.id})
     tenant.segment = "higher_education"
     batch = UploadBatch(
         tenant_id=tenant.id, filename=f"seed-{id_suffix}.csv",
@@ -75,6 +77,7 @@ async def _seed_student(db, tenant, *, id_suffix="a"):
 
 
 async def _seed_invite(db, tenant, student):
+    await db.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant.id})
     admin = User(
         tenant_id=tenant.id, display_name="Equipe autorizada",
         email=f"admin-{uuid4().hex}@example.test",
@@ -134,11 +137,14 @@ async def test_self_service_is_private_replay_safe_and_revocable(
     tenant_b, _ = await tenant_factory(slug="portal-b")
     a = await _seed_student(db_session, tenant_a, id_suffix="alice")
     b = await _seed_student(db_session, tenant_b, id_suffix="bob")
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_a.id})
     db_session.add(MiraAcademicRecord(
         tenant_id=tenant_a.id, student_id=a.id,
         kind="enrollment", source="manual", source_record_id="enroll-a",
         title="Direito", status="active", event_date=date(2026, 8, 1),
     ))
+    await db_session.commit()
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_b.id})
     db_session.add(MiraAcademicRecord(
         tenant_id=tenant_b.id, student_id=b.id,
         kind="assessment", source="manual", source_record_id="score-b",
@@ -209,6 +215,7 @@ async def test_staff_cannot_read_another_ies_records(db_session, tenant_factory,
         tenant=a, tenant_id=a.id, tenant_slug=a.slug,
         user_id=str(uuid4()), session_id=str(uuid4()), role="admin",
     )
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": a.id})
     with pytest.raises(HTTPException) as exc:
         await institution_records(b_student.id, None, auth, db_session)
     assert exc.value.status_code == 404
@@ -233,8 +240,11 @@ async def test_manual_academic_upsert_is_idempotent(db_session, tenant_factory, 
         title="Avaliação de matemática", academic_period="2026-2",
         status="corrected", grade=Decimal("9"), max_grade=Decimal("10"),
     )])
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant.id})
     assert (await import_manual_records(student.id, first, auth, db_session))["records_received"] == 1
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant.id})
     assert (await import_manual_records(student.id, second, auth, db_session))["records_received"] == 1
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant.id})
     result = await institution_records(student.id, "assessment", auth, db_session)
     assert len(result["items"]) == 1
     assert result["items"][0]["grade"] == "9.00"
