@@ -311,7 +311,7 @@ def _permission_for_request(request: Request, fallback_role: str = "viewer") -> 
             return "students.create"
     if path.startswith("/risk"):
         return "students.view" if path.endswith("/critical") else "dashboard.view"
-    if path.startswith("/upload"):
+    if path.startswith("/upload") or path.startswith("/import/") or path.startswith("/custom-fields"):
         return "data.import"
     if path.startswith("/integrations/composio"):
         return "settings.manage"
