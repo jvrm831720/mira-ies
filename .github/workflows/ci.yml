@@ -86,7 +86,7 @@ jobs:
           -- Remove later-wave tables/columns before replaying revisions 039..head.
           DROP TABLE IF EXISTS
             mira_student_payment_evidence, mira_student_payment_intents,
-            mira_payment_provider_profiles,
+            mira_payment_provider_profiles, mira_asaas_workspace_destinations,
             mira_finance_review_events, mira_finance_review_cases,
             mira_finance_observations, mira_finance_ingestion_batches,
             mira_finance_student_links, mira_finance_source_profiles,
@@ -211,6 +211,7 @@ jobs:
             END IF;
             IF EXISTS (
               SELECT 1 FROM (VALUES
+                ('mira_asaas_workspace_destinations'),
                 ('mira_payment_provider_profiles'),
                 ('mira_student_payment_intents'),
                 ('mira_student_payment_evidence')
