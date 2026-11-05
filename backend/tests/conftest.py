@@ -10,6 +10,11 @@ e criado automaticamente se nao existir.
 from __future__ import annotations
 
 import os
+import importlib.util
+from pathlib import Path
+
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 
 from sqlalchemy.engine import make_url
 
@@ -79,8 +84,6 @@ async def _prepare_test_database():
     import app.models.control_center  # noqa: F401
     import app.models.data_governance  # noqa: F401
     import app.models.institutional_training_authorization  # noqa: F401
-    import app.models.training_run  # noqa: F401
-    import app.models.mira_base_lifecycle  # noqa: F401
     import app.models.eligible_contribution  # noqa: F401
     import app.models.work_activity  # noqa: F401
     import app.models.jacad_connection  # noqa: F401
@@ -92,10 +95,62 @@ async def _prepare_test_database():
     import app.models.retention_campaign  # noqa: F401
     import app.models.composio_connection  # noqa: F401
     import app.models.composio_approval  # noqa: F401
+    import app.models.training_run  # noqa: F401
+    import app.models.mira_base_lifecycle  # noqa: F401
 
     async with db_session_module.engine.begin() as sa_conn:
+        # Dispatch tables are SQL-only and intentionally not in ORM metadata.
+        # Clean them before dropping tenant/student tables (cross-table FKs).
+        from sqlalchemy import text
+        await sa_conn.execute(text("""
+            DROP TABLE IF EXISTS
+              dispatch_source_import_runs, dispatch_source_observations,
+              dispatch_suppressions, dispatch_worker_heartbeats, dispatch_payment_events, dispatch_inbound,
+              dispatch_provider_accounts, dispatch_authorizations, dispatch_approved_templates,
+              dispatch_source_nonces, dispatch_source_credentials,
+              dispatch_rate_buckets, dispatch_events, dispatch_items,
+              dispatch_external_contacts, dispatch_obligations, dispatch_campaigns
+            CASCADE
+        """))
+        await sa_conn.execute(text("DROP FUNCTION IF EXISTS dispatch_events_append_only()"))
         await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
         await sa_conn.run_sync(db_session_module.Base.metadata.create_all)
+    yield
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def dispatch_schema(_prepare_test_database):
+    """Existing tests use metadata.create_all; materialize unmapped dispatch tables."""
+    from sqlalchemy import text
+    from app.db.session import engine
+
+    migration_path = (Path(__file__).resolve().parents[1]
+                      / "alembic" / "versions" / "055_dispatch_platform.py")
+    spec = importlib.util.spec_from_file_location("dispatch_test_migration", migration_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    extra_path = migration_path.with_name("056_dispatch_composio_ingestion.py")
+    extra_spec = importlib.util.spec_from_file_location("dispatch_composio_test_migration", extra_path)
+    assert extra_spec and extra_spec.loader
+    extra = importlib.util.module_from_spec(extra_spec)
+    extra_spec.loader.exec_module(extra)
+
+    async with engine.begin() as conn:
+        present = await conn.scalar(text("SELECT to_regclass('public.dispatch_campaigns')"))
+        if not present:
+            def _upgrade(connection):
+                ctx = MigrationContext.configure(connection)
+                with Operations.context(ctx):
+                    module.upgrade()
+            await conn.run_sync(_upgrade)
+        other = await conn.scalar(text("SELECT to_regclass('public.dispatch_source_observations')"))
+        if not other:
+            def _upgrade_composio(connection):
+                ctx = MigrationContext.configure(connection)
+                with Operations.context(ctx):
+                    extra.upgrade()
+            await conn.run_sync(_upgrade_composio)
     yield
 
 
@@ -103,6 +158,23 @@ async def _prepare_test_database():
 async def _clean_tables():
     yield
     async with db_session_module.engine.begin() as conn:
+        # Dispatch uses SQL-only, RLS-protected tables. Clear them before
+        # ORM tenants: audit triggers reject DELETE, but TRUNCATE is allowed
+        # only here against the disposable test database.
+        from sqlalchemy import text
+        exists = await conn.scalar(text("SELECT to_regclass('public.dispatch_campaigns')"))
+        if exists:
+            await conn.execute(text("""
+                TRUNCATE TABLE
+                  dispatch_source_import_runs, dispatch_source_observations,
+                  dispatch_inbound, dispatch_payment_events, dispatch_events,
+                  dispatch_items, dispatch_worker_heartbeats, dispatch_suppressions,
+                  dispatch_rate_buckets, dispatch_external_contacts,
+                  dispatch_obligations, dispatch_source_nonces,
+                  dispatch_source_credentials, dispatch_provider_accounts,
+                  dispatch_authorizations, dispatch_approved_templates,
+                  dispatch_campaigns
+            """))
         for table in reversed(db_session_module.Base.metadata.sorted_tables):
             await conn.execute(table.delete())
 

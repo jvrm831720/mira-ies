@@ -10,10 +10,12 @@ from app.core.config import get_settings
 
 
 async def send_email_resend(
-    *, to: str, subject: str, body: str, idempotency_key: str | None = None
+    *, to: str, subject: str, body: str, idempotency_key: str | None = None,
+    api_key_override: str | None = None, from_override: str | None = None
 ) -> SendResult:
     settings = get_settings()
-    if not settings.resend_api_key:
+    key = api_key_override or settings.resend_api_key
+    if not key:
         return SendResult(
             ok=False,
             channel="email",
@@ -21,11 +23,11 @@ async def send_email_resend(
             error="RESEND_API_KEY nao configurado",
             outcome="confirmed_failure",
         )
-    headers = {"Authorization": f"Bearer {settings.resend_api_key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key
         headers["X-Correlation-ID"] = idempotency_key
-    payload = {"from": settings.email_from or "Mira <no-reply@beacon.app>", "to": [to], "subject": subject, "text": body}
+    payload = {"from": from_override or settings.email_from or "Mira <no-reply@beacon.app>", "to": [to], "subject": subject, "text": body}
     try:
         async with httpx.AsyncClient(timeout=settings.agents_provider_timeout_seconds) as client:
             resp = await client.post("https://api.resend.com/emails", json=payload, headers=headers)
