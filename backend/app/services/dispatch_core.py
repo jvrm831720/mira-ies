@@ -144,6 +144,14 @@ async def enqueue_recipients(
             raise ValueError("Destinatário inválido.")
         if not consent or len(consent) > 200:
             raise ValueError("Cada destinatário exige referência verificável de autorização.")
+        from app.services.dispatch_interventions import verified_authorization
+        allowed = await verified_authorization(
+            db, tenant_id=tenant_id, subject_type=kind, subject_ref=ref,
+            channel=campaign["channel"], purpose=campaign["purpose"],
+            evidence_ref=consent,
+        )
+        if not allowed:
+            raise ValueError("Referência de contato não verificada, revogada ou expirada.")
         suppressed = (await db.execute(text("""
             SELECT 1 FROM dispatch_suppressions
             WHERE tenant_id=:tenant AND subject_type=:kind AND subject_ref=:ref

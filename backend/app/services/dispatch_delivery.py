@@ -98,6 +98,14 @@ async def eligibility(
         return Eligibility(False, "outside_contact_window")
     if not item.get("consent_ref"):
         return Eligibility(False, "missing_contact_basis")
+    from app.services.dispatch_interventions import verified_authorization
+    verified = await verified_authorization(
+        db, tenant_id=tenant_id, subject_type=item["subject_type"],
+        subject_ref=item["subject_ref"], channel=campaign["channel"],
+        purpose=campaign["purpose"], evidence_ref=item["consent_ref"],
+    )
+    if not verified:
+        return Eligibility(False, "contact_authorization_not_verified")
     suppressed = (await db.execute(text("""
         SELECT 1 FROM dispatch_suppressions
         WHERE tenant_id=:tenant AND subject_type=:kind AND subject_ref=:ref
@@ -154,8 +162,9 @@ async def eligibility(
         # Missing preference is NOT consent; fail closed, even if old code defaults to True.
         if prefs.get("channels", {}).get(campaign["channel"]) is not True:
             return Eligibility(False, "channel_consent_not_verified")
-        if campaign["purpose"] == "retention" and prefs.get("topics", {}).get("retention") is not True:
-            return Eligibility(False, "retention_purpose_not_verified")
+        topic = "retention" if campaign["purpose"] == "retention" else "academic"
+        if campaign["purpose"] in {"retention", "academic", "service"} and prefs.get("topics", {}).get(topic) is not True:
+            return Eligibility(False, "purpose_not_permitted")
         dest = student["email"] if campaign["channel"] == "email" else student["telefone"]
         normalized = normalize_destination(campaign["channel"], dest or "")
         if not normalized:

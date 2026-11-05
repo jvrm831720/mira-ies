@@ -94,6 +94,8 @@ class Settings(BaseSettings):
     dispatch_live_enabled: bool = False
     dispatch_live_tenants: str = ""
     dispatch_live_channels: str = ""
+    # Explicit allowlist for verifiable permission evidence source identifiers.
+    dispatch_trusted_authorization_sources: str = ""
     dispatch_webhook_secret: str | None = None
     dispatch_contact_encryption_key: str | None = None
 
