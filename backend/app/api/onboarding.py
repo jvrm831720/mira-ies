@@ -73,7 +73,58 @@ class CompleteOnboardingPayload(BaseModel):
     @field_validator("email")
     @classmethod
     def normalize_email(cls, value: str) -> str:
-        return value.strip().lower()
+        normalized = value.strip().lower()
+        if not re.fullmatch(r"[^\\s@]+@[^\\s@]+\\.[^\\s@]+", normalized):
+            raise ValueError("Informe um e-mail válido.")
+        return normalized
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def validate_person_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Informe seu nome e sobrenome.")
+        return normalized
+
+    @field_validator("organization_name")
+    @classmethod
+    def validate_organization_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError("Informe o nome da instituição.")
+        return normalized
+
+    @field_validator("institution_type")
+    @classmethod
+    def validate_institution_type(cls, value: str) -> str:
+        allowed = {"higher_education", "university_center", "university", "college", "technical", "other"}
+        if value not in allowed:
+            raise ValueError("Tipo de instituição inválido.")
+        return value
+
+    @field_validator("student_range")
+    @classmethod
+    def validate_student_range(cls, value: str) -> str:
+        allowed = {"", "under_1000", "1000_5000", "5000_15000", "15000_50000", "over_50000"}
+        if value not in allowed:
+            raise ValueError("Faixa de alunos inválida.")
+        return value
+
+    @field_validator("campuses")
+    @classmethod
+    def validate_campuses(cls, value: str) -> str:
+        allowed = {"", "1", "2_5", "6_20", "over_20"}
+        if value not in allowed:
+            raise ValueError("Quantidade de unidades inválida.")
+        return value
+
+    @field_validator("data_sources")
+    @classmethod
+    def validate_data_sources(cls, value: list[str]) -> list[str]:
+        allowed = {"totvs_rm", "lyceum", "sponte", "sophia", "moodle", "canvas", "omie", "spreadsheets", "other"}
+        if any(item not in allowed for item in value):
+            raise ValueError("Uma das fontes de dados selecionadas é inválida.")
+        return list(dict.fromkeys(value))
 
     @field_validator("cnpj")
     @classmethod
