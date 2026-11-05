@@ -248,8 +248,20 @@ async def verify_email_login_code(
 
     challenge.consumed_at = now
     if challenge.user_id is None:
+        onboarding_token = secrets.token_urlsafe(32)
+        db.add(AuthChallenge(
+            user_id=None,
+            challenge_type="onboarding_provision",
+            identifier_hash=_fingerprint("onboarding", body.email),
+            token_hash=_token_digest("onboarding", body.email, onboarding_token),
+            expires_at=now + timedelta(minutes=30),
+        ))
         await db.commit()
-        return {"onboarding_required": True, "email": body.email}
+        return {
+            "onboarding_required": True,
+            "email": body.email,
+            "onboarding_token": onboarding_token,
+        }
 
     user = await db.get(User, challenge.user_id)
     tenant = await _active_tenant(db, user) if user else None

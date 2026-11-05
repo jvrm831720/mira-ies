@@ -64,6 +64,9 @@ export default function LoginPage() {
     try {
       const response = await api.verifyEmailCode(email.trim(), code);
       if ("onboarding_required" in response && response.onboarding_required) {
+        if ("onboarding_token" in response && response.onboarding_token) {
+          window.sessionStorage.setItem("mira_onboarding_token", response.onboarding_token);
+        }
         router.replace(`/onboarding?email=${encodeURIComponent(response.email)}`);
         return;
       }
