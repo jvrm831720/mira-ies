@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import secrets
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -24,7 +24,6 @@ from app.models.organization import Membership, ModuleEntitlement, Organization
 from app.models.tenant import Tenant
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
-_TOKEN_TTL_MINUTES = 30
 _MODULES = ("permanence", "data", "workspace", "mira_plan")
 
 
