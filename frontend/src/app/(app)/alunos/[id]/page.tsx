@@ -70,7 +70,7 @@ function displayValue(
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+    <article className="rounded-[10px] border border-[#E4E7EC] bg-white p-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">{label}</p>
       <p className="mt-2 text-[14px] font-semibold text-[#111827]">{value}</p>
     </article>
@@ -180,7 +180,7 @@ export default function StudentDetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/alunos"
-            className="inline-flex items-center gap-2 rounded-lg text-[13px] font-semibold text-[#667085] transition hover:text-[#2563EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+            className="inline-flex items-center gap-2 rounded-lg text-[13px] font-semibold text-[#667085] transition hover:text-[#266DF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar para alunos
@@ -190,7 +190,7 @@ export default function StudentDetailPage() {
               type="button"
               onClick={() => void refetch()}
               disabled={isFetching}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#111827] transition hover:bg-[#F8F9FA] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
               Atualizar
@@ -227,7 +227,7 @@ export default function StudentDetailPage() {
 
         {data && (
           <>
-            <section className="rounded-xl border border-[#E5E7EB] bg-white p-5 sm:p-6">
+            <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5 sm:p-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                   <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">Identificação</p>
@@ -284,7 +284,14 @@ export default function StudentDetailPage() {
               </div>
             </section>
 
-            <section aria-label="Resumo acadêmico e financeiro">
+            <nav aria-label="Seções da ficha do aluno" className="flex flex-wrap items-center gap-6 border-b border-[#E4E7EC]">
+              <a href="#student-overview" className="inline-flex h-10 items-center border-b-2 border-[#1C1D1F] text-[12px] font-medium text-[#1C1D1F]">Visão geral</a>
+              <a href="#risk-analysis" className="inline-flex h-10 items-center border-b-2 border-transparent text-[12px] font-medium text-[#6F7988] transition hover:border-[#E4E7EC] hover:text-[#1C1D1F]">Análise de risco</a>
+              <a href="#student-activity" className="inline-flex h-10 items-center border-b-2 border-transparent text-[12px] font-medium text-[#6F7988] transition hover:border-[#E4E7EC] hover:text-[#1C1D1F]">Atividade</a>
+              <a href="#student-communication" className="inline-flex h-10 items-center border-b-2 border-transparent text-[12px] font-medium text-[#6F7988] transition hover:border-[#E4E7EC] hover:text-[#1C1D1F]">Comunicação</a>
+            </nav>
+
+            <section id="student-overview" className="scroll-mt-24" aria-label="Resumo acadêmico e financeiro">
               <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[#111827]">Situação acadêmica e financeira</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <InfoCard label="Curso" value={displayValue(data.curso)} />
@@ -294,11 +301,13 @@ export default function StudentDetailPage() {
               </div>
             </section>
 
-            <StudentWorkTimeline studentId={id} />
+            <section id="student-activity" className="scroll-mt-24" aria-label="Atividade do aluno">
+              <StudentWorkTimeline studentId={id} />
+            </section>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
               <div className="space-y-4">
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                <section id="risk-analysis" className="scroll-mt-24 rounded-xl border border-[#E5E7EB] bg-white p-5">
                   <h2 className="text-[15px] font-semibold text-[#111827]">Análise de risco</h2>
                   <p className="mt-1 text-[12px] text-[#667085]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
                   {explanationMetadata?.available && (
@@ -315,7 +324,7 @@ export default function StudentDetailPage() {
                     <ul className="mt-4 space-y-2">
                       {factors.map((factor, index) => (
                         <li key={`${factor}-${index}`} className="flex items-center gap-3 rounded-lg border border-[#E5E7EB] px-3.5 py-3">
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#EFF6FF] text-[11px] font-semibold text-[#2563EB]">
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#EFF6FF] text-[11px] font-semibold text-[#266DF0]">
                             {String(index + 1).padStart(2, "0")}
                           </span>
                           <span className="text-[13px] font-medium text-[#111827]">{factor}</span>
@@ -394,7 +403,7 @@ export default function StudentDetailPage() {
                     <ol className="mt-4 space-y-2">
                       {actions.map((action, index) => (
                         <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-3.5 py-3 text-[13px] leading-relaxed text-[#344054]">
-                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[#2563EB] ring-1 ring-[#E5E7EB]">{index + 1}</span>
+                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[#266DF0] ring-1 ring-[#E5E7EB]">{index + 1}</span>
                           {action}
                         </li>
                       ))}
@@ -404,9 +413,9 @@ export default function StudentDetailPage() {
               </div>
 
               <div className="space-y-4">
-                <section className={cn("rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[#E5E7EB] bg-white")}>
+                <section id="student-communication" className={cn("scroll-mt-24 rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[#E5E7EB] bg-white")}>
                   <div className="flex items-start gap-3">
-                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[#EFF6FF] text-[#2563EB]")}>
+                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[#EFF6FF] text-[#266DF0]")}>
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <div>
@@ -421,8 +430,8 @@ export default function StudentDetailPage() {
                     disabled={preferenceMutation.isPending}
                     onClick={() => preferenceMutation.mutate(!data.communication_opt_out)}
                     className={cn(
-                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] disabled:opacity-60",
-                      data.communication_opt_out ? "bg-[#2563EB] text-white hover:bg-[#1D4ED8]" : "border border-[#E5E7EB] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0] disabled:opacity-60",
+                      data.communication_opt_out ? "bg-[#266DF0] text-white hover:bg-[#1F5DD1]" : "border border-[#E5E7EB] bg-white text-[#111827] hover:bg-[#F8FAFC]"
                     )}
                   >
                     {preferenceMutation.isPending ? "Salvando…" : data.communication_opt_out ? "Revogar opt-out" : "Registrar opt-out"}
@@ -431,7 +440,7 @@ export default function StudentDetailPage() {
 
                 <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
                   <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#2563EB]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#266DF0]">
                       <MessageSquareText className="h-4 w-4" />
                     </span>
                     <div>
@@ -443,7 +452,7 @@ export default function StudentDetailPage() {
                     type="button"
                     onClick={() => void loadPreview()}
                     disabled={loadingPreview}
-                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2563EB] text-[13px] font-semibold text-white transition hover:bg-[#1D4ED8] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#266DF0] text-[13px] font-semibold text-white transition hover:bg-[#1F5DD1] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {loadingPreview ? "Preparando…" : "Gerar prévia da mensagem"}
