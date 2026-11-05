@@ -151,6 +151,7 @@ async def sync_authorization(
                          and existing["verified_at"]==verified_at
                          and existing["expires_at"]==expires_at
                          and existing["source"]==source):
+            await db.commit()  # persist HMAC nonce on idempotent replay
             return {"accepted":True,"status":status,"replayed":True}
         raise ValueError("Evento de autorização anterior ao registro atual.")
     if status != "granted":
