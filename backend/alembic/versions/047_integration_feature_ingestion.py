@@ -50,7 +50,7 @@ def upgrade() -> None:
         CREATE TABLE student_feature_observations (
             id UUID PRIMARY KEY,
             tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-            student_id UUID NULL REFERENCES students(id) ON DELETE CASCADE,
+            student_id UUID NULL,
             subject_ref VARCHAR(160) NULL,
             observation_key VARCHAR(200) NOT NULL,
             source_kind VARCHAR(32) NOT NULL
@@ -68,8 +68,21 @@ def upgrade() -> None:
             payload JSONB NOT NULL DEFAULT '{}'::jsonb,
             CONSTRAINT uq_student_feature_observation_key
                 UNIQUE (tenant_id, observation_key),
+            CONSTRAINT fk_feature_observation_tenant_student
+                FOREIGN KEY (tenant_id, student_id)
+                REFERENCES students (tenant_id, id) ON DELETE CASCADE,
+            CONSTRAINT ck_feature_observation_source_key
+                CHECK (source_key ~ '^[a-z0-9][a-z0-9_.-]{0,79}$'),
             CONSTRAINT ck_feature_observation_feature_key
-                CHECK (feature_key ~ '^[a-z][a-z0-9_]{1,63}$')
+                CHECK (feature_key ~ '^[a-z][a-z0-9_]{1,63}$'),
+            CONSTRAINT ck_feature_observation_subject_required
+                CHECK (student_id IS NOT NULL OR subject_ref IS NOT NULL),
+            CONSTRAINT ck_feature_observation_typed_value
+                CHECK (
+                    (value_type = 'number' AND value_number IS NOT NULL AND value_text IS NULL AND value_boolean IS NULL) OR
+                    (value_type IN ('text', 'categorical') AND value_text IS NOT NULL AND value_number IS NULL AND value_boolean IS NULL) OR
+                    (value_type = 'boolean' AND value_boolean IS NOT NULL AND value_number IS NULL AND value_text IS NULL)
+                )
         )
     """)
     op.execute("""
