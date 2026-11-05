@@ -16,8 +16,11 @@ def upgrade() -> None:
         id UUID PRIMARY KEY,
         tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
         name VARCHAR(160) NOT NULL,
-        purpose VARCHAR(30) NOT NULL CHECK (purpose IN ('retention','collections')),
+        purpose VARCHAR(30) NOT NULL CHECK (purpose IN ('retention','academic','service','collections')),
         channel VARCHAR(20) NOT NULL CHECK (channel IN ('email','sms','whatsapp')),
+        delivery_mode VARCHAR(20) NOT NULL DEFAULT 'targeted' CHECK (delivery_mode IN ('individual','targeted','bulk')),
+        request_key VARCHAR(128),
+        request_hash VARCHAR(64),
         template_ref VARCHAR(160) NOT NULL,
         template_body TEXT NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'draft'
@@ -39,6 +42,48 @@ def upgrade() -> None:
         CONSTRAINT dispatch_window_order CHECK (end_hour > start_hour)
     )
     """)
+    op.execute("""
+    CREATE UNIQUE INDEX uq_dispatch_campaign_request
+    ON dispatch_campaigns(tenant_id,request_key) WHERE request_key IS NOT NULL
+    """)
+    op.execute("""
+    CREATE TABLE dispatch_approved_templates (
+        id UUID PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        code VARCHAR(100) NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        purpose VARCHAR(30) NOT NULL CHECK (purpose IN ('retention','academic','service','collections')),
+        channel VARCHAR(20) NOT NULL CHECK (channel IN ('email','sms','whatsapp')),
+        subject VARCHAR(160) NOT NULL,
+        body TEXT NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','approved','retired')),
+        created_by VARCHAR(80) NOT NULL,
+        approved_by VARCHAR(80),
+        approval_ref VARCHAR(200),
+        approved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(tenant_id,code,version)
+    )
+    """)
+    op.execute("""
+    CREATE TABLE dispatch_authorizations (
+        id UUID PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        subject_type VARCHAR(20) NOT NULL CHECK (subject_type IN ('student','external')),
+        subject_ref VARCHAR(160) NOT NULL,
+        channel VARCHAR(20) NOT NULL CHECK (channel IN ('email','sms','whatsapp')),
+        purpose VARCHAR(30) NOT NULL CHECK (purpose IN ('retention','academic','service','collections')),
+        evidence_ref VARCHAR(200) NOT NULL,
+        source VARCHAR(80) NOT NULL,
+        status VARCHAR(20) NOT NULL CHECK (status IN ('granted','revoked','expired')),
+        verified_at TIMESTAMPTZ NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(tenant_id,subject_type,subject_ref,channel,purpose)
+    )
+    """)
+    op.execute("CREATE INDEX ix_dispatch_auth_expiry ON dispatch_authorizations(tenant_id,expires_at)")
     op.execute("""
     CREATE TABLE dispatch_obligations (
         id UUID PRIMARY KEY,
@@ -185,7 +230,7 @@ def upgrade() -> None:
     )
     """)
     for table in (
-        "dispatch_campaigns","dispatch_obligations","dispatch_external_contacts",
+        "dispatch_campaigns","dispatch_approved_templates","dispatch_authorizations","dispatch_obligations","dispatch_external_contacts",
         "dispatch_items","dispatch_events","dispatch_rate_buckets","dispatch_inbound","dispatch_payment_events","dispatch_worker_heartbeats","dispatch_suppressions",
     ):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
@@ -217,6 +262,6 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS dispatch_events_append_only()")
     for table in (
         "dispatch_suppressions","dispatch_worker_heartbeats","dispatch_payment_events","dispatch_inbound","dispatch_rate_buckets","dispatch_events","dispatch_items",
-        "dispatch_external_contacts","dispatch_obligations","dispatch_campaigns",
+        "dispatch_external_contacts","dispatch_obligations","dispatch_authorizations","dispatch_approved_templates","dispatch_campaigns",
     ):
         op.execute(f"DROP TABLE IF EXISTS {table}")
