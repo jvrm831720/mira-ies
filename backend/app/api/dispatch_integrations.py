@@ -245,6 +245,7 @@ async def reconcile_payment(
             or previous["remaining_balance"]!=body.balance
             or previous["paid_at"]!=body.observed_at):
             raise HTTPException(status_code=409,detail="Evento já registrado com conteúdo diferente.")
+        await db.commit()  # signed request remains protected against replay
         return {"accepted":True,"replayed":True}
     if body.source_version<=current["source_version"] or body.observed_at < current["verified_at"]:
         raise HTTPException(status_code=409,detail="Pagamento fora da ordem verificada da fonte.")
