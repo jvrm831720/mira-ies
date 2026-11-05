@@ -65,17 +65,17 @@ function MetricCard({
   }[tone];
 
   return (
-    <article className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+    <article className="rounded-xl border border-[#e4e7ec] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-medium text-[#667085]">{label}</p>
-          <p className="mt-2 text-[24px] font-semibold tracking-[-0.035em] text-[#101828]">{value}</p>
+          <p className="text-[11px] font-medium text-[#6f7988]">{label}</p>
+          <p className="mt-2 text-[24px] font-semibold tracking-[-0.035em] text-[#1c1d1f]">{value}</p>
         </div>
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${toneClass}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-2 text-[10px] leading-relaxed text-[#667085]">{detail}</p>
+      <p className="mt-2 text-[10px] leading-relaxed text-[#6f7988]">{detail}</p>
     </article>
   );
 }
@@ -97,7 +97,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] text-[#344054] outline-none focus:border-[#4050CD] focus:ring-2 focus:ring-[#4050CD]/15"
+        className="h-10 rounded-lg border border-[#cad0d9] bg-white px-3 text-[12px] text-[#2e3238] outline-none focus:border-[#266df0] focus:ring-2 focus:ring-[#266df0]/15"
       >
         {children}
       </select>
@@ -106,7 +106,7 @@ function FilterSelect({
 }
 
 function EmptyBreakdown({ text }: { text: string }) {
-  return <p className="rounded-lg bg-[#F8FAFC] px-4 py-6 text-center text-[12px] text-[#667085]">{text}</p>;
+  return <p className="rounded-lg bg-[#f4f5f6] px-4 py-6 text-center text-[12px] text-[#6f7988]">{text}</p>;
 }
 
 function EducationalBreakdown({
@@ -119,15 +119,15 @@ function EducationalBreakdown({
   rows: PermanenceBreakdown[];
 }) {
   return (
-    <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+    <section className="rounded-xl border border-[#e4e7ec] bg-white p-5">
       <div className="mb-4">
-        <h2 className="text-[14px] font-semibold text-[#101828]">{title}</h2>
-        <p className="mt-1 text-[11px] text-[#667085]">{description}</p>
+        <h2 className="text-[14px] font-semibold text-[#1c1d1f]">{title}</h2>
+        <p className="mt-1 text-[11px] text-[#6f7988]">{description}</p>
       </div>
       {rows.length === 0 ? <EmptyBreakdown text="Sem outcomes acadêmicos confirmados neste recorte." /> : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-[12px]">
-            <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
+            <thead className="bg-[#f4f5f6] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#6f7988]">
               <tr>
                 <th className="px-3 py-2">Grupo</th>
                 <th className="px-3 py-2">Desfechos</th>
@@ -136,10 +136,10 @@ function EducationalBreakdown({
                 <th className="px-3 py-2">Permanência obs.</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EAECF0]">
+            <tbody className="divide-y divide-[#e4e7ec]">
               {rows.map((row) => (
                 <tr key={row.key}>
-                  <td className="px-3 py-2.5 font-medium text-[#101828]">{row.label}</td>
+                  <td className="px-3 py-2.5 font-medium text-[#1c1d1f]">{row.label}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.confirmed_outcomes)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.rematriculados)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.evasion_outcomes)}</td>
@@ -164,15 +164,15 @@ function OperationalBreakdown({
   rows: OperationalPermanenceBreakdown[];
 }) {
   return (
-    <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+    <section className="rounded-xl border border-[#e4e7ec] bg-white p-5">
       <div className="mb-4">
-        <h2 className="text-[14px] font-semibold text-[#101828]">{title}</h2>
-        <p className="mt-1 text-[11px] text-[#667085]">{description}</p>
+        <h2 className="text-[14px] font-semibold text-[#1c1d1f]">{title}</h2>
+        <p className="mt-1 text-[11px] text-[#6f7988]">{description}</p>
       </div>
       {rows.length === 0 ? <EmptyBreakdown text="Sem registros operacionais para agrupar neste recorte." /> : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-left text-[12px]">
-            <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
+            <thead className="bg-[#f4f5f6] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#6f7988]">
               <tr>
                 <th className="px-3 py-2">Grupo</th>
                 <th className="px-3 py-2">Mensagens enviadas</th>
@@ -180,10 +180,10 @@ function OperationalBreakdown({
                 <th className="px-3 py-2">Entregues</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EAECF0]">
+            <tbody className="divide-y divide-[#e4e7ec]">
               {rows.map((row) => (
                 <tr key={row.key}>
-                  <td className="px-3 py-2.5 font-medium text-[#101828]">{row.label}</td>
+                  <td className="px-3 py-2.5 font-medium text-[#1c1d1f]">{row.label}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.messages_sent)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.unique_students_contacted)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.delivered_messages)}</td>
@@ -249,26 +249,26 @@ function ComparisonCard({ data }: { data: PermanenceAnalytics["comparison"] }) {
 
 function EducationalHistory({ data }: { data: PermanenceAnalytics["educational"] }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white">
-      <div className="flex flex-col gap-1 border-b border-[#EAECF0] px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="overflow-hidden rounded-xl border border-[#e4e7ec] bg-white">
+      <div className="flex flex-col gap-1 border-b border-[#e4e7ec] px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-[14px] font-semibold text-[#101828]">Histórico de resultados por estudante</h2>
-          <p className="mt-1 text-[11px] text-[#667085]">Eventos acadêmicos mais recentes. Exibição limitada a 100 registros.</p>
+          <h2 className="text-[14px] font-semibold text-[#1c1d1f]">Histórico de resultados por estudante</h2>
+          <p className="mt-1 text-[11px] text-[#6f7988]">Eventos acadêmicos mais recentes. Exibição limitada a 100 registros.</p>
         </div>
-        <span className="text-[10px] text-[#667085]">{numberLabel(data.records_total)} outcomes no recorte</span>
+        <span className="text-[10px] text-[#6f7988]">{numberLabel(data.records_total)} outcomes no recorte</span>
       </div>
       {data.records.length === 0 ? (
         <div className="px-5 py-10 text-center">
-          <BookOpenCheck className="mx-auto h-5 w-5 text-[#98A2B3]" />
-          <p className="mt-3 text-[13px] font-semibold text-[#344054]">Ainda não há desfechos acadêmicos confirmados</p>
-          <p className="mx-auto mt-1 max-w-xl text-[11px] leading-relaxed text-[#667085]">
+          <BookOpenCheck className="mx-auto h-5 w-5 text-[#9fa1a7]" />
+          <p className="mt-3 text-[13px] font-semibold text-[#2e3238]">Ainda não há desfechos acadêmicos confirmados</p>
+          <p className="mx-auto mt-1 max-w-xl text-[11px] leading-relaxed text-[#6f7988]">
             Importe eventos de matrícula, rematrícula, trancamento, evasão, conclusão ou transferência pelo endpoint acadêmico. Sem outcome registrado, a MIRA não presume permanência nem evasão.
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] text-left text-[11px]">
-            <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
+            <thead className="bg-[#f4f5f6] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#6f7988]">
               <tr>
                 <th className="px-4 py-3">Estudante</th>
                 <th className="px-4 py-3">Curso</th>
@@ -279,19 +279,19 @@ function EducationalHistory({ data }: { data: PermanenceAnalytics["educational"]
                 <th className="px-4 py-3">Intervenções relacionadas</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EAECF0]">
+            <tbody className="divide-y divide-[#e4e7ec]">
               {data.records.map((record) => (
-                <tr key={record.event_id} className="hover:bg-[#F9FAFB]">
+                <tr key={record.event_id} className="hover:bg-[#f4f5f6]">
                   <td className="px-4 py-3">
                     {record.student_id ? (
-                      <Link href={`/alunos/${record.student_id}`} className="font-semibold text-[#4050CD] hover:underline">
+                      <Link href={`/alunos/${record.student_id}`} className="font-semibold text-[#266df0] hover:underline">
                         {record.student_name || record.matricula}
                       </Link>
-                    ) : <span className="font-semibold text-[#101828]">{record.student_name || record.matricula}</span>}
-                    <span className="mt-0.5 block text-[10px] text-[#667085]">{record.matricula}</span>
+                    ) : <span className="font-semibold text-[#1c1d1f]">{record.student_name || record.matricula}</span>}
+                    <span className="mt-0.5 block text-[10px] text-[#6f7988]">{record.matricula}</span>
                   </td>
                   <td className="px-4 py-3 text-[#475467]">{record.course || "Não informado"}</td>
-                  <td className="px-4 py-3 font-medium text-[#344054]">{record.outcome_label}</td>
+                  <td className="px-4 py-3 font-medium text-[#2e3238]">{record.outcome_label}</td>
                   <td className="px-4 py-3 text-[#475467]">
                     {record.academic_period || <span className="text-[#B54708">Não informado</span>}
                   </td>
@@ -345,7 +345,7 @@ function EducationalResults({ data }: { data: PermanenceAnalytics }) {
 
       <ComparisonCard data={data.comparison} />
       <EducationalHistory data={education} />
-      <p className="px-1 text-[10px] leading-relaxed text-[#667085]">
+      <p className="px-1 text-[10px] leading-relaxed text-[#6f7988]">
         Definição: rematrícula, status ativo, conclusão e formatura são resultados de permanência; evasão e trancamento são saídas; transferências ficam fora das taxas. Taxas são descritivas e não afirmam causalidade.
       </p>
     </div>
@@ -385,12 +385,12 @@ function OperationalResults({ data }: { data: PermanenceAnalytics }) {
           }))}
         />
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e4e7ec] bg-white p-4">
         <div>
-          <p className="text-[12px] font-semibold text-[#101828]">Precisa revisar um contato específico?</p>
-          <p className="mt-1 text-[11px] text-[#667085]">O histórico detalhado fica separado dos outcomes educacionais.</p>
+          <p className="text-[12px] font-semibold text-[#1c1d1f]">Precisa revisar um contato específico?</p>
+          <p className="mt-1 text-[11px] text-[#6f7988]">O histórico detalhado fica separado dos outcomes educacionais.</p>
         </div>
-        <Link href="/retencao/logs" className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#D0D5DD] px-3 text-[11px] font-semibold text-[#344054] hover:bg-[#F9FAFB]">
+        <Link href="/retencao/logs" className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#cad0d9] px-3 text-[11px] font-semibold text-[#2e3238] hover:bg-[#f4f5f6]">
           Histórico de contatos <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -421,14 +421,14 @@ export function PermanenceResultsPage() {
   return (
     <>
       <Header title="Resultados de permanência" subtitle="Desfechos acadêmicos confirmados, separados dos indicadores operacionais." />
-      <main className="mx-auto w-full max-w-[1600px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        <section className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-5 lg:flex-row lg:items-end lg:justify-between">
+      <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
+        <section className="flex flex-col gap-3 border-b border-[#e4e7ec] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#4050CD]">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#266df0]">
               <BookOpenCheck className="h-3.5 w-3.5" /> Mensuração educacional
             </div>
-            <h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#101828]">Resultados de permanência</h1>
-            <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-[#667085]">
+            <h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#1c1d1f]">Resultados de permanência</h1>
+            <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-[#6f7988]">
               Acompanhe rematrícula, evasão e permanência por período letivo — e relacione os desfechos acadêmicos às intervenções sem presumir causalidade.
             </p>
           </div>
@@ -437,17 +437,17 @@ export function PermanenceResultsPage() {
               type="button"
               onClick={() => void query.refetch()}
               disabled={query.isFetching}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] font-medium text-[#344054] hover:bg-[#F9FAFB] disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#cad0d9] bg-white px-3 text-[12px] font-medium text-[#2e3238] hover:bg-[#f4f5f6] disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} /> Atualizar
             </button>
-            <Link href="/retencao/logs" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#4050CD] px-3.5 text-[12px] font-semibold text-white hover:bg-[#303FAF]">
+            <Link href="/retencao/logs" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-3.5 text-[12px] font-medium text-white hover:bg-[#101113]">
               Histórico de contatos <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </section>
 
-        <section aria-label="Filtros de resultados" className="flex flex-wrap items-end gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4">
+        <section aria-label="Filtros de resultados" className="flex flex-wrap items-end gap-3 rounded-xl border border-[#e4e7ec] bg-white p-4">
           <FilterSelect label="Janela de observação" value={String(days)} onChange={(value) => setDays(Number(value))}>
             {DAYS.map((value) => <option key={value} value={value}>Últimos {value} dias</option>)}
           </FilterSelect>
@@ -468,19 +468,19 @@ export function PermanenceResultsPage() {
             {(data?.options.channels || []).map((value) => <option key={value} value={value}>{value === "whatsapp" ? "WhatsApp" : value === "email" ? "E-mail" : value === "sms" ? "SMS" : value}</option>)}
           </FilterSelect>
         </section>
-        <p className="-mt-3 px-1 text-[10px] leading-relaxed text-[#667085]">
+        <p className="-mt-3 px-1 text-[10px] leading-relaxed text-[#6f7988]">
           O filtro de período letivo restringe os outcomes acadêmicos. Indicadores operacionais usam a janela de dias selecionada e são agrupados por mês-calendário.
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div role="tablist" aria-label="Tipo de resultados" className="inline-flex rounded-xl border border-[#E5E7EB] bg-white p-1">
+          <div role="tablist" aria-label="Tipo de resultados" className="inline-flex rounded-xl border border-[#e4e7ec] bg-white p-1">
             <button
               id="tab-educational"
               role="tab"
               aria-selected={tab === "educational"}
               aria-controls="panel-educational"
               onClick={() => setTab("educational")}
-              className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold ${tab === "educational" ? "bg-[#4050CD] text-white" : "text-[#475467] hover:bg-[#F9FAFB]"}`}
+              className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold ${tab === "educational" ? "bg-[#1c1d1f] text-white" : "text-[#475467] hover:bg-[#f4f5f6]"}`}
             >
               <GraduationCap className="h-3.5 w-3.5" /> Resultados educacionais
             </button>
@@ -490,12 +490,12 @@ export function PermanenceResultsPage() {
               aria-selected={tab === "operational"}
               aria-controls="panel-operational"
               onClick={() => setTab("operational")}
-              className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold ${tab === "operational" ? "bg-[#4050CD] text-white" : "text-[#475467] hover:bg-[#F9FAFB]"}`}
+              className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold ${tab === "operational" ? "bg-[#266df0] text-white" : "text-[#475467] hover:bg-[#f4f5f6]"}`}
             >
               <Activity className="h-3.5 w-3.5" /> Resultados operacionais
             </button>
           </div>
-          <p className="text-[10px] text-[#667085]">
+          <p className="text-[10px] text-[#6f7988]">
             {data?.generated_at ? `Dados atualizados ${dateTimeLabel(data.generated_at)}` : `Janela: ${days} dias`}
           </p>
         </div>
@@ -510,8 +510,8 @@ export function PermanenceResultsPage() {
         )}
         {data && (tab === "educational" ? <EducationalResults data={data} /> : <OperationalResults data={data} />)}
 
-        <div className="flex items-start gap-2 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3 text-[10px] leading-relaxed text-[#667085]">
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#667085]" />
+        <div className="flex items-start gap-2 rounded-lg border border-[#e4e7ec] bg-[#f4f5f6] p-3 text-[10px] leading-relaxed text-[#6f7988]">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6f7988]" />
           <p>
             Outcomes acadêmicos dependem de importação explícita da instituição. Dados ausentes não são classificados como permanência ou evasão; envio, resposta e entrega são indicadores operacionais, não outcomes educacionais.
           </p>
