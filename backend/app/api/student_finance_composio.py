@@ -11,6 +11,9 @@ from app.core.auth import AuthContext, require_permission
 from app.db.session import get_db
 from app.models.financial_composio import StudentFinancialSyncRun
 from app.services import student_finance_composio as finance
+from app.services.composio.connections import ConnectionDenied
+from app.services.composio.policy import ComposioPolicyDenied
+from app.services.composio.client import ComposioSDKUnavailable
 
 router = APIRouter(prefix="/native-academic/finance/composio", tags=["MIRA Education — Composio Finance"])
 
@@ -40,7 +43,8 @@ async def sync(
             arguments=body.arguments, rows_path=body.rows_path,
             fields=body.field_map, idempotency_key=idempotency_key,
         )
-    except (finance.FinancialReadDenied, ValueError, TypeError) as exc:
+    except (finance.FinancialReadDenied, ConnectionDenied, ComposioPolicyDenied,
+            ComposioSDKUnavailable, ValueError, TypeError) as exc:
         await db.rollback()
         # No exception strings from providers are shown to the frontend.
         raise HTTPException(status_code=422, detail="A leitura financeira não passou na validação de conexão, política ou dados.") from exc
