@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
@@ -14,6 +15,7 @@ from app.models.composio_connection import TenantComposioToolkitPolicy
 from app.services.composio.client import (
     ComposioSDKUnavailable,
     list_toolkits,
+    list_tools_for_toolkit,
     validate_tool_slugs,
 )
 from app.services.composio.gateway import ComposioNotConfigured, require_composio_configuration
@@ -41,7 +43,7 @@ async def get_catalog(
 ):
     try:
         require_composio_configuration()
-        catalog = list_toolkits()
+        catalog = await run_in_threadpool(list_toolkits)
     except Exception as exc:
         raise _catalog_error(exc) from exc
 
@@ -78,10 +80,10 @@ async def update_toolkit_policy(
 
     try:
         require_composio_configuration()
-        known_toolkits = {item["slug"] for item in list_toolkits()}
+        known_toolkits = {item["slug"] for item in await run_in_threadpool(list_toolkits)}
         if slug not in known_toolkits:
             raise HTTPException(status_code=404, detail="Toolkit não encontrado no catálogo Composio.")
-        tools = validate_tool_slugs(body.tool_slugs) if body.tool_slugs else []
+        tools = await run_in_threadpool(validate_tool_slugs, slug, body.tool_slugs) if body.tool_slugs else []
     except HTTPException:
         raise
     except ValueError as exc:
@@ -123,3 +125,24 @@ async def update_toolkit_policy(
         "tool_slugs": row.tool_slugs,
         "updated_at": row.updated_at.isoformat(),
     }
+
+
+@router.get("/catalog/{toolkit_slug}/tools")
+async def get_toolkit_tools(
+    toolkit_slug: str,
+    auth: AuthContext = Depends(require_min_role("admin")),
+):
+    slug = toolkit_slug.strip().lower()
+    if not slug or len(slug) > 80 or not slug.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(status_code=422, detail="Toolkit slug inválido.")
+    try:
+        require_composio_configuration()
+        known_toolkits = {item["slug"] for item in await run_in_threadpool(list_toolkits)}
+        if slug not in known_toolkits:
+            raise HTTPException(status_code=404, detail="Toolkit não encontrado no catálogo Composio.")
+        tools = await run_in_threadpool(list_tools_for_toolkit, slug)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _catalog_error(exc) from exc
+    return {"toolkit_slug": slug, "items": tools, "total": len(tools)}
