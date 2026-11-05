@@ -53,8 +53,11 @@ done
 as_frappe() { runuser -u frappe -- "$@"; }
 
 # Recreate only non-secret links/config; Site data persists across deploys.
-if [[ -L sites/assets ]]; then rm sites/assets; fi
-if [[ ! -e sites/assets ]]; then ln -s ../assets sites/assets; fi
+# Frappe Docker stores generated assets in the immutable image, not the
+# persistent sites volume. Replace any stale generated directory or symlink.
+# Site uploads and confidential files are under sites/<site>/ and untouched.
+if [[ -e sites/assets || -L sites/assets ]]; then rm -rf -- sites/assets; fi
+ln -s ../assets sites/assets
 as_frappe bash -c 'printf "frappe\nerpnext\neducation\n" > sites/apps.txt'
 
 echo "Setting common configuration for private MIRA Frappe site..."
