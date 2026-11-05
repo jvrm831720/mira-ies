@@ -88,7 +88,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
   ];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-black/[0.06] bg-[rgba(247,245,239,0.88)] backdrop-blur-xl">
+    <header className="sticky top-0 z-20 border-b border-[#e4e7ec] bg-white">
       <div className={cn("flex w-full items-center gap-4 pl-14 pr-4 md:px-8 xl:px-10", compact ? "min-h-[52px] justify-end py-2" : "min-h-[72px] justify-between py-3")}>
         {!compact && <div className="min-w-0">
           <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-neutral-400 sm:flex">
@@ -115,8 +115,8 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
             <CircleHelp className="h-[18px] w-[18px]" />
           </IconButton>
           {panel === "notifications" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-xl border border-[#e4e7ec] bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-[#e4e7ec] px-4 py-3">
                 <p className="text-sm font-semibold text-neutral-900">Notificações</p>
                 <span className="text-[10px] text-neutral-400">{notifications.length} recentes</span>
               </div>
@@ -124,7 +124,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
                 {notifications.map((n) => (
                   <li
                     key={n.id}
-                    className="border-b border-neutral-100 px-4 py-3 last:border-0 hover:bg-neutral-50"
+                    className="border-b border-[#e4e7ec] px-4 py-3 last:border-0 hover:bg-[#f4f5f6]"
                   >
                     <p className="text-[13px] font-semibold text-neutral-900">{n.title}</p>
                     <p className="mt-0.5 text-[12px] leading-relaxed text-neutral-500">{n.body}</p>
@@ -136,8 +136,8 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
           )}
 
           {panel === "help" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,360px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
-              <div className="border-b border-neutral-100 px-4 py-3">
+            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,360px)] overflow-hidden rounded-xl border border-[#e4e7ec] bg-white shadow-xl">
+              <div className="border-b border-[#e4e7ec] px-4 py-3">
                 <p className="text-sm font-semibold text-neutral-900">Pedir ajuda</p>
                 <p className="mt-0.5 text-[11px] text-neutral-500">
                   Descreva o que precisa. Enviamos para o suporte Mira.
@@ -165,7 +165,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
                     onChange={(e) => setHelpMessage(e.target.value)}
                     rows={4}
                     placeholder="Conte o que aconteceu e o que você tentou fazer."
-                    className="flex w-full rounded-[16px] border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15"
+                    className="flex w-full rounded-[16px] border border-[#e4e7ec] bg-white px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]/15"
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={helpSending}>
