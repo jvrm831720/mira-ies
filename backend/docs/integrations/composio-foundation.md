@@ -43,10 +43,11 @@ Audit trail MIRA (metadata only; append-only)
 
 - O backend consulta o catálogo vivo pelo SDK Python oficial (`composio==0.31.0`); não há lista fixa de fornecedores.
 - `GET /api/v1/integrations/composio/catalog` retorna o catálogo e a política da instituição autenticada.
+- `GET /api/v1/integrations/composio/catalog/{toolkit_slug}/tools` entrega os schemas para seleção granular.
 - `PUT /api/v1/integrations/composio/catalog/{toolkit_slug}/policy` persiste a habilitação do toolkit e a seleção explícita de tool slugs.
 - A política é isolada por tenant, protegida por RLS e começa desabilitada. Um toolkit só pode ser habilitado com ao menos uma ferramenta selecionada.
 - O catálogo não é uma autorização de execução. O frontend futuro poderá editar a seleção, mas o backend permanece a autoridade.
-- Os endpoints exigem papel admin e respondem com erro fechado quando o Composio está desativado ou sem credenciais.
+- Os endpoints exigem a permissão administrativa settings.manage e respondem com erro fechado quando o Composio está desativado ou sem credenciais.
 
 ## Dados persistidos
 
@@ -102,9 +103,9 @@ O SDK oficial está integrado ao backend, mas só é instanciado quando `COMPOSI
 1. **Conexões:** endpoints admin para iniciar OAuth, callback, listar/revogar contas; tudo tenant-scoped.
 2. **Policy Engine:** classificação de risco, RBAC por ferramenta, aprovação humana e aplicação da seleção ao contexto de sessão.
 3. **Execução:** gateway backend-only, validação de argumentos, approval gate, idempotência, rate limits e auditoria append-only.
-5. **Agente:** descoberta sob demanda de ferramentas autorizadas, sem carregar catálogo inteiro no prompt.
-6. **Triggers:** webhooks com assinatura, replay protection, deduplicação e fila; nunca confiar no payload externo como contexto autorizado.
-7. **E2E:** dois tenants, duas contas, tentativa de acesso cruzado, revogação, falha OAuth, tool read/write e aprovação.
+4. **Agente:** descoberta sob demanda de ferramentas autorizadas, sem carregar catálogo inteiro no prompt.
+5. **Triggers:** webhooks com assinatura, replay protection, deduplicação e fila; nunca confiar no payload externo como contexto autorizado.
+6. **E2E:** dois tenants, duas contas, tentativa de acesso cruzado, revogação, falha OAuth, tool read/write e aprovação.
 
 ## Critérios para ativação
 
