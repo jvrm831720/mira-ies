@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from difflib import SequenceMatcher
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -24,8 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import get_settings
 from app.models.composio_connection import TenantComposioAccount, TenantComposioSession
 from app.models.finance_reconciliation import (
-    FinanceSourceProfile, FinanceStudentLink, FinanceIngestionBatch,
-    FinanceObservation, FinanceReviewCase, FinanceReviewEvent,
+    FinanceSourceProfile, FinanceStudentLink, FinanceIngestionBatch, FinanceObservation,
 )
 from app.models.student import Student
 from app.models.student_services import StudentFinancialReference
