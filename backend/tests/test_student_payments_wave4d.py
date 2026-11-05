@@ -24,6 +24,7 @@ def configure(monkeypatch, *, payments_on=True, webhooks_on=True):
         student_payments_sandbox_enabled=payments_on,
         student_payments_sandbox_webhooks_enabled=webhooks_on,
         student_payments_sandbox_hmac_secret="testing-only-hmac-secret-" + "x" * 48,
+        student_payments_asaas_issuer_wallet_id=None,
     ))
 
 
@@ -280,4 +281,78 @@ async def test_cross_tenant_provider_and_observation_rejected(
         await payments.create_draft(
             db_session, tenant_id=tenant_b, user_id=actor, provider_id=provider_id,
             observation_id=obs_a, method="pix", idempotency_key="isolated-other-draft",
+        )
+
+
+def test_asaas_split_is_100_percent_of_net_and_never_caller_controlled():
+    wallet = str(uuid4())
+    assert payments.asaas_split_rule(wallet) == {
+        "split": [{"walletId": wallet, "percentualValue": 100}],
+    }
+    with pytest.raises(payments.PaymentDenied):
+        payments.asaas_split_rule("agency-123-pix-key")
+
+
+@pytest.mark.asyncio
+async def test_ies_sets_only_wallet_and_preview_reuses_it_across_financial_sources(
+    db_session, tenant_factory, monkeypatch,
+):
+    configure(monkeypatch)
+    actor = str(uuid4())
+    tenant, source_id, student_id, obs_id = await make_source(
+        db_session, tenant_factory, "asaas-only-destination", actor,
+        account="asaas-source-example",
+    )
+    current = await payments.get_destination(db_session, tenant)
+    original = current.wallet_id
+    assert payments.destination_json(current)["verified_for_live"] is False
+    with pytest.raises(payments.PaymentDenied, match="Confirme"):
+        await payments.save_destination(
+            db_session, tenant_id=tenant, user_id=actor,
+            wallet_id=str(uuid4()), expected_version=current.version,
+            confirms_ownership=False,
+        )
+    new_wallet = str(uuid4())
+    previous_version = current.version
+    saved = await payments.save_destination(
+        db_session, tenant_id=tenant, user_id=actor,
+        wallet_id=new_wallet, expected_version=previous_version, confirms_ownership=True,
+    )
+    assert saved["wallet_id"] == new_wallet
+    assert saved["status"] == "pending"
+    assert saved["receives_percent_of_net"] == 100
+    assert saved["verified_for_live"] is False
+    with pytest.raises(payments.PaymentDenied, match="outro operador"):
+        await payments.save_destination(
+            db_session, tenant_id=tenant, user_id=actor,
+            wallet_id=original, expected_version=previous_version,
+            confirms_ownership=True,
+        )
+    preview = await payments.preview_asaas_split(
+        db_session, tenant_id=tenant, observation_id=obs_id,
+    )
+    assert preview["split"] == [{"walletId": new_wallet, "percentualValue": 100}]
+    assert preview["split_basis"] == "netValue"
+    assert preview["gross_charge_value"] == "100.00"
+    assert not preview["charge_created"]
+    assert not preview["ready_for_real_charges"]
+    assert not preview["settlement_confirmed"]
+
+
+@pytest.mark.asyncio
+async def test_asaas_split_preview_denies_foreign_workspace(
+    db_session, tenant_factory, monkeypatch,
+):
+    configure(monkeypatch)
+    actor = str(uuid4())
+    tenant_a, _, _, _ = await make_source(
+        db_session, tenant_factory, "asaas-cross-scope-a", actor, account="asaas-example-a",
+    )
+    tenant_b, _, _, foreign_obs = await make_source(
+        db_session, tenant_factory, "asaas-cross-scope-b", actor, account="asaas-example-b",
+    )
+    assert tenant_a != tenant_b
+    with pytest.raises(payments.PaymentDenied, match="workspace"):
+        await payments.preview_asaas_split(
+            db_session, tenant_id=tenant_a, observation_id=foreign_obs,
         )

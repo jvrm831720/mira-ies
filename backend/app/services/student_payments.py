@@ -394,10 +394,11 @@ async def save_destination(db: AsyncSession, *, tenant_id: str, user_id: str,
     issuer = get_settings().student_payments_asaas_issuer_wallet_id
     if issuer:
         try:
-            if normalized == str(UUID(issuer)):
-                raise PaymentDenied("A conta emissora não pode receber o próprio Split.")
+            issuer_wallet = str(UUID(issuer))
         except ValueError as exc:
             raise PaymentDenied("Carteira Asaas emissora não configurada corretamente.") from exc
+        if normalized == issuer_wallet:
+            raise PaymentDenied("A conta emissora não pode receber o próprio Split.")
     await bind_tenant(db, tenant_id)
     # A transaction-scoped tenant lock prevents two concurrent first-time inserts.
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
