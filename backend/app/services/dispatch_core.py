@@ -55,7 +55,8 @@ async def get_campaign(
     suffix = " FOR UPDATE" if lock else ""
     result = await db.execute(
         text("""
-            SELECT id, tenant_id, name, purpose, channel, delivery_mode, request_key, template_ref, template_body,
+            SELECT id, tenant_id, name, purpose, channel, delivery_mode, request_key, template_ref,
+                   source_kind, source_ref, source_tool_slug, origin_proposal_id, origin_snapshot_hash, template_body,
                    status, authorization_ref, created_by, approved_by, approved_at,
                    scheduled_for, timezone, start_hour, end_hour,
                    per_minute_limit, daily_contact_limit, paused_reason,
@@ -75,6 +76,8 @@ async def create_campaign(
     per_minute_limit: int = 10, daily_contact_limit: int = 1,
     timezone_name: str = "America/Sao_Paulo",
     start_hour: int = 9, end_hour: int = 18, delivery_mode: str = "targeted",
+    source_kind: str = "manual", source_ref: str | None = None,
+    source_tool_slug: str | None = None,
 ) -> dict[str, Any]:
     if purpose not in {"retention", "academic", "service", "collections"} or channel not in {"email", "sms", "whatsapp"}:
         raise ValueError("Finalidade ou canal inválido.")
@@ -98,19 +101,33 @@ async def create_campaign(
     except ZoneInfoNotFoundError as exc:
         raise ValueError("Fuso horário desconhecido.") from exc
 
-    await bind_tenant(db, tenant_id)
+    from app.services.dispatch_sources import require_source
+    if source_kind not in {"manual", "native", "composio"}:
+        raise ValueError("Origem deve ser importação, conector nativo ou conta Composio.")
+    source_state = await require_source(
+        db, tenant_id=tenant_id, kind=source_kind,
+        reference=source_ref, tool_slug=source_tool_slug,
+    )
+    if not source_state.available:
+        raise ValueError(f"Origem da campanha indisponível: {source_state.reason}")
     id_ = str(uuid4())
     await db.execute(text("""
         INSERT INTO dispatch_campaigns (
-            id, tenant_id, name, purpose, channel, delivery_mode, template_ref, template_body,
+            id, tenant_id, name, purpose, channel, delivery_mode,
+            source_kind, source_ref, source_tool_slug,
+            template_ref, template_body,
             created_by, per_minute_limit, daily_contact_limit, timezone, start_hour, end_hour
         ) VALUES (
-            :id, :tenant, :name, :purpose, :channel, :mode, :template_ref, :body,
+            :id, :tenant, :name, :purpose, :channel, :mode,
+            :source_kind, :source_ref, :source_tool,
+            :template_ref, :body,
             :actor, :rpm, :daily, :timezone, :start, :end
         )
     """), {
         "id": id_, "tenant": tenant_id, "name": name.strip(), "purpose": purpose,
         "channel": channel, "mode": delivery_mode,
+        "source_kind": source_kind, "source_ref": source_ref,
+        "source_tool": source_tool_slug,
         "template_ref": template_ref.strip(), "body": template_body,
         "actor": created_by, "rpm": per_minute_limit, "daily": daily_contact_limit,
         "timezone": timezone_name, "start": start_hour, "end": end_hour,
@@ -132,8 +149,8 @@ async def enqueue_recipients(
         raise LookupError("Campanha não encontrada.")
     if campaign["status"] != "draft":
         raise ValueError("Audiência só pode ser alterada em uma campanha rascunho.")
-    if campaign["delivery_mode"] == "individual":
-        raise ValueError("A audiência individual é imutável e criada na intervenção.")
+    if campaign["delivery_mode"] == "individual" or campaign.get("origin_proposal_id"):
+        raise ValueError("Audiência aprovada da proposta é imutável; não edite pelo disparador.")
     created = skipped = 0
     for item in targets:
         kind = item.get("subject_type")
@@ -245,6 +262,16 @@ async def transition_campaign(
     if target == "running":
         if not campaign["approved_at"] or not campaign["authorization_ref"]:
             raise ValueError("Campanha sem aprovação e autorização verificadas.")
+    if target in {"approved", "scheduled", "running"}:
+        from app.services.dispatch_sources import require_source
+        source = await require_source(
+            db, tenant_id=tenant_id,
+            kind=campaign["source_kind"], reference=campaign["source_ref"],
+            tool_slug=campaign["source_tool_slug"],
+            snapshot_hash=campaign["origin_snapshot_hash"],
+        )
+        if not source.available:
+            raise ValueError(f"Origem da campanha revogada ou não autorizada: {source.reason}")
     if target == "scheduled" and (scheduled_for is None or scheduled_for <= now_utc()):
         raise ValueError("O agendamento deve ser futuro.")
     await db.execute(text("""
@@ -276,6 +303,7 @@ async def list_campaigns(db: AsyncSession, *, tenant_id: str, limit: int = 50) -
     await bind_tenant(db, tenant_id)
     rows = await db.execute(text("""
         SELECT c.id,c.name,c.purpose,c.channel,c.delivery_mode,c.status,c.created_at,c.scheduled_for,
+               c.source_kind,c.source_ref,c.source_tool_slug,c.origin_proposal_id,
                c.paused_reason, c.template_ref,
                count(i.id) AS total,
                count(i.id) FILTER (WHERE i.status IN ('queued','retry_wait','leased','sending')) AS pending,
