@@ -154,3 +154,35 @@ def test_custom_values_are_separated_from_standard():
     record = result["records"][0]
     assert record["custom"] == {"polo": "Centro"}
     assert record["standard"]["nome"] == "Ana"
+
+def test_decimal_integer_rejected_without_truncation():
+    ok, value, error = coerce_value("2.5", "integer")
+    assert not ok and value is None and error
+
+
+def test_non_finite_number_rejected():
+    ok, value, error = coerce_value("Infinity", "number")
+    assert not ok and value is None and error
+
+
+def test_overlong_text_rejected_instead_of_truncated():
+    ok, value, error = coerce_value("A" * 2001, "text")
+    assert not ok and value is None and error
+
+
+def test_invalid_field_rejects_entire_row():
+    catalog = _catalog()
+    index = {entry["field"]: entry for entry in catalog}
+    df = pd.DataFrame([{"matricula": "001", "nome": "Ana", "semestre": "2.5"}])
+    mapping, _, _ = suggest_mapping(list(df.columns), catalog)
+    result = validate_records(df, mapping, index)
+    assert not result["records"]
+    assert result["key_stats"]["invalid"] == 1
+
+
+def test_fuzzy_mapping_never_accepts_two_headers_for_same_field():
+    mapping, suggestions, _ = suggest_mapping(
+        ["Nome", "nome", "Matrícula"], _catalog(),
+    )
+    assert sum(entry["field"] == "nome" for entry in mapping.values()) == 1
+    assert ("Nome" in suggestions) or ("nome" in suggestions)
