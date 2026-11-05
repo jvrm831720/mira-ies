@@ -1147,3 +1147,325 @@ textarea {
     min-height: 680px;
   }
 }
+
+
+/* MIRA first-run workspace creation: conversational without agent/chat styling. */
+.mira-flow-page {
+  --flow-bg: #101112;
+  --flow-border: #292c32;
+  --flow-ink: #f1f2f3;
+  --flow-muted: #91959e;
+  --flow-blue: #3577f1;
+  min-height: 100svh;
+  padding: 29px 24px 42px;
+  background: var(--flow-bg);
+  color: var(--flow-ink);
+}
+.mira-flow-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  max-width: 1392px;
+  margin: 0 auto 25px;
+}
+.mira-flow-header img { width: 94px; height: auto; }
+.mira-flow-security {
+  position: absolute;
+  right: 1px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #81858d;
+  font-size: 11px;
+}
+.mira-flow-frame {
+  display: grid;
+  grid-template-columns: minmax(360px, 35%) minmax(0, 65%);
+  width: min(100%, 1392px);
+  min-height: max(685px, calc(100svh - 136px));
+  margin-inline: auto;
+  overflow: hidden;
+  border: 1px solid var(--flow-border);
+  border-radius: 16px;
+  background: #101112;
+}
+.mira-flow-left {
+  min-width: 0;
+  border-right: 1px solid #282b30;
+  background: #101112;
+}
+.mira-flow-left-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 50px 32px 32px;
+}
+.mira-flow-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #82858d;
+  font-size: 12px;
+  line-height: 18px;
+}
+.mira-flow-message {
+  margin-top: 22px;
+  animation: mira-flow-reveal 270ms ease both;
+}
+.mira-flow-message h1,
+.mira-flow-searching h1,
+.mira-flow-security-flow h1 {
+  margin: 0;
+  color: #f1f2f3;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -.014em;
+}
+.mira-flow-message h1:focus { outline: 0; }
+.mira-flow-message p,
+.mira-flow-searching p,
+.mira-flow-security-flow > p {
+  margin: 9px 0 0;
+  max-width: 410px;
+  color: #92969f;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.mira-flow-interaction {
+  margin-top: auto;
+  border: 1px solid #294877;
+  border-radius: 12px;
+  background: #101112;
+  padding: 18px 16px 12px;
+  box-shadow: 0 0 0 1px rgb(19 40 74 / 12%), 0 10px 40px rgb(0 0 0 / 8%);
+  animation: mira-flow-reveal 300ms ease both;
+}
+.mira-flow-card-heading,
+.mira-flow-card-label {
+  margin: 0 0 15px;
+  color: #e7e9ed;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.mira-flow-card-label { margin-bottom: 10px; }
+.mira-flow-inline-notice,
+.mira-flow-source {
+  color: #92969f;
+  font-size: 11px;
+  line-height: 17px;
+  margin: 0 0 14px;
+}
+.mira-flow-logo-upload {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 0 0 16px;
+}
+.mira-flow-workspace-initial,
+.mira-flow-logo-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid #32363c;
+  background: #252830;
+  color: #e7e9ed;
+  font-size: 16px;
+  font-weight: 600;
+  object-fit: contain;
+}
+.mira-flow-logo-upload label {
+  display: block;
+  cursor: pointer;
+  color: #e6eaf3;
+  font-size: 12px;
+  font-weight: 500;
+}
+.mira-flow-logo-upload input[type=file] {
+  position: absolute;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.mira-flow-logo-upload p { margin: 3px 0 0; color: #7b808a; font-size: 10px; line-height: 15px; }
+.mira-flow-fields { display: grid; gap: 13px; }
+.mira-flow-field { display: grid; gap: 6px; min-width: 0; }
+.mira-flow-static-label { margin: 0; color: #92969f; font-size: 11px; line-height: 16px; }
+.mira-flow-field > label {
+  color: #92969f;
+  font-size: 11px;
+  line-height: 16px;
+}
+.mira-flow-field input, .mira-flow-interaction textarea, .mira-flow-security-flow input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #30343b;
+  border-radius: 8px;
+  background: #14161a;
+  padding: 9px 11px;
+  color: #f1f2f3;
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.mira-flow-field input { height: 38px; }
+.mira-flow-interaction textarea { min-height: 196px; resize: vertical; line-height: 1.55; }
+.mira-flow-field input::placeholder, .mira-flow-interaction textarea::placeholder,
+.mira-flow-security-flow input::placeholder { color: #6c727d; }
+.mira-flow-field input:focus-visible, .mira-flow-interaction textarea:focus-visible,
+.mira-flow-security-flow input:focus-visible {
+  border-color: var(--flow-blue);
+  box-shadow: 0 0 0 3px rgb(53 119 241 / 18%);
+}
+.mira-flow-two-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 11px; }
+.mira-flow-note { margin: 2px 0 0; color: #777d87; font-size: 10px; line-height: 16px; }
+.mira-flow-profiles { display: flex; gap: 7px; flex-wrap: wrap; }
+.mira-flow-profile-selected, .mira-flow-profile-unavailable {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; padding: 6px 8px;
+  border: 1px solid #34373e; border-radius: 7px;
+  background: #15171b; color: #dce0e7; font-size: 11px;
+}
+.mira-flow-profile-selected { border-color: #355d9a; color: #b4d0ff; }
+.mira-flow-profile-unavailable { opacity: .55; }
+.mira-flow-profile-unavailable small { color: #9ba0a9; font-size: 9px; }
+.mira-flow-inline-action,
+.mira-flow-suggestion button {
+  width: fit-content; padding: 0; border: 0; background: transparent;
+  color: #87b2ff; font-size: 11px; cursor: pointer;
+}
+.mira-flow-suggestion {
+  display: grid; gap: 5px; border: 1px solid #34373e;
+  border-radius: 8px; padding: 10px; background: #15181e;
+  color: #cdd0d7; font-size: 11px; line-height: 17px;
+}
+.mira-flow-suggestion p { margin: 0; color: #989da6; }
+.mira-flow-card-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-top: 18px;
+}
+.mira-flow-back, .mira-flow-primary, .mira-flow-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 7px; min-height: 34px; padding: 7px 12px;
+  font-size: 12px; font-weight: 500; line-height: 18px;
+  cursor: pointer; transition: background-color 150ms ease, color 150ms ease;
+}
+.mira-flow-back { border: 0; background: transparent; color: #a2a6af; padding-left: 0; }
+.mira-flow-back:hover { color: #fff; }
+.mira-flow-primary { border: 1px solid #3577f1; background: #3577f1; color: white; }
+.mira-flow-primary:hover:not(:disabled) { background: #266df0; }
+.mira-flow-secondary { border: 1px solid #34373e; background: #15171b; color: #f1f2f3; }
+.mira-flow-back:disabled, .mira-flow-primary:disabled, .mira-flow-secondary:disabled {
+  opacity: .55; cursor: not-allowed;
+}
+.mira-flow-page button:focus-visible, .mira-flow-page a:focus-visible, .mira-flow-logo-upload label:focus-within {
+  outline: 2px solid #78a6ff; outline-offset: 3px;
+}
+.mira-flow-verified { display: flex; align-items: center; gap: 8px; margin: 5px 0 0; overflow-wrap: anywhere; color: #8fb69c; font-size: 11px; }
+.mira-flow-tool-list { display: grid; gap: 7px; max-height: 262px; overflow: auto; }
+.mira-flow-tool {
+  display: flex; align-items: center; width: 100%; gap: 9px; padding: 9px;
+  border: 1px solid #2c3036; border-radius: 8px; background: #13151a;
+  color: #f1f2f3; text-align: left; cursor: pointer;
+}
+.mira-flow-tool.selected { border-color: #3577f1; background: #151e2c; }
+.mira-flow-tool-icon { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 7px; background: #20242a; color: #b9bfcb; }
+.mira-flow-tool-copy { display: grid; flex: 1; gap: 2px; }
+.mira-flow-tool-copy strong { font-size: 12px; font-weight: 500; }
+.mira-flow-tool-copy small { color: #878d98; font-size: 10px; }
+.mira-flow-tool-indicator { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid #363a42; border-radius: 5px; color: #9ba1ad; }
+.mira-flow-tool.selected .mira-flow-tool-indicator { background: #3577f1; border-color: #3577f1; color: white; }
+.mira-flow-finish-summary { display: grid; gap: 10px; font-size: 12px; }
+.mira-flow-finish-summary span { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+.mira-flow-finish-summary svg { flex-shrink: 0; color: #86c9a2; }
+.mira-flow-trial-note { margin-top: 20px; padding: 13px; border: 1px solid #383b42; border-radius: 8px; background: #15171b; }
+.mira-flow-trial-note strong { color: #dadde4; font-size: 12px; }
+.mira-flow-trial-note p { margin: 5px 0 0; color: #9499a3; font-size: 11px; line-height: 1.6; }
+.mira-flow-error { margin: 12px 0; border: 1px solid #6a3440; border-radius: 7px; background: #29181d; padding: 10px; color: #f3a4ae; font-size: 12px; line-height: 1.5; }
+.mira-flow-searching { margin-top: 8px; }
+.mira-flow-orb { position: relative; display: flex; gap: 6px; align-items: center; margin-top: 22px; height: 20px; }
+.mira-flow-orb span { width: 7px; height: 7px; border-radius: 50%; background: #4e8cfc; animation: mira-flow-pulse 1.2s ease-in-out infinite; }
+.mira-flow-orb span:nth-child(2) { animation-delay: 160ms; }
+.mira-flow-orb span:nth-child(3) { animation-delay: 320ms; }
+.mira-flow-security-flow { display: grid; gap: 16px; margin-top: 20px; }
+.mira-flow-security-flow .mira-flow-primary, .mira-flow-security-flow .mira-flow-secondary { width: fit-content; }
+.mira-flow-mfa-setup { display: grid; gap: 12px; }
+.mira-flow-mfa-setup img { width: 174px; height: 174px; background: #fff; border-radius: 8px; padding: 8px; }
+.mira-flow-mfa-setup code { display: block; overflow-wrap: anywhere; border: 1px solid #35373d; border-radius: 8px; padding: 10px; font-size: 11px; }
+.mira-flow-recovery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mira-flow-recovery code { padding: 10px; border: 1px solid #34373e; border-radius: 8px; text-align: center; color: #f1f2f3; font-size: 11px; }
+.mira-flow-preview {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  padding: 33px clamp(25px, 4vw, 58px);
+  background: radial-gradient(ellipse at 75% 15%, #182234 0, #121823 43%, #11151d 100%);
+}
+.mira-flow-preview-window {
+  display: flex; flex-direction: column; min-width: 0; width: 100%;
+  min-height: 430px; max-width: 685px; margin: 0 auto;
+  overflow: hidden; border: 1px solid #2c323c; border-radius: 11px;
+  background: #14161a; box-shadow: 0 16px 60px rgb(0 0 0 / 14%);
+}
+.mira-flow-preview-top {
+  display: flex; align-items: center; gap: 10px; min-height: 51px;
+  padding: 8px 14px; border-bottom: 1px solid #292d34;
+}
+.mira-flow-preview-top .mira-flow-workspace-initial, .mira-flow-preview-top .mira-flow-logo-preview { width: 27px; height: 27px; border-radius: 6px; font-size: 12px; }
+.mira-flow-preview-top strong { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mira-flow-preview-top > span:last-child { margin-left: auto; border: 1px solid #353a44; border-radius: 5px; padding: 4px 7px; color: #949aa5; font-size: 10px; }
+.mira-flow-preview-search { display: flex; justify-content: space-between; gap: 8px; margin: 10px 14px; padding: 8px 10px; border: 1px solid #2b3038; border-radius: 6px; color: #9da3af; font-size: 11px; }
+.mira-flow-preview-search kbd { color: #747b87; font-size: 9px; font-family: inherit; }
+.mira-flow-preview-body { display: flex; min-height: 380px; flex: 1; }
+.mira-flow-preview-nav { display: flex; flex-direction: column; flex: 0 0 158px; gap: 2px; padding: 12px 10px; border-right: 1px solid #282d35; }
+.mira-flow-preview-nav span { padding: 8px 10px; border-radius: 5px; color: #7d8591; font-size: 11px; }
+.mira-flow-preview-nav span.active { background: #222832; color: #eef0f4; }
+.mira-flow-preview-content { flex: 1; min-width: 0; padding: 24px 22px; }
+.mira-flow-preview-kicker { margin: 0; color: #7f8793; font-size: 10px; }
+.mira-flow-preview-content h2 { margin: 6px 0 0; color: #e8ebf1; font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.mira-flow-preview-description { margin: 8px 0 0; color: #9ca4af; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.mira-flow-empty { display: grid; justify-items: center; gap: 10px; margin-top: 42px; padding: 28px 14px; border: 1px dashed #303744; border-radius: 9px; color: #868e9b; text-align: center; }
+.mira-flow-empty strong { color: #d0d5dd; font-size: 12px; font-weight: 500; }
+.mira-flow-empty p { max-width: 250px; margin: 0; font-size: 10px; line-height: 1.55; }
+.mira-flow-preview-skeleton { display: grid; gap: 9px; margin-top: 18px; }
+.mira-flow-preview-skeleton span { height: 9px; border-radius: 5px; background: #232832; }
+.mira-flow-preview-skeleton span:nth-child(2) { width: 78%; }
+.mira-flow-preview-skeleton span:nth-child(3) { width: 54%; }
+.mira-flow-preview-caption { margin: 17px auto 0; color: #6f7682; text-align: center; font-size: 10px; line-height: 1.5; }
+.mira-flow-initial, .mira-flow-expired { display: grid; place-items: center; min-height: 80svh; margin: auto; color: #f1f2f3; text-align: center; }
+.mira-flow-expired { align-content: center; gap: 16px; max-width: 450px; }
+.mira-flow-expired h1 { margin: 12px 0 0; font-size: 20px; font-weight: 600; }
+.mira-flow-expired p { margin: 0; color: #a0a3aa; font-size: 13px; line-height: 1.6; }
+@keyframes mira-flow-reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mira-flow-pulse { 0%, 100% { opacity: .38; transform: scale(.8); } 45% { opacity: 1; transform: scale(1.15); } }
+@media (max-width: 980px) {
+  .mira-flow-frame { grid-template-columns: minmax(0, 1fr); }
+  .mira-flow-left { border-right: 0; border-bottom: 1px solid #292c32; }
+  .mira-flow-left-inner { min-height: 580px; padding: 34px 24px 24px; }
+  .mira-flow-preview { min-height: 480px; }
+}
+@media (max-width: 560px) {
+  .mira-flow-page { padding: 20px 10px 30px; }
+  .mira-flow-header { margin-bottom: 18px; }
+  .mira-flow-security { display: none; }
+  .mira-flow-left-inner { padding: 26px 16px 20px; }
+  .mira-flow-two-fields { grid-template-columns: minmax(0, 1fr); }
+  .mira-flow-preview { padding: 22px 12px; }
+  .mira-flow-preview-nav { display: none; }
+  .mira-flow-preview-content { padding: 20px 14px; }
+  .mira-flow-message h1 { font-size: 16px; }
+  .mira-flow-interaction { padding: 15px 12px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mira-flow-message, .mira-flow-interaction, .mira-flow-orb span { animation: none; }
+  .mira-flow-page * { transition-duration: 0.01ms !important; }
+}
