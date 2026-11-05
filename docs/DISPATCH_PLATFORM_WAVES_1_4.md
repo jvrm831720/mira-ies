@@ -23,7 +23,7 @@ Permissão de finalidade não é implícita. Autorizações são por
 
 ## 2. Implementação no repositório
 
-- Migration `055_dispatch_platform` (após `054_smart_import_custom_fields`):
+- Migration `055_dispatch_platform` (após `055_eligible_contrib_revocation` na `main`):
   15 tabelas SQL-only com `FORCE ROW LEVEL SECURITY`: `dispatch_campaigns`,
   `dispatch_items`, `dispatch_events`, `dispatch_inbound`,
   `dispatch_authorizations`, `dispatch_approved_templates`,
@@ -131,7 +131,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 ```
 
 A base deve suportar PostgreSQL `FOR UPDATE SKIP LOCKED`, advisory locks,
-políticas RLS e índices da migration 055. Execute em banco **descartável**:
+políticas RLS e índices da migration `055_dispatch_platform`. Execute em banco **descartável**:
 
 ```bash
 cd backend
