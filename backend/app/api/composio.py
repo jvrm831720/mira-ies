@@ -286,7 +286,7 @@ class ToolApprovalRequestPayload(BaseModel):
     toolkit_slug: str = Field(min_length=1, max_length=80)
     tool_slug: str = Field(min_length=1, max_length=120)
     arguments: dict = Field(default_factory=dict)
-    idempotency_key: str = Field(min_length=16, max_length=120)
+    idempotency_key: str = Field(min_length=16, max_length=120, pattern="^[A-Za-z0-9._:-]+$")
 
 
 class ToolApprovalReviewPayload(BaseModel):
