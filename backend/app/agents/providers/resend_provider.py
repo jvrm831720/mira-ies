@@ -11,7 +11,8 @@ from app.core.config import get_settings
 
 async def send_email_resend(
     *, to: str, subject: str, body: str, idempotency_key: str | None = None,
-    api_key_override: str | None = None, from_override: str | None = None
+    api_key_override: str | None = None, from_override: str | None = None,
+    html: str | None = None,
 ) -> SendResult:
     settings = get_settings()
     key = api_key_override or settings.resend_api_key
@@ -28,6 +29,8 @@ async def send_email_resend(
         headers["Idempotency-Key"] = idempotency_key
         headers["X-Correlation-ID"] = idempotency_key
     payload = {"from": from_override or settings.email_from or "Mira <no-reply@beacon.app>", "to": [to], "subject": subject, "text": body}
+    if html is not None:
+        payload["html"] = html
     try:
         async with httpx.AsyncClient(timeout=settings.agents_provider_timeout_seconds) as client:
             resp = await client.post("https://api.resend.com/emails", json=payload, headers=headers)
