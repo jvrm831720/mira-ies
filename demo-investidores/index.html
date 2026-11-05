@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Demonstração interativa da plataforma MIRA para gestão de permanência no ensino superior. Dados sintéticos.">
+  <title>MIRA · Demonstração para investidores</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+      <a class="brand" href="#visao-geral" aria-label="MIRA — início">
+        <span class="brand-mark">m<span class="brand-dot">.</span></span>
+        <span class="brand-name">mira</span>
+      </a>
+      <div class="workspace-selector"><div class="workspace-avatar">NV</div><div class="workspace-text"><strong>Nova Vista Educação</strong><span>Workspace de demonstração</span></div><span class="workspace-chevron">⌄</span></div>
+      <div class="nav-section-label">PLATAFORMA</div>
+      <nav id="primary-nav">
+        <button class="nav-button active" data-view="visao-geral"><span class="nav-icon">◫</span>Visão geral</button>
+        <button class="nav-button" data-view="alunos"><span class="nav-icon">▤</span>Alunos <span class="nav-count">12</span></button>
+        <button class="nav-button" data-view="trabalho"><span class="nav-icon">◎</span>Central de trabalho</button>
+        <button class="nav-button" data-view="intervencoes"><span class="nav-icon">✦</span>Intervenções</button>
+        <button class="nav-button" data-view="resultados"><span class="nav-icon">▥</span>Resultados</button>
+        <div class="nav-separator"></div>
+        <button class="nav-button" data-view="integracoes"><span class="nav-icon">⬡</span>Dados e integrações</button>
+      </nav>
+      <div class="sidebar-bottom"><div class="sidebar-bottom-top"><span class="demo-indicator"></span> Ambiente de demonstração</div><p>Dados sintéticos. Nenhuma cobrança, comunicação ou alteração real.</p><div class="sidebar-version">MIRA · Investor preview</div></div>
+    </aside>
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="topbar-left"><button id="mobile-menu" class="icon-button mobile-menu" aria-label="Abrir menu">☰</button><span class="crumb-root">Nova Vista Educação</span><span class="crumb-separator">/</span><span id="breadcrumb-current">Visão geral</span></div>
+        <div class="topbar-right"><span class="test-badge"><span class="test-badge-dot"></span> DEMO · DADOS FICTÍCIOS</span><div class="user-avatar" title="Conta de demonstração">JD</div></div>
+      </header>
+      <main id="main-content" tabindex="-1">
+        <section class="view active" id="view-visao-geral">
+          <div class="page-heading"><div><div class="eyebrow">QUINTA-FEIRA, 5 DE NOVEMBRO DE 2026</div><h1>Visão geral</h1><p>Uma visão clara de onde agir para melhorar a permanência.</p></div><div class="heading-actions"><button class="button secondary" id="tour-button">Ver demonstração guiada <span>↗</span></button></div></div>
+          <div class="data-disclaimer"><span class="disclaimer-icon">ⓘ</span><span>Prévia interativa com uma instituição e alunos fictícios. Os indicadores abaixo são exemplos, não métricas de clientes reais.</span></div>
+          <div class="kpi-grid">
+            <article class="kpi"><div class="kpi-label">Alunos acompanhados <span>↗</span></div><div class="kpi-value">12</div><div class="kpi-foot">Base sintética nesta demonstração</div></article>
+            <article class="kpi"><div class="kpi-label">Alunos que precisam de atenção <span>↗</span></div><div class="kpi-value">5 <span class="kpi-ratio">/ 12</span></div><div class="kpi-foot"><span class="kpi-dot amber"></span> Risco alto ou crítico (exemplo)</div></article>
+            <article class="kpi"><div class="kpi-label">Intervenções em acompanhamento <span>↗</span></div><div class="kpi-value" id="active-interventions-count">3</div><div class="kpi-foot"><span class="kpi-dot blue"></span> Fluxo de trabalho demonstrativo</div></article>
+            <article class="kpi"><div class="kpi-label">Casos com resultado verificado <span>↗</span></div><div class="kpi-value">2</div><div class="kpi-foot">Resultados simulados e identificados</div></article>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel risk-panel"><div class="panel-header"><div><h2>Distribuição de risco</h2><p>Como os alunos se distribuem por nível de atenção</p></div><span class="pill neutral">Base de exemplo</span></div><div class="risk-bar"><div class="risk-segment green" style="width:25%" title="Baixo: 3 alunos"></div><div class="risk-segment sky" style="width:33.3333%" title="Moderado: 4 alunos"></div><div class="risk-segment orange" style="width:25%" title="Alto: 3 alunos"></div><div class="risk-segment red" style="width:16.6667%" title="Crítico: 2 alunos"></div></div><div class="risk-legend"><div><i class="legend-point green"></i><span>Baixo</span><strong>3</strong></div><div><i class="legend-point sky"></i><span>Moderado</span><strong>4</strong></div><div><i class="legend-point orange"></i><span>Alto</span><strong>3</strong></div><div><i class="legend-point red"></i><span>Crítico</span><strong>2</strong></div></div><div class="panel-divider"></div><div class="trend-heading"><strong>Sinais mais frequentes</strong><span>Alunos afetados</span></div><div class="signals" id="signals-panel"></div></section>
+            <section class="panel priority-panel"><div class="panel-header"><div><h2>Prioridades de hoje</h2><p>Quem merece uma análise mais próxima</p></div><button class="small-link" data-navigate="alunos">Ver todos ↗</button></div><div class="priority-list" id="priority-list"></div></section>
+          </div>
+          <div class="dashboard-grid lower">
+            <section class="panel"><div class="panel-header"><div><h2>Central de trabalho</h2><p>Casos e próximos passos, em um único lugar</p></div><button class="small-link" data-navigate="trabalho">Abrir central ↗</button></div><div class="work-preview" id="work-preview"></div></section>
+            <section class="panel product-panel"><div class="panel-header"><div><h2>Da observação à ação</h2><p>O fluxo que estrutura a MIRA</p></div></div><div class="process-step"><span class="step-num">01</span><div><strong>Entender</strong><p>Identificar sinais de risco e apresentar suas evidências.</p></div></div><div class="process-step"><span class="step-num">02</span><div><strong>Decidir</strong><p>Organizar intervenções com responsável e justificativa.</p></div></div><div class="process-step"><span class="step-num">03</span><div><strong>Verificar</strong><p>Acompanhar o resultado sem confundir contato com retenção.</p></div></div></section>
+          </div>
+        </section>
+        <section class="view" id="view-alunos">
+          <div class="page-heading"><div><div class="eyebrow">ACOMPANHAMENTO ACADÊMICO</div><h1>Alunos</h1><p>Uma ficha completa para cada aluno e o contexto para agir.</p></div><button class="button secondary" data-navigate="integracoes">Fontes de dados ↗</button></div>
+          <div class="data-disclaimer"><span class="disclaimer-icon">ⓘ</span>Exemplos fictícios. A pontuação e os sinais de risco desta prévia não são previsões de um modelo treinado.</div>
+          <div class="panel table-panel"><div class="table-tools"><div class="search-wrap"><span>⌕</span><input id="student-search" type="search" placeholder="Buscar por nome, matrícula ou curso" aria-label="Buscar alunos"></div><div class="filters"><button class="filter active" data-risk="todos">Todos</button><button class="filter" data-risk="critico">Crítico</button><button class="filter" data-risk="alto">Alto</button><button class="filter" data-risk="moderado">Moderado</button><button class="filter" data-risk="baixo">Baixo</button></div></div><div class="table-overflow"><table><thead><tr><th>ALUNO</th><th>CURSO</th><th>SEMESTRE</th><th>RISCO ILUSTRATIVO</th><th>SINAL DOMINANTE</th><th></th></tr></thead><tbody id="students-table"></tbody></table></div><div class="table-footer">12 registros fictícios · Clique em um aluno para abrir a ficha</div></div>
+        </section>
+        <section class="view" id="view-trabalho"><div class="page-heading"><div><div class="eyebrow">ORGANIZAÇÃO DA EQUIPE</div><h1>Central de trabalho</h1><p>Intervenções e tarefas com responsável, prioridade e histórico.</p></div><button class="button primary" id="create-work-btn">+ Nova atividade</button></div><div class="data-disclaimer">Esta central é uma simulação local da experiência de gestão. Nenhuma tarefa é criada no banco de dados da MIRA.</div><div class="panel"><div class="section-header-inline"><strong>Atividades em acompanhamento</strong><span class="pill neutral" id="work-count">3 atividades</span></div><div id="work-table"></div></div></section>
+        <section class="view" id="view-intervencoes"><div class="page-heading"><div><div class="eyebrow">AÇÃO HUMANA ASSISTIDA</div><h1>Intervenções</h1><p>Cada iniciativa tem uma causa, um responsável e um próximo passo.</p></div><button class="button primary" id="new-intervention-btn">+ Planejar intervenção</button></div><div class="data-disclaimer">Planejamento simulado: não há disparos reais, chamadas, cobranças, pagamentos ou comunicação com alunos.</div><div class="intervention-grid" id="intervention-list"></div></section>
+        <section class="view" id="view-resultados"><div class="page-heading"><div><div class="eyebrow">RESULTADOS E APRENDIZADO</div><h1>Resultados</h1><p>O trabalho não termina no contato. Termina na verificação.</p></div></div><div class="data-disclaimer">Todos os resultados desta tela são cenários ilustrativos, não indicadores de impacto já comprovado pela MIRA.</div><div class="results-metrics"><div class="panel result-metric"><span>Casos acompanhados na demonstração</span><strong>5</strong><small>Jornada fictícia de acompanhamento</small></div><div class="panel result-metric"><span>Casos com desfecho de exemplo</span><strong>2</strong><small>Estado de demonstração</small></div><div class="panel result-metric"><span>Contato ≠ retenção</span><strong class="statement">Verificar o desfecho</strong><small>Princípio de produto da MIRA</small></div></div><div class="panel"><div class="panel-header"><div><h2>Exemplo de ciclo de permanência</h2><p>Uma linha do tempo simples para demonstrar o método</p></div><span class="pill neutral">Caso fictício</span></div><div class="timeline"><div class="timeline-item"><span class="timeline-index">1</span><div><strong>Sinal detectado</strong><p>Queda de frequência e duas mensalidades vencidas (cenário inventado).</p></div><small>Dia 1</small></div><div class="timeline-item"><span class="timeline-index">2</span><div><strong>Equipe avalia o contexto</strong><p>Analista confere dados e planeja uma abordagem não automatizada.</p></div><small>Dia 2</small></div><div class="timeline-item"><span class="timeline-index">3</span><div><strong>Intervenção registrada</strong><p>Responsável registra encaminhamento, evidências e data de revisão.</p></div><small>Dia 4</small></div><div class="timeline-item"><span class="timeline-index">4</span><div><strong>Resultado verificado</strong><p>Equipe confere os novos indicadores antes de registrar um desfecho.</p></div><small>Dia 15</small></div></div></div></section>
+        <section class="view" id="view-integracoes"><div class="page-heading"><div><div class="eyebrow">ECOSSISTEMA DE DADOS</div><h1>Dados e integrações</h1><p>A MIRA organiza dados operacionais e acadêmicos em uma só experiência.</p></div></div><div class="data-disclaimer">Esta tela mostra o plano de integração e os contratos de software. Nenhum provedor listado está conectado à demonstração.</div><div class="integration-grid"><div class="panel integration-card"><div class="integration-icon">◈</div><h3>MIRA Education Engine</h3><p>Arquitetura própria preparada para Frappe, ERPNext e Education. Integração em homologação.</p><span class="pill amber-pill">Ainda não conectado</span><div class="integration-footer">Matrículas · Frequência · Notas · Mensalidades</div></div><div class="panel integration-card"><div class="integration-icon">◉</div><h3>JACAD</h3><p>Conector acadêmico e financeiro previsto para ingestão institucional, com validação por contrato.</p><span class="pill neutral">Não conectado na demo</span><div class="integration-footer">Alunos · Situação acadêmica · Financeiro</div></div><div class="panel integration-card"><div class="integration-icon">▦</div><h3>ERP / LMS</h3><p>Camada de integração para diferentes sistemas acadêmicos e de gestão.</p><span class="pill neutral">Não conectado na demo</span><div class="integration-footer">SophiA · Moodle · TOTVS RM · Outros</div></div></div><div class="panel integration-architecture"><div><h2>Um produto, diferentes sistemas</h2><p>O aluno é acompanhado na MIRA. Os dados podem vir dos sistemas já utilizados pela instituição.</p></div><div class="architecture-flow"><div>Sistemas institucionais</div><span>→</span><div>API e governança MIRA</div><span>→</span><div>Experiência MIRA</div></div></div></section>
+      </main>
+      <footer class="app-footer"><span>© 2026 MIRA</span><span>Prévia para apresentação · Dados 100% sintéticos · Não conectado a produção</span></footer>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="modal-backdrop" hidden></div>
+  <aside class="student-drawer" id="student-drawer" aria-label="Ficha do aluno" aria-hidden="true"><div class="drawer-top"><div><span class="eyebrow">FICHA INDIVIDUAL · DADOS SINTÉTICOS</span><h2 id="drawer-name"></h2><span id="drawer-course"></span></div><button id="drawer-close" class="icon-button" aria-label="Fechar ficha">✕</button></div><div id="drawer-content"></div></aside>
+  <div id="toast" role="status" aria-live="polite" class="toast" hidden></div>
+</body>
+</html>
