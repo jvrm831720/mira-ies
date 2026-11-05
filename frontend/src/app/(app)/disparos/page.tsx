@@ -260,6 +260,36 @@ export default function DispatchConsolePage() {
         <Stat icon={AlertTriangle} label="Problemas" value={metrics?.problems ?? "—"} />
       </div>
 
+      {showProposal && <section className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-5">
+        <div>
+          <h2 className="text-base font-semibold text-[#202124]">Executar proposta de permanência aprovada</h2>
+          <p className="mt-1 text-sm text-[#85858B]">
+            Reutiliza a audiência, o histórico de aprovação e as autorizações existentes.
+            Não cria um novo processo de aprovação.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-xs text-[#55555C]">Proposta aprovada da MIRA
+            <input value={proposalId} onChange={e => setProposalId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm"
+              placeholder="ID da proposta aprovada" />
+          </label>
+          <label className="text-xs text-[#55555C]">Modelo de permanência aprovado
+            <select value={proposalTemplateId} onChange={e => setProposalTemplateId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm">
+              <option value="">Selecione um modelo</option>
+              {templates.filter(t => t.status === "approved" && t.purpose === "retention").map(t =>
+                <option key={t.id} value={t.id}>{t.subject} · {t.channel}</option>)}
+            </select>
+          </label>
+        </div>
+        <button type="button" disabled={busy || !proposalId.trim() || !proposalTemplateId}
+          onClick={() => void materializeApprovedProposal()}
+          className="rounded-lg bg-[#202124] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          Preparar execução vinculada
+        </button>
+      </section>}
+
       {showIndividual && <section className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-5">
         <div>
           <h2 className="text-base font-semibold text-[#202124]">Contato individual</h2>
@@ -333,6 +363,44 @@ export default function DispatchConsolePage() {
             </select>
           </label>
         </div>
+        <label className="block text-sm text-[#55555C]">Origem dos dados da organização
+          <select className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5"
+            value={`${draft.source_kind || "manual"}::${draft.source_ref || ""}`}
+            onChange={e => {
+              const selectedSource = sources.find(item =>
+                `${item.kind}::${item.reference || ""}` === e.target.value);
+              if (!selectedSource) return;
+              setDraft({
+                ...draft, source_kind: selectedSource.kind,
+                source_ref: selectedSource.reference,
+                source_tool_slug: selectedSource.kind === "composio"
+                  ? selectedSource.tools[0] || null : null,
+              });
+            }}>
+            {sources.length === 0 && <option value="manual::">Dados do workspace MIRA</option>}
+            {sources.map(source => <option
+              key={`${source.kind}::${source.reference || ""}`}
+              value={`${source.kind}::${source.reference || ""}`}
+              disabled={!source.can_bind}>
+              {source.name} · {source.category === "composio" ? "Composio" : source.category === "native" ? "Nativo" : "MIRA"}
+              {!source.can_bind ? " (não homologado)" : ""}
+            </option>)}
+          </select>
+        </label>
+        {draft.source_kind === "composio" && <label className="block text-sm text-[#55555C]">
+          Ferramenta autorizada no workspace
+          <select value={draft.source_tool_slug || ""}
+            className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5"
+            onChange={e => setDraft({ ...draft, source_tool_slug: e.target.value })}>
+            {(sources.find(source => source.kind === "composio"
+              && source.reference === draft.source_ref)?.tools || []).map(slug =>
+                <option key={slug} value={slug}>{slug}</option>)}
+          </select>
+        </label>}
+        <p className="text-xs text-[#85858B]">
+          Selecionar uma conexão registra a origem, mas não importa dados automaticamente nem
+          autoriza contato. Composio: {composioExecutionAvailable ? "ferramentas sujeitas ao executor autorizado" : "execução de ferramentas desativada"}.
+        </p>
         <label className="block text-sm text-[#55555C]">Identificador do modelo
           <input className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5" value={draft.template_ref}
             onChange={(e) => setDraft({ ...draft, template_ref: e.target.value })} />
@@ -364,6 +432,9 @@ export default function DispatchConsolePage() {
                     {campaign.purpose === "collections" ? "Cobrança" : campaign.purpose === "retention" ? "Permanência" : "Atendimento"}
                     {" · "}{campaign.delivery_mode === "individual" ? "Contato individual" : campaign.delivery_mode === "bulk" ? "Em escala" : "Segmentada"}
                     {" · "}{campaign.channel}{" · "}{campaign.total} destinatário(s)
+                     {" · "}{campaign.source_kind === "retention_proposal" ? "Proposta aprovada da MIRA"
+                       : campaign.source_kind === "composio" ? "Composio"
+                       : campaign.source_kind === "native" ? "Conector nativo" : "Dados da MIRA"}
                   </div>
                   </div>
                   <div className="shrink-0 text-right">
@@ -399,17 +470,6 @@ export default function DispatchConsolePage() {
                 className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
                 Adicionar ao outbox
               </button>
-              {current.purpose === "retention" && <>
-                <label className="block text-xs text-[#66666B]">Ou usar proposta aprovada da MIRA
-                  <input value={proposalId} onChange={(e) => setProposalId(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-[#DADADD] p-2" placeholder="ID da proposta" />
-                </label>
-                <button disabled={busy || !proposalId.trim()} onClick={() => void execute(
-                  () => dispatchApi.stageProposal(current.id, proposalId), "Audiência aprovada incorporada.",
-                )} className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
-                  Importar proposta aprovada
-                </button>
-              </>}
               <label className="block text-xs text-[#66666B]">Evidência institucional para aprovação
                 <input value={approvalRef} onChange={(e) => setApprovalRef(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[#DADADD] p-2" placeholder="Número do documento ou autorização" />
