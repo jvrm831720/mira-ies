@@ -294,10 +294,11 @@ def classify_reply(message: str) -> tuple[str, str]:
     plain = " ".join(message.casefold().split())[:1000]
     if any(token in plain for token in ("número errado", "numero errado", "não sou", "nao sou")):
         return "wrong_recipient", "suppress_and_review"
-    if any(token in plain for token in ("não reconheço", "nao reconheco", "contesto")):
-        return "dispute", "human_review"
+    # Explicit refusal wins even when the same message also disputes a charge.
     if any(token in plain for token in ("pare", "não envie", "nao envie", "sair", "stop")):
         return "opt_out", "suppress_contact"
+    if any(token in plain for token in ("não reconheço", "nao reconheco", "contesto")):
+        return "dispute", "human_review"
     if any(token in plain for token in ("já paguei", "ja paguei", "comprovante")):
         return "claims_paid", "reconcile_payment"
     if any(token in plain for token in ("negociar", "parcelar", "acordo")):
