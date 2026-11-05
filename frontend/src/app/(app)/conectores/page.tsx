@@ -43,6 +43,16 @@ export default function DadosIntegracoesPage() {
     queryFn: () => api.listConnectors(),
     retry: false,
   });
+  const identity = useQuery({
+    queryKey: ["org-me"],
+    queryFn: () => api.me(),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const canManageAcademicEngine = identity.data?.operation_profile === "institution"
+    && (identity.data.permissions
+      ? identity.data.permissions.includes("settings.manage")
+      : identity.data.role === "admin");
 
   const jacadConnection = useQuery({
     queryKey: ["jacad-connection"],
@@ -210,6 +220,28 @@ export default function DadosIntegracoesPage() {
         subtitle="Fontes da instituição, conectores ERP/LMS e histórico de importações."
       />
       <main className="mira-page mx-auto w-full max-w-5xl space-y-6 px-4 pb-10 pt-5 md:px-9 md:pt-7">
+        {canManageAcademicEngine && (
+        <Link
+          href="/conectores/education-engine"
+          className="group flex flex-col gap-3 rounded-[12px] border border-[#E4E7EC] bg-white p-5 shadow-[0_1px_3px_rgba(16,24,40,.04)] transition hover:border-[#C7D7FE] hover:shadow-[0_3px_12px_rgba(16,24,40,.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0] sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex min-w-0 items-start gap-3.5">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] border border-[#E4E7EC] bg-[#F9FAFB] text-[#266DF0]">
+              <Plug className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold text-[#101828]">Motor acadêmico MIRA</p>
+              <p className="mt-1 text-[12px] leading-5 text-[#667085]">
+                Para instituições de ensino: configure o backoffice acadêmico e financeiro próprio,
+                com autorização por aluno e acesso controlado.
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-lg border border-[#E4E7EC] bg-[#FCFCFD] px-3 py-2 text-[12px] font-semibold text-[#344054] transition group-hover:border-[#C7D7FE] group-hover:text-[#266DF0]">
+            Configurar
+          </span>
+        </Link>
+        )}
         <Tabs
           value={tab}
           onValueChange={setTab}
