@@ -84,7 +84,15 @@ jobs:
           psql "$MIRA_TEST_PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
           -- Legacy 002/004 bootstrap create_all uses the current ORM metadata.
           -- Remove later-wave tables/columns before replaying revisions 039..head.
-          DROP TABLE IF EXISTS custom_field_definitions,
+          DROP TABLE IF EXISTS
+            mira_academic_catalog_audit, mira_academic_calendar_events,
+            mira_academic_grades, mira_academic_assessments,
+            mira_academic_attendance, mira_academic_lessons,
+            mira_academic_class_enrollments, mira_academic_classes,
+            mira_academic_terms, mira_academic_teachers, mira_academic_subjects,
+            mira_academic_programs, mira_student_portal_sessions,
+            mira_student_portal_invites, mira_academic_records,
+            custom_field_definitions,
             tenant_composio_tool_approvals, tenant_omie_connections,
             mira_module_entitlements, mira_tenant_domains, mira_tenant_branding,
             mira_memberships, mira_organizations,
