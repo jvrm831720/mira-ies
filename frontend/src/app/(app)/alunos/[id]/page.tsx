@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { cn, formatScore } from "@/lib/utils";
 import { StudentWorkTimeline } from "@/components/students/student-work-timeline";
+import { EducationEngineStudentPanel } from "@/components/students/education-engine-panel";
 
 const STATUS_LABELS: Record<string, string> = {
   dry_run: "Simulado",
@@ -369,6 +370,8 @@ export default function StudentDetailPage() {
                 </dl>
               ) : <p className="mt-3 text-[12px] text-[#667085]">Nenhum campo personalizado disponível na fonte atual.</p>}
             </section>
+
+            <EducationEngineStudentPanel studentId={id} />
 
             <section id="student-activity" className="scroll-mt-24" aria-label="Atividade do aluno">
               <StudentWorkTimeline studentId={id} />
