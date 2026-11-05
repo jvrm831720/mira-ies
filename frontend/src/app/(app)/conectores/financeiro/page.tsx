@@ -116,8 +116,9 @@ export default function FinancialSourcesPage() {
       financeApi.connections(), financeApi.financialCatalog(),
     ]);
     if (result[0].status === "fulfilled") {
-      setProfiles(result[0].value.items);
-      setSelectedId((current) => current || result[0].value.items[0]?.id || "");
+      const loadedProfiles = result[0].value.items;
+      setProfiles(loadedProfiles);
+      setSelectedId((current) => current || loadedProfiles[0]?.id || "");
       setError(null);
     } else {
       setError(safeError(result[0].reason));
