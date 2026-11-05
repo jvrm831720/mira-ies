@@ -45,3 +45,6 @@ logs/
 *.joblib
 models/trained/
 data/model_artifacts/
+
+# Isolated, disposable Frappe Bench created from pinned vendor sources
+.local/frappe-bench/
