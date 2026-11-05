@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -357,7 +358,7 @@ function CampaignProposalsContent() {
                         <p className="text-xs text-muted-foreground">A aprovação encerra a edição, mas não agenda nem envia mensagens.</p>
                         <Button disabled={busy} onClick={() => void perform(
                           () => api.approveRetentionCampaignProposal(selected.id),
-                          "Proposta aprovada. Execução continua desabilitada."
+                          "Proposta aprovada. Prepare a execução no motor compartilhado de disparos."
                         )}>
                           <CheckCircle2 className="mr-2 h-4 w-4" /> Aprovar proposta
                         </Button>
@@ -365,9 +366,21 @@ function CampaignProposalsContent() {
                     ) : null}
 
                     {selected.status === "approved" ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Aprovada por {selected.approved_by ?? "usuário autorizado"}. Execução permanece desabilitada.
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          Aprovada por {selected.approved_by ?? "usuário autorizado"}.
+                        </span>
+                        <Link
+                          href={`/disparos?proposal=${encodeURIComponent(selected.id)}`}
+                          className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
+                        >
+                          Preparar execução no motor de disparos
+                        </Link>
+                        <p className="basis-full text-xs">
+                          A proposta já está aprovada. O motor reutiliza essa aprovação,
+                          verifica autorização individual e mantém envios reais bloqueados por padrão.
+                        </p>
                       </div>
                     ) : null}
                   </CardContent>
@@ -406,7 +419,8 @@ function CampaignProposalsContent() {
         )}
         <div className="flex items-start gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          Aprovação não comprova legalidade por si só. A instituição é responsável pela revisão da autorização e da documentação. Esta tela não executa campanhas.
+          Aprovação não comprova legalidade por si só. A instituição revisa a base de contato.
+          A execução é preparada no motor compartilhado de disparos, sem envio nesta tela.
         </div>
       </main>
     </>

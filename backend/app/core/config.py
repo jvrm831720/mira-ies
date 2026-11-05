@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     firecrawl_api_key: str | None = None
     # Tool execution remains explicitly disabled until Wave 3.1 is validated.
     composio_tool_execution_enabled: bool = False
+    # Composio read-only execution for MIRA Dispatch; requires both flags and an explicit tool allowlist.
+    dispatch_composio_ingestion_enabled: bool = False
+    dispatch_composio_ingestion_read_tools: str = ""
+    dispatch_composio_data_key: str | None = None
 
     # Scoring
     shap_on_batch: bool = False
@@ -94,6 +98,20 @@ class Settings(BaseSettings):
     agents_cost_per_whatsapp_message_brl: float = Field(default=0.0, ge=0.0, le=100.0)
     agents_cost_per_email_message_brl: float = Field(default=0.0, ge=0.0, le=100.0)
     agents_cost_per_sms_message_brl: float = Field(default=0.0, ge=0.0, le=100.0)
+
+    # Dispatch Platform — all defaults fail closed. Worker is separate from API.
+    dispatch_worker_enabled: bool = False
+    dispatch_dry_run_default: bool = True
+    dispatch_live_enabled: bool = False
+    dispatch_live_tenants: str = ""
+    dispatch_live_channels: str = ""
+    # Explicit allowlist for verifiable permission evidence source identifiers.
+    dispatch_trusted_authorization_sources: str = ""
+    dispatch_webhook_secret: str | None = None
+    dispatch_provider_encryption_key: str | None = None
+    dispatch_source_encryption_key: str | None = None
+    dispatch_twilio_callback_base_url: str | None = None
+    dispatch_contact_encryption_key: str | None = None
 
     # Agentes de retencao (orquestrador + canais WhatsApp/E-mail/SMS)
     agents_dry_run_default: bool = True

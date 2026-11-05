@@ -1,14 +1,14 @@
 """Student requests, event history, published documents and read-only financial references.
 
-Revision ID: 058_student_services
+Revision ID: 059_student_services
 Revises: 057_native_academic_catalog
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "058_student_services"
-down_revision = "057_native_academic_catalog"
+revision = "059_student_services"
+down_revision = "058_merge_dispatch_academic"
 branch_labels = None
 depends_on = None
 U = postgresql.UUID(as_uuid=False)

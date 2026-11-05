@@ -9,7 +9,7 @@
 
 ## Restrições deliberadas
 - Flag `NATIVE_ACADEMIC_SERVICES_ENABLED=false` por padrão, além das flags `NATIVE_ACADEMIC_ENABLED` e `STUDENT_PORTAL_ENABLED`.
-- A migration `058_student_services` precisa de homologação em PostgreSQL descartável com usuário sem `BYPASSRLS`.
+- A migration `059_student_services` precisa de homologação em PostgreSQL descartável com usuário sem `BYPASSRLS`.
 - Não há geração de PDF oficial, assinatura eletrônica, upload de arquivos, armazenamento externo nem integração financeira de ingestão nesta wave.
 - Não reutilizar o módulo de cobrança para iniciar pagamentos no Portal. O conector financeiro do tenant será responsável por status, reconciliação, identificador e proveniência em wave posterior.
 - Não há dados financeiros falsos, notificações automáticas ou identificação presumida do aluno.
