@@ -195,6 +195,15 @@ export default function StudentDetailPage() {
             Voltar para alunos
           </Link>
           {data && (
+            <Link
+              href={`/disparos?mode=individual&student=${encodeURIComponent(id)}`}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#DADADD] bg-white px-3 text-[12px] font-medium text-[#111827] hover:bg-[#F8F9FA]"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Preparar contato individual
+            </Link>
+          )}
+          {data && (
             <button
               type="button"
               onClick={() => void refetch()}

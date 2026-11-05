@@ -74,6 +74,17 @@ export default function DispatchConsolePage() {
 
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const studentId = params.get("student");
+    if (params.get("mode") === "individual" && studentId) {
+      // Never trigger an action automatically based on a query string.
+      setIndividualSubjectType("student");
+      setIndividualSubjectRef(studentId);
+      setShowIndividual(true);
+      setShowCreate(false);
+    }
+  }, []);
+  useEffect(() => {
     if (!selected) { setReplies([]); return; }
     dispatchApi.replies(selected).then((value) => setReplies(value.items))
       .catch(() => setReplies([]));
