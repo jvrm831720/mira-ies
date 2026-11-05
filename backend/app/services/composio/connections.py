@@ -389,7 +389,7 @@ async def revoke_tenant_account(
         select(TenantComposioAccount).where(
             TenantComposioAccount.tenant_id == tenant_id,
             TenantComposioAccount.connected_account_id == account_id,
-        )
+        ).with_for_update()
     )
     row = result.scalar_one_or_none()
     if row is None:
