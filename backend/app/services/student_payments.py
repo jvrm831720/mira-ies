@@ -82,23 +82,16 @@ def amount_for_observation(obs: FinanceObservation) -> Decimal:
 
 async def create_connector(
     db: AsyncSession, *, tenant_id: str, actor_id: str,
-    destination_wallet_id: str, finance_profile_id: str,
+    destination_wallet_id: str,
 ) -> StudentPaymentConnector:
     require_enabled()
     destination = normalize_destination_wallet(destination_wallet_id, getattr(get_settings(), "asaas_issuer_wallet_id", None))
     await bind_tenant(db, tenant_id)
-    finance = (await db.execute(select(FinanceSourceProfile).where(
-        FinanceSourceProfile.tenant_id == tenant_id,
-        FinanceSourceProfile.id == finance_profile_id,
-    ))).scalar_one_or_none()
-    if finance is None:
-        raise PaymentPreparationDenied("Fonte financeira inexistente no workspace.")
     connector = StudentPaymentConnector(
-        tenant_id=tenant_id,
-        name="Asaas • " + finance.name[:55] + " • " + destination.split("-")[0],
+        tenant_id=tenant_id, name="Asaas • Destino institucional",
         provider_slug="asaas",
         destination_wallet_id=destination, destination_verification_status="pending",
-        finance_profile_id=finance_profile_id, mode="sandbox", enabled=False,
+        mode="sandbox", enabled=False,
         created_by=actor_id, configuration_version=1,
     )
     db.add(connector)
@@ -130,13 +123,6 @@ async def toggle_connector(
     connector = await get_connector(db, tenant_id, connector_id, lock=True)
     if connector.configuration_version != expected_version:
         raise PaymentPreparationDenied("Configuração alterada por outro operador.")
-    finance = (await db.execute(select(FinanceSourceProfile).where(
-        FinanceSourceProfile.tenant_id == tenant_id,
-        FinanceSourceProfile.id == connector.finance_profile_id,
-        FinanceSourceProfile.enabled.is_(True),
-    ))).scalar_one_or_none()
-    if enabled and finance is None:
-        raise PaymentPreparationDenied("Origem financeira precisa estar ativa.")
     if enabled and connector.destination_verification_status == "blocked":
         raise PaymentPreparationDenied("Carteira de destino bloqueada.")
     connector.enabled = enabled
@@ -187,7 +173,6 @@ async def prepare_order(
     observed = (await db.execute(select(FinanceObservation).where(
         FinanceObservation.tenant_id == tenant_id,
         FinanceObservation.id == observation_id,
-        FinanceObservation.profile_id == connector.finance_profile_id,
     ))).scalar_one_or_none()
     if observed is None:
         raise PaymentPreparationDenied("Obrigação de outro perfil ou workspace.")
@@ -195,7 +180,7 @@ async def prepare_order(
     due = amount_for_observation(observed)
     finance = (await db.execute(select(FinanceSourceProfile).where(
         FinanceSourceProfile.tenant_id == tenant_id,
-        FinanceSourceProfile.id == connector.finance_profile_id,
+        FinanceSourceProfile.id == observed.profile_id,
         FinanceSourceProfile.enabled.is_(True),
     ))).scalar_one_or_none()
     if finance is None:
@@ -208,14 +193,15 @@ async def prepare_order(
         raise PaymentPreparationDenied("Aluno não está ativo no workspace.")
     already = (await db.execute(select(StudentPaymentOrder.id).where(
         StudentPaymentOrder.tenant_id == tenant_id,
-        StudentPaymentOrder.connector_id == connector_id,
-        StudentPaymentOrder.observation_id == observation_id,
+        StudentPaymentOrder.source_profile_id == observed.profile_id,
+        StudentPaymentOrder.source_external_id == observed.external_id,
     ))).scalar_one_or_none()
     if already is not None:
-        raise PaymentPreparationDenied("Já há proposta para esta obrigação neste conector.")
+        raise PaymentPreparationDenied("Já há proposta para esta obrigação, inclusive versões anteriores.")
     order = StudentPaymentOrder(
         tenant_id=tenant_id, connector_id=connector_id,
-        observation_id=observed.id, student_id=observed.student_id,
+        observation_id=observed.id, source_profile_id=observed.profile_id,
+        source_external_id=observed.external_id, student_id=observed.student_id,
         amount=due, currency="BRL",
         source_fingerprint=observed.fingerprint, status="draft",
         requested_by=actor_id, idempotency_key=idempotency_key,
@@ -255,11 +241,18 @@ async def transition_order(
         observation = (await db.execute(select(FinanceObservation).where(
             FinanceObservation.tenant_id == tenant_id,
             FinanceObservation.id == order.observation_id,
-            FinanceObservation.profile_id == connector.finance_profile_id,
+            FinanceObservation.profile_id == order.source_profile_id,
         ))).scalar_one_or_none()
         if observation is None:
             raise PaymentPreparationDenied("Fonte da obrigação indisponível.")
         await _latest_observation(db, tenant_id, observation)
+        finance = (await db.execute(select(FinanceSourceProfile.id).where(
+            FinanceSourceProfile.tenant_id == tenant_id,
+            FinanceSourceProfile.id == observation.profile_id,
+            FinanceSourceProfile.enabled.is_(True),
+        ))).scalar_one_or_none()
+        if finance is None:
+            raise PaymentPreparationDenied("Fonte financeira foi desabilitada.")
         if observation.fingerprint != order.source_fingerprint or amount_for_observation(observation) != order.amount:
             raise PaymentPreparationDenied("Valores ou estado alterados desde o preparo da proposta.")
         order.approved_by = actor_id
@@ -278,6 +271,7 @@ def order_json(row: StudentPaymentOrder) -> dict:
     return {
         "id": row.id, "connector_id": row.connector_id,
         "observation_id": row.observation_id, "student_id": row.student_id,
+        "source_profile_id": row.source_profile_id, "source_external_id": row.source_external_id,
         "amount": str(row.amount), "currency": "BRL", "status": row.status,
         "created_at": row.created_at.isoformat(),
         "approved_at": row.approved_at.isoformat() if row.approved_at else None,

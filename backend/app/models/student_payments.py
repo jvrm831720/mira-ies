@@ -17,8 +17,7 @@ class StudentPaymentConnector(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_payment_connector_tenant_id"),
         UniqueConstraint("tenant_id", "name", name="uq_mira_payment_connector_tenant_name"),
-        UniqueConstraint("tenant_id", "finance_profile_id", "destination_wallet_id", name="uq_mira_payment_finance_destination"),
-        ForeignKeyConstraint(["tenant_id", "finance_profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"], name="fk_mira_payment_connector_finance_tenant"),
+        UniqueConstraint("tenant_id", "provider_slug", name="uq_mira_payment_connector_single_asaas"),
         CheckConstraint("mode = 'sandbox'", name="ck_mira_payment_connector_sandbox"),
         CheckConstraint("provider_slug = 'asaas'", name="ck_mira_payment_connector_asaas"),
         CheckConstraint("destination_verification_status IN ('pending','verified','blocked')", name="ck_mira_payment_destination_status"),
@@ -31,7 +30,6 @@ class StudentPaymentConnector(Base):
     provider_slug: Mapped[str] = mapped_column(String(60), nullable=False, default="asaas")
     destination_wallet_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     destination_verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
-    finance_profile_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     mode: Mapped[str] = mapped_column(String(12), nullable=False, default="sandbox")
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     configuration_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -46,6 +44,8 @@ class StudentPaymentOrder(Base):
         UniqueConstraint("tenant_id", "id", name="uq_mira_payment_order_tenant_id"),
         UniqueConstraint("tenant_id", "connector_id", "idempotency_key", name="uq_mira_payment_order_idempotency"),
         UniqueConstraint("tenant_id", "connector_id", "observation_id", name="uq_mira_payment_order_observation_connector"),
+        UniqueConstraint("tenant_id", "source_profile_id", "source_external_id", name="uq_mira_payment_order_source_obligation"),
+        ForeignKeyConstraint(["tenant_id", "source_profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"], name="fk_mira_payment_order_finance_source_tenant"),
         ForeignKeyConstraint(["tenant_id", "connector_id"], ["mira_student_payment_connectors.tenant_id", "mira_student_payment_connectors.id"], name="fk_mira_payment_order_connector_tenant"),
         ForeignKeyConstraint(["tenant_id", "observation_id"], ["mira_finance_observations.tenant_id", "mira_finance_observations.id"], name="fk_mira_payment_order_observation_tenant"),
         ForeignKeyConstraint(["tenant_id", "student_id"], ["students.tenant_id", "students.id"], name="fk_mira_payment_order_student_tenant"),
@@ -59,6 +59,8 @@ class StudentPaymentOrder(Base):
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
     connector_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     observation_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    source_profile_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    source_external_id: Mapped[str] = mapped_column(String(120), nullable=False)
     student_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")

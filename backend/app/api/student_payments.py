@@ -42,7 +42,6 @@ def _connector_json(connector: StudentPaymentConnector) -> dict:
         "destination_verification_status": connector.destination_verification_status,
         "split_percentual_value": 100,
         "split_basis": "netValue",
-        "finance_profile_id": connector.finance_profile_id,
         "mode": connector.mode, "enabled": connector.enabled,
         "configuration_version": connector.configuration_version,
         "payment_execution_enabled": False,
@@ -51,7 +50,6 @@ def _connector_json(connector: StudentPaymentConnector) -> dict:
 
 class CreateConnector(BaseModel):
     destination_wallet_id: UUID
-    finance_profile_id: UUID
 
 
 class UpdateConnector(BaseModel):
@@ -94,7 +92,6 @@ async def create_connector(
         row = await engine.create_connector(
             db, tenant_id=auth.tenant_id, actor_id=auth.user_id,
             destination_wallet_id=str(body.destination_wallet_id),
-            finance_profile_id=str(body.finance_profile_id),
         )
         return _connector_json(row)
     except engine.PaymentPreparationDenied as exc:
