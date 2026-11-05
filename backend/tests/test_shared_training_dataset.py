@@ -6,7 +6,8 @@ from app.models.control_center import AdminPrincipal
 from app.models.data_governance import TenantDataUsePolicy
 from app.models.tenant import TrainingEvent
 from app.ml.targets import TARGET_DEFINITION_VERSION
-from app.services.shared_training_dataset import build_shared_training_events
+from app.services.shared_training_dataset import build_shared_training_dataset
+from app.services.contribution_eligibility import assess_contribution
 from app.services.shared_training_guard import SharedTrainingBlockedError
 
 
@@ -45,7 +46,7 @@ async def test_institution_only_events_never_enter_shared_dataset(db_session, te
     await db_session.commit()
 
     with pytest.raises(SharedTrainingBlockedError):
-        await build_shared_training_events(
+        await build_shared_training_dataset(
             db_session,
             contributing_tenant_ids=[tenant.id],
             dataset_eligibility={tenant.id: True},
@@ -73,9 +74,34 @@ async def test_shared_dataset_only_contains_explicitly_authorized_tenants(db_ses
     ))
     await db_session.commit()
 
-    events = await build_shared_training_events(
+    assessment = await assess_contribution(
+        db_session,
+        tenant_id=tenant.id,
+        contribution_key="shared-dataset-test",
+        source_dataset_ref="test-dataset://shared",
+        source_rows=[{
+            "attendance_rate": 0.85,
+            "grade_avg": 7.2,
+            "credits_completed": 40,
+            "credits_enrolled": 20,
+            "days_since_last_login": 3,
+            "financial_delay_days": 0,
+            "risk_score": 0.22,
+            "engagement_score": 0.7,
+            "semester": 3,
+            "course_load": 20,
+            "label": 1,
+            "target_definition": "dropout_v1",
+        }],
+        assessed_by_admin_id=admin.id,
+        approval_reason="Sanitized test contribution",
+    )
+    events = await build_shared_training_dataset(
         db_session,
         contributing_tenant_ids=[tenant.id],
         dataset_eligibility={tenant.id: True},
     )
-    assert [event.tenant_id for event in events] == [tenant.id]
+    assert assessment.status == "eligible"
+    assert len(events) == 1
+    assert events[0].contribution_id_hash == assessment.sanitized_content_hash
+    assert events[0].tenant_contribution_hash == f"{tenant.id}:{assessment.sanitized_content_hash}"

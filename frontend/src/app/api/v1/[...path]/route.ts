@@ -33,6 +33,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
   }
 
   const { path } = await context.params;
+  const isStudentPortal = path[0] === "student-portal";
   const encodedPath = path.map((segment) => encodeURIComponent(segment)).join("/");
   const target = new URL(`${apiBase}/api/v1/${encodedPath}`);
   target.search = request.nextUrl.search;
@@ -41,6 +42,14 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
   for (const name of FORWARDED_REQUEST_HEADERS) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
+  }
+  // Only the isolated student-portal endpoints may receive portal cookies.
+  // Never forward other browser cookies or a portal cookie to admin APIs.
+  if (isStudentPortal) {
+    const portalSession = request.cookies.get("mira_portal_session")?.value;
+    if (portalSession) headers.set("cookie", "mira_portal_session=" + portalSession);
+    const action = request.headers.get("x-mira-portal-action");
+    if (action) headers.set("x-mira-portal-action", action);
   }
 
   const hasBody = !["GET", "HEAD"].includes(request.method);
@@ -66,6 +75,12 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<NextR
     if (value) responseHeaders.set(name, value);
   }
   responseHeaders.set("Cache-Control", "no-store");
+  // The FastAPI cookie is host-only; as the response originates from this
+  // Next.js domain it becomes a first-party HttpOnly cookie on Vercel.
+  if (isStudentPortal) {
+    const sessionCookie = upstream.headers.get("set-cookie");
+    if (sessionCookie) responseHeaders.set("set-cookie", sessionCookie);
+  }
 
   const body = [204, 304].includes(upstream.status) ? null : await upstream.arrayBuffer();
   return new NextResponse(body, {

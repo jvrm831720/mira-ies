@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { cn, formatScore } from "@/lib/utils";
 import { StudentWorkTimeline } from "@/components/students/student-work-timeline";
+import { NativeAcademicPanel } from "@/components/students/native-academic-panel";
 
 const STATUS_LABELS: Record<string, string> = {
   dry_run: "Simulado",
@@ -352,6 +353,8 @@ export default function StudentDetailPage() {
                 <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Notas e avaliações</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[#111827]">{data.nota_media != null ? String(data.nota_media) : "Não informado"}</p><p className="mt-1 text-[12px] text-[#667085]">Média informada pela instituição · {data.reprovacoes != null ? `${data.reprovacoes} reprovações` : "reprovações não informadas"}. Histórico por disciplina ainda não disponível.</p></div>
               </div>
             </section>
+
+            <NativeAcademicPanel studentId={id} />
 
             <section id="student-finance" className="scroll-mt-24 rounded-[10px] border border-[#E4E7EC] bg-white p-5" aria-label="Dados financeiros">
               <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-[#667085]" /><h2 className="text-[15px] font-semibold text-[#111827]">Financeiro</h2></div>

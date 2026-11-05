@@ -305,6 +305,11 @@ async def apply_smart_import(
                 matricula=record["key"], nome=record["standard"].pop("nome"),
                 custom_fields={},
             )
+            # Persist the new student before recording opt-out audit events.
+            # The audit table has a student_id FK and the ORM does not infer
+            # insertion order from the application-side call sequence.
+            db.add(student)
+            await db.flush()
             created += 1
         else:
             updated += 1
