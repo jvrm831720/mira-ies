@@ -168,24 +168,28 @@ async def reconcile_payment(
     if current is None or current["source"] != body.source:
         raise HTTPException(status_code=404, detail="Obrigação inexistente ou fonte não corresponde.")
     prior = (await db.execute(text("""
-        SELECT obligation_ref, amount_paid, evidence_ref FROM dispatch_payment_events
+        SELECT obligation_ref, amount_paid, evidence_ref,
+               obligation_status,remaining_balance FROM dispatch_payment_events
         WHERE tenant_id=:tenant AND source=:source AND source_event_id=:event
     """), {"tenant": auth.tenant_id, "source": body.source, "event": body.source_event_id})).mappings().first()
     if prior:
         if (prior["obligation_ref"] != body.obligation_ref
                 or prior["amount_paid"] != body.amount_paid
-                or prior["evidence_ref"] != body.evidence_ref):
+                or prior["evidence_ref"] != body.evidence_ref
+                or prior["obligation_status"] != body.new_status
+                or prior["remaining_balance"] != body.balance):
             raise HTTPException(status_code=409, detail="Evento de pagamento reutilizado com conteúdo diferente.")
         return {"replayed": True, "accepted": True}
     await db.execute(text("""
         INSERT INTO dispatch_payment_events
             (id, tenant_id, obligation_ref, source, source_event_id,
-             amount_paid, evidence_ref, paid_at)
-        VALUES (:id,:tenant,:obligation,:source,:event,:amount,:evidence,now())
+             amount_paid, obligation_status, remaining_balance, evidence_ref, paid_at)
+        VALUES (:id,:tenant,:obligation,:source,:event,:amount,:status,:remaining,:evidence,now())
     """), {
         "id": str(uuid4()), "tenant": auth.tenant_id, "obligation": body.obligation_ref,
         "source": body.source, "event": body.source_event_id,
-        "amount": body.amount_paid, "evidence": body.evidence_ref,
+        "amount": body.amount_paid, "status": body.new_status,
+        "remaining": body.balance, "evidence": body.evidence_ref,
     })
     await db.execute(text("""
         UPDATE dispatch_obligations
@@ -309,25 +313,29 @@ async def verified_gateway_webhook(
             return {"accepted": False, "reason": "unmatched"}
         item = dict(found)
         existing = (await db.execute(text("""
-            SELECT id FROM dispatch_inbound
+            SELECT event_hash FROM dispatch_inbound
             WHERE tenant_id=:tenant AND provider=:provider AND external_event_id=:event
         """), {
             "tenant": event.tenant_id, "provider": provider,
             "event": event.external_event_id,
         })).scalar_one_or_none()
+        payload_hash = hashlib.sha256(raw).hexdigest()
         if existing:
+            if existing != payload_hash:
+                raise HTTPException(status_code=409, detail="Evento de gateway reutilizado com payload diferente.")
             return {"accepted": True, "replayed": True}
         intent, action = (classify_reply(event.message or "")
                           if event.kind == "reply" else (None, None))
         await db.execute(text("""
             INSERT INTO dispatch_inbound
-                (id,tenant_id,item_id,provider,external_event_id,
+                (id,tenant_id,item_id,provider,external_event_id,event_hash,
                  event_kind,reply_intent,recommended_action)
-            VALUES (:id,:tenant,:item,:provider,:event,:kind,:intent,:action)
+            VALUES (:id,:tenant,:item,:provider,:event,:hash,:kind,:intent,:action)
         """), {
             "id": str(uuid4()), "tenant": event.tenant_id, "item": item["id"],
             "provider": provider, "event": event.external_event_id,
-            "kind": event.kind, "intent": intent, "action": action,
+            "hash": payload_hash, "kind": event.kind,
+            "intent": intent, "action": action,
         })
         target = {
             "delivered": "delivered", "read": "read",
