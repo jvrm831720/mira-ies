@@ -424,7 +424,7 @@ export default function StudentPortalPage() {
             </p>}
           {!extraLoading && extraRecords.length > 0 &&
             <ul className="divide-y divide-[#EAECF0] rounded-lg border border-[#EAECF0]">
-              {extraRecords.map((item,index) => <li key={item.id || item.class_id || index}
+              {extraRecords.map((item,index) => <li key={(item.id || item.class_id || "academic") + "-" + index}
                 className="flex flex-wrap justify-between gap-3 px-4 py-4">
                 <div>
                   <p className="text-[12px] font-semibold text-[#344054]">{academicTitle(extraTab, item)}</p>
