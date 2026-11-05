@@ -24,11 +24,12 @@ Permissão de finalidade não é implícita. Autorizações são por
 ## 2. Implementação no repositório
 
 - Migration `055_dispatch_platform` (após `054_smart_import_custom_fields`):
-  13 tabelas SQL-only com `FORCE ROW LEVEL SECURITY`: `dispatch_campaigns`,
+  15 tabelas SQL-only com `FORCE ROW LEVEL SECURITY`: `dispatch_campaigns`,
   `dispatch_items`, `dispatch_events`, `dispatch_inbound`,
   `dispatch_authorizations`, `dispatch_approved_templates`,
   `dispatch_provider_accounts`, `dispatch_suppressions`,
   `dispatch_worker_heartbeats`, `dispatch_rate_buckets`,
+  `dispatch_source_credentials`, `dispatch_source_nonces`,
   `dispatch_external_contacts`, `dispatch_obligations` e
   `dispatch_payment_events`. Auditoria e pagamentos têm trigger append-only.
 - `app.services.dispatch_core`: audiência, campanhas, workflow de aprovação,
@@ -46,6 +47,8 @@ Permissão de finalidade não é implícita. Autorizações são por
   e Twilio com secret específico do workspace.
 - `app.services.dispatch_receipts`: reconciliação de webhooks que chegam
   antes do commit de `provider_message_id`.
+- `app.services.dispatch_ingress_security`: credenciais HMAC por tenant/fonte/escopo,
+  aprovação por segundo administrador, assinatura do payload e nonce anti-replay.
 - `app.api.dispatch_integrations`: fatos de obrigação e pagamento com
   fonte, versão monotônica e evidência, contatos externos criptografados,
   respostas e reconciliação manual de resultados incertos.
@@ -62,6 +65,14 @@ Todos devem ser configurados explicitamente antes de qualquer envio.
 O envio real só é contemplado para Resend (e-mail) e Twilio (SMS).
 Cobrança via WhatsApp está bloqueada. WhatsApp de retenção/atendimento
 permanece apenas simulado neste motor, apesar de existirem provedores legados.
+
+**Fontes confiáveis:** API key de tenant sozinha não autoriza escrever
+fatos de pagamento, contatos ou consentimento. Cada conector é
+registrado para escopo `financial`, `contacts`, `authorization` ou
+`delivery`, recebe uma chave HMAC separada (revelada uma única vez),
+e precisa de ativação por outro administrador. Assinaturas usam
+timestamp (±5 minutos), nonce de uso único e hash do corpo HTTP
+original. Ver `docs/DISPATCH_SOURCE_SIGNING.md`.
 
 **Consentimento e autorização:** a MIRA não considera ausência de opt-out,
 preferências importadas com padrão favorável ou um atestado geral de proposta
@@ -107,6 +118,7 @@ DISPATCH_LIVE_TENANTS=
 DISPATCH_LIVE_CHANNELS=
 DISPATCH_TRUSTED_AUTHORIZATION_SOURCES=
 DISPATCH_PROVIDER_ENCRYPTION_KEY=
+DISPATCH_SOURCE_ENCRYPTION_KEY=
 DISPATCH_CONTACT_ENCRYPTION_KEY=
 DISPATCH_WEBHOOK_SECRET=
 DISPATCH_TWILIO_CALLBACK_BASE_URL=
