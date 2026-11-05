@@ -85,6 +85,7 @@ jobs:
           -- Legacy 002/004 bootstrap create_all uses the current ORM metadata.
           -- Remove later-wave tables/columns before replaying revisions 039..head.
           DROP TABLE IF EXISTS
+            mira_student_financial_sync_runs,
             mira_student_financial_references, mira_student_documents,
             mira_student_service_events, mira_student_service_requests,
             mira_academic_catalog_audit, mira_academic_calendar_events,
@@ -149,6 +150,13 @@ jobs:
                 )
             ) THEN
               RAISE EXCEPTION 'Wave 3 RLS/FORCE RLS controls missing';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_class cls JOIN pg_namespace ns ON ns.oid=cls.relnamespace
+              WHERE ns.nspname='public' AND cls.relname='mira_student_financial_sync_runs'
+                AND cls.relrowsecurity AND cls.relforcerowsecurity
+            ) THEN
+              RAISE EXCEPTION 'Wave 4 financial sync RLS missing';
             END IF;
             IF NOT EXISTS (
               SELECT 1 FROM pg_trigger
