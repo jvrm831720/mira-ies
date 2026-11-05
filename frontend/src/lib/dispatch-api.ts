@@ -67,7 +67,7 @@ export type DispatchTemplate = {
   id: string; code: string; version: number;
   purpose: "retention" | "academic" | "service" | "collections";
   channel: "email" | "sms" | "whatsapp";
-  subject: string; status: "draft" | "approved" | "retired";
+  subject: string; body: string; status: "draft" | "approved" | "retired";
   created_by: string; approved_by: string | null;
   approved_at: string | null;
 };
