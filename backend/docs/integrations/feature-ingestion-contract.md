@@ -34,10 +34,14 @@ Agregação / snapshot → students.* | signals | training dataset
 
 Ambas com RLS ENABLE + FORCE e isolamento por `app.tenant_id`.
 
+Quando uma observação referencia `student_id`, uma FK composta exige que `(tenant_id, student_id)` corresponda ao mesmo tenant em `students`. RLS é uma camada adicional; não substitui essa integridade referencial.
+
 ## Regras de segurança
 
 - `tenant_id` sempre do contexto autenticado / job — nunca autoridade do cliente.
-- Allowlist global de `feature_key` no contrato + lista opcional por fonte.
+- Allowlist global de `feature_key` no contrato + lista opcional por fonte. Quando a lista da fonte é explicitamente fornecida, inclusive vazia, somente as chaves nela presentes são permitidas.
+- `value_type` deve corresponder a exatamente uma coluna tipada (`value_number`, `value_text` ou `value_boolean`).
+- `observed_at` deve conter timezone explícito. A chave de idempotência usa o dia UTC, independente do timezone do servidor.
 - Payload JSONB não deve guardar credenciais nem dumps brutos de API.
 - Idempotência diária por hash (`observation_key`) evita duplicar re-syncs.
 
