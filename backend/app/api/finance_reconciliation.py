@@ -40,8 +40,11 @@ def _actor(auth: AuthContext) -> str:
 
 
 async def _institution(auth: AuthContext, db: AsyncSession):
-    engine.require_enabled()
     _actor(auth)
+    try:
+        engine.require_enabled()
+    except engine.ReconciliationDenied as exc:
+        raise HTTPException(status_code=503, detail="Conciliação financeira ainda em homologação.") from exc
     await _require_ies(db, auth)
 
 
@@ -343,7 +346,10 @@ async def list_observations(
     db: AsyncSession = Depends(get_db),
 ):
     await _institution(auth, db)
-    await engine.get_profile(db, auth.tenant_id, str(profile_id))
+    try:
+        await engine.get_profile(db, auth.tenant_id, str(profile_id))
+    except engine.ReconciliationDenied as exc:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.") from exc
     rows = (await db.execute(select(FinanceObservation).where(
         FinanceObservation.tenant_id == auth.tenant_id,
         FinanceObservation.profile_id == str(profile_id),
@@ -374,7 +380,10 @@ async def batches(
     db: AsyncSession = Depends(get_db),
 ):
     await _institution(auth, db)
-    await engine.get_profile(db, auth.tenant_id, str(profile_id))
+    try:
+        await engine.get_profile(db, auth.tenant_id, str(profile_id))
+    except engine.ReconciliationDenied as exc:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.") from exc
     rows = (await db.execute(select(FinanceIngestionBatch).where(
         FinanceIngestionBatch.tenant_id == auth.tenant_id,
         FinanceIngestionBatch.profile_id == str(profile_id),
