@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import json
 from decimal import Decimal
+from datetime import datetime, timezone, timedelta
 from typing import Literal
 from uuid import uuid4
 
@@ -42,6 +43,8 @@ class ObligationSync(BaseModel):
     balance: Decimal | None = Field(default=None, ge=0)
     source: str = Field(min_length=3, max_length=80)
     evidence_ref: str = Field(min_length=8, max_length=200)
+    source_version: int = Field(ge=1)
+    observed_at: datetime
 
 
 class ContactSync(BaseModel):
@@ -60,6 +63,16 @@ class PaymentSync(BaseModel):
     evidence_ref: str = Field(min_length=8, max_length=200)
     new_status: Literal["open", "paid", "agreement", "disputed"]
     balance: Decimal = Field(ge=0)
+    source_version: int = Field(ge=1)
+    observed_at: datetime
+
+
+def _verified_observation(observed: datetime) -> None:
+    if observed.tzinfo is None or observed.utcoffset() is None:
+        raise HTTPException(status_code=422,detail="A verificação exige timestamp com fuso.")
+    now=datetime.now(timezone.utc)
+    if observed > now+timedelta(minutes=5) or observed < now-timedelta(days=30):
+        raise HTTPException(status_code=422,detail="Observação financeira fora da janela confiável.")
 
 
 @router.post("/integrations/obligations")
@@ -68,42 +81,68 @@ async def upsert_obligation(
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
+    """One authoritative source per debt; only higher source versions can mutate it."""
     _require_connector(auth)
-    await bind_tenant(db, auth.tenant_id)
-    if body.status == "open" and (body.balance is None or body.balance <= 0):
-        raise HTTPException(status_code=422, detail="Saldo positivo é obrigatório para obrigação aberta.")
-    written = await db.execute(text("""
-        INSERT INTO dispatch_obligations (
-            id, tenant_id, external_ref, subject_type, subject_ref, status,
-            balance, source, evidence_ref, verified_at
-        ) VALUES (:id, :tenant, :ref, :kind, :subject, :status, :balance, :source, :evidence, now())
+    _verified_observation(body.observed_at)
+    if body.status=="open" and (body.balance is None or body.balance<=0):
+        raise HTTPException(status_code=422,detail="Obrigação aberta precisa de saldo positivo.")
+    await bind_tenant(db,auth.tenant_id)
+    existing=(await db.execute(text("""
+        SELECT subject_type,subject_ref,source,source_version,status,balance,
+               evidence_ref,verified_at
+        FROM dispatch_obligations
+        WHERE tenant_id=:tenant AND external_ref=:ref FOR UPDATE
+    """), {"tenant":auth.tenant_id,"ref":body.external_ref})).mappings().first()
+    if existing:
+        if (existing["subject_type"]!=body.subject_type
+             or existing["subject_ref"]!=body.subject_ref
+             or existing["source"]!=body.source):
+            raise HTTPException(status_code=409,detail="Dívida vinculada a outra fonte ou destinatário.")
+        if body.source_version==existing["source_version"]:
+            if (existing["status"]==body.status and existing["balance"]==body.balance
+                  and existing["evidence_ref"]==body.evidence_ref
+                  and existing["verified_at"]==body.observed_at):
+                return {"accepted":True,"replayed":True,"status":body.status}
+            raise HTTPException(status_code=409,detail="Versão da origem duplicada com conteúdo divergente.")
+        if body.source_version<existing["source_version"]:
+            raise HTTPException(status_code=409,detail="Observação financeira anterior à última versão.")
+        if existing["status"] in {"paid","disputed","agreement","cancelled"} and body.status=="open":
+            raise HTTPException(status_code=409,detail="Reabertura de dívida terminal exige nova referência e revisão.")
+    await db.execute(text("""
+        INSERT INTO dispatch_obligations
+            (id,tenant_id,external_ref,subject_type,subject_ref,status,balance,
+             source,evidence_ref,source_version,verified_at)
+        VALUES (:id,:tenant,:ref,:kind,:subject,:status,:balance,
+                :source,:evidence,:version,:observed)
         ON CONFLICT (tenant_id,external_ref) DO UPDATE SET
-            status=EXCLUDED.status, balance=EXCLUDED.balance,
-            source=EXCLUDED.source, evidence_ref=EXCLUDED.evidence_ref,
-            verified_at=now(), updated_at=now()
-        WHERE dispatch_obligations.subject_type=EXCLUDED.subject_type
+            status=EXCLUDED.status,balance=EXCLUDED.balance,source=EXCLUDED.source,
+            evidence_ref=EXCLUDED.evidence_ref,source_version=EXCLUDED.source_version,
+            verified_at=EXCLUDED.verified_at,updated_at=now()
+        WHERE dispatch_obligations.source_version < EXCLUDED.source_version
+          AND dispatch_obligations.subject_type=EXCLUDED.subject_type
           AND dispatch_obligations.subject_ref=EXCLUDED.subject_ref
+          AND dispatch_obligations.source=EXCLUDED.source
         RETURNING id
     """), {
-        "id": str(uuid4()), "tenant": auth.tenant_id,
-        "ref": body.external_ref, "kind": body.subject_type,
-        "subject": body.subject_ref, "status": body.status,
-        "balance": body.balance, "source": body.source,
-        "evidence": body.evidence_ref,
+        "id":str(uuid4()),"tenant":auth.tenant_id,"ref":body.external_ref,
+        "kind":body.subject_type,"subject":body.subject_ref,"status":body.status,
+        "balance":body.balance,"source":body.source,"evidence":body.evidence_ref,
+        "version":body.source_version,"observed":body.observed_at,
     })
-    if written.scalar_one_or_none() is None:
-        raise HTTPException(status_code=409, detail="Obrigação já associada a outro destinatário.")
-    if body.status != "open":
+    if body.status!="open":
         await db.execute(text("""
-            UPDATE dispatch_items SET status='blocked', last_error='obligation_no_longer_open',
-                updated_at=now() WHERE tenant_id=:tenant AND obligation_ref=:ref
+            UPDATE dispatch_items SET status='blocked',
+                last_error='obligation_not_open',updated_at=now()
+            WHERE tenant_id=:tenant AND obligation_ref=:ref
               AND status IN ('queued','retry_wait','leased')
-        """), {"tenant": auth.tenant_id, "ref": body.external_ref})
-    await audit(db, tenant_id=auth.tenant_id, event_type="obligation.synced",
-                details={"ref_hash": hashlib.sha256(body.external_ref.encode()).hexdigest()[:12],
-                         "status": body.status, "source": body.source})
+        """), {"tenant":auth.tenant_id,"ref":body.external_ref})
+    await audit(
+        db,tenant_id=auth.tenant_id,event_type="obligation.synced",
+        details={"status":body.status,"source":body.source,"source_version":body.source_version,
+                 "ref_hash":hashlib.sha256(body.external_ref.encode()).hexdigest()[:12]},
+    )
     await db.commit()
-    return {"accepted": True, "status": body.status}
+    return {"accepted":True,"replayed":False,"status":body.status}
 
 
 @router.post("/integrations/contacts")
@@ -156,66 +195,83 @@ async def reconcile_payment(
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Signed connector-derived payment fact; never create a settlement from a reply."""
+    """Idempotent financial facts from authoritative connectors, never from replies."""
     _require_connector(auth)
-    if body.new_status == "paid" and body.balance != 0:
-        raise HTTPException(status_code=422, detail="Quitação exige saldo zero.")
-    await bind_tenant(db, auth.tenant_id)
-    current = (await db.execute(text("""
-        SELECT source FROM dispatch_obligations WHERE tenant_id=:tenant AND external_ref=:ref
-        FOR UPDATE
-    """), {"tenant": auth.tenant_id, "ref": body.obligation_ref})).mappings().first()
-    if current is None or current["source"] != body.source:
-        raise HTTPException(status_code=404, detail="Obrigação inexistente ou fonte não corresponde.")
-    prior = (await db.execute(text("""
-        SELECT obligation_ref, amount_paid, evidence_ref,
-               obligation_status,remaining_balance FROM dispatch_payment_events
+    _verified_observation(body.observed_at)
+    if body.new_status=="paid" and body.balance!=0:
+        raise HTTPException(status_code=422,detail="Pagamento integral exige saldo zero.")
+    if body.new_status=="open" and body.balance<=0:
+        raise HTTPException(status_code=422,detail="Pagamento parcial exige saldo positivo.")
+    if body.amount_paid<=0:
+        raise HTTPException(status_code=422,detail="Pagamento com valor não positivo.")
+    await bind_tenant(db,auth.tenant_id)
+    current=(await db.execute(text("""
+        SELECT source,source_version,status,verified_at FROM dispatch_obligations
+        WHERE tenant_id=:tenant AND external_ref=:ref FOR UPDATE
+    """), {"tenant":auth.tenant_id,"ref":body.obligation_ref})).mappings().first()
+    if not current or current["source"]!=body.source:
+        raise HTTPException(status_code=404,detail="Dívida inexistente ou origem financeira incompatível.")
+    previous=(await db.execute(text("""
+        SELECT obligation_ref,source_version,amount_paid,evidence_ref,
+               obligation_status,remaining_balance,paid_at
+        FROM dispatch_payment_events
         WHERE tenant_id=:tenant AND source=:source AND source_event_id=:event
-    """), {"tenant": auth.tenant_id, "source": body.source, "event": body.source_event_id})).mappings().first()
-    if prior:
-        if (prior["obligation_ref"] != body.obligation_ref
-                or prior["amount_paid"] != body.amount_paid
-                or prior["evidence_ref"] != body.evidence_ref
-                or prior["obligation_status"] != body.new_status
-                or prior["remaining_balance"] != body.balance):
-            raise HTTPException(status_code=409, detail="Evento de pagamento reutilizado com conteúdo diferente.")
-        return {"replayed": True, "accepted": True}
+    """), {"tenant":auth.tenant_id,"source":body.source,
+            "event":body.source_event_id})).mappings().first()
+    if previous:
+        if (previous["obligation_ref"]!=body.obligation_ref
+            or previous["source_version"]!=body.source_version
+            or previous["amount_paid"]!=body.amount_paid
+            or previous["evidence_ref"]!=body.evidence_ref
+            or previous["obligation_status"]!=body.new_status
+            or previous["remaining_balance"]!=body.balance
+            or previous["paid_at"]!=body.observed_at):
+            raise HTTPException(status_code=409,detail="Evento já registrado com conteúdo diferente.")
+        return {"accepted":True,"replayed":True}
+    if body.source_version<=current["source_version"] or body.observed_at < current["verified_at"]:
+        raise HTTPException(status_code=409,detail="Pagamento fora da ordem verificada da fonte.")
+    if current["status"] in {"paid","disputed","agreement","cancelled"} and body.new_status=="open":
+        raise HTTPException(status_code=409,detail="Não é permitido reabrir dívida encerrada por pagamento parcial.")
     await db.execute(text("""
         INSERT INTO dispatch_payment_events
-            (id, tenant_id, obligation_ref, source, source_event_id,
-             amount_paid, obligation_status, remaining_balance, evidence_ref, paid_at)
-        VALUES (:id,:tenant,:obligation,:source,:event,:amount,:status,:remaining,:evidence,now())
+            (id,tenant_id,obligation_ref,source,source_event_id,
+             source_version,amount_paid,obligation_status,remaining_balance,
+             evidence_ref,paid_at)
+        VALUES (:id,:tenant,:ref,:source,:event,:version,:amount,:status,
+                :balance,:evidence,:observed)
     """), {
-        "id": str(uuid4()), "tenant": auth.tenant_id, "obligation": body.obligation_ref,
-        "source": body.source, "event": body.source_event_id,
-        "amount": body.amount_paid, "status": body.new_status,
-        "remaining": body.balance, "evidence": body.evidence_ref,
+        "id":str(uuid4()),"tenant":auth.tenant_id,"ref":body.obligation_ref,
+        "source":body.source,"event":body.source_event_id,
+        "version":body.source_version,"amount":body.amount_paid,
+        "status":body.new_status,"balance":body.balance,
+        "evidence":body.evidence_ref,"observed":body.observed_at,
     })
     await db.execute(text("""
         UPDATE dispatch_obligations
-        SET status=:status, balance=:balance, verified_at=now(), updated_at=now(),
-            evidence_ref=:evidence
-        WHERE tenant_id=:tenant AND external_ref=:obligation
+        SET source_version=:version,status=:status,balance=:balance,
+            verified_at=:observed,evidence_ref=:evidence,updated_at=now()
+        WHERE tenant_id=:tenant AND external_ref=:ref
     """), {
-        "status": body.new_status, "balance": body.balance,
-        "evidence": body.evidence_ref, "tenant": auth.tenant_id,
-        "obligation": body.obligation_ref,
+        "version":body.source_version,"status":body.new_status,
+        "balance":body.balance,"observed":body.observed_at,
+        "evidence":body.evidence_ref,"tenant":auth.tenant_id,
+        "ref":body.obligation_ref,
     })
-    if body.new_status != "open":
+    if body.new_status!="open":
         await db.execute(text("""
-            UPDATE dispatch_items SET status='blocked',last_error='payment_or_agreement',
-                 updated_at=now()
-            WHERE tenant_id=:tenant AND obligation_ref=:obligation
+            UPDATE dispatch_items SET status='blocked',
+                last_error='paid_or_under_review',updated_at=now()
+            WHERE tenant_id=:tenant AND obligation_ref=:ref
               AND status IN ('queued','retry_wait','leased')
-        """), {"tenant": auth.tenant_id, "obligation": body.obligation_ref})
-    await audit(db, tenant_id=auth.tenant_id,
-                event_type="payment.reconciled", details={
-                    "source": body.source, "status": body.new_status,
-                    "event_hash": hashlib.sha256(body.source_event_id.encode()).hexdigest()[:12],
-                })
+        """), {"tenant":auth.tenant_id,"ref":body.obligation_ref})
+    await audit(
+        db,tenant_id=auth.tenant_id,event_type="payment.reconciled",
+        details={"source":body.source,"status":body.new_status,
+                 "version":body.source_version,
+                 "event_hash":hashlib.sha256(body.source_event_id.encode()).hexdigest()[:12]},
+    )
     await db.commit()
-    return {"accepted": True, "replayed": False, "status": body.new_status}
-
+    return {"accepted":True,"replayed":False,"status":body.new_status}
 
 
 class UncertainOutcomeReconciliation(BaseModel):
