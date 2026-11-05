@@ -85,7 +85,7 @@ def upgrade():
     for table in TABLES:
         protect(table)
     # Database-level append-only audit history for student requests.
-    op.execute("""
+    op.get_bind().exec_driver_sql("""
         CREATE FUNCTION mira_service_event_immutable() RETURNS trigger AS $
         BEGIN
             RAISE EXCEPTION 'student service history is append-only';
