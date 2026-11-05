@@ -41,8 +41,7 @@ class ComposioIngestDenied(ValueError):
 def _require_enabled() -> None:
     settings = get_settings()
     if not (
-        settings.composio_tool_execution_enabled
-        and settings.dispatch_composio_ingestion_enabled
+        settings.dispatch_composio_ingestion_enabled
         and settings.composio_enabled
         and settings.composio_api_key
         and settings.composio_identity_secret
