@@ -1298,6 +1298,7 @@ textarea {
 .mira-flow-logo-upload p { margin: 3px 0 0; color: #7b808a; font-size: 10px; line-height: 15px; }
 .mira-flow-fields { display: grid; gap: 13px; }
 .mira-flow-field { display: grid; gap: 6px; min-width: 0; }
+.mira-flow-static-label { margin: 0; color: #92969f; font-size: 11px; line-height: 16px; }
 .mira-flow-field > label {
   color: #92969f;
   font-size: 11px;
