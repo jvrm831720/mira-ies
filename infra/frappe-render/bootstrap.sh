@@ -28,6 +28,28 @@ chown frappe:0 "$BENCH/sites"
 chmod 0770 "$BENCH/sites"
 cd "$BENCH"
 
+echo "Waiting for isolated MariaDB and Redis services..."
+for attempt in $(seq 1 60); do
+  if python3 -c 'import os,socket;socket.create_connection((os.environ["MIRA_MARIADB_HOST"],3306),timeout=2).close()' 2>/dev/null; then
+    break
+  fi
+  if [[ "$attempt" -eq 60 ]]; then
+    echo "ERROR: MariaDB unavailable after bounded retries." >&2
+    exit 1
+  fi
+  sleep 2
+done
+for attempt in $(seq 1 30); do
+  if "$BENCH/env/bin/python" -c 'import os,redis;redis.from_url(os.environ["MIRA_REDIS_CACHE"],socket_connect_timeout=2).ping();redis.from_url(os.environ["MIRA_REDIS_QUEUE"],socket_connect_timeout=2).ping()' 2>/dev/null; then
+    break
+  fi
+  if [[ "$attempt" -eq 30 ]]; then
+    echo "ERROR: Redis cache/queue unavailable after bounded retries." >&2
+    exit 1
+  fi
+  sleep 2
+done
+
 as_frappe() { runuser -u frappe -- "$@"; }
 
 # Recreate only non-secret links/config; Site data persists across deploys.
