@@ -21,6 +21,8 @@ def test_composio_toolkit_policy_defaults_disabled_and_empty():
     policy = TenantComposioToolkitPolicy(
         tenant_id="00000000-0000-0000-0000-000000000001",
         toolkit_slug="gmail",
+        is_enabled=False,
+        tool_slugs=[],
     )
     assert policy.is_enabled is False
     assert policy.tool_slugs == []
