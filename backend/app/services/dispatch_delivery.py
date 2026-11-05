@@ -259,8 +259,14 @@ async def send_authorized(
         provider = "resend"
     elif campaign["channel"] == "sms":
         from app.agents.providers.twilio_provider import send_sms_twilio
+        # A live SMS needs provider-native delivery reconciliation configured.
+        from app.core.config import get_settings
+        url = get_settings().dispatch_twilio_callback_url
+        if not url or not url.startswith("https://"):
+            return DeliveryResult("blocked", "policy", error_code="twilio_callback_not_configured")
         result = await send_sms_twilio(
             to=destination, message=body, idempotency_key=idempotency_key,
+            status_callback_url=url,
         )
         provider = "twilio"
     else:

@@ -10,7 +10,8 @@ from app.core.config import get_settings
 
 
 async def send_sms_twilio(
-    *, to: str, message: str, idempotency_key: str | None = None
+    *, to: str, message: str, idempotency_key: str | None = None,
+    status_callback_url: str | None = None
 ) -> SendResult:
     settings = get_settings()
     if not (settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from):
@@ -23,6 +24,14 @@ async def send_sms_twilio(
         )
     url = f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json"
     data = {"To": to, "From": settings.twilio_from, "Body": message}
+    if status_callback_url:
+        if not status_callback_url.startswith("https://"):
+            return SendResult(
+                ok=False, channel="sms", provider="twilio",
+                error="status_callback_must_be_https",
+                outcome="confirmed_failure",
+            )
+        data["StatusCallback"] = status_callback_url
     headers = {}
     if idempotency_key:
         # Twilio não oferece deduplicação universal para Messages API; o header
