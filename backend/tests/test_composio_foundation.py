@@ -4,6 +4,7 @@ from app.core.config import Settings
 from app.services.composio.gateway import (
     ComposioNotConfigured,
     composio_is_configured,
+    composio_toolkit_allowed,
     require_composio_configuration,
 )
 from app.services.composio.identity import composio_user_id_for_tenant
@@ -47,3 +48,14 @@ def test_composio_gateway_fails_closed_until_configured():
         assert "desativado" in str(exc)
     else:
         raise AssertionError("Composio não configurado deveria falhar fechado")
+
+
+def test_composio_toolkit_allowlist_fails_closed():
+    empty = Settings(composio_allowed_toolkits="")
+    allowlisted = Settings(composio_allowed_toolkits="gmail, google_drive")
+
+    assert composio_toolkit_allowed("gmail", empty) is False
+    assert composio_toolkit_allowed("GMAIL", allowlisted) is True
+    assert composio_toolkit_allowed("google_drive", allowlisted) is True
+    assert composio_toolkit_allowed("slack", allowlisted) is False
+    assert composio_toolkit_allowed("", allowlisted) is False
