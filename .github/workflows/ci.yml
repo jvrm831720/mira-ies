@@ -82,8 +82,8 @@ jobs:
           PYTHONPATH=. alembic upgrade 006_safe_agent_delivery
           PYTHONPATH=. alembic stamp 038_high_risk_confirmation
           psql "$MIRA_TEST_PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          # Legacy 002/004 bootstrap create_all uses the current ORM metadata.
-          # Remove later-wave tables/columns before replaying revisions 039..head.
+          -- Legacy 002/004 bootstrap create_all uses the current ORM metadata.
+          -- Remove later-wave tables/columns before replaying revisions 039..head.
           DROP TABLE IF EXISTS custom_field_definitions,
             tenant_composio_tool_approvals, tenant_omie_connections,
             mira_module_entitlements, mira_tenant_domains, mira_tenant_branding,
