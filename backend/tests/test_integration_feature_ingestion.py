@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -51,6 +51,12 @@ def test_assert_source_may_write_enforces_global_and_source_allowlist():
             allowed_feature_keys=["nota_media"],
             feature_key="dias_sem_login",
         )
+    with pytest.raises(FeatureIngestDenied, match="não autorizada"):
+        assert_source_may_write_feature(
+            source_enabled=True,
+            allowed_feature_keys=[],
+            feature_key="dias_sem_login",
+        )
     assert (
         assert_source_may_write_feature(
             source_enabled=True,
@@ -61,8 +67,10 @@ def test_assert_source_may_write_enforces_global_and_source_allowlist():
     )
 
 
-def test_observation_key_is_stable_per_day_bucket():
-    ts = datetime(2026, 11, 5, 14, 30, tzinfo=timezone.utc)
+def test_observation_key_is_stable_per_utc_day_bucket_across_timezones():
+    utc_value = datetime(2026, 11, 5, 1, 0, tzinfo=timezone.utc)
+    local_value = datetime(2026, 11, 4, 22, 0, tzinfo=timezone(timedelta(hours=-3)))
+
     first = observation_key_for(
         tenant_id="t1",
         source_kind="composio",
@@ -70,17 +78,19 @@ def test_observation_key_is_stable_per_day_bucket():
         feature_key="lms_last_activity_days",
         student_id="s1",
         subject_ref=None,
-        observed_at=ts,
+        observed_at=utc_value,
     )
-    second = observation_key_for(
+    same_instant = observation_key_for(
         tenant_id="t1",
         source_kind="composio",
         source_key="google_classroom",
         feature_key="lms_last_activity_days",
         student_id="s1",
         subject_ref=None,
-        observed_at=datetime(2026, 11, 5, 23, 0, tzinfo=timezone.utc),
+        observed_at=local_value,
     )
+    assert first == same_instant
+
     other_day = observation_key_for(
         tenant_id="t1",
         source_kind="composio",
@@ -90,9 +100,21 @@ def test_observation_key_is_stable_per_day_bucket():
         subject_ref=None,
         observed_at=datetime(2026, 11, 6, 1, 0, tzinfo=timezone.utc),
     )
-    assert first == second
     assert first != other_day
     assert first.startswith("obs_")
+
+
+def test_observation_key_rejects_naive_datetime():
+    with pytest.raises(ValueError, match="timezone explícito"):
+        observation_key_for(
+            tenant_id="t1",
+            source_kind="composio",
+            source_key="google_classroom",
+            feature_key="lms_last_activity_days",
+            student_id="s1",
+            subject_ref=None,
+            observed_at=datetime(2026, 11, 5, 14, 30),
+        )
 
 
 def test_validate_observation_requires_subject_and_typed_value():
@@ -114,4 +136,12 @@ def test_validate_observation_requires_subject_and_typed_value():
     with pytest.raises(ValueError, match="value_number"):
         validate_observation_values(
             FeatureObservationInput(**{**base, "value_number": None})
+        )
+    with pytest.raises(ValueError, match="Valores incompatíveis"):
+        validate_observation_values(
+            FeatureObservationInput(**{**base, "value_text": "valor extra"})
+        )
+    with pytest.raises(ValueError, match="source_key"):
+        validate_observation_values(
+            FeatureObservationInput(**{**base, "source_key": "../foreign"})
         )
