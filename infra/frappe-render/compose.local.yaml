@@ -1,0 +1,86 @@
+# MIRA Education Engine — sandbox local, no cloud resources created.
+# Usage (from infra/frappe-render/):
+#   cp .env.local.example .env.local
+#   # edit both strong passwords locally
+#   docker compose --env-file .env.local -f compose.local.yaml up --build -d
+#
+# This uses an independent MariaDB, Redis and sites volume. NEVER point it at
+# the existing MIRA Supabase/PostgreSQL database or production credentials.
+name: mira-education-local
+
+services:
+  mariadb:
+    image: mariadb:11.8
+    restart: unless-stopped
+    command:
+      - mariadbd
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MIRA_MARIADB_ROOT_PASSWORD:?Define a senha da MariaDB no arquivo .env.local}
+      MARIADB_ROOT_HOST: "%"
+    volumes:
+      - education-mariadb:/var/lib/mysql
+    networks: [education-private]
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 --silent"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+
+  redis-queue:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: [education-queue:/data]
+    networks: [education-private]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis-cache:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [education-private]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  education-engine:
+    build:
+      context: ../..
+      dockerfile: infra/frappe-render/Dockerfile
+    restart: "no"
+    depends_on:
+      mariadb: { condition: service_healthy }
+      redis-queue: { condition: service_healthy }
+      redis-cache: { condition: service_healthy }
+    environment:
+      PORT: "10000"
+      MIRA_EDUCATION_SITE_NAME: ies-sandbox.internal
+      MIRA_PERSISTENT_SITES_PATH: /home/frappe/frappe-bench/sites
+      MIRA_MARIADB_HOST: mariadb
+      MIRA_MARIADB_ROOT_PASSWORD: ${MIRA_MARIADB_ROOT_PASSWORD:?Missing MariaDB password}
+      MIRA_REDIS_QUEUE: redis://redis-queue:6379
+      MIRA_REDIS_CACHE: redis://redis-cache:6379
+      MIRA_FRAPPE_ADMIN_PASSWORD: ${MIRA_FRAPPE_ADMIN_PASSWORD:?Missing Frappe admin password}
+    volumes:
+      - education-sites:/home/frappe/frappe-bench/sites
+    ports:
+      - "127.0.0.1:10000:10000"
+    networks: [education-private]
+
+networks:
+  education-private:
+    driver: bridge
+
+volumes:
+  education-mariadb:
+  education-sites:
+  education-queue:
