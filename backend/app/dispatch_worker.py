@@ -8,6 +8,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import json
+import time
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -16,8 +18,9 @@ from sqlalchemy import text
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.services.dispatch_core import audit, bind_tenant
+from app.services.provider_guard import acquire_send_slot, record_provider_outcome
 from app.services.dispatch_delivery import (
-    DeliveryResult, allow_rate, eligibility, send_authorized,
+    DeliveryResult, allow_rate, eligibility, send_authorized, live_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,6 +78,8 @@ async def recover_expired_leases(db, tenant_id: str) -> dict[str, int]:
         await audit(db, tenant_id=tenant_id, campaign_id=str(row["campaign_id"]),
                     item_id=str(row["id"]), event_type="item.unknown_outcome")
     await db.commit()
+    for campaign_id in {str(row["campaign_id"]) for row in unknown}:
+        await _auto_pause(db, tenant_id, campaign_id)
     return {"requeued": len(leased), "unknown": len(unknown)}
 
 
@@ -213,6 +218,16 @@ async def process_item(
                             status="retry_wait", reason="rate_limit",
                             next_attempt_at=datetime.now(timezone.utc)+timedelta(seconds=30))
             return "retry_wait"
+        if live_enabled(tenant_id, camp["channel"]):
+            provider = "resend" if camp["channel"] == "email" else "twilio"
+            decision_guard = await acquire_send_slot(
+                tenant_id=tenant_id, channel=camp["channel"], provider=provider,
+            )
+            if not decision_guard.allowed:
+                await _finalize(db, tenant_id=tenant_id, item_id=item_id, token=token,
+                                status="retry_wait", reason="provider_guard_unavailable",
+                                next_attempt_at=datetime.now(timezone.utc) + timedelta(seconds=60))
+                return "retry_wait"
         moved = (await db.execute(text("""
             UPDATE dispatch_items SET status='sending', attempt=attempt+1,
                 lease_until=now()+interval '120 seconds', updated_at=now()
@@ -227,6 +242,7 @@ async def process_item(
 
     # No transaction is held open while waiting on an external provider.
     # Pre-send crash recovery marks the outcome UNKNOWN rather than resending.
+    started = time.monotonic()
     try:
         result: DeliveryResult = await send_authorized(
             tenant_id=tenant_id, campaign=camp, item=record,
@@ -236,6 +252,15 @@ async def process_item(
         # A network failure can be ambiguous: NEVER automatically re-send.
         result = DeliveryResult("unknown", "unavailable", error_code="provider_outcome_unknown")
 
+    if live_enabled(tenant_id, camp["channel"]):
+        try:
+            await record_provider_outcome(
+                provider=result.provider, success=result.status == "sent",
+                ambiguous=result.status == "unknown",
+                latency_seconds=time.monotonic() - started,
+            )
+        except Exception:
+            logger.exception("dispatch_provider_guard_telemetry_failed")
     status = result.status
     next_attempt_at = None
     if status == "failed" and result.retryable and attempts < 3:
@@ -252,6 +277,35 @@ async def process_item(
         if finalized and status in {"unknown","failed"}:
             await _auto_pause(db, tenant_id, campaign_id)
         return status if finalized else "stale"
+
+
+async def complete_drained_campaigns(db, tenant_id: str) -> int:
+    await bind_tenant(db, tenant_id)
+    rows = (await db.execute(text("""
+        UPDATE dispatch_campaigns c SET status='completed', updated_at=now()
+        WHERE c.tenant_id=:tenant AND c.status='running'
+          AND EXISTS (SELECT 1 FROM dispatch_items i WHERE i.tenant_id=:tenant AND i.campaign_id=c.id)
+          AND NOT EXISTS (
+              SELECT 1 FROM dispatch_items i WHERE i.tenant_id=:tenant
+                AND i.campaign_id=c.id AND i.status IN ('queued','retry_wait','leased','sending')
+          ) RETURNING c.id
+    """), {"tenant": tenant_id})).scalars().all()
+    for campaign_id in rows:
+        await audit(db, tenant_id=tenant_id, campaign_id=str(campaign_id),
+                    event_type="campaign.completed")
+    await db.commit()
+    return len(rows)
+
+
+async def write_heartbeat(db, *, tenant_id: str, owner: str, counts: dict[str, int]) -> None:
+    await bind_tenant(db, tenant_id)
+    await db.execute(text("""
+        INSERT INTO dispatch_worker_heartbeats (tenant_id,worker_id,seen_at,stats)
+        VALUES (:tenant,:worker,now(),CAST(:stats AS jsonb))
+        ON CONFLICT (tenant_id,worker_id)
+        DO UPDATE SET seen_at=now(),stats=EXCLUDED.stats
+    """), {"tenant": tenant_id, "worker": owner, "stats": json.dumps(counts)})
+    await db.commit()
 
 
 async def run_round(*, owner: str, max_batch: int = 10, parallel: int = 3) -> dict[str, int]:
@@ -276,6 +330,10 @@ async def run_round(*, owner: str, max_batch: int = 10, parallel: int = 3) -> di
             summary["uncertain_recovered"] = summary.get("uncertain_recovered", 0) + recovered["unknown"]
             claimed = await claim_batch(db, tenant_id, owner, limit=max_batch)
         await asyncio.gather(*(guarded(tenant_id, record) for record in claimed))
+        async with AsyncSessionLocal() as db:
+            summary["completed"] = summary.get("completed", 0) + await complete_drained_campaigns(db, tenant_id)
+            await write_heartbeat(db, tenant_id=tenant_id, owner=owner,
+                                  counts={"claimed": len(claimed), "completed": summary.get("completed", 0)})
     return summary
 
 
