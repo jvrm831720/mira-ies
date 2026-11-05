@@ -11,8 +11,6 @@ import {
   X,
   ChevronRight,
   Upload,
-  AlertTriangle,
-  CircleHelp,
   RefreshCw,
   Layers,
 } from "lucide-react";
