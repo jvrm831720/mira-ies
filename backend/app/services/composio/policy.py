@@ -16,6 +16,7 @@ from typing import Any
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.core.auth import AuthContext
 from app.core.config import get_settings
@@ -249,7 +250,7 @@ async def authorize_tool_request(
     encoded = _canonical_json(arguments)
     if len(encoded) > _MAX_ARGUMENT_BYTES:
         raise ComposioPolicyDenied("Argumentos excedem o limite permitido.")
-    schema = _tool_schema(toolkit, tool)
+    schema = await run_in_threadpool(_tool_schema, toolkit, tool)
     _validate_schema_value(arguments, schema)
     fingerprint = hashlib.sha256(
         _canonical_json({
