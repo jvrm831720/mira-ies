@@ -95,6 +95,9 @@ export const financeApi = {
     },
   ),
   connections: () => request<{ items: FinanceConnection[] }>("/api/v1/integrations/composio/connections"),
+  financialCatalog: () => request<{ items: Array<{ slug: string; composio_toolkits?: Array<{ slug: string }> }> }>(
+    "/api/v1/integrations/composio/catalog/categories",
+  ),
   tools: (slug: string) => request<{ items: FinanceComposioTool[] }>(
     `/api/v1/integrations/composio/catalog/${encodeURIComponent(slug)}/tools`
   ),
