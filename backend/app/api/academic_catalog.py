@@ -310,6 +310,31 @@ async def create_catalog_batch(
     return {"created": counts, "published": False, "notifications_sent": False}
 
 
+@router.get("/drafts")
+async def catalog_drafts(
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    _human(auth)
+    await _require_ies(db, auth)
+    pending = []
+    for key, model in PUBLISHABLE.items():
+        rows = (await db.execute(select(model).where(
+            model.tenant_id == auth.tenant_id,
+            model.publication_status == "draft",
+        ).order_by(model.id).limit(50))).scalars().all()
+        for row in rows:
+            pending.append({
+                "id": row.id, "resource": key,
+                "title": (getattr(row, "title", None) or
+                          getattr(row, "topic", None) or
+                          "Registro pendente"),
+                "class_id": getattr(row, "class_id", None),
+            })
+    return {"items": pending, "per_category_limit": 50}
+
+
 PUBLISHABLE = {
     "lessons": AcademicLesson,
     "assessments": AcademicAssessment,
