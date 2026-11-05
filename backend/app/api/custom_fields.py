@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, get_current_tenant, require_permission, require_permission
+from app.core.auth import AuthContext, require_permission
 from app.db.session import get_db
 from app.models.custom_field import CUSTOM_FIELD_TYPES
 from app.services import custom_fields as service

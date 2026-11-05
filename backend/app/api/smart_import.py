@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.upload import read_file_to_dataframe, sanitize_filename, validate_extension
-from app.core.auth import AuthContext, get_current_tenant, require_permission
+from app.core.auth import AuthContext, require_permission
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.student import Student
@@ -185,10 +185,6 @@ async def apply_import(
         header: {**catalog_index[field], "field": field}
         for header, field in requested.items()
     }
-    unknown = sorted(set(body.mapping.values()) - set(catalog_index))
-    if unknown:
-        raise HTTPException(status_code=422, detail=f"Campos desconhecidos no mapeamento: {', '.join(unknown)}")
-
     try:
         validated = engine.validate_records(df, mapping, catalog_index, body.key_field)
     except ValueError as exc:
@@ -197,10 +193,10 @@ async def apply_import(
     filename = sanitize_filename(file.filename or "")
     try:
         result = await engine.apply_smart_import(
-        db, tenant_id=auth.tenant_id, batch_id=deterministic_batch_id,
-        filename=f"{deterministic_batch_id}_{filename}", original_filename=filename,
-        validated=validated, mapping=mapping, key_field=body.key_field,
-        fingerprint=fingerprint,
+            db, tenant_id=auth.tenant_id, batch_id=deterministic_batch_id,
+            filename=f"{deterministic_batch_id}_{filename}", original_filename=filename,
+            validated=validated, mapping=mapping, key_field=body.key_field,
+            fingerprint=fingerprint,
         )
     except ValueError as exc:
         await db.rollback()

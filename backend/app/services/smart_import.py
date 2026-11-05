@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.student import Student, UploadBatch
-from app.services.custom_fields import build_catalog, coerce_value
+from app.services.custom_fields import coerce_value
 
 # Tipos canônicos do cadastro. Aliases vêm de app.services.ingestion.COLUMN_ALIASES
 # quando disponíveis (mesma fonte do upload legado) e são enriquecidos por tenant.
@@ -205,7 +205,7 @@ def validate_records(
         records.append({
             "row": row_number, "key": key, "standard": standard,
             "custom": custom,
-            "raw": {str(h): ("" if pd.isna(v) else str(v)) for h, v in row.items()},
+            "raw": {str(h): ("" if pd.isna(row.get(h)) else str(row.get(h))) for h in mapping},
         })
 
     return {
