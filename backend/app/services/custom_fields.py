@@ -147,8 +147,9 @@ async def create_definition(
         is_pii=is_pii, aliases=aliases or [],
     )
     db.add(definition)
-    await db.commit()
+    await db.flush()
     await db.refresh(definition)
+    await db.commit()
     return definition
 
 

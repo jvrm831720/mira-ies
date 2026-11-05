@@ -106,8 +106,9 @@ async def update_custom_field(
         definition.aliases = body.aliases
     if body.active is not None:
         definition.active = body.active
-    await db.commit()
+    await db.flush()
     await db.refresh(definition)
+    await db.commit()
     return _serialize(definition)
 
 
