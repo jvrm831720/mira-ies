@@ -73,6 +73,32 @@ MARKETING_TOOLKITS: dict[str, dict[str, str]] = {
 }
 
 
+FINANCE_TOOLKITS: dict[str, dict[str, str]] = {
+    "xero": {"name": "Xero", "kind": "accounting"},
+    "zoho_books": {"name": "Zoho Books", "kind": "accounting"},
+    "freshbooks": {"name": "FreshBooks", "kind": "accounting"},
+    "netsuite": {"name": "Oracle NetSuite", "kind": "financial_erp"},
+    "sage_intacct": {"name": "Sage Intacct", "kind": "financial_management"},
+    "odoo": {"name": "Odoo", "kind": "erp_finance"},
+    "erpnext": {"name": "ERPNext", "kind": "erp_finance"},
+    "stripe": {"name": "Stripe", "kind": "payment_processing"},
+}
+
+
+# Omie is intentionally represented as a custom integration, not a Composio
+# toolkit: it was not present in the official Composio toolkit catalog when
+# this category was curated. A custom adapter/toolkit must be implemented
+# and reviewed before any connection or execution is possible.
+OMIE_CUSTOM_INTEGRATION: dict[str, Any] = {
+    "slug": "omie",
+    "name": "Omie",
+    "kind": "financial_erp",
+    "integration_type": "custom",
+    "status": "requires_custom_toolkit",
+    "composio_toolkit_slug": None,
+}
+
+
 def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
     """Attach MIRA category metadata using verified Composio toolkit slugs."""
     slug = str(item.get("slug") or "").strip().lower()
@@ -85,6 +111,7 @@ def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
         ("support", "Atendimento e suporte", SUPPORT_TOOLKITS),
         ("scheduling", "Agenda e agendamento", SCHEDULING_TOOLKITS),
         ("marketing", "Marketing institucional", MARKETING_TOOLKITS),
+        ("finance", "Financeiro e gestão financeira", FINANCE_TOOLKITS),
     ):
         metadata = toolkits.get(slug)
         if metadata:
@@ -286,4 +313,23 @@ def communication_category(settings: Settings | None = None) -> dict[str, Any]:
             for slug, metadata in COMMUNICATION_TOOLKITS.items()
         ],
         "native_channels": native_communication_channels(settings),
+    }
+
+
+
+def finance_category() -> dict[str, Any]:
+    """Return finance toolkits and explicitly identified custom integrations."""
+    return {
+        "slug": "finance",
+        "name": "Financeiro e gestão financeira",
+        "description": (
+            "Consulta e gestão financeira, contas a pagar e receber, faturamento, "
+            "despesas, pagamentos, conciliação, fluxo de caixa e relatórios."
+        ),
+        "composio_toolkits": [
+            {"slug": slug, **metadata}
+            for slug, metadata in FINANCE_TOOLKITS.items()
+        ],
+        "custom_integrations": [OMIE_CUSTOM_INTEGRATION.copy()],
+        "native_channels": [],
     }
