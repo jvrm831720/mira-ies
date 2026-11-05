@@ -78,6 +78,10 @@ def upgrade() -> None:
             name="fk_mira_memberships_custom_role_tenant",
             ondelete="RESTRICT",
         ),
+        sa.CheckConstraint(
+            "status IN ('active', 'invited', 'suspended', 'left')",
+            name="ck_mira_memberships_status",
+        ),
         sa.UniqueConstraint("user_id", "tenant_id", name="uq_mira_memberships_user_tenant"),
     )
     op.create_index("ix_mira_memberships_user", "mira_memberships", ["user_id"])
@@ -127,61 +131,39 @@ def upgrade() -> None:
     )
     op.create_index("ix_mira_module_entitlements_tenant", "mira_module_entitlements", ["tenant_id"])
 
-    # ── Backfill 1:1 ──────────────────────────────────────────────
-    # 1. One Organization per existing Tenant
+    # ── Backfill: one deterministic Organization for each existing Tenant ──
+    # Keep both generated IDs in a transaction-local mapping; never infer
+    # ownership by joining on a name or timestamp (which may collide).
     op.execute(
         """
-        INSERT INTO mira_organizations (id, legal_name, trade_name, country_code, operation_profile, is_active, created_at, updated_at)
+        CREATE TEMP TABLE _mira_tenant_organization_map ON COMMIT DROP AS
         SELECT
-            gen_random_uuid()::text,
-            t.name,
-            t.name,
-            'BR',
-            'institution',
-            COALESCE(t.is_active, true),
-            COALESCE(t.created_at, now()),
-            now()
+            t.id AS tenant_id,
+            gen_random_uuid() AS organization_id,
+            t.name AS legal_name,
+            COALESCE(t.is_active, true) AS is_active,
+            COALESCE(t.created_at, now()) AS created_at
         FROM tenants t
         WHERE t.organization_id IS NULL
         """
     )
-    # Link tenants to the organizations just created (match by name + created_at proximity is fragile;
-    # use a deterministic mapping via a temp table approach).
     op.execute(
         """
-        WITH mapped AS (
-            SELECT t.id AS tenant_id, o.id AS org_id
-            FROM tenants t
-            JOIN mira_organizations o ON o.legal_name = t.name AND o.created_at = COALESCE(t.created_at, o.created_at)
-            WHERE t.organization_id IS NULL
+        INSERT INTO mira_organizations (
+            id, legal_name, trade_name, country_code, operation_profile,
+            is_active, created_at, updated_at
         )
-        UPDATE tenants
-        SET organization_id = mapped.org_id
-        FROM mapped
-        WHERE tenants.id = mapped.tenant_id
+        SELECT organization_id, legal_name, legal_name, 'BR', 'institution',
+               is_active, created_at, now()
+        FROM _mira_tenant_organization_map
         """
     )
-    # Fallback for any tenant still without organization_id (race / name collision)
-    op.execute(
-        """
-        INSERT INTO mira_organizations (id, legal_name, trade_name, country_code, operation_profile, is_active, created_at, updated_at)
-        SELECT gen_random_uuid()::text, t.name, t.name, 'BR', 'institution', COALESCE(t.is_active, true), now(), now()
-        FROM tenants t
-        WHERE t.organization_id IS NULL
-        RETURNING id, legal_name
-        """
-    )
-    # Simple second pass: assign remaining by newest org with same name
     op.execute(
         """
         UPDATE tenants t
-        SET organization_id = (
-            SELECT o.id FROM mira_organizations o
-            WHERE o.legal_name = t.name
-            ORDER BY o.created_at DESC
-            LIMIT 1
-        )
-        WHERE t.organization_id IS NULL
+        SET organization_id = mapping.organization_id
+        FROM _mira_tenant_organization_map mapping
+        WHERE t.id = mapping.tenant_id AND t.organization_id IS NULL
         """
     )
 

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import AuthContext, get_current_tenant
 from app.db.session import get_db
 from app.models.auth import TenantRole, TenantRoleAudit, User
-from app.services.membership import ensure_membership, sync_membership_role
+from app.models.organization import Membership
 
 router = APIRouter(prefix="/org", tags=["RBAC institucional"])
 
@@ -176,9 +176,13 @@ async def list_roles(auth: AuthContext = Depends(get_current_tenant), db: AsyncS
         select(TenantRole).where(TenantRole.tenant_id == auth.tenant_id).order_by(TenantRole.name.asc())
     )).scalars().all()
     counts = dict((await db.execute(
-        select(User.custom_role_id, func.count(User.id))
-        .where(User.tenant_id == auth.tenant_id, User.custom_role_id.is_not(None))
-        .group_by(User.custom_role_id)
+        select(Membership.custom_role_id, func.count(Membership.id))
+        .where(
+            Membership.tenant_id == auth.tenant_id,
+            Membership.status == "active",
+            Membership.custom_role_id.is_not(None),
+        )
+        .group_by(Membership.custom_role_id)
     )).all())
     return {"roles": [_role_dict(role, int(counts.get(role.id, 0))) for role in roles]}
 
@@ -263,8 +267,10 @@ async def deactivate_role(role_id: str, auth: AuthContext = Depends(get_current_
     _require_admin(auth, recent=True)
     role = await _load_role(db, auth.tenant_id, role_id, lock=True)
     _validate_actor_grants(auth, role.base_role, list(role.permissions or []))
-    assigned = await db.execute(select(func.count(User.id)).where(
-        User.tenant_id == auth.tenant_id, User.custom_role_id == role.id, User.is_active.is_(True)
+    assigned = await db.execute(select(func.count(Membership.id)).where(
+        Membership.tenant_id == auth.tenant_id,
+        Membership.custom_role_id == role.id,
+        Membership.status == "active",
     ))
     if (assigned.scalar() or 0) > 0:
         raise HTTPException(status_code=409, detail="Reatribua os membros antes de desativar este cargo.")
@@ -279,12 +285,23 @@ async def role_members(role_id: str, auth: AuthContext = Depends(get_current_ten
                        db: AsyncSession = Depends(get_db)):
     _require_admin(auth)
     role = await _load_role(db, auth.tenant_id, role_id)
-    users = (await db.execute(select(User).where(
-        User.tenant_id == auth.tenant_id, User.custom_role_id == role.id
-    ).order_by(User.display_name.asc()))).scalars().all()
-    return {"role": _role_dict(role, len(users)), "members": [
-        {"id": u.id, "display_name": u.display_name, "email": u.email, "status": "active" if u.is_active else "disabled"}
-        for u in users
+    rows = (await db.execute(
+        select(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .where(
+            Membership.tenant_id == auth.tenant_id,
+            Membership.custom_role_id == role.id,
+        )
+        .order_by(User.display_name.asc())
+    )).all()
+    return {"role": _role_dict(role, len(rows)), "members": [
+        {
+            "id": user.id,
+            "display_name": user.display_name,
+            "email": user.email,
+            "status": membership.status if user.is_active else "disabled",
+        }
+        for membership, user in rows
     ]}
 
 
@@ -295,12 +312,15 @@ async def assign_member_role(user_id: str, body: dict, auth: AuthContext = Depen
     role_id = body.get("custom_role_id")
     if role_id is not None and not isinstance(role_id, str):
         raise HTTPException(status_code=422, detail="custom_role_id inválido.")
-    target = (await db.execute(select(User).where(
-        User.id == user_id, User.tenant_id == auth.tenant_id
+    membership = (await db.execute(select(Membership).where(
+        Membership.user_id == user_id, Membership.tenant_id == auth.tenant_id
     ).with_for_update())).scalar_one_or_none()
-    if not target:
+    target = await db.get(User, user_id)
+    if not target or not membership:
         raise HTTPException(status_code=404, detail="Membro não encontrado nesta instituição.")
-    if target.role == "admin":
+    if membership.status != "active":
+        raise HTTPException(status_code=409, detail="A membership precisa estar ativa para alterar seu cargo.")
+    if membership.role == "admin":
         raise HTTPException(status_code=409, detail="A administração principal não pode ser substituída por cargo personalizado.")
     new_role = await _load_role(db, auth.tenant_id, role_id) if role_id else None
     if new_role and auth.role != "admin" and (
@@ -311,53 +331,40 @@ async def assign_member_role(user_id: str, body: dict, auth: AuthContext = Depen
         raise HTTPException(status_code=403, detail="Você não pode atribuir um cargo com privilégios que não possui.")
     if new_role and not new_role.is_active:
         raise HTTPException(status_code=409, detail="O cargo selecionado está desativado.")
-    old_role_id = target.custom_role_id
-    target.custom_role_id = new_role.id if new_role else None
-    if new_role:
-        target.role = new_role.base_role
-    else:
-        # Revogar um cargo personalizado nunca eleva o membro.
-        target.role = "viewer"
+    old_role_id = membership.custom_role_id
+    membership.custom_role_id = new_role.id if new_role else None
+    membership.role = new_role.base_role if new_role else "viewer"
+    # Keep legacy fields aligned only for the user's legacy/home tenant.
+    if target.tenant_id == auth.tenant_id:
+        target.custom_role_id = membership.custom_role_id
+        target.role = membership.role
     target.auth_version += 1
-
-    # Dual-write: keep Membership in sync with User.role / custom_role_id
-    synced = await sync_membership_role(
-        db,
-        user_id=target.id,
-        tenant_id=auth.tenant_id,
-        role=target.role,
-        custom_role_id=target.custom_role_id,
-    )
-    if synced is None:
-        # Membership may not exist yet for legacy users — create it
-        await ensure_membership(
-            db,
-            user=target,
-            tenant_id=auth.tenant_id,
-            role=target.role,
-            custom_role_id=target.custom_role_id,
-            origin="role_assignment",
-            status="active" if target.is_active else "suspended",
-        )
 
     _audit(db, auth, "member.role_assigned" if new_role else "member.role_revoked",
            role_id=new_role.id if new_role else old_role_id, target_user_id=target.id,
            details={"previous_role_id": old_role_id, "new_role_id": new_role.id if new_role else None})
     await db.commit()
-    return {"member_id": target.id, "custom_role_id": target.custom_role_id,
-            "base_role": target.role, "sessions_invalidated": True}
+    return {
+        "member_id": target.id,
+        "custom_role_id": membership.custom_role_id,
+        "base_role": membership.role,
+        "sessions_invalidated": True,
+    }
 
 
 @router.get("/members/{user_id}/permissions")
 async def member_effective_permissions(user_id: str, auth: AuthContext = Depends(get_current_tenant),
                                        db: AsyncSession = Depends(get_db)):
     _require_admin(auth)
-    user = (await db.execute(select(User).where(
-        User.id == user_id, User.tenant_id == auth.tenant_id
-    ))).scalar_one_or_none()
-    if not user:
+    row = (await db.execute(
+        select(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .where(Membership.user_id == user_id, Membership.tenant_id == auth.tenant_id)
+    )).one_or_none()
+    if not row:
         raise HTTPException(status_code=404, detail="Membro não encontrado nesta instituição.")
-    role = await _load_role(db, auth.tenant_id, user.custom_role_id) if user.custom_role_id else None
+    membership, user = row
+    role = await _load_role(db, auth.tenant_id, membership.custom_role_id) if membership.custom_role_id else None
     if role:
         base_rank = BASE_ROLE_RANK.get(role.base_role, 0)
         permissions = sorted(
@@ -365,8 +372,8 @@ async def member_effective_permissions(user_id: str, auth: AuthContext = Depends
             if _PERMISSION_CEILING.get(permission, 99) <= base_rank
         ) if role.is_active else []
     else:
-        permissions = sorted(DEFAULT_ROLE_PERMISSIONS.get(user.role, DEFAULT_ROLE_PERMISSIONS["viewer"]))
-    return {"member_id": user.id, "legacy_role": user.role,
+        permissions = sorted(DEFAULT_ROLE_PERMISSIONS.get(membership.role, DEFAULT_ROLE_PERMISSIONS["viewer"]))
+    return {"member_id": user.id, "legacy_role": membership.role,
             "custom_role": _role_dict(role) if role else None,
             "permissions": permissions, "custom_role_active": bool(role.is_active) if role else True}
 

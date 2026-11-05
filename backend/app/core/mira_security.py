@@ -54,6 +54,7 @@ def issue_access_token(
     session_id: str,
     aal: int = 1,
     membership_id: Optional[str] = None,
+    authenticated_at: Optional[int] = None,
 ) -> tuple[str, int]:
     now = int(time.time())
     claims = {
@@ -65,6 +66,7 @@ def issue_access_token(
         "sid": session_id,
         "purpose": "session",
         "iat": now,
+        "auth_time": int(authenticated_at if authenticated_at is not None else now),
         "exp": now + _TOKEN_TTL_SECONDS,
     }
     if membership_id:
@@ -89,7 +91,17 @@ def decode_access_token(token: str) -> dict | None:
         claims = json.loads(_unb64url(encoded_claims))
         if header != {"alg": "HS256", "typ": "JWT"}:
             return None
-        if claims.get("iss") != "mira" or int(claims.get("exp", 0)) <= int(time.time()):
+        now = int(time.time())
+        issued_at = int(claims.get("iat", 0))
+        auth_time = int(claims.get("auth_time", issued_at))
+        if (
+            claims.get("iss") != "mira"
+            or int(claims.get("exp", 0)) <= now
+            or issued_at <= 0
+            or issued_at > now + 60
+            or auth_time <= 0
+            or auth_time > issued_at + 60
+        ):
             return None
         if not claims.get("sub") or not claims.get("tid"):
             return None

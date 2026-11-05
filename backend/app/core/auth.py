@@ -42,6 +42,11 @@ async def _set_tenant_rls_context(db: AsyncSession, tenant_id: str) -> None:
     await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
 
 
+async def _set_user_rls_context(db: AsyncSession, user_id: str) -> None:
+    """Set transaction-local identity only after a signed session was validated."""
+    await db.execute(text("SELECT set_config('app.user_id', :user_id, true)"), {"user_id": user_id})
+
+
 def _unauthorized(detail: str = "API key ou sessão inválida.") -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -64,6 +69,10 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     if claims.get("purpose", "session") != "session":
         raise _unauthorized()
 
+    # These transaction-local values are trusted only after signature + identity checks.
+    await _set_user_rls_context(db, user.id)
+    await _set_tenant_rls_context(db, tenant_id_claim)
+
     # Prefer membership for tenant resolution (Phase B)
     active = await resolve_active_membership(
         db, user=user, preferred_tenant_id=tenant_id_claim
@@ -73,11 +82,11 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     if tenant_id_claim and active.tenant_id != tenant_id_claim:
         raise _unauthorized("Workspace da sessão não corresponde à membership.")
 
-    # If token carries mid, require it to match an active membership
+    # New tokens are bound to one membership. Legacy tokens without mid remain
+    # accepted during the transition; a supplied stale/mismatched mid fails closed.
     mid_claim = claims.get("mid")
-    if mid_claim and active.membership_id and mid_claim != active.membership_id:
-        # Stale mid after role move — still allow if membership is active for tid
-        pass
+    if mid_claim and mid_claim != active.membership_id:
+        raise _unauthorized("Membership da sessão foi alterada. Entre novamente.")
 
     await _set_tenant_rls_context(db, active.tenant_id)
 
@@ -153,7 +162,7 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         role=role,
         session_id=session.id,
         aal=int(claims.get("aal", 1)),
-        authenticated_at=int(claims.get("iat", 0)),
+        authenticated_at=int(claims.get("auth_time", claims.get("iat", 0))),
         permissions=custom_permissions,
         custom_role_id=custom_role_id,
         membership_id=active.membership_id or mid_claim,
@@ -285,8 +294,12 @@ def _permission_for_request(request: Request, fallback_role: str = "viewer") -> 
         return "access.viewer"
     if path.startswith("/org/roles") or path.startswith("/org/role-audit"):
         return "permissions.manage"
+    if path in {"/org/invites/accept", "/org/invites/accept-existing"}:
+        return "access.viewer"
     if path.startswith("/org/members") and len(parts) >= 3 and parts[-1] in {"role", "permissions"}:
         return "permissions.manage"
+    if path in {"/org/workspaces", "/org/workspaces/switch"}:
+        return "access.viewer"
     if path.startswith("/students"):
         if method in {"GET", "HEAD"}:
             return "students.sensitive.view" if len(parts) >= 2 else "students.view"

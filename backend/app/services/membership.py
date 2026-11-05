@@ -42,6 +42,23 @@ async def list_active_memberships(db: AsyncSession, user_id: str) -> list[Member
     return list(result.scalars().all())
 
 
+async def get_membership_for_tenant(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    tenant_id: str,
+    for_update: bool = False,
+) -> Optional[Membership]:
+    query = select(Membership).where(
+        Membership.user_id == user_id,
+        Membership.tenant_id == tenant_id,
+    )
+    if for_update:
+        query = query.with_for_update()
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
 async def resolve_active_membership(
     db: AsyncSession,
     *,
@@ -49,20 +66,24 @@ async def resolve_active_membership(
     preferred_tenant_id: Optional[str] = None,
 ) -> Optional[ActiveMembership]:
     """Membership that should drive the current request context."""
-    memberships = await list_active_memberships(db, user.id)
-
+    # An existing but inactive membership is an explicit denial, not a reason
+    # to fall back to the legacy User.tenant_id identity.
     if preferred_tenant_id:
-        for m in memberships:
-            if m.tenant_id == preferred_tenant_id:
-                return ActiveMembership(
-                    user_id=user.id,
-                    tenant_id=m.tenant_id,
-                    role=m.role,
-                    custom_role_id=m.custom_role_id,
-                    membership_id=m.id,
-                    status=m.status,
-                    source="membership",
-                )
+        preferred = await get_membership_for_tenant(
+            db, user_id=user.id, tenant_id=preferred_tenant_id
+        )
+        if preferred:
+            return ActiveMembership(
+                user_id=user.id,
+                tenant_id=preferred.tenant_id,
+                role=preferred.role,
+                custom_role_id=preferred.custom_role_id,
+                membership_id=preferred.id,
+                status=preferred.status,
+                source="membership",
+            )
+
+    memberships = await list_active_memberships(db, user.id)
 
     if memberships:
         m = memberships[0]
@@ -77,6 +98,19 @@ async def resolve_active_membership(
         )
 
     if user.tenant_id:
+        legacy_membership = await get_membership_for_tenant(
+            db, user_id=user.id, tenant_id=user.tenant_id
+        )
+        if legacy_membership:
+            return ActiveMembership(
+                user_id=user.id,
+                tenant_id=legacy_membership.tenant_id,
+                role=legacy_membership.role,
+                custom_role_id=legacy_membership.custom_role_id,
+                membership_id=legacy_membership.id,
+                status=legacy_membership.status,
+                source="membership",
+            )
         return ActiveMembership(
             user_id=user.id,
             tenant_id=user.tenant_id,

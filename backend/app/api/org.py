@@ -25,7 +25,7 @@ from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
 from app.models.organization import Membership
 from app.models.tenant import Tenant
-from app.services.membership import ensure_membership, list_active_memberships
+from app.services.membership import ensure_membership, get_membership_for_tenant, list_active_memberships
 
 router = APIRouter(prefix="/org", tags=["Organização / Membros"])
 logger = logging.getLogger(__name__)
@@ -68,20 +68,26 @@ class AcceptInvitePayload(BaseModel):
     display_name: Optional[str] = Field(default=None, max_length=120)
 
 
+class AcceptExistingInvitePayload(BaseModel):
+    token: str = Field(min_length=16, max_length=512)
+
+
 class SwitchWorkspacePayload(BaseModel):
     """Switch active workspace by membership_id or tenant_id."""
     membership_id: Optional[str] = Field(default=None, max_length=36)
     tenant_id: Optional[str] = Field(default=None, max_length=36)
 
 
-def _member_dict(user: User) -> dict:
+def _member_dict(user: User, membership: Membership | None = None) -> dict:
+    role = membership.role if membership else user.role
+    status_value = membership.status if membership else ("active" if user.is_active else "disabled")
     return {
         "id": user.id,
         "email": user.email,
         "display_name": user.display_name,
-        "role": user.role if user.role in _VALID_ROLES else "coordinator",
-        "custom_role_id": user.custom_role_id,
-        "status": "active" if user.is_active else "disabled",
+        "role": role if role in _VALID_ROLES else "coordinator",
+        "custom_role_id": membership.custom_role_id if membership else user.custom_role_id,
+        "status": status_value if user.is_active else "disabled",
         "phone": user.phone_e164,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
@@ -108,10 +114,16 @@ async def list_members(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(User).where(User.tenant_id == auth.tenant_id).order_by(User.created_at.asc())
+        select(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .where(Membership.tenant_id == auth.tenant_id)
+        .order_by(User.created_at.asc())
     )
-    users = result.scalars().all()
-    return {"organization_name": auth.tenant.name, "members": [_member_dict(u) for u in users]}
+    members = result.all()
+    return {
+        "organization_name": auth.tenant.name,
+        "members": [_member_dict(user, membership) for membership, user in members],
+    }
 
 
 @router.get("/invites")
@@ -175,9 +187,13 @@ async def create_invite(
             or not set(custom_role.permissions or []).issubset(auth.permissions)
         ):
             raise HTTPException(status_code=403, detail="Você não pode convidar alguém com privilégios que não possui.")
-    existing_user = await db.execute(select(User.id).where(User.email == body.email))
-    if existing_user.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Já existe uma conta com esse e-mail.")
+    existing_user = (await db.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
+    if existing_user:
+        existing_membership = await get_membership_for_tenant(
+            db, user_id=existing_user.id, tenant_id=auth.tenant_id
+        )
+        if existing_membership and existing_membership.status == "active":
+            raise HTTPException(status_code=409, detail="Esta conta já tem acesso ativo a esta instituição.")
 
     pending = await db.execute(
         select(OrganizationInvite).where(
@@ -216,10 +232,14 @@ async def create_invite(
 
     emailed = False
     if settings.resend_api_key and settings.email_from:
+        if existing_user:
+            access_instructions = "Entre na sua conta MIRA existente e aceite o convite pelo link abaixo."
+        else:
+            access_instructions = "Abra o link abaixo para criar sua senha e telefone."
         body_text = (
             f"Você foi convidado(a) para a organização {auth.tenant.name} na Mira.\n\n"
             f"Perfil de acesso: {body.role}\n\n"
-            f"Abra o link abaixo para criar sua senha e telefone (válido por {_INVITE_TTL_DAYS} dias):\n\n"
+            f"{access_instructions} O convite é válido por {_INVITE_TTL_DAYS} dias:\n\n"
             f"{invite_url}\n\n"
             f"Se você não esperava este convite, ignore este e-mail."
         )
@@ -240,6 +260,7 @@ async def create_invite(
         ),
         "invite": _invite_dict(invite, invite_url=invite_url),
         "invite_url": invite_url,
+        "recipient_has_account": existing_user is not None,
     }
 
 
@@ -307,6 +328,8 @@ async def accept_invite(
     invite.status = "accepted"
     invite.accepted_at = now
     await db.flush()
+    await db.execute(text("SELECT set_config('app.user_id', :user_id, true)"), {"user_id": user.id})
+    await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": tenant.id})
     await ensure_membership(
         db,
         user=user,
@@ -336,6 +359,138 @@ async def accept_invite(
             "email": user.email,
             "tenant_name": tenant.name,
         },
+    }
+
+
+@router.post("/invites/accept-existing")
+async def accept_existing_invite(
+    body: AcceptExistingInvitePayload,
+    request: Request,
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Attach an authenticated global identity to an invited workspace."""
+    if not auth.user_id or not auth.session_id:
+        raise HTTPException(status_code=401, detail="Entre na sua conta para aceitar este convite.")
+    user = await db.get(User, auth.user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Conta inativa ou inexistente.")
+
+    token_hash = _invite_token_hash(body.token.strip())
+    invite = (
+        await db.execute(
+            select(OrganizationInvite)
+            .where(
+                OrganizationInvite.token_hash == token_hash,
+                OrganizationInvite.status == "pending",
+            )
+            .limit(1)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    now = _now()
+    if not invite or invite.expires_at <= now:
+        if invite and invite.expires_at <= now:
+            invite.status = "expired"
+            await db.commit()
+        raise HTTPException(status_code=400, detail="Convite inválido ou expirado.")
+    if user.email.strip().lower() != invite.email.strip().lower():
+        raise HTTPException(status_code=403, detail="O convite foi enviado para outro e-mail.")
+
+    tenant = await db.get(Tenant, invite.tenant_id)
+    if not tenant or not tenant.is_active:
+        raise HTTPException(status_code=400, detail="Organização indisponível.")
+    if invite.role == "admin" and (
+        auth.aal < 2
+        or not auth.authenticated_at
+        or int(now.timestamp()) - auth.authenticated_at > 600
+    ):
+        raise HTTPException(status_code=403, detail="Confirme novamente sua identidade com MFA para aceitar admin.")
+
+    old_session = (
+        await db.execute(
+            select(UserSession)
+            .where(
+                UserSession.id == auth.session_id,
+                UserSession.user_id == user.id,
+                UserSession.tenant_id == auth.tenant_id,
+                UserSession.revoked_at.is_(None),
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if not old_session:
+        raise HTTPException(status_code=401, detail="Sessão encerrada. Entre novamente.")
+
+    # Validate the custom role under the destination tenant context.
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant.id},
+    )
+    custom_role = None
+    if invite.custom_role_id:
+        custom_role = (
+            await db.execute(
+                select(TenantRole).where(
+                    TenantRole.id == invite.custom_role_id,
+                    TenantRole.tenant_id == tenant.id,
+                    TenantRole.is_active.is_(True),
+                )
+            )
+        ).scalar_one_or_none()
+        if not custom_role:
+            raise HTTPException(status_code=400, detail="O cargo deste convite foi desativado. Solicite um novo convite.")
+
+    # Revoke the current session before committing the destination session.
+    old_session.revoked_at = now
+    old_session.revoked_by_user_id = user.id
+    old_session.revoke_reason = "invite_accepted_workspace_switch"
+
+    role = custom_role.base_role if custom_role else (invite.role if invite.role in _VALID_ROLES else "coordinator")
+    membership = await ensure_membership(
+        db,
+        user=user,
+        tenant_id=tenant.id,
+        role=role,
+        custom_role_id=custom_role.id if custom_role else None,
+        origin="invite_existing_account",
+        status="active",
+    )
+    invite.status = "accepted"
+    invite.accepted_at = now
+    db.add(
+        TenantRoleAudit(
+            tenant_id=tenant.id,
+            actor_user_id=user.id,
+            target_user_id=user.id,
+            role_id=custom_role.id if custom_role else None,
+            event_type="member.invite_accepted",
+            details={"invite_id": invite.id, "membership_id": membership.id},
+        )
+    )
+    token, ttl = await create_user_session(
+        db,
+        user,
+        tenant,
+        request,
+        aal=auth.aal,
+        authenticated_at=auth.authenticated_at,
+        membership=membership,
+    )
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Não foi possível aceitar o convite.")
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": ttl,
+        "tenant_id": tenant.id,
+        "tenant_name": tenant.name,
+        "membership_id": membership.id,
+        "role": membership.role,
+        "user": {"display_name": user.display_name, "email": user.email, "tenant_name": tenant.name},
     }
 
 
@@ -369,7 +524,7 @@ async def complete_onboarding(
     if not auth.user_id:
         raise HTTPException(status_code=400, detail="Sessão sem usuário associado.")
     user = await db.get(User, auth.user_id)
-    if not user or user.tenant_id != auth.tenant_id:
+    if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="Usuário não encontrado nesta instituição.")
     if not user.onboarding_completed_at:
         user.onboarding_completed_at = _now()
@@ -427,8 +582,12 @@ async def list_workspaces(
             }
         )
 
-    # Legacy fallback: User still points at a tenant without Membership row
-    if user.tenant_id and user.tenant_id not in seen_tenant_ids:
+    # Legacy fallback is valid only when no Membership row exists at all.
+    legacy_membership = (
+        await get_membership_for_tenant(db, user_id=user.id, tenant_id=user.tenant_id)
+        if user.tenant_id else None
+    )
+    if user.tenant_id and not legacy_membership and user.tenant_id not in seen_tenant_ids:
         tenant = await db.get(Tenant, user.tenant_id)
         if tenant and tenant.is_active:
             workspaces.append(
@@ -504,7 +663,7 @@ async def switch_workspace(
                 Membership.id == body.membership_id,
                 Membership.user_id == user.id,
                 Membership.status == "active",
-            )
+            ).with_for_update()
         )
         target_membership = result.scalar_one_or_none()
         if not target_membership:
@@ -512,15 +671,12 @@ async def switch_workspace(
         target_tenant = await db.get(Tenant, target_membership.tenant_id)
     else:
         # Resolve by tenant_id — only if user has active membership there
-        result = await db.execute(
-            select(Membership).where(
-                Membership.user_id == user.id,
-                Membership.tenant_id == body.tenant_id,
-                Membership.status == "active",
-            )
+        target_membership = await get_membership_for_tenant(
+            db, user_id=user.id, tenant_id=body.tenant_id, for_update=True
         )
-        target_membership = result.scalar_one_or_none()
         if target_membership:
+            if target_membership.status != "active":
+                raise HTTPException(status_code=403, detail="Membership inativa neste workspace.")
             target_tenant = await db.get(Tenant, target_membership.tenant_id)
         elif user.tenant_id == body.tenant_id:
             # Legacy path: ensure membership then switch
@@ -557,18 +713,35 @@ async def switch_workspace(
         }
 
     # Revoke current session (force re-bind to new tid/mid)
-    if auth.session_id:
-        session = await db.get(UserSession, auth.session_id)
-        if session and session.revoked_at is None:
-            session.revoked_at = _now()
-            session.revoked_by_user_id = user.id
-            session.revoke_reason = "workspace_switch"
+    session = (
+        await db.execute(
+            select(UserSession)
+            .where(
+                UserSession.id == auth.session_id,
+                UserSession.user_id == user.id,
+                UserSession.tenant_id == auth.tenant_id,
+                UserSession.revoked_at.is_(None),
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=401, detail="Sessão encerrada. Entre novamente.")
+    session.revoked_at = _now()
+    session.revoked_by_user_id = user.id
+    session.revoke_reason = "workspace_switch"
 
     # Issue new session bound to target tenant + membership
     # Keep the same AAL so MFA step-up is not lost
     aal = max(1, int(auth.aal or 1))
     token, ttl = await create_user_session(
-        db, user, target_tenant, request, aal=aal
+        db,
+        user,
+        target_tenant,
+        request,
+        aal=aal,
+        authenticated_at=auth.authenticated_at,
+        membership=target_membership,
     )
     await db.commit()
 

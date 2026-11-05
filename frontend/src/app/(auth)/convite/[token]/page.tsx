@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
-import { setAccessToken } from "@/lib/auth";
+import { getAccessToken, setAccessToken } from "@/lib/auth";
 
 export default function AcceptInvitePage() {
   const params = useParams<{ token: string }>();
@@ -70,6 +70,28 @@ export default function AcceptInvitePage() {
     }
   }
 
+  async function acceptWithExistingAccount() {
+    if (!getAccessToken()) {
+      router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await api.acceptExistingInvite({ token });
+      setAccessToken(result.access_token);
+      toast.success("Convite aceito. Você já está no workspace da instituição.");
+      router.replace("/");
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.message
+          : "Não foi possível aceitar o convite com esta conta."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function confirmRequiredMfa() {
     setLoading(true);
     try {
@@ -119,6 +141,13 @@ export default function AcceptInvitePage() {
               </Button>
             </div>
           ) : (
+          <div className="space-y-4">
+          <Button type="button" variant="outline" className="w-full" onClick={acceptWithExistingAccount} disabled={loading}>
+            {getAccessToken() ? "Aceitar com minha conta existente" : "Já tenho conta — entrar e aceitar"}
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            Ou crie um novo acesso para este convite:
+          </p>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="name">
@@ -172,6 +201,7 @@ export default function AcceptInvitePage() {
               {loading ? "Ativando…" : "Criar acesso e entrar"}
             </Button>
           </form>
+          </div>
           )}
         </CardContent>
       </Card>

@@ -32,6 +32,7 @@ from app.models.auth import (
     UserSession,
 )
 from app.models.tenant import Tenant
+from app.services.membership import get_membership_for_tenant
 
 router = APIRouter(prefix="/auth/mfa", tags=["Autenticação multifator"])
 TICKET_TTL_SECONDS = 300
@@ -72,12 +73,18 @@ def _ensure_mfa_unlocked(user: User) -> None:
         raise HTTPException(status_code=429, detail="MFA temporariamente bloqueado. Tente novamente mais tarde.")
 
 
-def _record_mfa_failure(db: AsyncSession, user: User, event: str) -> None:
+def _record_mfa_failure(
+    db: AsyncSession,
+    user: User,
+    event: str,
+    *,
+    tenant_id: str | None = None,
+) -> None:
     user.mfa_failed_attempts += 1
     if user.mfa_failed_attempts >= MAX_ATTEMPTS:
         user.mfa_locked_until = _now() + timedelta(minutes=LOCK_MINUTES)
         user.mfa_failed_attempts = 0
-    _audit(db, user.tenant_id, user.id, event)
+    _audit(db, tenant_id or user.tenant_id, user.id, event)
 
 
 def _record_mfa_success(user: User) -> None:
@@ -198,13 +205,25 @@ async def _load_challenge(db: AsyncSession, token: str, expected_purpose: str) -
 
 async def _load_challenge_identity(db: AsyncSession, challenge: MfaLoginChallenge) -> tuple[User, Tenant]:
     await db.execute(
+        text("SELECT set_config('app.user_id', :user_id, true)"),
+        {"user_id": challenge.user_id},
+    )
+    await db.execute(
         text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
         {"tenant_id": challenge.tenant_id},
     )
     user_result = await db.execute(select(User).where(User.id == challenge.user_id).with_for_update())
     user = user_result.scalar_one_or_none()
     tenant = await db.get(Tenant, challenge.tenant_id)
-    if not user or not tenant or user.tenant_id != tenant.id or not user.is_active or not tenant.is_active:
+    membership = None
+    if user and tenant:
+        membership = await get_membership_for_tenant(
+            db, user_id=user.id, tenant_id=tenant.id
+        )
+    has_access = bool(
+        membership.status == "active" if membership else user and user.tenant_id == challenge.tenant_id
+    )
+    if not user or not tenant or not has_access or not user.is_active or not tenant.is_active:
         challenge.consumed_at = _now()
         await db.commit()
         raise HTTPException(status_code=401, detail="Desafio inválido ou expirado.")
@@ -324,7 +343,9 @@ async def confirm_required_mfa_enrollment(
     if step is None:
         if challenge.attempts >= MAX_ATTEMPTS:
             challenge.consumed_at = _now()
-        _record_mfa_failure(db, user, "required_enrollment_verification_failed")
+        _record_mfa_failure(
+            db, user, "required_enrollment_verification_failed", tenant_id=tenant.id
+        )
         await db.commit()
         raise HTTPException(status_code=400, detail="Código inválido. Confira o aplicativo autenticador.")
     user.mfa_enabled_at = _now()
@@ -405,7 +426,7 @@ async def confirm_mfa(
     _ensure_mfa_unlocked(user)
     step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code)
     if step is None:
-        _record_mfa_failure(db, user, "enrollment_verification_failed")
+        _record_mfa_failure(db, user, "enrollment_verification_failed", tenant_id=auth.tenant_id)
         await db.commit()
         raise HTTPException(status_code=400, detail="Código inválido. Confira o aplicativo autenticador.")
     user.mfa_enabled_at = _now()
@@ -436,7 +457,7 @@ async def step_up_mfa(
     _ensure_mfa_unlocked(user)
     step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code, user.mfa_last_verified_step)
     if step is None:
-        _record_mfa_failure(db, user, "step_up_failed")
+        _record_mfa_failure(db, user, "step_up_failed", tenant_id=auth.tenant_id)
         await db.commit()
         raise HTTPException(status_code=401, detail="Código inválido.")
     user.mfa_last_verified_step = step
@@ -460,7 +481,7 @@ async def regenerate_recovery_codes(
     _ensure_mfa_unlocked(user)
     step = verify_totp(decrypt_totp_secret(user.mfa_totp_secret_encrypted), body.code, user.mfa_last_verified_step)
     if step is None:
-        _record_mfa_failure(db, user, "recovery_codes_regeneration_failed")
+        _record_mfa_failure(db, user, "recovery_codes_regeneration_failed", tenant_id=auth.tenant_id)
         await db.commit()
         raise HTTPException(status_code=401, detail="Código inválido.")
     _record_mfa_success(user)
@@ -472,7 +493,7 @@ async def regenerate_recovery_codes(
     )
     codes = generate_recovery_codes()
     for code in codes:
-        db.add(MfaRecoveryCode(user_id=user_id, tenant_id=auth.tenant_id, code_hash=recovery_code_hash(code)))
+        db.add(MfaRecoveryCode(user_id=user_id, tenant_id=user.tenant_id, code_hash=recovery_code_hash(code)))
     _audit(db, auth.tenant_id, user.id, "recovery_codes_regenerated")
     await db.commit()
     return {"recovery_codes": codes}
@@ -505,10 +526,7 @@ async def update_mfa_policy(
     db: AsyncSession = Depends(get_db),
 ):
     _require_admin(auth)
-    # Simplified: persist policy fields if model supports; keep signature compatible.
-    # Full policy persistence lives in core.mfa_policy / tenant settings.
-    return {
-        "require_mfa_all": body.require_mfa_all,
-        "required_roles": body.required_roles,
-        "message": "Política MFA atualizada.",
-    }
+    raise HTTPException(
+        status_code=409,
+        detail="A política MFA é global e imutável; TOTP é obrigatório para todas as contas.",
+    )
