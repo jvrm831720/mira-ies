@@ -85,6 +85,20 @@ def upgrade() -> None:
     """)
     op.execute("CREATE INDEX ix_dispatch_auth_expiry ON dispatch_authorizations(tenant_id,expires_at)")
     op.execute("""
+    CREATE TABLE dispatch_provider_accounts (
+        id UUID PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        provider VARCHAR(40) NOT NULL CHECK (provider IN ('resend','twilio')),
+        status VARCHAR(20) NOT NULL DEFAULT 'disabled' CHECK (status IN ('disabled','active')),
+        credentials_ciphertext TEXT NOT NULL,
+        credential_version INTEGER NOT NULL DEFAULT 1 CHECK (credential_version>=1),
+        configured_by VARCHAR(80) NOT NULL,
+        configured_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        last_verified_at TIMESTAMPTZ,
+        UNIQUE(tenant_id,provider)
+    )
+    """)
+    op.execute("""
     CREATE TABLE dispatch_obligations (
         id UUID PRIMARY KEY,
         tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -230,7 +244,7 @@ def upgrade() -> None:
     )
     """)
     for table in (
-        "dispatch_campaigns","dispatch_approved_templates","dispatch_authorizations","dispatch_obligations","dispatch_external_contacts",
+        "dispatch_campaigns","dispatch_approved_templates","dispatch_authorizations","dispatch_provider_accounts","dispatch_obligations","dispatch_external_contacts",
         "dispatch_items","dispatch_events","dispatch_rate_buckets","dispatch_inbound","dispatch_payment_events","dispatch_worker_heartbeats","dispatch_suppressions",
     ):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
@@ -262,6 +276,6 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS dispatch_events_append_only()")
     for table in (
         "dispatch_suppressions","dispatch_worker_heartbeats","dispatch_payment_events","dispatch_inbound","dispatch_rate_buckets","dispatch_events","dispatch_items",
-        "dispatch_external_contacts","dispatch_obligations","dispatch_authorizations","dispatch_approved_templates","dispatch_campaigns",
+        "dispatch_external_contacts","dispatch_obligations","dispatch_provider_accounts","dispatch_authorizations","dispatch_approved_templates","dispatch_campaigns",
     ):
         op.execute(f"DROP TABLE IF EXISTS {table}")
