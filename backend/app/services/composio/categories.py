@@ -67,7 +67,7 @@ def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
         ("documents", "Documentos e arquivos", DOCUMENT_TOOLKITS),
         ("productivity", "Produtividade e tarefas", PRODUCTIVITY_TOOLKITS),
         ("data_analysis", "Dados, planilhas e análise", DATA_ANALYSIS_TOOLKITS),
-        ("support", "Atendimento e suporte", SUPPORT_TOOLKITS),
+        ("support", "Atendimento e suporte", SUPPORT_TOOLKITS),\n        ("scheduling", "Agenda e agendamento", SCHEDULING_TOOLKITS),
     ):
         metadata = toolkits.get(slug)
         if metadata:
