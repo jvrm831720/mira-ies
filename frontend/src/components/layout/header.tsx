@@ -101,7 +101,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
 
   return (
     <header className="sticky top-0 z-20 border-b border-black/[0.06] bg-[rgba(247,245,239,0.88)] backdrop-blur-xl">
-      <div className={cn("flex w-full items-center gap-4 px-4 md:px-8 xl:px-10", compact ? "min-h-[52px] justify-end py-2" : "min-h-[72px] justify-between py-3")}>
+      <div className={cn("flex w-full items-center gap-4 pl-14 pr-4 md:px-8 xl:px-10", compact ? "min-h-[52px] justify-end py-2" : "min-h-[72px] justify-between py-3")}>
         {!compact && <div className="min-w-0">
           <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-neutral-400 sm:flex">
             <span className="inline-flex items-center gap-1.5 uppercase tracking-[0.14em]">
