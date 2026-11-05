@@ -34,6 +34,7 @@ export interface ImportApplyResult {
   rejected: number
   rejected_rows: Array<{ row: number; key: string; message: string }>
   row_errors: Array<{ row: number; field: string; message: string }>
+  scoring?: { scored: number; indeterminate_count?: number; error?: string } | null
 }
 
 export interface CustomFieldDefinition {

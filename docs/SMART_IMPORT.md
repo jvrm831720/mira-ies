@@ -9,7 +9,7 @@ O novo importador principal aceita CSV e Excel e oferece **mapeamento assistido,
 3. O usuário revisa o de-para, confirma ou cria campos personalizados do tenant.
 4. Se o mapeamento foi alterado, a prévia é executada novamente.
 5. Depois de confirmação explícita, `POST /api/v1/import/apply` grava a importação.
-6. A página `/importacoes` registra os lotes; `/importar/multiplos` mantém o fluxo multiarquivo.
+6. O motor existente de risco tenta pontuar o lote depois da gravação; dados insuficientes permanecem indeterminados. Falha de scoring não desfaz a importação.\n7. A página `/importacoes` registra os lotes; `/importar/multiplos` mantém o fluxo multiarquivo.
 
 ## Arquitetura
 

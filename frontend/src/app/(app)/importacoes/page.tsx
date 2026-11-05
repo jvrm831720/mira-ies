@@ -18,7 +18,7 @@ function formatDate(value?: string | null) {
 
 function statusDetails(status: string) {
   const normalized = status.toLowerCase();
-  if (["completed", "complete", "success", "succeeded", "processed", "concluida", "concluída"].includes(normalized)) {
+  if (["completed", "complete", "success", "succeeded", "processed", "scored", "concluida", "concluída"].includes(normalized)) {
     return { label: "Concluída", tone: "border-emerald-200 bg-emerald-50 text-emerald-800", icon: CheckCircle2 };
   }
   if (["failed", "error", "falha", "erro"].includes(normalized)) {

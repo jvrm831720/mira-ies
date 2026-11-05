@@ -146,6 +146,13 @@ export function SmartImportWizard() {
           <a href="/importar" className="text-[#4050CD] underline">Nova importação</a>
           <a href="/importacoes" className="text-[#4050CD] underline">Ver histórico</a>
         </div>
+        {result.scoring && (
+          <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${result.scoring.error ? "bg-amber-50 text-amber-800" : "bg-slate-50 text-slate-700"}`}>
+            {result.scoring.error
+              ? "Dados gravados. A pontuação não foi concluída; você poderá recalculá-la depois."
+              : `Pontuação: ${result.scoring.scored} alunos avaliados · ${result.scoring.indeterminate_count ?? 0} indeterminados por falta de dados.`}
+          </p>
+        )}
         {result.row_errors.length > 0 && (
           <details className="mt-4 text-sm text-slate-600">
             <summary className="cursor-pointer">{result.row_errors.length} linhas com alerta</summary>
