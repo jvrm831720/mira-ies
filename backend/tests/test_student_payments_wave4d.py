@@ -108,30 +108,26 @@ async def fixture_source(db_session, tenant_factory, tenant_slug):
 
 
 @pytest.mark.asyncio
-async def test_two_providers_and_two_person_approval_without_payment(db_session, tenant_factory, monkeypatch):
+async def test_one_asaas_destination_for_two_financial_sources_and_two_person_approval(db_session, tenant_factory, monkeypatch):
     activate(monkeypatch)
     tenant_id, student_id, profile_id, observation_id = await fixture_source(
         db_session, tenant_factory, "pay-multiple-providers",
     )
     proposer, reviewer = str(uuid4()), str(uuid4())
-    one = await payment.create_connector(db_session, tenant_id=tenant_id, actor_id=proposer,
-                                         destination_wallet_id=str(uuid4()),
-                                         finance_profile_id=profile_id)
-    two = await payment.create_connector(db_session, tenant_id=tenant_id, actor_id=proposer,
-                                         destination_wallet_id=str(uuid4()),
-                                         finance_profile_id=profile_id)
-    assert one.id != two.id
-    assert one.mode == "sandbox" and not one.enabled
-    assert one.provider_slug == two.provider_slug == "asaas"
-    assert one.destination_verification_status == "pending"
-    assert one.destination_wallet_id != two.destination_wallet_id
-    assert payment.build_asaas_charge_split(one.destination_wallet_id)["split"][0]["percentualValue"] == 100
-    one = await payment.toggle_connector(db_session, tenant_id=tenant_id, connector_id=one.id,
-                                         expected_version=1, enabled=True)
-    two = await payment.toggle_connector(db_session, tenant_id=tenant_id, connector_id=two.id,
-                                         expected_version=1, enabled=True)
+    connector = await payment.create_connector(
+        db_session, tenant_id=tenant_id, actor_id=proposer,
+        destination_wallet_id=str(uuid4()),
+    )
+    assert connector.mode == "sandbox" and not connector.enabled
+    assert connector.provider_slug == "asaas"
+    assert connector.destination_verification_status == "pending"
+    assert payment.build_asaas_charge_split(connector.destination_wallet_id)["split"][0]["percentualValue"] == 100
+    connector = await payment.toggle_connector(
+        db_session, tenant_id=tenant_id, connector_id=connector.id,
+        expected_version=1, enabled=True,
+    )
     order, dedup = await payment.prepare_order(
-        db_session, tenant_id=tenant_id, actor_id=proposer, connector_id=one.id,
+        db_session, tenant_id=tenant_id, actor_id=proposer, connector_id=connector.id,
         observation_id=observation_id, idempotency_key="pay-one-obligation-0001",
     )
     assert not dedup and order.amount == Decimal("145.50")
@@ -140,11 +136,39 @@ async def test_two_providers_and_two_person_approval_without_payment(db_session,
         observation_id=observation_id, idempotency_key="pay-one-obligation-0001",
     )
     assert dedup and same.id == order.id
-    other, _ = await payment.prepare_order(
-        db_session, tenant_id=tenant_id, actor_id=proposer, connector_id=two.id,
-        observation_id=observation_id, idempotency_key="pay-second-psp-0001",
+    # One payout wallet receives proposals from distinct financial sources.
+    second_profile = FinanceSourceProfile(
+        tenant_id=tenant_id, name="Another source", source_kind="composio",
+        connected_account_id="sandbox-second", tool_slug="READ_ONLY",
+        rows_path="data", field_map={"external_id": "id"},
+        status_map={"open": "open"}, review_workflow={"transitions": {"open": []}, "labels": {"open": "Novo"}},
+        student_lookup="mira_id", enabled=True, mapping_version=1, created_by=proposer,
     )
-    assert other.id != order.id and other.student_id == student_id
+    db_session.add(second_profile)
+    await db_session.flush()
+    second_batch = FinanceIngestionBatch(
+        tenant_id=tenant_id, profile_id=second_profile.id, actor_id=proposer,
+        origin="composio", idempotency_key="payment-second-source-0001",
+        payload_digest="a" * 64, mapping_version=1, row_count=1,
+        imported_count=1, unchanged_count=0,
+    )
+    db_session.add(second_batch)
+    await db_session.flush()
+    second_obs = FinanceObservation(
+        tenant_id=tenant_id, profile_id=second_profile.id, student_id=student_id,
+        batch_id=second_batch.id, external_id="OTHER-ERP-2", correlation_key=None,
+        fingerprint="a" * 64, label="Matrícula", amount=Decimal("85.00"),
+        paid_amount=Decimal("0"), currency="BRL", due_at=None,
+        source_updated_at=None, canonical_state="open", raw_status="OPEN", mapping_version=1,
+    )
+    db_session.add(second_obs)
+    await db_session.commit()
+    other, duplicated = await payment.prepare_order(
+        db_session, tenant_id=tenant_id, actor_id=proposer, connector_id=connector.id,
+        observation_id=second_obs.id, idempotency_key="pay-second-source-0001",
+    )
+    assert not duplicated and other.id != order.id and other.student_id == student_id
+    assert other.source_profile_id != order.source_profile_id
     await payment.transition_order(db_session, tenant_id=tenant_id, order_id=order.id,
                                    actor_id=proposer, target="awaiting_approval",
                                    expected_status="draft", note="Enviar ao gestor financeiro")
@@ -173,13 +197,14 @@ async def test_foreign_tenant_obligation_never_creates_payment(db_session, tenan
     foreign_tenant, _, _, foreign_observation = await fixture_source(
         db_session, tenant_factory, "pay-foreign-tenant",
     )
-    my_tenant, _, my_profile, _ = await fixture_source(
+    my_tenant, _, _, _ = await fixture_source(
         db_session, tenant_factory, "pay-own-tenant",
     )
     actor = str(uuid4())
-    connector = await payment.create_connector(db_session, tenant_id=my_tenant, actor_id=actor,
-                                               destination_wallet_id=str(uuid4()),
-                                               finance_profile_id=my_profile)
+    connector = await payment.create_connector(
+        db_session, tenant_id=my_tenant, actor_id=actor,
+        destination_wallet_id=str(uuid4()),
+    )
     connector = await payment.toggle_connector(db_session, tenant_id=my_tenant,
                                                connector_id=connector.id,
                                                expected_version=1, enabled=True)

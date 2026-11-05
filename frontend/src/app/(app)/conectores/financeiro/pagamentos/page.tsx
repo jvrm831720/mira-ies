@@ -32,7 +32,11 @@ export default function PaymentPreparationPage() {
       financeApi.profiles(), paymentPreparationApi.connectors(),
       paymentPreparationApi.orders(),
     ]);
-    if (finance.status === "fulfilled") setSources(finance.value.items);
+    if (finance.status === "fulfilled") {
+      const loadedSources = finance.value.items;
+      setSources(loadedSources);
+      setFinanceSourceId((current) => current || loadedSources[0]?.id || "");
+    }
     if (profiles.status === "fulfilled") {
       setConnectors(profiles.value.items);
       setSelected((id) => id || profiles.value.items[0]?.id || "");
@@ -47,13 +51,13 @@ export default function PaymentPreparationPage() {
   const myOrders = orders.filter((item) => item.connector_id === selected);
 
   useEffect(() => {
-    if (!connector) { setObservations([]); return; }
+    if (!connector || !financeSourceId) { setObservations([]); return; }
     let live = true;
-    paymentPreparationApi.observations(connector.finance_profile_id)
+    paymentPreparationApi.observations(financeSourceId)
       .then((response) => { if (live) setObservations(response.items); })
       .catch(() => { if (live) setObservations([]); });
     return () => { live = false; };
-  }, [connector]);
+  }, [connector, financeSourceId]);
 
   async function act(work: () => Promise<unknown>, success: string) {
     setBusy(true); setError(null); setMessage(null);
@@ -86,7 +90,7 @@ export default function PaymentPreparationPage() {
           <div className="space-y-5">
             <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
               <h2 className="text-[14px] font-semibold text-[#101828]">Destinos Asaas</h2>
-              <p className="mt-1 text-[11px] text-[#667085]">Cada workspace pode ter várias fontes financeiras; o destino precisa ser uma conta Asaas da instituição.</p>
+              <p className="mt-1 text-[11px] text-[#667085]">Um destino institucional Asaas por workspace, compartilhado por todas as fontes financeiras.</p>
               <div className="mt-4 space-y-2">
                 {connectors.map((item) => <button key={item.id} type="button" onClick={() => setSelected(item.id)}
                   className={"w-full rounded-lg border p-3 text-left " + (selected === item.id ? "border-[#2563EB] bg-[#EFF4FF]" : "border-[#EAECF0]")}>
@@ -111,16 +115,10 @@ export default function PaymentPreparationPage() {
                 <label className="block text-[12px] font-medium text-[#344054]">Carteira de destino Asaas (walletId)
                   <input className={"mt-1 " + field} value={destinationWalletId} onChange={(e) => setDestinationWalletId(e.target.value.trim())} placeholder="00000000-0000-4000-8000-000000000000" maxLength={36} />
                 </label>
-                <label className="block text-[12px] font-medium text-[#344054]">Fonte financeira vinculada
-                  <select className={"mt-1 " + field} value={financeSourceId} onChange={(e) => setFinanceSourceId(e.target.value)}>
-                    <option value="">Selecione uma fonte existente</option>
-                    {sources.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.source_kind})</option>)}
-                  </select>
-                </label>
               </div>
-              <button type="button" className={"mt-4 " + button} disabled={busy || !destinationWalletId || !financeSourceId}
+              <button type="button" className={"mt-4 " + button} disabled={busy || Boolean(connector) || !destinationWalletId}
                 onClick={() => void act(
-                  () => paymentPreparationApi.createConnector({ destination_wallet_id: destinationWalletId, finance_profile_id: financeSourceId }),
+                  () => paymentPreparationApi.createConnector({ destination_wallet_id: destinationWalletId }),
                   "Destino Asaas salvo como pendente de validação. Ainda não foi conectado nem habilitado para cobranças reais.",
                 )}>Criar perfil sandbox</button>
             </section>
@@ -129,6 +127,13 @@ export default function PaymentPreparationPage() {
             <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
               <h2 className="text-[14px] font-semibold text-[#101828]">Preparar proposta Asaas</h2>
               <p className="mt-1 text-[12px] text-[#667085]">O valor vem da fonte financeira. A regra futura será 100% do líquido para a IES; o split permanece não executado.</p>
+              <label className="mt-4 block text-[12px] font-medium text-[#344054]">Fonte financeira (qualquer integração do workspace)
+                <select className={"mt-1 " + field} value={financeSourceId}
+                  onChange={(e) => { setFinanceSourceId(e.target.value); setObservationId(""); }}>
+                  <option value="">Selecione a origem</option>
+                  {sources.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.source_kind})</option>)}
+                </select>
+              </label>
               <label className="mt-4 block text-[12px] font-medium text-[#344054]">Obrigação financeira
                 <select className={"mt-1 " + field} value={observationId} onChange={(e) => setObservationId(e.target.value)}>
                   <option value="">Selecione uma obrigação elegível</option>
