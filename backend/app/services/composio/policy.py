@@ -32,12 +32,14 @@ from app.services.composio.gateway import (
 
 _SENSITIVE_KEY = re.compile(
     r"(password|passwd|secret|token|authorization|cookie|api[_-]?key|"
-    r"access[_-]?key|private[_-]?key|credential|email|phone|cpf|document)",
+    r"access[_-]?key|private[_-]?key|credential|email|phone|cpf|document|recipient|contact)",
     re.IGNORECASE,
 )
 _MAX_ARGUMENT_BYTES = 64 * 1024
 _MAX_DEPTH = 12
 _MAX_ITEMS = 500
+_EMAIL_VALUE = re.compile(r"(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b")
+_CPF_VALUE = re.compile(r"(?<!\\d)\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}(?!\\d)")
 
 
 class ComposioPolicyDenied(RuntimeError):
@@ -117,6 +119,8 @@ def redact_arguments(value: Any, *, _depth: int = 0) -> Any:
             for item in value[:_MAX_ITEMS]
         ] + (["[truncated]"] if len(value) > _MAX_ITEMS else [])
     if isinstance(value, str):
+        if _EMAIL_VALUE.search(value) or _CPF_VALUE.search(value):
+            return "[redacted]"
         return value[:500]
     if value is None or isinstance(value, (bool, int, float)):
         return value
@@ -159,16 +163,21 @@ def _validate_schema_value(value: Any, schema: dict[str, Any], path: str = "argu
         missing = [key for key in required if key not in value]
         if missing:
             raise ComposioPolicyDenied(f"Campos obrigatórios ausentes em {path}.")
-        if schema.get("additionalProperties") is False:
-            unknown = set(value) - set(properties)
-            if unknown:
-                raise ComposioPolicyDenied(f"Campos não permitidos em {path}.")
+        additional = schema.get("additionalProperties", True)
+        unknown = set(value) - set(properties)
+        if additional is False and unknown:
+            raise ComposioPolicyDenied(f"Campos não permitidos em {path}.")
+        if isinstance(additional, dict):
+            for key in unknown:
+                _validate_schema_value(value[key], additional, f"{path}.{key}")
+        elif additional not in (True, False):
+            raise ComposioPolicyDenied("Regra additionalProperties não suportada.")
         for key, item in value.items():
             if key in properties:
                 _validate_schema_value(item, properties[key], f"{path}.{key}")
     elif expected == "array":
-        if len(value) > schema.get("maxItems", _MAX_ITEMS):
-            raise ComposioPolicyDenied(f"Lista excede o limite em {path}.")
+        if len(value) < schema.get("minItems", 0) or len(value) > schema.get("maxItems", _MAX_ITEMS):
+            raise ComposioPolicyDenied(f"Tamanho de lista inválido em {path}.")
         item_schema = schema.get("items")
         if not isinstance(item_schema, dict):
             raise ComposioPolicyDenied("Schema de lista sem definição de items.")
