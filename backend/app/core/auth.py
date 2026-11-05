@@ -299,6 +299,12 @@ def _permission_for_request(request: Request, fallback_role: str = "viewer") -> 
         return "permissions.manage"
     if path in {"/org/workspaces", "/org/workspaces/switch"}:
         return "access.viewer"
+    if path.startswith("/native-academic/"):
+        if path.endswith("/portal-invites"):
+            return "settings.manage"
+        if method in {"GET", "HEAD"}:
+            return "students.sensitive.view"
+        return "students.edit"
     if path.startswith("/students"):
         if method in {"GET", "HEAD"}:
             return "students.sensitive.view" if len(parts) >= 2 else "students.view"
