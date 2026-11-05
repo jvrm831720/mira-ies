@@ -84,6 +84,7 @@ class Student(Base):
     # Explicit allowlisted learning/behavior properties plus opt-in message field keys.
     behavior_properties: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 
+    custom_fields: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     raw_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

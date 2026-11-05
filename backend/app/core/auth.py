@@ -14,9 +14,8 @@ from app.core.mira_security import decode_access_token
 from app.core.security import hash_api_key
 from app.db.session import get_db
 from app.models.auth import TenantRole, User, UserSession
-from app.models.organization import Membership
 from app.models.tenant import Tenant
-from app.services.membership import ensure_membership, resolve_active_membership
+from app.services.membership import resolve_active_membership
 
 # Hierarquia simples: admin > coordinator > operator > viewer
 ROLE_RANK = {"viewer": 1, "operator": 2, "coordinator": 3, "admin": 4}
@@ -311,7 +310,7 @@ def _permission_for_request(request: Request, fallback_role: str = "viewer") -> 
             return "students.create"
     if path.startswith("/risk"):
         return "students.view" if path.endswith("/critical") else "dashboard.view"
-    if path.startswith("/upload"):
+    if path.startswith("/upload") or path.startswith("/import/") or path.startswith("/custom-fields"):
         return "data.import"
     if path.startswith("/integrations/composio"):
         return "settings.manage"
@@ -377,9 +376,12 @@ def require_min_role(min_role: str):
     return _dep
 
 
-def require_permission(permission: str):
-    """Exige uma permissão explícita; sessões legadas usam a matriz padrão por papel."""
+def require_permission(permission: str, *, allow_service_key: bool = False):
+    """Exige permissão explícita, com opção específica para chaves de integração."""
     async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        # A chave de API é autenticada em get_current_tenant e não representa papel humano.
+        if allow_service_key and auth.role is None and auth.permissions is None:
+            return auth
         if auth.permissions is not None:
             allowed = permission in auth.permissions
         else:

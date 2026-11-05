@@ -23,13 +23,13 @@ import {
   isSupportedImportFile, formatFileSize, ImportStat as Stat, ImportNotice as Notice,
 } from "@/components/import/import-helpers";
 
-export function ImportWizard() {
+export function ImportWizard({ multiOnly = false }: { multiOnly?: boolean } = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const multiInputRef = useRef<HTMLInputElement>(null);
 
-  const [mode, setMode] = useState<"single" | "multiple">("single");
+  const [mode, setMode] = useState<"single" | "multiple">(multiOnly ? "multiple" : "single");
   const [step, setStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
@@ -294,7 +294,7 @@ export function ImportWizard() {
               <CardDescription>CSV, XLS ou XLSX · até 50 MB. Nada é gravado nesta etapa.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="grid gap-3 sm:grid-cols-2">
+              {!multiOnly && <div className="grid gap-3 sm:grid-cols-2">
                 <button type="button" onClick={() => { setMode("single"); clearAll(); }}
                   className={`rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${mode === "single" ? "border-[var(--brand-indigo)] bg-[var(--brand-indigo)]/5" : "border-border bg-white"}`}>
                   <span className="flex items-center gap-2 text-sm font-semibold"><FileSpreadsheet className="h-4 w-4" /> Importação rápida</span>
@@ -305,7 +305,7 @@ export function ImportWizard() {
                   <span className="flex items-center gap-2 text-sm font-semibold"><Files className="h-4 w-4" /> Importação completa</span>
                   <span className="mt-2 block text-sm text-muted-foreground">Até 10 bases com validação cruzada.</span>
                 </button>
-              </div>
+              </div>}
               <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e: ChangeEvent<HTMLInputElement>) => selectFile(e.target.files?.[0])} />
               <input ref={multiInputRef} type="file" accept=".csv,.xlsx,.xls" multiple className="hidden" onChange={(e: ChangeEvent<HTMLInputElement>) => selectMultipleFiles(e.target.files || [])} />
               <label

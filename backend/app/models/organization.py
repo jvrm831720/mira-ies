@@ -21,7 +21,6 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     String,
-    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
