@@ -134,7 +134,9 @@ async def upsert_authorization_fact(
     auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
     db: AsyncSession = Depends(get_db),
 ):
-    if auth.user_id is not None or auth.role is not None:
+    # Verified tenant API keys are currently represented with role="admin".
+    # A connector is not a human: reject user sessions, then require signed HMAC.
+    if auth.user_id is not None or auth.session_id is not None:
         raise HTTPException(status_code=403, detail="Apenas conectores autenticados podem registrar fatos.")
     await verify_source(
         db,tenant_id=auth.tenant_id,source=body.source,

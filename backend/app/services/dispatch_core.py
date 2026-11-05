@@ -283,12 +283,12 @@ async def transition_campaign(
         raise ValueError("O agendamento deve ser futuro.")
     await db.execute(text("""
         UPDATE dispatch_campaigns
-        SET status=:status, updated_at=now(),
-            approved_at=CASE WHEN :status='approved' THEN now() ELSE approved_at END,
-            approved_by=CASE WHEN :status='approved' THEN :actor ELSE approved_by END,
-            authorization_ref=CASE WHEN :status='approved' THEN :authorization ELSE authorization_ref END,
-            scheduled_for=CASE WHEN :status='scheduled' THEN :schedule ELSE scheduled_for END,
-            paused_reason=CASE WHEN :status='paused' THEN 'manual' ELSE NULL END
+        SET status=CAST(:status AS varchar), updated_at=now(),
+            approved_at=CASE WHEN CAST(:status AS varchar)='approved' THEN now() ELSE approved_at END,
+            approved_by=CASE WHEN CAST(:status AS varchar)='approved' THEN :actor ELSE approved_by END,
+            authorization_ref=CASE WHEN CAST(:status AS varchar)='approved' THEN :authorization ELSE authorization_ref END,
+            scheduled_for=CASE WHEN CAST(:status AS varchar)='scheduled' THEN CAST(:schedule AS timestamptz) ELSE scheduled_for END,
+            paused_reason=CASE WHEN CAST(:status AS varchar)='paused' THEN 'manual' ELSE NULL END
         WHERE tenant_id=:tenant AND id=:id
     """), {
         "status": target, "actor": actor, "authorization": authorization_ref,
