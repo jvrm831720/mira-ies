@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 import unicodedata
 from typing import Any, Optional
@@ -57,14 +58,19 @@ def coerce_value(raw: Any, data_type: str, options: Optional[list] = None):
         return True, None, None
     try:
         if data_type == "text":
-            return True, text[:2000], None
+            if len(text) > 2000:
+                return False, None, "Texto excede 2000 caracteres."
+            return True, text, None
         if data_type == "integer":
             number = _parse_number(text)
-            if not number.is_integer():
+            if not math.isfinite(number) or not number.is_integer():
                 return False, None, f"Valor inteiro inválido: {text!r}"
             return True, int(number), None
         if data_type == "number":
-            return True, _parse_number(text), None
+            number = _parse_number(text)
+            if not math.isfinite(number):
+                return False, None, "Número inválido: valor não finito."
+            return True, number, None
         if data_type == "boolean":
             lowered = _plain(text)
             if lowered in _TRUE_VALUES:
@@ -88,7 +94,7 @@ def coerce_value(raw: Any, data_type: str, options: Optional[list] = None):
                     return True, opt, None
             return False, None, f"Valor fora das opções permitidas ({', '.join(allowed)}): {text!r}"
         return False, None, f"Tipo desconhecido: {data_type}"
-    except ValueError:
+    except (ValueError, OverflowError):
         return False, None, f"Não foi possível converter {text!r} para {data_type}"
 
 
