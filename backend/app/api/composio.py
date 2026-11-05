@@ -375,14 +375,16 @@ async def list_tool_approvals(
     query = select(TenantComposioToolApproval).where(TenantComposioToolApproval.tenant_id == auth.tenant_id)
     if status_filter:
         query = query.where(TenantComposioToolApproval.status == status_filter)
-    result = await db.execute(query.order_by(TenantComposioToolApproval.requested_at.desc()).limit(limit))
+    result = await db.execute(query.order_by(TenantComposioToolApproval.requested_at.desc()).limit(limit).with_for_update())
     rows = result.scalars().all()
     now = datetime.now(timezone.utc)
+    expired_any = False
     for row in rows:
         if row.status == "pending_approval" and row.expires_at <= now:
             row.status = "expired"
+            expired_any = True
             db.add(_approval_audit(tenant_id=auth.tenant_id, actor_user_id=None, row=row, approval_status="expired"))
-    if any(row.status == "expired" and row.reviewed_at is None for row in rows):
+    if expired_any:
         await db.commit()
     return {"items": [_approval_response(row) for row in rows], "total": len(rows)}
 
