@@ -13,7 +13,7 @@ from app.services.composio.identity import composio_user_id_for_tenant
 def test_composio_tenant_identity_is_stable_and_opaque(monkeypatch):
     from app.services.composio import identity
 
-    settings = Settings(secret_key="test-composio-identity-secret-32-bytes")
+    settings = Settings(composio_identity_secret="test-composio-identity-secret-32-bytes")
     monkeypatch.setattr(identity, "get_settings", lambda: settings)
 
     first = composio_user_id_for_tenant("tenant-uuid-a")
@@ -31,9 +31,9 @@ def test_composio_is_disabled_by_default():
 
 
 def test_composio_requires_both_explicit_enablement_and_api_key():
-    disabled = Settings(composio_enabled=False, composio_api_key="test-key")
-    enabled_without_key = Settings(composio_enabled=True, composio_api_key=None)
-    enabled = Settings(composio_enabled=True, composio_api_key="test-key")
+    disabled = Settings(composio_enabled=False, composio_api_key="test-key", composio_identity_secret="stable-test-secret")
+    enabled_without_key = Settings(composio_enabled=True, composio_api_key=None, composio_identity_secret="stable-test-secret")
+    enabled = Settings(composio_enabled=True, composio_api_key="test-key", composio_identity_secret="stable-test-secret")
 
     assert composio_is_configured(disabled) is False
     assert composio_is_configured(enabled_without_key) is False
@@ -41,7 +41,7 @@ def test_composio_requires_both_explicit_enablement_and_api_key():
 
 
 def test_composio_gateway_fails_closed_until_configured():
-    settings = Settings(composio_enabled=False, composio_api_key=None)
+    settings = Settings(composio_enabled=False, composio_api_key=None, composio_identity_secret=None)
     try:
         require_composio_configuration(settings)
     except ComposioNotConfigured as exc:
