@@ -441,7 +441,7 @@ export function PermanenceResultsPage() {
             >
               <RefreshCw className={`h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} /> Atualizar
             </button>
-            <Link href="/retencao/logs" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#266DF0] px-3.5 text-[12px] font-semibold text-white hover:bg-[#1F5DD1]">
+            <Link href="/retencao/logs" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-3.5 text-[12px] font-medium text-white hover:bg-[#101112]">
               Histórico de contatos <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
