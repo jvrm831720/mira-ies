@@ -952,3 +952,59 @@ async def test_retention_proposal_bridge_denies_unapproved_or_cross_tenant(
             proposal_id="00000000-0000-0000-0000-000000000001",
             template_id="00000000-0000-0000-0000-000000000002",
         )
+
+
+@pytest.mark.asyncio
+async def test_signed_authorization_ingress_denies_unsigned_and_replayed_payloads(
+    client,db_session,tenant,
+):
+    from app.services import dispatch_ingress_security as gate
+    from app.services import dispatch_interventions as interventions
+    from app.services import dispatch_core as core
+    from app.services.dispatch_ingress_security import signature
+    import json
+    import time
+
+    org,key=tenant
+    secret=await source_test_secret(
+        db_session,org.id,"test_registry","authorization",
+    )
+    observed=datetime.now(timezone.utc)
+    body={
+        "source":"test_registry","subject_type":"student",
+        "subject_ref":"opaque-test-person","purpose":"retention",
+        "channel":"email","evidence_ref":"consent-approved-0001",
+        "status":"granted","verified_at":observed.isoformat(),
+        "expires_at":(observed+timedelta(days=7)).isoformat(),
+    }
+    path="/api/v1/dispatch/integrations/authorizations"
+    unsigned=await client.post(path,json=body,headers={"X-API-Key":key})
+    assert unsigned.status_code==401
+    accepted=await signed_post(client,key,"test_registry",secret,path,body)
+    assert accepted.status_code==200,accepted.text
+    assert accepted.json()["accepted"]
+    await core.bind_tenant(db_session,org.id)
+    assert await interventions.verified_authorization(
+        db_session,tenant_id=org.id,subject_type="student",
+        subject_ref="opaque-test-person",channel="email",
+        purpose="retention",evidence_ref="consent-approved-0001",
+    )
+    raw=json.dumps(body,separators=(",",":"),ensure_ascii=False).encode()
+    stamp=str(int(time.time()))
+    nonce="a-replay-protected-nonce-0001"
+    headers={
+        "X-API-Key":key,"Content-Type":"application/json",
+        "X-Mira-Source":"test_registry","X-Mira-Timestamp":stamp,
+        "X-Mira-Nonce":nonce,
+        "X-Mira-Signature":signature(
+            secret,stamp,nonce,"POST",path,raw,
+        ),
+    }
+    first=await client.post(path,content=raw,headers=headers)
+    assert first.status_code==200,first.text
+    replay=await client.post(path,content=raw,headers=headers)
+    assert replay.status_code==409
+    wrong=await client.post(
+        path,content=raw,headers={**headers,"X-Mira-Nonce":"changed-nonce-but-old-signature"},
+    )
+    assert wrong.status_code==401
