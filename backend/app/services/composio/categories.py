@@ -1,4 +1,4 @@
-"""Curated MIRA taxonomy for communication integrations.
+"""Curated MIRA taxonomy for business integrations.
 
 Composio toolkits are catalogued separately from native MIRA channel providers.
 A toolkit being listed here never enables it or grants an agent permission to use it.
@@ -21,18 +21,53 @@ COMMUNICATION_TOOLKITS: dict[str, dict[str, str]] = {
 }
 
 
+
+CRM_TOOLKITS: dict[str, dict[str, str]] = {
+    "hubspot": {"name": "HubSpot", "kind": "crm"},
+    "salesforce": {"name": "Salesforce", "kind": "crm"},
+    "pipedrive": {"name": "Pipedrive", "kind": "crm"},
+    "dynamics365": {"name": "Dynamics 365", "kind": "crm"},
+}
+
+
+def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
+    """Attach MIRA category metadata using verified Composio toolkit slugs."""
+    slug = str(item.get("slug") or "").strip().lower()
+    for category_slug, category_label, toolkits in (
+        ("communication", "Comunicação", COMMUNICATION_TOOLKITS),
+        ("crm", "CRM e relacionamento", CRM_TOOLKITS),
+    ):
+        metadata = toolkits.get(slug)
+        if metadata:
+            return {
+                **item,
+                "mira_category": category_slug,
+                "mira_category_label": category_label,
+                "mira_channel": metadata["kind"],
+            }
+    return {**item, "mira_category": None, "mira_category_label": None}
+
+
+def crm_category() -> dict[str, Any]:
+    """Return the curated CRM category without enabling any toolkit."""
+    return {
+        "slug": "crm",
+        "name": "CRM e relacionamento",
+        "description": (
+            "Gestão de contatos, contas, histórico de relacionamento, "
+            "oportunidades, negociações e atividades."
+        ),
+        "composio_toolkits": [
+            {"slug": slug, **metadata}
+            for slug, metadata in CRM_TOOLKITS.items()
+        ],
+        "native_channels": [],
+    }
+
+
 def annotate_communication_toolkit(item: dict[str, Any]) -> dict[str, Any]:
     """Attach MIRA's category metadata without changing the live Composio record."""
-    slug = str(item.get("slug") or "").strip().lower()
-    metadata = COMMUNICATION_TOOLKITS.get(slug)
-    if not metadata:
-        return {**item, "mira_category": None, "mira_category_label": None}
-    return {
-        **item,
-        "mira_category": "communication",
-        "mira_category_label": "Comunicação",
-        "mira_channel": metadata["kind"],
-    }
+    return annotate_toolkit(item)
 
 
 def native_communication_channels(settings: Settings | None = None) -> list[dict[str, Any]]:
