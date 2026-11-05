@@ -5,7 +5,7 @@ Even approved proposals cannot execute financial operations in Wave 4D-A.
 """
 from __future__ import annotations
 
-import re
+from uuid import UUID
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -18,7 +18,6 @@ from app.models.student import Student
 from app.models.student_payments import StudentPaymentConnector, StudentPaymentOrder, StudentPaymentOrderEvent
 from app.services.dispatch_core import bind_tenant
 
-_PROVIDER = re.compile(r"^[a-z][a-z0-9_]{2,59}$")
 _ELIGIBLE = {"open", "overdue", "partially_paid"}
 _TRANSITIONS = {
     "draft": {"awaiting_approval", "cancelled"},
@@ -41,12 +40,30 @@ def require_enabled() -> None:
         raise PaymentPreparationDenied("Preparação de pagamentos ainda em homologação.")
 
 
-def validate_provider_name(name: str, slug: str) -> tuple[str, str]:
-    if not isinstance(name, str) or not 3 <= len(name.strip()) <= 100:
-        raise PaymentPreparationDenied("Nome do conector inválido.")
-    if not isinstance(slug, str) or not _PROVIDER.fullmatch(slug):
-        raise PaymentPreparationDenied("Identificador de provedor inválido.")
-    return name.strip(), slug
+def normalize_destination_wallet(wallet_id: str, issuer_wallet_id: str | None = None) -> str:
+    """Asaas Split requires a wallet UUID from a receiving Asaas account.
+
+    UUID format validation is NOT proof of recipient ownership / KYC.
+    """
+    try:
+        wallet = UUID(str(wallet_id))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise PaymentPreparationDenied("Informe um walletId Asaas válido.") from exc
+    if wallet.int == 0:
+        raise PaymentPreparationDenied("Carteira de destino inválida.")
+    if issuer_wallet_id:
+        try:
+            if wallet == UUID(str(issuer_wallet_id)):
+                raise PaymentPreparationDenied("A carteira emissora não pode receber seu próprio split.")
+        except ValueError as exc:
+            raise PaymentPreparationDenied("Carteira da conta emissora não configurada corretamente.") from exc
+    return str(wallet)
+
+
+def build_asaas_charge_split(wallet_id: str, *, issuer_wallet_id: str | None = None) -> dict:
+    """Read-only split template for future POST /v3/payments; no network call."""
+    recipient = normalize_destination_wallet(wallet_id, issuer_wallet_id)
+    return {"split": [{"walletId": recipient, "percentualValue": 100}]}
 
 
 def amount_for_observation(obs: FinanceObservation) -> Decimal:
@@ -64,10 +81,10 @@ def amount_for_observation(obs: FinanceObservation) -> Decimal:
 
 async def create_connector(
     db: AsyncSession, *, tenant_id: str, actor_id: str,
-    name: str, provider_slug: str, finance_profile_id: str,
+    destination_wallet_id: str, finance_profile_id: str,
 ) -> StudentPaymentConnector:
     require_enabled()
-    name, provider_slug = validate_provider_name(name, provider_slug)
+    destination = normalize_destination_wallet(destination_wallet_id, get_settings().asaas_issuer_wallet_id)
     await bind_tenant(db, tenant_id)
     finance = (await db.execute(select(FinanceSourceProfile).where(
         FinanceSourceProfile.tenant_id == tenant_id,
@@ -76,7 +93,8 @@ async def create_connector(
     if finance is None:
         raise PaymentPreparationDenied("Fonte financeira inexistente no workspace.")
     connector = StudentPaymentConnector(
-        tenant_id=tenant_id, name=name, provider_slug=provider_slug,
+        tenant_id=tenant_id, name="Asaas • " + destination.split("-")[0], provider_slug="asaas",
+        destination_wallet_id=destination, destination_verification_status="pending",
         finance_profile_id=finance_profile_id, mode="sandbox", enabled=False,
         created_by=actor_id, configuration_version=1,
     )
@@ -116,6 +134,8 @@ async def toggle_connector(
     ))).scalar_one_or_none()
     if enabled and finance is None:
         raise PaymentPreparationDenied("Origem financeira precisa estar ativa.")
+    if enabled and connector.destination_verification_status == "blocked":
+        raise PaymentPreparationDenied("Carteira de destino bloqueada.")
     connector.enabled = enabled
     connector.configuration_version += 1
     connector.updated_at = datetime.now(timezone.utc)
@@ -148,8 +168,8 @@ async def prepare_order(
     if not _is_idempotency_key(idempotency_key):
         raise PaymentPreparationDenied("Idempotency-Key inválida.")
     connector = await get_connector(db, tenant_id, connector_id, lock=True)
-    if not connector.enabled or connector.mode != "sandbox":
-        raise PaymentPreparationDenied("Conector não habilitado em sandbox.")
+    if not connector.enabled or connector.mode != "sandbox" or connector.provider_slug != "asaas":
+        raise PaymentPreparationDenied("Conector Asaas não habilitado em sandbox.")
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:ref,0))"),
                      {"ref": f"pay:order:{tenant_id}:{connector_id}"})
     earlier = (await db.execute(select(StudentPaymentOrder).where(

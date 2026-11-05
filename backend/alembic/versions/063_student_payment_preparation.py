@@ -33,7 +33,9 @@ def upgrade():
         sa.Column("id", U, primary_key=True),
         sa.Column("tenant_id", U, sa.ForeignKey("tenants.id"), nullable=False),
         sa.Column("name", sa.String(100), nullable=False),
-        sa.Column("provider_slug", sa.String(60), nullable=False),
+        sa.Column("provider_slug", sa.String(60), nullable=False, server_default="asaas"),
+        sa.Column("destination_wallet_id", U, nullable=False),
+        sa.Column("destination_verification_status", sa.String(16), nullable=False, server_default="pending"),
         sa.Column("finance_profile_id", U, nullable=False),
         sa.Column("mode", sa.String(12), nullable=False, server_default="sandbox"),
         sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
@@ -45,6 +47,8 @@ def upgrade():
         sa.UniqueConstraint("tenant_id","name",name="uq_mira_payment_connector_tenant_name"),
         sa.ForeignKeyConstraint(["tenant_id","finance_profile_id"],["mira_finance_source_profiles.tenant_id","mira_finance_source_profiles.id"],name="fk_mira_payment_connector_finance_tenant"),
         sa.CheckConstraint("mode = 'sandbox'",name="ck_mira_payment_connector_sandbox"),
+        sa.CheckConstraint("provider_slug = 'asaas'",name="ck_mira_payment_connector_asaas"),
+        sa.CheckConstraint("destination_verification_status IN ('pending','verified','blocked')",name="ck_mira_payment_destination_status"),
         sa.CheckConstraint("configuration_version > 0",name="ck_mira_payment_connector_version"),
     )
     op.create_index("ix_mira_payment_connector_tenant","mira_student_payment_connectors",["tenant_id","created_at"])

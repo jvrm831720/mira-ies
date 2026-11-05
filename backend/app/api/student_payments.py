@@ -37,7 +37,11 @@ async def _institution(auth: AuthContext, db: AsyncSession):
 def _connector_json(connector: StudentPaymentConnector) -> dict:
     return {
         "id": connector.id, "name": connector.name,
-        "provider_slug": connector.provider_slug,
+        "provider_slug": "asaas",
+        "destination_wallet_id": connector.destination_wallet_id,
+        "destination_verification_status": connector.destination_verification_status,
+        "split_percentual_value": 100,
+        "split_basis": "netValue",
         "finance_profile_id": connector.finance_profile_id,
         "mode": connector.mode, "enabled": connector.enabled,
         "configuration_version": connector.configuration_version,
@@ -46,8 +50,7 @@ def _connector_json(connector: StudentPaymentConnector) -> dict:
 
 
 class CreateConnector(BaseModel):
-    name: str = Field(min_length=3, max_length=100)
-    provider_slug: str = Field(min_length=3, max_length=60, pattern="^[a-z][a-z0-9_]{2,59}$")
+    destination_wallet_id: UUID
     finance_profile_id: UUID
 
 
@@ -77,7 +80,7 @@ async def connectors(
         StudentPaymentConnector.tenant_id == auth.tenant_id,
     ).order_by(StudentPaymentConnector.created_at.desc()).limit(100))).scalars().all()
     return {"items": [_connector_json(x) for x in rows],
-            "multiple_providers_supported": True, "live_enabled": False}
+            "multiple_sources_supported": True, "live_enabled": False}
 
 
 @router.post("/connectors", status_code=201)
@@ -90,7 +93,7 @@ async def create_connector(
     try:
         row = await engine.create_connector(
             db, tenant_id=auth.tenant_id, actor_id=auth.user_id,
-            name=body.name, provider_slug=body.provider_slug,
+            destination_wallet_id=str(body.destination_wallet_id),
             finance_profile_id=str(body.finance_profile_id),
         )
         return _connector_json(row)

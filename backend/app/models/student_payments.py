@@ -19,13 +19,17 @@ class StudentPaymentConnector(Base):
         UniqueConstraint("tenant_id", "name", name="uq_mira_payment_connector_tenant_name"),
         ForeignKeyConstraint(["tenant_id", "finance_profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"], name="fk_mira_payment_connector_finance_tenant"),
         CheckConstraint("mode = 'sandbox'", name="ck_mira_payment_connector_sandbox"),
+        CheckConstraint("provider_slug = 'asaas'", name="ck_mira_payment_connector_asaas"),
+        CheckConstraint("destination_verification_status IN ('pending','verified','blocked')", name="ck_mira_payment_destination_status"),
         CheckConstraint("configuration_version > 0", name="ck_mira_payment_connector_version"),
         Index("ix_mira_payment_connector_tenant", "tenant_id", "created_at"),
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    provider_slug: Mapped[str] = mapped_column(String(60), nullable=False)
+    provider_slug: Mapped[str] = mapped_column(String(60), nullable=False, default="asaas")
+    destination_wallet_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    destination_verification_status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     finance_profile_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     mode: Mapped[str] = mapped_column(String(12), nullable=False, default="sandbox")
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

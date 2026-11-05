@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     student_finance_reconciliation_enabled: bool = False
     # Wave 4D-A: sandbox order preparation only, NEVER real PSP execution.
     student_payment_preparation_enabled: bool = False
+    # Wallet belonging to the account issuing Asaas charges; never an API key.
+    # An equal destination wallet is rejected for split; absent during initial sandbox setup.
+    asaas_issuer_wallet_id: str | None = None
     student_finance_composio_enabled: bool = False
     student_finance_composio_read_tools: str = ""
     student_document_attestation_enabled: bool = False
