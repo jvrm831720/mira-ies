@@ -119,7 +119,7 @@ def redact_arguments(value: Any, *, _depth: int = 0) -> Any:
             for item in value[:_MAX_ITEMS]
         ] + (["[truncated]"] if len(value) > _MAX_ITEMS else [])
     if isinstance(value, str):
-        if _EMAIL_VALUE.search(value) or _CPF_VALUE.search(value):
+        if _EMAIL_VALUE.search(value) or _CPF_VALUE.search(value) or _PHONE_VALUE.search(value):
             return "[redacted]"
         return value[:500]
     if value is None or isinstance(value, (bool, int, float)):
