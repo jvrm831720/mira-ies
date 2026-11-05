@@ -12,6 +12,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Revision IDs may exceed the original VARCHAR(32) limit.
+    op.execute("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)")
     op.execute("""
         CREATE TABLE tenant_integration_data_sources (
             id UUID PRIMARY KEY,
