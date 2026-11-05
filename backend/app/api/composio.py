@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
-from app.core.auth import AuthContext, require_min_role
+from app.core.auth import AuthContext, require_permission
 from app.db.session import get_db
 from app.models.composio_connection import TenantComposioToolkitPolicy
 from app.services.composio.client import (
@@ -38,7 +38,7 @@ def _catalog_error(exc: Exception) -> HTTPException:
 
 @router.get("/catalog")
 async def get_catalog(
-    auth: AuthContext = Depends(require_min_role("admin")),
+    auth: AuthContext = Depends(require_permission("settings.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     try:
