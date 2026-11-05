@@ -96,6 +96,7 @@ async def _prepare_test_database():
         await sa_conn.execute(text("""
             DROP TABLE IF EXISTS
               dispatch_suppressions, dispatch_worker_heartbeats, dispatch_payment_events, dispatch_inbound,
+              dispatch_provider_accounts, dispatch_authorizations, dispatch_approved_templates,
               dispatch_rate_buckets, dispatch_events, dispatch_items,
               dispatch_external_contacts, dispatch_obligations, dispatch_campaigns
             CASCADE
@@ -121,7 +122,9 @@ async def _clean_tables():
                   dispatch_inbound, dispatch_payment_events, dispatch_events,
                   dispatch_items, dispatch_worker_heartbeats, dispatch_suppressions,
                   dispatch_rate_buckets, dispatch_external_contacts,
-                  dispatch_obligations, dispatch_campaigns
+                  dispatch_obligations, dispatch_provider_accounts,
+                  dispatch_authorizations, dispatch_approved_templates,
+                  dispatch_campaigns
             """))
         for table in reversed(db_session_module.Base.metadata.sorted_tables):
             await conn.execute(table.delete())
