@@ -38,14 +38,14 @@ services:
     plan: 256mb
     ipAllowList: []
     maxmemoryPolicy: allkeys-lru
-    persistenceMode: off
+    persistenceMode: "off"
 
   - type: pserv
     name: mira-education-engine-staging
     runtime: docker
     repo: https://github.com/jvrm831720/mira-ies
     branch: infra/mira-frappe-render-staging
-    autoDeployTrigger: off
+    autoDeployTrigger: "off"
     region: virginia
     plan: 2c-4g
     dockerfilePath: infra/frappe-render/Dockerfile
