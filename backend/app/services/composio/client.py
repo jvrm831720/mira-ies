@@ -42,29 +42,52 @@ def _as_dict(value: Any) -> dict[str, Any]:
 
 
 def list_toolkits() -> list[dict[str, Any]]:
-    """Fetch the live catalog. Never returns a hard-coded provider allowlist."""
+    """Fetch every page of the live toolkit catalog; never hard-code providers."""
     client = get_composio_client()
-    response = client.toolkits.get()
-    if isinstance(response, dict):
-        items = response.get("items") or response.get("toolkits") or response.get("data") or []
-    else:
-        items = response if isinstance(response, (list, tuple)) else getattr(response, "items", [])
-    normalized: list[dict[str, Any]] = []
-    for item in items or []:
-        data = _as_dict(item)
-        slug = data.get("slug") or data.get("toolkit_slug") or getattr(item, "slug", None)
-        if not isinstance(slug, str) or not slug.strip():
-            continue
-        normalized.append({
-            "slug": slug.strip().lower(),
-            "name": data.get("name") or data.get("display_name") or slug,
-            "description": data.get("description"),
-            "categories": data.get("categories") or [],
-            "app_url": data.get("app_url") or data.get("website"),
-            "logo": data.get("logo") or data.get("logo_url"),
-        })
-    return sorted(normalized, key=lambda item: item["name"].lower())
+    cursor: str | None = None
+    seen_cursors: set[str] = set()
+    normalized: dict[str, dict[str, Any]] = {}
 
+    while True:
+        response = client.toolkits.list(
+            limit=100,
+            sort_by="alphabetically",
+            managed_by="all",
+            cursor=cursor,
+        )
+        response_data = _as_dict(response)
+        if isinstance(response, dict):
+            items = response.get("items") or response.get("data") or []
+            next_cursor = response.get("next_cursor") or response.get("nextCursor")
+        else:
+            items = getattr(response, "items", []) or []
+            next_cursor = (
+                getattr(response, "next_cursor", None)
+                or getattr(response, "nextCursor", None)
+                or response_data.get("next_cursor")
+                or response_data.get("nextCursor")
+            )
+
+        for item in items:
+            data = _as_dict(item)
+            slug = data.get("slug") or data.get("toolkit_slug") or getattr(item, "slug", None)
+            if not isinstance(slug, str) or not slug.strip():
+                continue
+            normalized[slug.strip().lower()] = {
+                "slug": slug.strip().lower(),
+                "name": data.get("name") or data.get("display_name") or slug,
+                "description": data.get("description"),
+                "categories": data.get("categories") or [],
+                "app_url": data.get("app_url") or data.get("website"),
+                "logo": data.get("logo") or data.get("logo_url"),
+            }
+
+        if not next_cursor or next_cursor in seen_cursors:
+            break
+        seen_cursors.add(next_cursor)
+        cursor = next_cursor
+
+    return sorted(normalized.values(), key=lambda item: item["name"].lower())
 
 def list_tools_for_toolkit(toolkit_slug: str) -> list[dict[str, Any]]:
     """Return live tool schemas for one toolkit, with a bounded catalog request."""
