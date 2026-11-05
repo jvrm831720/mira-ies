@@ -13,14 +13,14 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.composio_connection import TenantComposioAccount
 from app.models.finance_reconciliation import FinanceSourceProfile, FinanceObservation
 from app.models.student import Student
-from app.models.student_payments import PaymentProviderProfile, StudentPaymentIntent, StudentPaymentEvidence
+from app.models.student_payments import AsaasWorkspaceDestination, PaymentProviderProfile, StudentPaymentIntent, StudentPaymentEvidence
 from app.services.composio.categories import FINANCE_TOOLKITS
 from app.services.dispatch_core import bind_tenant
 from app.services.student_finance_composio import parse_amount, parse_datetime
@@ -342,3 +342,113 @@ async def store_sandbox_event(db: AsyncSession, *, tenant_id: str, provider_id: 
     await db.commit()
     # A signed sandbox event is not a PSP-native confirmation of bank settlement.
     return {"accepted": True, "deduplicated": False, "settlement_confirmed": False}
+
+
+def asaas_split_rule(wallet_id: str) -> dict:
+    """Every workspace charge routes 100% of netValue to the same Asaas wallet.
+
+    This is only the provider request fragment. Never accept split rules,
+    recipient accounts or amounts from the student browser.
+    """
+    try:
+        wallet_id = str(UUID(wallet_id))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise PaymentDenied("A conta de destino precisa do walletId Asaas.") from exc
+    return {"split": [{"walletId": wallet_id, "percentualValue": 100}]}
+
+
+def destination_json(row: AsaasWorkspaceDestination | None) -> dict:
+    if row is None:
+        return {"configured": False, "status": "missing", "wallet_id": None,
+                "version": None, "receives_percent_of_net": 100,
+                "verified_for_live": False}
+    return {"configured": True, "status": row.status, "wallet_id": row.wallet_id,
+            "version": row.version, "receives_percent_of_net": 100,
+            "verified_for_live": row.status == "verified"}
+
+
+async def get_destination(db: AsyncSession, tenant_id: str, *, lock: bool = False):
+    await bind_tenant(db, tenant_id)
+    query = select(AsaasWorkspaceDestination).where(AsaasWorkspaceDestination.tenant_id == tenant_id)
+    if lock:
+        query = query.with_for_update()
+    return (await db.execute(query)).scalar_one_or_none()
+
+
+async def save_destination(db: AsyncSession, *, tenant_id: str, user_id: str,
+                           wallet_id: str, expected_version: int | None,
+                           confirms_ownership: bool) -> dict:
+    enabled()
+    if not confirms_ownership:
+        raise PaymentDenied("Confirme que a carteira informada pertence à instituição.")
+    try:
+        normalized = str(UUID(wallet_id))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise PaymentDenied("Informe o walletId da conta Asaas, não dados bancários.") from exc
+    issuer = get_settings().student_payments_asaas_issuer_wallet_id
+    if issuer:
+        try:
+            if normalized == str(UUID(issuer)):
+                raise PaymentDenied("A conta emissora não pode receber o próprio Split.")
+        except ValueError as exc:
+            raise PaymentDenied("Carteira Asaas emissora não configurada corretamente.") from exc
+    await bind_tenant(db, tenant_id)
+    # A transaction-scoped tenant lock prevents two concurrent first-time inserts.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                     {"key": f"asaas-destination:{tenant_id}"})
+    current = await get_destination(db, tenant_id, lock=True)
+    if current is None:
+        if expected_version is not None:
+            raise PaymentDenied("Versão inválida para um primeiro cadastro.")
+        current = AsaasWorkspaceDestination(
+            tenant_id=tenant_id, wallet_id=normalized,
+            confirmed_by_user_id=user_id, status="pending", version=1,
+        )
+        db.add(current)
+    else:
+        if expected_version != current.version:
+            raise PaymentDenied("Destinatário atualizado por outro operador.")
+        if current.wallet_id != normalized:
+            current.wallet_id = normalized
+            current.status = "pending"
+            current.verified_at = None
+            current.verified_by_user_id = None
+        current.version += 1
+        current.confirmed_by_user_id = user_id
+        current.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    return destination_json(current)
+
+
+async def preview_asaas_split(db: AsyncSession, *, tenant_id: str,
+                              observation_id: str) -> dict:
+    """No API calls to Asaas; preview is not a payment or collection."""
+    enabled()
+    await bind_tenant(db, tenant_id)
+    destination = await get_destination(db, tenant_id)
+    if destination is None:
+        raise PaymentDenied("Cadastre a carteira Asaas da IES antes de preparar pagamentos.")
+    observation = (await db.execute(select(FinanceObservation).where(
+        FinanceObservation.tenant_id == tenant_id, FinanceObservation.id == observation_id,
+    ))).scalar_one_or_none()
+    if observation is None:
+        raise PaymentDenied("Obrigação não encontrada neste workspace.")
+    latest = (await db.execute(select(FinanceObservation.id).where(
+        FinanceObservation.tenant_id == tenant_id,
+        FinanceObservation.profile_id == observation.profile_id,
+        FinanceObservation.external_id == observation.external_id,
+    ).order_by(FinanceObservation.observed_at.desc(), FinanceObservation.id.desc()).limit(1))).scalar_one()
+    if latest != observation.id:
+        raise PaymentDenied("Prévia requer a observação financeira mais recente.")
+    amount = draft_amount(observation)
+    return {
+        "observation_id": observation.id, "student_id": observation.student_id,
+        "source_profile_id": observation.profile_id,
+        "method_options": ["PIX", "BOLETO"], "gross_charge_value": str(amount),
+        "currency": "BRL", "split": asaas_split_rule(destination.wallet_id)["split"],
+        "split_basis": "netValue", "receives_percent_of_net": 100,
+        "recipient_verification": destination.status,
+        "ready_for_real_charges": False, "charge_created": False,
+        "payment_link": None, "pix_code": None, "boleto": None,
+        "settlement_confirmed": False,
+    }
