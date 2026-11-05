@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import AuthContext, get_current_tenant
 from app.db.session import get_db
 from app.models.auth import TenantRole, TenantRoleAudit, User
+from app.services.membership import ensure_membership, sync_membership_role
 
 router = APIRouter(prefix="/org", tags=["RBAC institucional"])
 
@@ -318,6 +319,27 @@ async def assign_member_role(user_id: str, body: dict, auth: AuthContext = Depen
         # Revogar um cargo personalizado nunca eleva o membro.
         target.role = "viewer"
     target.auth_version += 1
+
+    # Dual-write: keep Membership in sync with User.role / custom_role_id
+    synced = await sync_membership_role(
+        db,
+        user_id=target.id,
+        tenant_id=auth.tenant_id,
+        role=target.role,
+        custom_role_id=target.custom_role_id,
+    )
+    if synced is None:
+        # Membership may not exist yet for legacy users — create it
+        await ensure_membership(
+            db,
+            user=target,
+            tenant_id=auth.tenant_id,
+            role=target.role,
+            custom_role_id=target.custom_role_id,
+            origin="role_assignment",
+            status="active" if target.is_active else "suspended",
+        )
+
     _audit(db, auth, "member.role_assigned" if new_role else "member.role_revoked",
            role_id=new_role.id if new_role else old_role_id, target_user_id=target.id,
            details={"previous_role_id": old_role_id, "new_role_id": new_role.id if new_role else None})
