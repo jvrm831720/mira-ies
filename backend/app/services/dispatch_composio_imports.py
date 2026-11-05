@@ -175,7 +175,7 @@ def _execute_single_read(
     state = getattr(result, "result_type", None)
     if state is None and isinstance(result, dict):
         state = result.get("result_type")
-    if str(state).lower() not in {"success", "succeeded"}:
+    if str(state).lower() != "completed":
         raise ComposioIngestDenied("Composio não confirmou sucesso na leitura.")
     data = getattr(result, "data", None)
     if isinstance(result, dict):
