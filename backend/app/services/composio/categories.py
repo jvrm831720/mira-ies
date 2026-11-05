@@ -21,7 +21,6 @@ COMMUNICATION_TOOLKITS: dict[str, dict[str, str]] = {
 }
 
 
-
 CRM_TOOLKITS: dict[str, dict[str, str]] = {
     "hubspot": {"name": "HubSpot", "kind": "crm"},
     "salesforce": {"name": "Salesforce", "kind": "crm"},
@@ -36,6 +35,13 @@ DOCUMENT_TOOLKITS: dict[str, dict[str, str]] = {
     "dropbox": {"name": "Dropbox", "kind": "cloud_storage"},
 }
 
+PRODUCTIVITY_TOOLKITS: dict[str, dict[str, str]] = {
+    "asana": {"name": "Asana", "kind": "project_management"},
+    "trello": {"name": "Trello", "kind": "kanban"},
+    "clickup": {"name": "ClickUp", "kind": "work_management"},
+    "notion": {"name": "Notion", "kind": "knowledge_and_tasks"},
+}
+
 
 def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
     """Attach MIRA category metadata using verified Composio toolkit slugs."""
@@ -44,6 +50,7 @@ def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
         ("communication", "Comunicação", COMMUNICATION_TOOLKITS),
         ("crm", "CRM e relacionamento", CRM_TOOLKITS),
         ("documents", "Documentos e arquivos", DOCUMENT_TOOLKITS),
+        ("productivity", "Produtividade e tarefas", PRODUCTIVITY_TOOLKITS),
     ):
         metadata = toolkits.get(slug)
         if metadata:
@@ -85,6 +92,23 @@ def documents_category() -> dict[str, Any]:
         "composio_toolkits": [
             {"slug": slug, **metadata}
             for slug, metadata in DOCUMENT_TOOLKITS.items()
+        ],
+        "native_channels": [],
+    }
+
+
+def productivity_category() -> dict[str, Any]:
+    """Return productivity toolkits without enabling any toolkit."""
+    return {
+        "slug": "productivity",
+        "name": "Produtividade e tarefas",
+        "description": (
+            "Organização de projetos, tarefas, responsáveis, prazos, "
+            "quadros de trabalho e bases de conhecimento."
+        ),
+        "composio_toolkits": [
+            {"slug": slug, **metadata}
+            for slug, metadata in PRODUCTIVITY_TOOLKITS.items()
         ],
         "native_channels": [],
     }
