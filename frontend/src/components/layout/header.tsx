@@ -8,10 +8,8 @@ import {
   ChevronRight,
   CircleHelp,
   LogOut,
-  Menu,
   Settings,
   UserRound,
-  X,
 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -22,25 +20,11 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const mobileLinks = [
-  { href: "/", label: "Visão geral" },
-  { href: "/alunos", label: "Alunos" },
-  { href: "/alunos/grupos", label: "Grupos de alunos" },
-  { href: "/importar", label: "Importar" },
-  { href: "/conectores", label: "Conectores" },
-  { href: "/retencao", label: "Retenção" },
-  { href: "/retencao/logs", label: "Logs" },
-  { href: "/membros", label: "Membros" },
-  { href: "/fatura", label: "Fatura" },
-  { href: "/config", label: "Config" },
-];
-
 type Panel = "none" | "notifications" | "help" | "account";
 
 export function Header({ title, subtitle, compact = false }: { title: string; subtitle?: string; compact?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>("none");
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -147,16 +131,6 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
             <UserRound className="h-[18px] w-[18px]" />
           </IconButton>
 
-          <button
-            type="button"
-            className="ml-1 rounded-full border border-neutral-200 bg-white p-2.5 text-neutral-700 transition hover:bg-neutral-50 md:hidden"
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </button>
-
           {panel === "notifications" && (
             <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
@@ -252,35 +226,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
         </div>
       </div>
 
-      {mobileOpen && (
-        <nav
-          aria-label="Navegação mobile"
-          className="border-t border-neutral-200 bg-white px-4 py-3 md:hidden"
-        >
-          <div className="mb-2 flex items-center gap-2 rounded-xl bg-neutral-50 px-2 py-2 text-xs text-neutral-500">
-            <Building2 className="h-3.5 w-3.5" />
-            <span className="truncate font-medium text-neutral-900">
-              {me.data?.tenant_name || "Instituição"}
-            </span>
-          </div>
-          {mobileLinks.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "block rounded-[11px] px-2.5 py-2 text-[13px]",
-                pathname === l.href ||
-                (l.href === "/alunos/grupos" && pathname.startsWith("/alunos/grupos/"))
-                  ? "bg-neutral-900 font-semibold text-white"
-                  : "text-neutral-600 hover:bg-neutral-50"
-              )}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-      )}
+}
     </header>
   );
 }
