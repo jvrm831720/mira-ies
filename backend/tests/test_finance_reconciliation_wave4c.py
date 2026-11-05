@@ -204,15 +204,18 @@ async def test_cross_tenant_student_is_denied_before_writing(
     profile = source("Workspace A", a.id, str(uuid4()))
     db_session.add(profile)
     await db_session.commit()
+    workspace_id = a.id
+    foreign_student_id = alien.id
+    profile_actor_id = profile.created_by
     with pytest.raises(fn.ReconciliationDenied, match="outro workspace"):
         await fn.ingest_rows(
-            db_session, tenant_id=a.id, profile=profile, actor_id=profile.created_by,
-            rows=[observation(alien.id)], idempotency_key="cross-tenant-000001",
+            db_session, tenant_id=workspace_id, profile=profile, actor_id=profile_actor_id,
+            rows=[observation(foreign_student_id)], idempotency_key="cross-tenant-000001",
             origin="import",
         )
     await db_session.rollback()
     rows = (await db_session.execute(select(FinanceObservation).where(
-        FinanceObservation.tenant_id == a.id,
+        FinanceObservation.tenant_id == workspace_id,
     ))).scalars().all()
     assert rows == []
 
