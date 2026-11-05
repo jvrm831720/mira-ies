@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     composio_identity_secret: str | None = None
     composio_callback_url: str | None = None
     composio_allowed_toolkits: str = ""
+    # Tool execution remains explicitly disabled until Wave 3.1 is validated.
+    composio_tool_execution_enabled: bool = False
 
     # Scoring
     shap_on_batch: bool = False

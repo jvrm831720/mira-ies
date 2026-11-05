@@ -41,6 +41,7 @@ class TenantComposioAccount(Base):
     __tablename__ = "tenant_composio_accounts"
     __table_args__ = (
         UniqueConstraint("tenant_id", "toolkit_slug", "connected_account_id", name="uq_tenant_composio_account"),
+        UniqueConstraint("tenant_id", "connected_account_id", name="uq_tenant_composio_account_tenant_id"),
         CheckConstraint("status IN ('active', 'expired', 'revoked', 'error')", name="ck_tenant_composio_accounts_status"),
         Index("ix_tenant_composio_accounts_tenant_toolkit", "tenant_id", "toolkit_slug", "status"),
     )
