@@ -119,6 +119,7 @@ async def _prepare_test_database():
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def dispatch_schema(_prepare_test_database):
     """Existing tests use metadata.create_all; materialize unmapped dispatch tables."""
+    from sqlalchemy import text
     from app.db.session import engine
 
     migration_path = (Path(__file__).resolve().parents[1]
