@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Header } from "@/components/layout/header";
-import { dispatchApi, type ComposioImportHistory, type DispatchSource } from "@/lib/dispatch-api";
+import { dispatchApi, type ComposioImportHistory, type DispatchSource, type DispatchCampaign } from "@/lib/dispatch-api";
 
 export default function DispatchComposioImportsPage() {
   const [sources, setSources] = useState<DispatchSource[]>([]);
@@ -21,6 +21,8 @@ export default function DispatchComposioImportsPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<ComposioImportHistory[]>([]);
+  const [campaigns, setCampaigns] = useState<DispatchCampaign[]>([]);
+  const [stageCampaignId, setStageCampaignId] = useState("");
   const [summary, setSummary] = useState<Array<{
     toolkit_slug: string; tool_slug: string; record_type: string;
     records: number; last_observed_at: string;
@@ -33,6 +35,7 @@ export default function DispatchComposioImportsPage() {
       dispatchApi.sources(),
       dispatchApi.composioImportHistory(),
       dispatchApi.composioObservationCounts(),
+      dispatchApi.campaigns(),
     ]);
     if (result[0].status === "fulfilled") {
       setSources(result[0].value.items.filter(item => item.kind === "composio"));
@@ -42,6 +45,7 @@ export default function DispatchComposioImportsPage() {
     }
     if (result[1].status === "fulfilled") setHistory(result[1].value.items);
     if (result[2].status === "fulfilled") setSummary(result[2].value.items);
+    if (result[3].status === "fulfilled") setCampaigns(result[3].value.items);
     setLoading(false);
   }, []);
 
@@ -86,7 +90,12 @@ export default function DispatchComposioImportsPage() {
         field_map: fieldMap,
       }, idempotencyRef.current);
       idempotencyRef.current = "";
-      toast.success(`Dados consultados: ${result.total}; novos: ${result.created}; atualizados: ${result.updated}.`);
+      if (stageCampaignId) {
+        const queue = await dispatchApi.stageFromComposio(stageCampaignId);
+        toast.success(`Consulta concluída (${result.total}). Fila: ${queue.created} novos, ${queue.filtered} sem autorização/eligibilidade.`);
+      } else {
+        toast.success(`Dados consultados: ${result.total}; novos: ${result.created}; atualizados: ${result.updated}.`);
+      }
       await refresh();
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Não foi possível importar os dados.";
@@ -199,11 +208,26 @@ export default function DispatchComposioImportsPage() {
             </select>
           </label>
         </div>
-        <div className="mt-5 border-t border-[#EEEEF0] pt-5">
+        <div className="mt-5 space-y-3 border-t border-[#EEEEF0] pt-5">
+          <label className="block text-sm text-[#55555C]">
+            Usar os registros nesta campanha (opcional)
+            <select value={stageCampaignId} onChange={e => setStageCampaignId(e.target.value)}
+              className={fieldClass}>
+              <option value="">Somente atualizar dados da MIRA</option>
+              {campaigns.filter(item =>
+                item.status === "draft" && item.source_kind === "composio"
+                && item.source_ref === accountId && item.source_tool_slug === toolSlug
+              ).map(item =>
+                <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <span className="mt-1 block text-xs text-[#85858B]">
+              Se selecionada, a MIRA consulta a fonte e vincula automaticamente apenas destinatários autorizados.
+            </span>
+          </label>
           <button disabled={busy || loading || !enabled || !accountId || !toolSlug}
             onClick={() => void importData()}
             className="rounded-lg bg-[#202124] px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">
-            {busy ? "Consultando sistema conectado…" : "Consultar e importar dados"}
+            {busy ? "Consultando sistema conectado…" : stageCampaignId ? "Consultar, importar e vincular elegíveis" : "Consultar e importar dados"}
           </button>
           <p className="mt-3 text-xs text-[#85858B]">
             Limite: 100 registros e 256 KB por execução. Importação não equivale a consentimento,
