@@ -339,10 +339,10 @@ export function StudentsListPage() {
                   aria-selected={tab === value}
                   onClick={() => setTab(value)}
                   className={cn(
-                    "rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]",
+                    "rounded-none border-b-2 px-0 py-2 text-[12px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]",
                     tab === value
-                      ? "bg-[#266df0] text-white"
-                      : "bg-[#f4f5f6] text-[#6f7988] hover:bg-[#EFF6FF] hover:text-[#266df0]"
+                      ? "border-[#1c1d1f] text-[#1c1d1f]"
+                      : "border-transparent text-[#6f7988] hover:border-[#d3d8df] hover:text-[#1c1d1f]"
                   )}
                 >
                   {label}
