@@ -163,11 +163,6 @@ export const dispatchApi = {
         body: JSON.stringify({ proposal_id: proposalId, template_id: templateId }),
       },
     ),
-  stageProposal: (campaignId: string, proposalId: string) =>
-    request<{ created: number; duplicates: number }>(
-      `/campaigns/${encodeURIComponent(campaignId)}/targets/from-proposal`,
-      { method: "POST", body: JSON.stringify({ proposal_id: proposalId }) },
-    ),
   approve: (id: string, reference: string) => request<DispatchCampaign>(
     `/campaigns/${encodeURIComponent(id)}/approve`,
     { method: "POST", body: JSON.stringify({ authorization_ref: reference }) },
