@@ -96,6 +96,11 @@ def test_verified_webhook_requires_exact_signature(monkeypatch):
 async def test_four_eyes_and_tenant_rls(db_session, tenant_factory):
     from app.services import dispatch_core as core
 
+    privileged = (await db_session.execute(text("""
+        SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user
+    """))).scalar_one()
+    if privileged:
+        pytest.skip("RLS precisa de papel PostgreSQL sem SUPERUSER/BYPASSRLS.")
     tenant_a, _ = await tenant_factory("dispatch-a", "Dispatch A")
     tenant_b, _ = await tenant_factory("dispatch-b", "Dispatch B")
     campaign = await core.create_campaign(
