@@ -93,6 +93,19 @@ async def eligibility(
         return Eligibility(False, "campaign_not_authorized")
     if not channel_allowed(campaign["purpose"], campaign["channel"]):
         return Eligibility(False, "channel_policy")
+    # Revalidate the original tenant connection/approved proposal immediately
+    # before sending: revoked Composio accounts, policies and native connectors
+    # must stop queued deliveries, not just new campaign creation.
+    from app.services.dispatch_sources import require_source
+    source = await require_source(
+        db, tenant_id=tenant_id,
+        kind=campaign.get("source_kind") or "manual",
+        reference=campaign.get("source_ref"),
+        tool_slug=campaign.get("source_tool_slug"),
+        snapshot_hash=campaign.get("origin_snapshot_hash"),
+    )
+    if not source.available:
+        return Eligibility(False, "campaign_source_not_authorized")
     if campaign["purpose"] == "collections" and campaign["channel"] == "whatsapp":
         return Eligibility(False, "collection_whatsapp_blocked")
     if not inside_contact_window(now, campaign["timezone"], campaign["start_hour"], campaign["end_hour"]):
