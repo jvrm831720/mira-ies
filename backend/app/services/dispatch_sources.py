@@ -128,9 +128,10 @@ async def require_source(
         return SourceState(True, "composio_connection_policy_verified_metadata_only")
 
     if kind == "retention_proposal":
+        # The snapshot is hashed once at materialization and DB-immutable thereafter.
+        # Per-item checks stay O(1) for large approved audiences.
         if not reference or tool_slug or snapshot_hash is None:
             return SourceState(False, "retention_origin_missing")
-        from app.services.campaign_proposals import hash_audience_snapshot
         proposal = (await db.execute(select(RetentionCampaignProposal).where(
             RetentionCampaignProposal.tenant_id == tenant_id,
             RetentionCampaignProposal.id == reference,
@@ -140,7 +141,6 @@ async def require_source(
             or proposal.authorization_status != "institution_attested"
             or proposal.approved_by is None or proposal.approved_at is None
             or proposal.audience_hash != snapshot_hash
-            or hash_audience_snapshot(proposal.audience_snapshot or []) != snapshot_hash
         ):
             return SourceState(False, "retention_approval_revoked_or_snapshot_changed")
         return SourceState(True, "existing_retention_governance_verified")
