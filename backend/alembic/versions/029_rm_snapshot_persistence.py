@@ -65,13 +65,13 @@ def upgrade() -> None:
             id UUID PRIMARY KEY,
             run_id UUID NOT NULL,
             tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-            offset INTEGER NOT NULL CHECK (offset >= 0),
-            next_offset INTEGER NOT NULL CHECK (next_offset >= offset),
+            "offset" INTEGER NOT NULL CHECK ("offset" >= 0),
+            next_offset INTEGER NOT NULL CHECK (next_offset >= "offset"),
             fingerprint VARCHAR(64) NOT NULL,
             record_count INTEGER NOT NULL CHECK (record_count >= 0),
             has_more BOOLEAN NOT NULL,
             records JSONB NOT NULL,
-            CONSTRAINT uq_rm_sync_pages_run_offset UNIQUE (run_id, offset),
+            CONSTRAINT uq_rm_sync_pages_run_offset UNIQUE (run_id, "offset"),
             CONSTRAINT fk_rm_sync_pages_run_tenant
               FOREIGN KEY (run_id, tenant_id)
               REFERENCES rm_sync_runs(id, tenant_id) ON DELETE CASCADE
@@ -104,7 +104,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX ix_rm_sync_records_tenant_id ON rm_sync_records (tenant_id)")
     op.execute("CREATE INDEX ix_rm_sync_runs_scope_status ON rm_sync_runs (scope_id, status)")
     op.execute("CREATE INDEX ix_rm_sync_runs_tenant_started ON rm_sync_runs (tenant_id, started_at DESC)")
-    op.execute("CREATE INDEX ix_rm_sync_pages_tenant_run ON rm_sync_pages (tenant_id, run_id, offset)")
+    op.execute('CREATE INDEX ix_rm_sync_pages_tenant_run ON rm_sync_pages (tenant_id, run_id, "offset")')
     op.execute("CREATE INDEX ix_rm_sync_records_tenant_run ON rm_sync_records (tenant_id, run_id)")
 
 
