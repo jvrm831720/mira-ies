@@ -17,7 +17,8 @@ router = APIRouter(prefix="/dispatch", tags=["Dispatch Platform"])
 
 class CampaignCreate(BaseModel):
     name: str = Field(min_length=3, max_length=160)
-    purpose: Literal["retention", "collections"]
+    purpose: Literal["retention", "academic", "service", "collections"]
+    delivery_mode: Literal["targeted", "bulk"] = "targeted"
     channel: Literal["email", "sms", "whatsapp"]
     template_ref: str = Field(min_length=2, max_length=160)
     template_body: str = Field(min_length=3, max_length=2000)
@@ -80,7 +81,7 @@ async def create_campaign(
             per_minute_limit=body.per_minute_limit,
             daily_contact_limit=body.daily_contact_limit,
             timezone_name=body.timezone, start_hour=body.start_hour,
-            end_hour=body.end_hour,
+            end_hour=body.end_hour, delivery_mode=body.delivery_mode,
         )
     except ValueError as exc:
         await db.rollback()
@@ -155,17 +156,38 @@ async def import_approved_proposal_audience(
     audience = proposal.audience_snapshot or []
     if hash_audience_snapshot(audience) != proposal.audience_hash:
         raise HTTPException(status_code=409, detail="Snapshot da audiência foi alterado.")
-    targets = [{
-        "subject_type": "student",
-        "subject_ref": record["student_id"],
-        "consent_ref": proposal.authorization_reference,
-    } for record in audience
+    # Institutional proposal approval is NOT individual contact authorization.
+    # Each student must have a separate current, source-verified authorization.
+    from sqlalchemy import text
+    from app.core.config import get_settings
+    trusted = [v.strip() for v in get_settings().dispatch_trusted_authorization_sources.split(",") if v.strip()]
+    candidates = [
+        record for record in audience
         if campaign["channel"] in record.get("eligible_channels", [])
         and not record.get("blocked_reasons")
         and not record.get("internal_action_only")
     ]
+    if len(candidates) > 1000:
+        raise HTTPException(status_code=422, detail="Snapshot muito grande: importe em lotes verificados.")
+    ids = [str(record["student_id"]) for record in candidates]
+    rows = []
+    if trusted and ids:
+        rows = (await db.execute(text("""
+            SELECT subject_ref,evidence_ref FROM dispatch_authorizations
+            WHERE tenant_id=:tenant AND subject_type='student'
+              AND channel=:channel AND purpose='retention' AND status='granted'
+              AND verified_at >= now()-interval '90 days' AND expires_at>now()
+              AND subject_ref=ANY(CAST(:ids AS text[]))
+              AND source=ANY(CAST(:sources AS text[]))
+        """), {"tenant": auth.tenant_id,"channel":campaign["channel"],
+                 "ids":ids,"sources":trusted})).mappings().all()
+    eligible = {row["subject_ref"]:row["evidence_ref"] for row in rows}
+    targets = [{
+        "subject_type":"student", "subject_ref":str(record["student_id"]),
+        "consent_ref":eligible[str(record["student_id"])],
+    } for record in candidates if str(record["student_id"]) in eligible]
     if not targets:
-        raise HTTPException(status_code=409, detail="Nenhum destinatário elegível para este canal.")
+        raise HTTPException(status_code=409, detail="Nenhum destinatário com autorização individual vigente no canal.")
     if len(targets) > 1000:
         raise HTTPException(status_code=422, detail="Snapshot muito grande: pagine sua importação por lote.")
     try:
