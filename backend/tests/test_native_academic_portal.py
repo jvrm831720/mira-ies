@@ -12,9 +12,11 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.api.native_academic import (
+    AcademicRecordBatch, import_manual_records, institution_records,
     AcademicRecordInput, _hash_token, _make_token, _now, _student_profile,
     _tenant_from_token,
 )
+from app.core.auth import AuthContext
 from app.core.config import get_settings
 from app.models.auth import User
 from app.models.native_academic import MiraAcademicRecord, MiraStudentPortalInvite
@@ -194,3 +196,46 @@ async def test_billing_tenant_is_denied_portal_claim(client, db_session, tenant_
         json={"token": token},
     )
     assert response.status_code == 401
+
+
+async def test_staff_cannot_read_another_ies_records(db_session, tenant_factory, monkeypatch):
+    monkeypatch.setattr(get_settings(), "native_academic_enabled", True)
+    a, _ = await tenant_factory(slug="academic-a")
+    b, _ = await tenant_factory(slug="academic-b")
+    a.segment = "higher_education"
+    b_student = await _seed_student(db_session, b, id_suffix="cross-tenant")
+    await db_session.commit()
+    auth = AuthContext(
+        tenant=a, tenant_id=a.id, tenant_slug=a.slug,
+        user_id=str(uuid4()), session_id=str(uuid4()), role="admin",
+    )
+    with pytest.raises(HTTPException) as exc:
+        await institution_records(b_student.id, None, auth, db_session)
+    assert exc.value.status_code == 404
+
+
+async def test_manual_academic_upsert_is_idempotent(db_session, tenant_factory, monkeypatch):
+    monkeypatch.setattr(get_settings(), "native_academic_enabled", True)
+    tenant, _ = await tenant_factory(slug="academic-upsert")
+    student = await _seed_student(db_session, tenant, id_suffix="upsert")
+    await db_session.commit()
+    auth = AuthContext(
+        tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug,
+        user_id=str(uuid4()), session_id=str(uuid4()), role="admin",
+    )
+    first = AcademicRecordBatch(records=[AcademicRecordInput(
+        kind="assessment", source_record_id="student-42-term-1",
+        title="Avaliação de matemática", academic_period="2026-2",
+        status="published", grade=Decimal("8"), max_grade=Decimal("10"),
+    )])
+    second = AcademicRecordBatch(records=[AcademicRecordInput(
+        kind="assessment", source_record_id="student-42-term-1",
+        title="Avaliação de matemática", academic_period="2026-2",
+        status="corrected", grade=Decimal("9"), max_grade=Decimal("10"),
+    )])
+    assert (await import_manual_records(student.id, first, auth, db_session))["records_received"] == 1
+    assert (await import_manual_records(student.id, second, auth, db_session))["records_received"] == 1
+    result = await institution_records(student.id, "assessment", auth, db_session)
+    assert len(result["items"]) == 1
+    assert result["items"][0]["grade"] == "9.00"
+    assert result["items"][0]["status"] == "corrected"
