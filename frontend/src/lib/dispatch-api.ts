@@ -86,6 +86,41 @@ export type DispatchSource = {
 export type DispatchSourceList = {
   items: DispatchSource[];
   composio_tool_execution_enabled: boolean;
+  composio_ingestion_enabled?: boolean;
+};
+
+export type ComposioImportPayload = {
+  connected_account_id: string;
+  tool_slug: string;
+  arguments: Record<string, unknown>;
+  rows_path: string;
+  record_id_field: string;
+  subject_ref_field: string;
+  subject_type: "student" | "external";
+  record_type: "contact" | "obligation" | "generic";
+  field_map: Record<string, string>;
+};
+
+export type ComposioImportResult = {
+  run_id: string;
+  status: "succeeded";
+  total: number;
+  created: number;
+  updated: number;
+  deduplicated: boolean;
+};
+
+export type ComposioImportHistory = {
+  id: string;
+  toolkit_slug: string;
+  tool_slug: string;
+  status: string;
+  rows_total: number;
+  rows_created: number;
+  rows_updated: number;
+  error_code: string | null;
+  started_at: string;
+  finished_at: string | null;
 };
 
 export type DispatchTemplate = {
@@ -141,6 +176,24 @@ export const dispatchApi = {
   disableProvider: (provider: "resend" | "twilio") =>
     request<{ status: string }>(`/providers/${provider}/disable`, { method: "POST" }),
   sources: () => request<DispatchSourceList>("/sources"),
+  importComposio: (body: ComposioImportPayload, idempotencyKey: string) =>
+    request<ComposioImportResult>("/composio/imports", {
+      method: "POST", headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(body),
+    }),
+  composioImportHistory: () =>
+    request<{ items: ComposioImportHistory[] }>("/composio/imports"),
+  composioObservationCounts: () =>
+    request<{ items: Array<{
+      toolkit_slug: string; tool_slug: string; record_type: string;
+      records: number; last_observed_at: string;
+    }> }>("/composio/observations"),
+  stageFromComposio: (campaignId: string, ids: string[] = []) =>
+    request<{ created: number; duplicates: number; filtered: number }>(
+      `/composio/campaigns/${encodeURIComponent(campaignId)}/stage`, {
+        method: "POST", body: JSON.stringify({ source_record_ids: ids }),
+      },
+    ),
   campaigns: () => request<{ items: DispatchCampaign[] }>("/campaigns"),
   detail: (id: string) => request<{ campaign: DispatchCampaign; items: Array<{
     id: string; status: string; subject_ref: string; subject_type: string;
