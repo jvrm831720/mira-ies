@@ -1,135 +1,139 @@
-# MIRA Dispatch Platform — Waves 1–4
+# MIRA Dispatch — guia de produto, arquitetura e prontidão operacional
 
-Status: implementation on feature branch. **No live sending or production database upgrade in this delivery.**
+> PR #150. **Implementação de código; não é homologação de produção.**
+> O envio ao vivo e o worker ficam desligados por padrão. Não aplicar migration
+> em produção nem acionar clientes antes do checklist de liberação.
 
-## Source architecture and integration
+## 1. Um motor para três modalidades
 
-Reviewed `CRM-DDM-2.zip`: the useful patterns are the independent worker,
-batch claims (`batch-claim.ts`), lease ownership (`dispatch-worker.ts`),
-uncertain-outcome reconciliation, per-channel rate policy, automatic pauses,
-reply tracking, delivery ledger and telemetry. The MIRA implementation stays
-**Python/FastAPI + PostgreSQL** and reuses existing provider adapters and Redis
-provider protection rather than deploying a second NestJS runtime.
+| Modalidade | Quem inicia | Como é aprovada | Exemplos |
+|---|---|---|---|
+| `individual` | Operador com `campaigns.execute` | Modelo aprovado por outro usuário + autorização vigente individual, com fonte confiável | Acompanhamento de um aluno, convite à tutoria, contato de permanência |
+| `targeted` | Criador de campanha | Segundo usuário aprova a audiência e atesta finalidade; cada destinatário tem sua própria autorização | Alunos com risco de evasão, grupo de rematrícula |
+| `bulk` | Criador de campanha | Mesma aprovação de campanha, lotes e controles ampliados | Comunicações institucionais amplas, cobrança por canal permitido |
 
-### Wave 1 — durable, tenant-scoped outbox
+**O motor não é sinônimo de disparo em massa.** A intervenção individual
+é registrada no mesmo ledger e na mesma fila com a mesma auditoria/limites,
+mas não exige que o operador crie uma campanha. O modelo é previamente
+revisado, e nenhum operador pode se autoaprovar um modelo novo.
 
-- `backend/alembic/versions/055_dispatch_platform.py`: dispatch campaigns,
-  individual items, financial obligations, encrypted external contacts, immutable
-  payment events and dispatch events, Redis-independent rate buckets, suppressions,
-  gateway replies, and worker heartbeats. Tenant policies use
-  `FORCE ROW LEVEL SECURITY`.
-- `backend/app/services/dispatch_core.py`: create draft, stage up to 1000
-  recipients/request, dedupe, record immutable events, enforce four-eyes
-  approval, schedule/pause/resume/cancel.
-- `backend/app/api/dispatch.py`: authenticated control plane.
-- Human permission requirements: `campaigns.view`, `campaigns.create`,
-  `campaigns.edit`, `campaigns.approve` and `campaigns.execute`.
-  Institutional API keys **cannot create or approve campaigns**.
+Finalidades: `retention`, `academic`, `service`, `collections`.
+Permissão de finalidade não é implícita. Autorizações são por
+`tenant + pessoa + canal + finalidade + evidência + prazo`.
 
-A campaign is not authorized merely because it contains recipients.
-Approval requires a distinct authenticated user and an institutional evidence
-reference. Collection recipients need a separately verifiable obligation.
+## 2. Implementação no repositório
 
-### Wave 2 — independent, bounded worker
+- Migration `055_dispatch_platform` (após `054_smart_import_custom_fields`):
+  13 tabelas SQL-only com `FORCE ROW LEVEL SECURITY`: `dispatch_campaigns`,
+  `dispatch_items`, `dispatch_events`, `dispatch_inbound`,
+  `dispatch_authorizations`, `dispatch_approved_templates`,
+  `dispatch_provider_accounts`, `dispatch_suppressions`,
+  `dispatch_worker_heartbeats`, `dispatch_rate_buckets`,
+  `dispatch_external_contacts`, `dispatch_obligations` e
+  `dispatch_payment_events`. Auditoria e pagamentos têm trigger append-only.
+- `app.services.dispatch_core`: audiência, campanhas, workflow de aprovação,
+  agendamento, deduplicação, consultas tenant-scoped.
+- `app.services.dispatch_interventions`: modelos reutilizáveis, autorização
+  por pessoa, single-message idempotente e integração de permissões.
+- `app.dispatch_worker`: worker PostgreSQL independente, `SKIP LOCKED`,
+  leases com fencing, retry seletivo, horários locais e limitação global
+  por destinatário/canal entre campanhas.
+- `app.services.dispatch_delivery`: consentimento, política de canal, dados
+  financeiros atuais, taxa e envio com credenciais verificadas por tenant.
+- `app.services.dispatch_providers`: credenciais criptografadas com chave
+  dedicada, verificação de domínio e remetente, ativação com quatro olhos.
+- `app.api.dispatch_native_webhooks`: assinatura nativa Resend/Svix
+  e Twilio com secret específico do workspace.
+- `app.services.dispatch_receipts`: reconciliação de webhooks que chegam
+  antes do commit de `provider_message_id`.
+- `app.api.dispatch_integrations`: fatos de obrigação e pagamento com
+  fonte, versão monotônica e evidência, contatos externos criptografados,
+  respostas e reconciliação manual de resultados incertos.
+- Frontend: `/disparos`, `/disparos/modelos`, `/disparos/provedores`.
+  A navegação permanece alinhada à biblioteca de ícones Untitled UI.
 
-- `backend/app/dispatch_worker.py`: row-level `FOR UPDATE SKIP LOCKED`
-  claims with lease tokens and owner fencing, at most 25 recipients/round,
-  bounded concurrency, delayed retries, weekend/quiet-hour guard and
-  crash recovery.
-- `backend/app/services/dispatch_delivery.py`: tenant/channel token buckets
-  plus the existing global Redis provider circuit-breaker guard.
-- A crashed `leased` item can be queued again because no provider call started.
-  A crashed `sending` item is marked **unknown**, never automatically resent.
-- Confirmed transient provider failures may retry up to 3 total attempts with
-  backoff; ambiguous failures never retry. High failure/unknown ratios auto-pause
-  new starts. In-flight operations cannot be rolled back after provider acceptance.
-- An empty running campaign is marked completed after all items become terminal.
+## 3. Mecanismos de segurança
 
-### Wave 3 — channels, gateway and monitoring
+**Opt-in independente:** `DISPATCH_WORKER_ENABLED=false`,
+`DISPATCH_DRY_RUN_DEFAULT=true`, `DISPATCH_LIVE_ENABLED=false`,
+`DISPATCH_LIVE_TENANTS=`, `DISPATCH_LIVE_CHANNELS=`.
+Todos devem ser configurados explicitamente antes de qualquer envio.
 
-- The new worker is **off** until `DISPATCH_WORKER_ENABLED=true`.
-- Live delivery is **off** until `DISPATCH_LIVE_ENABLED=true`,
-  `DISPATCH_DRY_RUN_DEFAULT=false`, plus explicit `DISPATCH_LIVE_TENANTS`
-  and `DISPATCH_LIVE_CHANNELS` allowlists.
-  Current worker adapter supports **email/Resend** and **SMS/Twilio** only.
-  Existing MIRA providers are reused. No channel auto-failover is attempted
-  after an uncertain outcome.
-- `POST /api/v1/dispatch/webhooks/{provider}` accepts a normalized event
-  signed with HMAC-SHA256 using `DISPATCH_WEBHOOK_SECRET`.
-  **It is not a direct provider webhook.** A separate gateway must verify the
-  provider's native signature before re-signing for this endpoint.
-  Payload fields: `tenant_id`, `provider_message_id`, `external_event_id`,
-  `kind` (`delivered/read/reply/failed`), and optional `message`.
-- Duplicated normalized events are idempotent; receipts are monotonic.
-  Only categorized intents are persisted, never full incoming message text.
-- `/disparos`: campaign list, audience preparation, proposal import, approval,
-  scheduling and pause/cancel, worker heartbeat, counts, cost estimates,
-  replies and reconciliation totals.
+O envio real só é contemplado para Resend (e-mail) e Twilio (SMS).
+Cobrança via WhatsApp está bloqueada. WhatsApp de retenção/atendimento
+permanece apenas simulado neste motor, apesar de existirem provedores legados.
 
-### Wave 4 — verified collections + assisted response
+**Consentimento e autorização:** a MIRA não considera ausência de opt-out,
+preferências importadas com padrão favorável ou um atestado geral de proposta
+como prova de consentimento por canal. O conector autorizado deve registrar
+um `dispatch_authorizations` com `status=granted`, fonte aprovada,
+`verified_at`, `expires_at`, finalidade e `evidence_ref`.
+Antes do envio, o worker revalida autorização, destinatário, janela de
+contato, supressão, limites e obrigação. Revogações prevalecem sobre
+agendamentos antigos.
 
-- Trusted tenant integration API keys can submit normalized `obligations`,
-  encrypted external `contacts` and `payments`. Humans cannot mutate those
-  financial evidence endpoints through a session.
-- `dispatch_obligations` only remains send-eligible while **status=open**,
-  balance is positive and verification is **under 15 minutes old**.
-  Paid, disputed, cancelled or agreement items suppress queued sends.
-- Payments use an append-only ledger with a unique external transaction ID;
-  replaying an event with different amount or evidence is rejected.
-- Reply classification is deterministic. Examples:
-  `claims_paid -> reconcile_payment`,
-  `dispute -> human_review`,
-  `negotiate -> human_negotiation`,
-  `opt_out -> suppress_contact`.
-  There is **no autonomous promise, discount, settlement or payment-link creation**.
-- STOP or wrong-recipient events persist a tenant-scoped suppression even if
-  a connector later tries to reimport a contact.
-- `unknown` provider outcomes can be resolved only by an authenticated,
-  evidence-bearing connector at
-  `POST /api/v1/dispatch/integrations/unknown-outcomes/reconcile`.
-  They are never automatically requeued.
-- Financial dashboard values are **verified, deduplicated payment facts**;
-  they are **not attributed causally to the latest campaign**.
+**Idempotência e confiabilidade:** envios em estado `sending` ao perder
+o lease passam a `unknown` e NÃO retornam para o disparador. O sistema
+mantém `Idempotency-Key` de intervenções individuais e deduplicação de
+destinatários no PostgreSQL. Resultados incertos só podem ser conciliados
+com evidência verificável.
 
-## WhatsApp and legal guard
+**Financeiro:** só obrigações `open`, com saldo positivo e verificação
+recente entram na execução; a confirmação de pagamento não é inferida
+de entrega, leitura, resposta ou promessa. O conector deve informar
+`source_version` crescente e `observed_at` com timezone; fatos fora de
+ordem são rejeitados e dívidas encerradas não reabrem por atualização comum.
+Pagamentos gravados têm evento externo único, evidência e valor positivo.
 
-The Dispatch Platform refuses collections through WhatsApp at both API and
-worker policy levels. Even retention WhatsApp is simulation-only in this
-implementation. Before operating any real channel, verify the provider's
-current platform policies, a lawful contact basis, suppression lists, permitted
-contact windows, privacy/retention requirements and local consumer protection.
-An imported preference with absent consent is NOT proof of authorization.
-The legacy MIRA defaults are intentionally *not* used as authorization here.
+**Provedores por workspace:** ativação requer conta verificada e um segundo
+administrador. Segredos ficam criptografados com `DISPATCH_PROVIDER_ENCRYPTION_KEY`.
+A API não devolve segredos cadastrados. Para Resend são usados remetente
+e domínio verificados; para Twilio, Account SID e número da conta.
 
-## Operational setup (non-production environment only)
+**Webhooks:** assinatura e timestamp originais validados com SDKs
+Resend/Svix e Twilio; o endpoint genérico HMAC permanece apenas para um
+gateway interno previamente confiável. Eventos prematuros são guardados
+sem conteúdo pessoal até que o ID de mensagem enviado seja persistido.
 
-Generate a contact-encryption key locally and store it in the backend secret
-manager (never commit its value):
+## 4. Preparação em sandbox (sem tocar produção)
+
+Configure segredos no ambiente do backend e não no frontend:
+
+```env
+DISPATCH_WORKER_ENABLED=false
+DISPATCH_DRY_RUN_DEFAULT=true
+DISPATCH_LIVE_ENABLED=false
+DISPATCH_LIVE_TENANTS=
+DISPATCH_LIVE_CHANNELS=
+DISPATCH_TRUSTED_AUTHORIZATION_SOURCES=
+DISPATCH_PROVIDER_ENCRYPTION_KEY=
+DISPATCH_CONTACT_ENCRYPTION_KEY=
+DISPATCH_WEBHOOK_SECRET=
+DISPATCH_TWILIO_CALLBACK_BASE_URL=
+```
+
+Use chaves Fernet separadas, geradas localmente e armazenadas no secret manager:
 
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Set `DISPATCH_CONTACT_ENCRYPTION_KEY` for external contacts, and set
-`DISPATCH_WEBHOOK_SECRET` to a separate long secret for the trusted gateway.
-The worker and live flags must remain OFF in all uncontrolled environments.
-
-On a **disposable PostgreSQL** database:
+A base deve suportar PostgreSQL `FOR UPDATE SKIP LOCKED`, advisory locks,
+políticas RLS e índices da migration 055. Execute em banco **descartável**:
 
 ```bash
 cd backend
 python -m pip install -r requirements.txt
 PYTHONPATH=. alembic heads
 PYTHONPATH=. alembic upgrade head
-ruff check app/api/dispatch.py app/api/dispatch_integrations.py app/services/dispatch_core.py app/services/dispatch_delivery.py app/dispatch_worker.py
+PYTHONPATH=. ruff check app/api/dispatch*.py app/services/dispatch*.py app/dispatch*.py
 PYTHONPATH=. pytest tests/test_dispatch_platform.py -q
 PYTHONPATH=. pytest -q
+PYTHONPATH=. python -m app.dispatch_readiness
 ```
 
-Use a PostgreSQL role with `NOSUPERUSER NOBYPASSRLS`; the RLS test skips
-superusers rather than declaring a misleading success.
-
-In the frontend:
+Teste obrigatório de RLS em função de banco com `NOSUPERUSER` e
+`NOBYPASSRLS`. Não declarar aprovado se teste for pulado.
 
 ```bash
 cd frontend
@@ -140,49 +144,50 @@ npx tsc --noEmit
 npm run build
 ```
 
-After disposable-DB validation, in a private sandbox set only
-`DISPATCH_WORKER_ENABLED=true` and leave `DISPATCH_LIVE_ENABLED=false`.
-The worker can then process only simulated deliveries:
+Com as validações concluídas e migration aplicada em **sandbox**, ligue
+apenas o worker e mantenha `DISPATCH_LIVE_ENABLED=false` para ensaio:
 
 ```bash
 cd backend
-PYTHONPATH=. python -m app.dispatch_worker --once
+DISPATCH_WORKER_ENABLED=true PYTHONPATH=. python -m app.dispatch_worker --once
 ```
 
-No worker starts automatically from the API process. No migrations have been
-applied to production by this implementation.
+A API não inicia o worker automaticamente. Em Render, provisionar um
+**Background Worker** separado da API, com banco e segredo apropriados.
+Não duplicar o worker dentro de uma instância web.
 
-## Homologation before real sending
+## 5. Gate de go-live
 
-1. Verify migration 055 and all tests on the final PR HEAD, including
-   concurrent claims and tenant isolation under non-bypass RLS.
-2. Run high-volume simulations with multiple worker processes and restart
-   during `leased` and `sending` states; verify no duplicate provider calls.
-3. Test quiet hours, suppression, late payment arrival, partial payment,
-   disputed debt and a provider timeout after acceptance.
-4. Verify native provider webhook signatures in a separate gateway and
-   map them to the normalized HMAC contract here.
-5. Register actual connector-specific source authorization, evidence freshness
-   and conflict rules (Omie/TOTVS/Isaac are not assumed interchangeable).
-6. Obtain explicit organization/channel approval and a compliance review.
-7. Only then evaluate a controlled live pilot. This code delivery does **not**
-   activate such a pilot.
+1. CI backend/frontend no SHA final (ou validação manual equivalente, gravada
+   com artefatos). No momento GitHub Actions e Vercel estão limitados por
+   cobrança/build; ausência de check não é sucesso.
+2. `app.dispatch_readiness --require-live` com banco real de staging,
+   credenciais por tenant verificadas, heartbeat e controle de RLS.
+3. Testar carga com **múltiplos processos concorrentes**; perda de conexão
+   antes/depois de aceitar provedor; prioridade de STOP e pagamento;
+   restarts, horários, retry backoff, limites e quotas.
+4. Verificar validade jurídica da finalidade/canal, evidência de contato,
+   política de tratamento e retenção LGPD, e onboarding de organizações.
+5. Conectar **fontes reais autorizadas** para dados e autorização, validar
+   monotonicidade dos eventos e configurar webhooks nativos por workspace.
+6. Ativar gradualmente somente um tenant piloto e apenas canal aprovado:
+   `DISPATCH_DRY_RUN_DEFAULT=false`, `DISPATCH_LIVE_ENABLED=true`,
+   `DISPATCH_WORKER_ENABLED=true`, além de allowlists de tenant e canal.
+   Não aplicar switches globais sem autorização operacional explícita.
+7. Monitorar entregabilidade, recebimento, custos, incidentes e supressões.
+   Ter um rollback por desativação do worker e dos provedores/tenants.
 
-### Known boundaries
+## 6. Dependências externas ainda não verificadas
 
-- No real connector credentials or real settlement evidence were supplied; API
-  ingestion contracts are implemented, but customer payment reconciliation
-  is **not** automatically synchronized with a live ERP.
-- The gateway-to-provider native webhook verification component is an external
-  integration contract and is **not** included.
-- The initial intent classifier is conservative and rule-based. The human
-  negotiation workflow is represented by recommended actions, not an AI bot
-  permitted to agree to payment terms.
-- Worker rate defaults are conservative and must be calibrated against actual
-  provider contract quotas, deliverability and cost in homologation.
-- Retention, encryption-key rotation and evidence expiration need operational
-  ownership before commercial production release.
+**Nenhuma alteração nesta PR prova automaticamente a prontidão de produção.**
+É indispensável homologar por tenant: credenciais reais, remetentes, domínios
+e números; integração concreta ERP/financeiro; políticas por canal; limites
+contratuais, nível de capacidade da instância Render e PostgreSQL; callback
+URLs públicas; e indicadores de operações com clientes reais.
 
-GitHub Actions may be unavailable because of billing limits. An absent check
-does **not** constitute a passing check, and prior-commit results do not
-validate the final HEAD. Do not merge solely on the basis of this document.
+O motor de classificação de respostas é propositalmente conservador e não
+negocia dívida automaticamente. A MIRA registra `human_review` e ações
+sugeridas, não decisões financeiras de IA.
+
+**Não executar merge, migration ou deploy em produção** antes do gate de
+qualidade; não disparar mensagens reais por este PR.
