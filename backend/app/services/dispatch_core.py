@@ -181,12 +181,19 @@ async def enqueue_recipients(
             raise ValueError("Cobrança exige referência de obrigação para revalidação.")
         if kind == "student":
             exists = (await db.execute(
-                text("SELECT 1 FROM students WHERE tenant_id=:tenant AND id::text=:id AND is_active IS TRUE"),
-                {"tenant": tenant_id, "id": ref},
+                text("""
+                    SELECT 1 FROM students
+                    WHERE tenant_id=:tenant AND id::text=:id AND is_active IS TRUE
+                      AND (:batch IS NULL OR batch_id::text=:batch)
+                """),
+                {"tenant": tenant_id, "id": ref,
+                 "batch": campaign.get("source_ref") if campaign.get("source_kind") == "manual" else None},
             )).first()
             if not exists:
                 raise ValueError("Aluno não encontrado neste workspace.")
         else:
+            if campaign.get("source_kind") == "manual" and campaign.get("source_ref"):
+                raise ValueError("Lote de alunos não comprova origem de contatos externos.")
             # External audiences require an encrypted, pre-verified contact.
             contact = (await db.execute(text("""
                 SELECT 1 FROM dispatch_external_contacts WHERE tenant_id=:tenant

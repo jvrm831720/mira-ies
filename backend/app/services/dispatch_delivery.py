@@ -167,11 +167,17 @@ async def eligibility(
             return Eligibility(False, "invalid_student_id")
         student = (await db.execute(text("""
             SELECT nome, telefone, email, communication_opt_out,
-                   communication_preferences, is_active
+                   communication_preferences, is_active, batch_id
             FROM students WHERE tenant_id=:tenant AND id=:id
         """), {"tenant": tenant_id, "id": student_id})).mappings().first()
         if student is None or not student["is_active"] or student["communication_opt_out"]:
             return Eligibility(False, "student_inactive_or_opt_out")
+        if (
+            campaign.get("source_kind") == "manual"
+            and campaign.get("source_ref")
+            and str(student["batch_id"]) != campaign["source_ref"]
+        ):
+            return Eligibility(False, "student_not_in_bound_upload_batch")
         prefs = student["communication_preferences"] or {}
         # Missing preference is NOT consent; fail closed, even if old code defaults to True.
         if prefs.get("channels", {}).get(campaign["channel"]) is not True:
