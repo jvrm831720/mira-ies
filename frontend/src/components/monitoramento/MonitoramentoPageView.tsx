@@ -186,16 +186,16 @@ function MonitoramentoPageInner() {
     <>
       <Header title="Monitoramento de risco" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        <section className="flex flex-col gap-4 border-b border-[#E5E7EB] pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <section className="flex flex-col gap-4 border-b border-[#e4e7ec] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#2563EB]">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#266df0]">
               <Activity className="h-3.5 w-3.5" />
               Inteligência temporal
             </div>
-            <h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#101828]">
+            <h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#1c1d1f]">
               Monitoramento de risco
             </h1>
-            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
+            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#6f7988]">
               Evolução temporal das avaliações de risco persistidas: scores, movimentações entre níveis
               e trajetória por aluno. A fila operacional fica na Visão geral e na Central de Trabalho.
             </p>
@@ -208,7 +208,7 @@ function MonitoramentoPageInner() {
               id="risk-period"
               value={period}
               onChange={(e) => setPeriod(e.target.value as Period)}
-              className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] font-medium text-[#344054]"
+              className="h-10 rounded-lg border border-[#cad0d9] bg-white px-3 text-[12px] font-medium text-[#2e3238]"
             >
               <option value="30">Últimos 30 dias</option>
               <option value="90">Últimos 90 dias</option>
@@ -219,14 +219,14 @@ function MonitoramentoPageInner() {
               type="button"
               onClick={refresh}
               disabled={historyQuery.isFetching}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] font-medium text-[#344054] hover:bg-[#F9FAFB] disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#cad0d9] bg-white px-3 text-[12px] font-medium text-[#2e3238] hover:bg-[#f4f5f6] disabled:opacity-60"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", historyQuery.isFetching && "animate-spin")} />
               Atualizar
             </button>
             <Link
               href="/alunos"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#2563EB] px-3.5 text-[12px] font-semibold text-white hover:bg-[#1D4ED8]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#266df0] px-3.5 text-[12px] font-semibold text-white hover:bg-[#407ff2]"
             >
               Lista de alunos
               <ArrowRight className="h-3.5 w-3.5" />
@@ -234,13 +234,13 @@ function MonitoramentoPageInner() {
           </div>
         </section>
 
-        <section className="flex flex-wrap items-end gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4">
+        <section className="flex flex-wrap items-end gap-3 rounded-xl border border-[#e4e7ec] bg-white p-4">
           <label className="flex min-w-[160px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
             Curso
             <select
               value={course}
               onChange={(e) => setCourse(e.target.value)}
-              className="h-9 rounded-lg border border-[#D0D5DD] bg-white px-2.5 text-[12px] text-[#344054]"
+              className="h-9 rounded-lg border border-[#cad0d9] bg-white px-2.5 text-[12px] text-[#2e3238]"
             >
               <option value="">Todos os cursos</option>
               {courseOptions.map((v) => (
@@ -255,7 +255,7 @@ function MonitoramentoPageInner() {
             <select
               value={riskLevel}
               onChange={(e) => setRiskLevel(e.target.value)}
-              className="h-9 rounded-lg border border-[#D0D5DD] bg-white px-2.5 text-[12px] text-[#344054]"
+              className="h-9 rounded-lg border border-[#cad0d9] bg-white px-2.5 text-[12px] text-[#2e3238]"
             >
               <option value="">Todos os níveis</option>
               <option value="critico">Crítico</option>
@@ -268,7 +268,7 @@ function MonitoramentoPageInner() {
             <select
               value={movementFilter}
               onChange={(e) => setMovementFilter(e.target.value as MovementFilter)}
-              className="h-9 rounded-lg border border-[#D0D5DD] bg-white px-2.5 text-[12px] text-[#344054]"
+              className="h-9 rounded-lg border border-[#cad0d9] bg-white px-2.5 text-[12px] text-[#2e3238]"
             >
               <option value="">Todas as movimentações</option>
               <option value="risco_aumentou">Risco aumentou</option>
@@ -278,7 +278,7 @@ function MonitoramentoPageInner() {
               <option value="sem_historico_comparavel">Sem histórico comparável</option>
             </select>
           </label>
-          <div className="flex items-center gap-2 pb-2 text-[11px] text-[#667085]">
+          <div className="flex items-center gap-2 pb-2 text-[11px] text-[#6f7988]">
             <CalendarDays className="h-3.5 w-3.5" />
             {data
               ? dateLabel(data.period.from) + " – " + dateLabel(data.period.to)
@@ -287,25 +287,25 @@ function MonitoramentoPageInner() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+        <section className="rounded-xl border border-[#e4e7ec] bg-white p-5">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-[14px] font-semibold text-[#101828]">Distribuição atual de risco</h2>
-              <p className="mt-1 text-[11px] text-[#667085]">
+              <h2 className="text-[14px] font-semibold text-[#1c1d1f]">Distribuição atual de risco</h2>
+              <p className="mt-1 text-[11px] text-[#6f7988]">
                 Snapshot da base — independente do período histórico abaixo. Sem score não é baixo risco.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/trabalho"
-                className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#344054] hover:bg-white"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#e4e7ec] bg-[#f4f5f6] px-2.5 text-[11px] font-semibold text-[#2e3238] hover:bg-white"
               >
                 Central de Trabalho
                 <ArrowRight className="h-3 w-3" />
               </Link>
               <Link
                 href="/alunos?tab=dados_insuficientes"
-                className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 text-[11px] font-semibold text-[#344054] hover:bg-white"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#e4e7ec] bg-[#f4f5f6] px-2.5 text-[11px] font-semibold text-[#2e3238] hover:bg-white"
               >
                 Sem score / cobertura
                 <ArrowRight className="h-3 w-3" />
@@ -372,31 +372,31 @@ function MonitoramentoPageInner() {
               ) : null}
 
               <section className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)]">
-                <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                <div className="rounded-xl border border-[#e4e7ec] bg-white p-5">
                   <div className="mb-4">
-                    <h2 className="text-[14px] font-semibold text-[#101828]">Evolução dos scores</h2>
-                    <p className="mt-1 text-[11px] text-[#667085]">Média semanal por versão do modelo</p>
+                    <h2 className="text-[14px] font-semibold text-[#1c1d1f]">Evolução dos scores</h2>
+                    <p className="mt-1 text-[11px] text-[#6f7988]">Média semanal por versão do modelo</p>
                   </div>
                   <ScoreTimeline data={data.timeline} />
                 </div>
-                <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                <div className="rounded-xl border border-[#e4e7ec] bg-white p-5">
                   <div className="mb-4">
-                    <h2 className="text-[14px] font-semibold text-[#101828]">Distribuição histórica</h2>
-                    <p className="mt-1 text-[11px] text-[#667085]">Avaliação representativa por aluno/semana</p>
+                    <h2 className="text-[14px] font-semibold text-[#1c1d1f]">Distribuição histórica</h2>
+                    <p className="mt-1 text-[11px] text-[#6f7988]">Avaliação representativa por aluno/semana</p>
                   </div>
                   <DistributionTimeline data={data.timeline} />
                 </div>
               </section>
 
-              <section className="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white">
-                <div className="border-b border-[#EAECF0] p-5">
-                  <h2 className="text-[14px] font-semibold text-[#101828]">Movimentações de risco</h2>
-                  <p className="mt-1 text-[11px] text-[#667085]">
+              <section className="overflow-hidden rounded-xl border border-[#e4e7ec] bg-white">
+                <div className="border-b border-[#e4e7ec] p-5">
+                  <h2 className="text-[14px] font-semibold text-[#1c1d1f]">Movimentações de risco</h2>
+                  <p className="mt-1 text-[11px] text-[#6f7988]">
                     Comparação entre avaliações. Delta só é legítimo quando a comparabilidade permite.
                   </p>
                 </div>
                 {movements.length === 0 ? (
-                  <div className="p-10 text-center text-[13px] text-[#667085]">
+                  <div className="p-10 text-center text-[13px] text-[#6f7988]">
                     {movementFilter
                       ? "Nenhuma movimentação com este filtro no período."
                       : "Nenhuma movimentação no período. Ausência de histórico ≠ estabilidade."}
@@ -404,7 +404,7 @@ function MonitoramentoPageInner() {
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[1100px] text-left">
-                      <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase text-[#667085]">
+                      <thead className="bg-[#f4f5f6] text-[10px] font-semibold uppercase text-[#6f7988]">
                         <tr>
                           <th className="px-5 py-3">Aluno</th>
                           <th className="px-3 py-3">Anterior</th>
@@ -416,9 +416,9 @@ function MonitoramentoPageInner() {
                           <th className="px-5 py-3">Última avaliação</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#EAECF0]">
+                      <tbody className="divide-y divide-[#e4e7ec]">
                         {movements.map((m) => (
-                          <tr key={m.student_id} className="hover:bg-[#F9FAFB]">
+                          <tr key={m.student_id} className="hover:bg-[#f4f5f6]">
                             <td className="px-5 py-3.5">
                               <button
                                 type="button"
@@ -450,7 +450,7 @@ function MonitoramentoPageInner() {
                                 {CHANGE_LABEL[m.change_type]}
                               </span>
                               {m.classification_changed ? (
-                                <p className="mt-1 text-[10px] text-[#667085]">Nível mudou</p>
+                                <p className="mt-1 text-[10px] text-[#6f7988]">Nível mudou</p>
                               ) : null}
                             </td>
                             <td className="px-3 py-3.5">
@@ -458,7 +458,7 @@ function MonitoramentoPageInner() {
                               {m.delta == null &&
                               (m.change_type === "mudanca_modelo" ||
                                 m.change_type === "sem_historico_comparavel") ? (
-                                <p className="mt-1 text-[10px] text-[#98A2B3]">Delta omitido</p>
+                                <p className="mt-1 text-[10px] text-[#9fa1a7]">Delta omitido</p>
                               ) : null}
                             </td>
                             <td className="px-3 py-3.5">
@@ -467,12 +467,12 @@ function MonitoramentoPageInner() {
                                 previous={m.previous_model_version}
                               />
                               {m.score_semantics_version ? (
-                                <p className="mt-0.5 text-[10px] text-[#98A2B3]">
+                                <p className="mt-0.5 text-[10px] text-[#9fa1a7]">
                                   {m.score_semantics_version}
                                 </p>
                               ) : null}
                             </td>
-                            <td className="px-5 py-3.5 text-[11px] text-[#667085]">
+                            <td className="px-5 py-3.5 text-[11px] text-[#6f7988]">
                               {dateTimeLabel(m.current_evaluated_at)}
                               <Link
                                 href={"/alunos/" + m.student_id}
@@ -487,8 +487,8 @@ function MonitoramentoPageInner() {
                     </table>
                   </div>
                 )}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EAECF0] px-5 py-3">
-                  <p className="text-[11px] text-[#667085]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e4e7ec] px-5 py-3">
+                  <p className="text-[11px] text-[#6f7988]">
                     Exibindo {movements.length.toLocaleString("pt-BR")} movimentações
                     {movementFilter ? " (filtradas)" : ""}
                     {data?.movements_truncated ? " · página truncada pela API" : ""}
@@ -498,7 +498,7 @@ function MonitoramentoPageInner() {
                       type="button"
                       disabled={historyQuery.isFetching}
                       onClick={() => setHistoryPage((p) => p + 1)}
-                      className="inline-flex h-9 items-center rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] font-semibold text-[#344054] hover:bg-[#F9FAFB] disabled:opacity-60"
+                      className="inline-flex h-9 items-center rounded-lg border border-[#cad0d9] bg-white px-3 text-[12px] font-semibold text-[#2e3238] hover:bg-[#f4f5f6] disabled:opacity-60"
                     >
                       {historyQuery.isFetching ? "Carregando…" : "Carregar mais avaliações"}
                     </button>
@@ -510,15 +510,15 @@ function MonitoramentoPageInner() {
                 <section className="rounded-xl border border-[#B2CCFF] bg-white p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-[14px] font-semibold text-[#101828]">Trajetória do aluno</h2>
-                      <p className="mt-1 text-[11px] text-[#667085]">
+                      <h2 className="text-[14px] font-semibold text-[#1c1d1f]">Trajetória do aluno</h2>
+                      <p className="mt-1 text-[11px] text-[#6f7988]">
                         {selectedHistoryQuery.data?.student.name || "Carregando…"}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setSelectedStudentId(null)}
-                      className="text-[11px] text-[#667085]"
+                      className="text-[11px] text-[#6f7988]"
                     >
                       Fechar
                     </button>
@@ -532,14 +532,14 @@ function MonitoramentoPageInner() {
                       <StudentAssessmentTimeline assessments={selectedHistoryQuery.data.assessments} />
                       <div className="mt-4 space-y-2">
                         {selectedHistoryQuery.data.assessments.map((a) => (
-                          <div key={a.id} className="rounded-lg border border-[#EAECF0] p-3">
+                          <div key={a.id} className="rounded-lg border border-[#e4e7ec] p-3">
                             <div className="flex justify-between gap-2">
                               <span className="text-[12px] font-semibold">
                                 Score {scoreLabel(a.score)}
                               </span>
                               <RiskBadge level={a.risk_level} />
                             </div>
-                            <p className="mt-1 text-[10px] text-[#667085]">
+                            <p className="mt-1 text-[10px] text-[#6f7988]">
                               {dateTimeLabel(a.evaluated_at)}
                             </p>
                             <AssessmentModelLine a={a} />
@@ -554,23 +554,23 @@ function MonitoramentoPageInner() {
           )
         )}
 
-        <details className="group rounded-xl border border-[#E5E7EB] bg-white open:shadow-sm">
+        <details className="group rounded-xl border border-[#e4e7ec] bg-white open:shadow-sm">
           <summary className="cursor-pointer list-none px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-[14px] font-semibold text-[#101828]">
+                <h2 className="text-[14px] font-semibold text-[#1c1d1f]">
                   Analytics de intervenções
-                  <span className="ml-2 text-[11px] font-medium text-[#98A2B3]">(secundário)</span>
+                  <span className="ml-2 text-[11px] font-medium text-[#9fa1a7]">(secundário)</span>
                 </h2>
-                <p className="mt-1 text-[11px] text-[#667085]">
+                <p className="mt-1 text-[11px] text-[#6f7988]">
                   Métricas de retenção no período — não substituem a evolução de risco acima.
                 </p>
               </div>
-              <span className="text-[11px] font-semibold text-[#2563EB] group-open:hidden">Expandir</span>
-              <span className="hidden text-[11px] font-semibold text-[#667085] group-open:inline">Recolher</span>
+              <span className="text-[11px] font-semibold text-[#266df0] group-open:hidden">Expandir</span>
+              <span className="hidden text-[11px] font-semibold text-[#6f7988] group-open:inline">Recolher</span>
             </div>
           </summary>
-          <div className="border-t border-[#E5E7EB] px-5 pb-5 pt-4">
+          <div className="border-t border-[#e4e7ec] px-5 pb-5 pt-4">
             <RetentionAnalyticsPanel days={Number(period)} />
           </div>
         </details>
