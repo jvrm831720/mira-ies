@@ -420,7 +420,7 @@ export function PermanenceResultsPage() {
 
   return (
     <>
-      <Header title="Resultados de permanência" subtitle="Desfechos acadêmicos confirmados, separados dos indicadores operacionais." />
+      <Header title="Resultados de permanência" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
         <section className="flex flex-col gap-3 border-b border-[#e4e7ec] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -490,7 +490,7 @@ export function PermanenceResultsPage() {
               aria-selected={tab === "operational"}
               aria-controls="panel-operational"
               onClick={() => setTab("operational")}
-              className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold ${tab === "operational" ? "bg-[#266df0] text-white" : "text-[#475467] hover:bg-[#f4f5f6]"}`}
+              className={`inline-flex h-10 items-center gap-2 border-b-2 px-0 text-[12px] font-medium transition ${tab === "operational" ? "border-[#1c1d1f] text-[#1c1d1f]" : "border-transparent text-[#6f7988] hover:text-[#1c1d1f]"}`}
             >
               <Activity className="h-3.5 w-3.5" /> Resultados operacionais
             </button>
