@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     student_portal_enabled: bool = False
     native_academic_catalog_enabled: bool = False
     native_academic_services_enabled: bool = False
+    student_finance_reconciliation_enabled: bool = False
     student_finance_composio_enabled: bool = False
     student_finance_composio_read_tools: str = ""
     student_document_attestation_enabled: bool = False
