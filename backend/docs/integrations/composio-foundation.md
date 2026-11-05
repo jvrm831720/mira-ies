@@ -34,7 +34,7 @@ Audit trail MIRA (metadata only; append-only)
 ## Identidade e isolamento
 
 - O primeiro modelo é **workspace-owned / tenant-owned**: cada instituição tem uma identidade Composio estável e isolada.
-- O identificador é derivado de `tenant_id` com HMAC e segredo do backend. Não usar e-mail, nome, slug, identificador fornecido pelo navegador ou ID global compartilhado.
+- O identificador é derivado de `tenant_id` com HMAC e `COMPOSIO_IDENTITY_SECRET`, dedicado e estável (não depende da rotação de `SECRET_KEY`). Não usar e-mail, nome, slug, identificador fornecido pelo navegador ou ID global compartilhado.
 - A identidade é determinística para que sessões e conexões sejam reutilizadas entre requisições.
 - Conexões de colaboradores individuais exigem um modelo separado e explícito. Não reutilizar automaticamente a conexão pessoal de um membro como conexão institucional.
 - O backend sempre deriva o tenant do `AuthContext`. Nunca aceitar `tenant_id`, `composio_user_id` ou `connected_account_id` como autoridade enviada pelo cliente.
@@ -81,6 +81,7 @@ Variáveis reservadas:
 
 - `COMPOSIO_ENABLED=false` — default fail-closed.
 - `COMPOSIO_API_KEY=` — secret do backend; não versionar.
+- `COMPOSIO_IDENTITY_SECRET=` — segredo dedicado e estável para derivar IDs opacos; não reutilizar `SECRET_KEY` e não rotacionar sem plano de migração de identidades.
 - `COMPOSIO_CALLBACK_URL=` — callback HTTPS da aplicação quando o fluxo OAuth for implementado.
 - `COMPOSIO_ALLOWED_TOOLKITS=` — allowlist inicial explícita, vazia por padrão.
 
