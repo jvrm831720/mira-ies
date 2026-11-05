@@ -168,7 +168,7 @@ def upgrade():
             ["tenant_id", "profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"],
             name="fk_mira_finance_case_profile_tenant",
         ),
-        sa.CheckConstraint("step ~ '^[a-z][a-z0-9_]{0,23}", name="ck_mira_finance_case_step"),
+        sa.CheckConstraint("step ~ '^[a-z][a-z0-9_]{0,23}$'", name="ck_mira_finance_case_step"),
     )
     op.create_index("ix_mira_finance_case_tenant_step", "mira_finance_review_cases", ["tenant_id", "step"])
 
