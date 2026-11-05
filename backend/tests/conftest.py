@@ -110,6 +110,19 @@ async def _prepare_test_database():
 async def _clean_tables():
     yield
     async with db_session_module.engine.begin() as conn:
+        # Dispatch uses SQL-only, RLS-protected tables. Clear them before
+        # ORM tenants: audit triggers reject DELETE, but TRUNCATE is allowed
+        # only here against the disposable test database.
+        from sqlalchemy import text
+        exists = await conn.scalar(text("SELECT to_regclass('public.dispatch_campaigns')"))
+        if exists:
+            await conn.execute(text("""
+                TRUNCATE TABLE
+                  dispatch_inbound, dispatch_payment_events, dispatch_events,
+                  dispatch_items, dispatch_worker_heartbeats, dispatch_suppressions,
+                  dispatch_rate_buckets, dispatch_external_contacts,
+                  dispatch_obligations, dispatch_campaigns
+            """))
         for table in reversed(db_session_module.Base.metadata.sorted_tables):
             await conn.execute(table.delete())
 
