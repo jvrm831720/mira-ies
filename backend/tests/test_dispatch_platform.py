@@ -18,6 +18,37 @@ from alembic.operations import Operations
 from sqlalchemy import text
 
 
+from datetime import timedelta
+from uuid import uuid4
+from app.core.config import get_settings
+
+
+@pytest.fixture(autouse=True)
+def dispatch_trusted_test_source(monkeypatch):
+    # Test-only authorization registry; no production source is implicitly trusted.
+    monkeypatch.setattr(get_settings(), "dispatch_trusted_authorization_sources", "test_registry")
+
+
+async def seed_authorizations(db, tenant_id: str, references: list[str],
+                              evidence: str, purpose: str = "retention") -> None:
+    from app.services import dispatch_core as core
+    await core.bind_tenant(db, tenant_id)
+    now = datetime.now(timezone.utc)
+    for ref in references:
+        await db.execute(text("""
+            INSERT INTO dispatch_authorizations (
+                id,tenant_id,subject_type,subject_ref,channel,purpose,
+                evidence_ref,source,status,verified_at,expires_at
+            ) VALUES (:id,:tenant,'student',:ref,'email',:purpose,
+                      :evidence,'test_registry','granted',:verified,:expires)
+        """), {
+            "id":str(uuid4()),"tenant":tenant_id,"ref":ref,"purpose":purpose,
+            "evidence":evidence,"verified":now,
+            "expires":now+timedelta(days=7),
+        })
+    await db.commit()
+
+
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def dispatch_schema(_prepare_test_database):
     """Existing tests use metadata.create_all; materialize unmapped dispatch tables."""
@@ -155,6 +186,9 @@ async def test_outbox_deduplication_approval_and_simulated_send(
         template_body="Olá {nome}, fale com nossa equipe.",
     )
     campaign_id = str(campaign["id"])
+    await seed_authorizations(
+        db_session, tenant_row.id, [student.id], "contact-reference-001",
+    )
     target = {
         "subject_type": "student", "subject_ref": student.id,
         "consent_ref": "contact-reference-001",
@@ -231,6 +265,7 @@ async def test_stale_sending_becomes_unknown_never_requeued(db_session, tenant):
         template_ref="Aviso", template_body="Mensagem de teste",
     )
     campaign_id = str(campaign["id"])
+    await seed_authorizations(db_session, org.id, [student.id], "reference-unknown")
     await core.enqueue_recipients(
         db_session, tenant_id=org.id, campaign_id=campaign_id,
         targets=[{"subject_type":"student","subject_ref":student.id,
@@ -387,6 +422,7 @@ async def test_signed_gateway_never_counts_reply_as_payment(
         name="Reply test", purpose="retention", channel="email",
         template_ref="Aviso", template_body="Mensagem",
     )
+    await seed_authorizations(db_session, org.id, [student.id], "contact-policy-0001")
     await core.enqueue_recipients(
         db_session, tenant_id=org.id, campaign_id=str(campaign["id"]),
         targets=[{
@@ -465,6 +501,10 @@ async def test_concurrent_workers_claim_disjoint_items(db_session, tenant):
         template_ref="Template de simulação", template_body="Olá {nome}.",
     )
     campaign_id = str(campaign["id"])
+    await seed_authorizations(
+        db_session, org.id, [student.id for student in students],
+        "test-authorized-record",
+    )
     staged = await core.enqueue_recipients(
         db_session, tenant_id=org.id, campaign_id=campaign_id,
         targets=[{
