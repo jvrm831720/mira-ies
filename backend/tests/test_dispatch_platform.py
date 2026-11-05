@@ -683,3 +683,232 @@ async def test_workspace_provider_credentials_are_encrypted_and_separated(db_ses
     """),{"tenant":a.id})).scalar_one()
     assert "re_key-for-example" not in cipher
     assert "whsec_for-example" not in cipher
+
+
+@pytest.mark.asyncio
+async def test_dispatch_source_registry_uses_existing_workspace_connections(
+    db_session, tenant_factory, monkeypatch,
+):
+    """Composio is metadata-only: account + toolkit policy + tenant are required."""
+    from types import SimpleNamespace
+    from app.models.composio_connection import (
+        TenantComposioAccount, TenantComposioToolkitPolicy,
+    )
+    from app.models.jacad_connection import TenantJacadConnection
+    from app.models.student import UploadBatch
+    from app.services import dispatch_sources as sources
+
+    tenant_a, _ = await tenant_factory("dispatch-source-a", "Source A")
+    tenant_b, _ = await tenant_factory("dispatch-source-b", "Source B")
+    settings = SimpleNamespace(
+        composio_enabled=True, composio_api_key="test-not-real",
+        composio_identity_secret="x" * 40,
+        composio_allowed_toolkits="gmail",
+        composio_tool_execution_enabled=False,
+    )
+    monkeypatch.setattr(sources, "get_settings", lambda: settings)
+
+    batch = UploadBatch(
+        tenant_id=tenant_a.id, filename="local.csv", original_filename="local.csv",
+        status="processed",
+    )
+    db_session.add(batch)
+    account = TenantComposioAccount(
+        tenant_id=tenant_a.id, toolkit_slug="gmail",
+        connected_account_id="test-connected-account-a",
+        status="active", display_name="Workspace Gmail",
+    )
+    policy = TenantComposioToolkitPolicy(
+        tenant_id=tenant_a.id, toolkit_slug="gmail",
+        is_enabled=True, tool_slugs=["GMAIL_LIST_MESSAGES"],
+    )
+    native = TenantJacadConnection(
+        tenant_id=tenant_a.id, base_url="https://example.test",
+        encrypted_api_token="test-secret-encrypted", status="configured",
+        is_enabled=True, last_tested_at=datetime.now(timezone.utc),
+    )
+    db_session.add_all([account, policy, native])
+    await db_session.commit()
+    await db_session.refresh(batch)
+
+    valid = await sources.require_source(
+        db_session, tenant_id=tenant_a.id, kind="composio",
+        reference="test-connected-account-a", tool_slug="GMAIL_LIST_MESSAGES",
+    )
+    assert valid.available
+    assert not (await sources.require_source(
+        db_session, tenant_id=tenant_b.id, kind="composio",
+        reference="test-connected-account-a", tool_slug="GMAIL_LIST_MESSAGES",
+    )).available
+    assert not (await sources.require_source(
+        db_session, tenant_id=tenant_a.id, kind="composio",
+        reference="test-connected-account-a", tool_slug="GMAIL_SEND_EMAIL",
+    )).available
+    assert (await sources.require_source(
+        db_session, tenant_id=tenant_a.id, kind="native",
+        reference="jacad",
+    )).available
+    assert not (await sources.require_source(
+        db_session, tenant_id=tenant_b.id, kind="native",
+        reference="jacad",
+    )).available
+    assert (await sources.require_source(
+        db_session, tenant_id=tenant_a.id, kind="manual",
+        reference=batch.id,
+    )).available
+    assert not (await sources.require_source(
+        db_session, tenant_id=tenant_b.id, kind="manual",
+        reference=batch.id,
+    )).available
+    catalog = await sources.list_sources(db_session, tenant_id=tenant_a.id)
+    assert not catalog["composio_tool_execution_enabled"]
+    linked = [item for item in catalog["items"] if item["kind"] == "composio"]
+    assert len(linked) == 1
+    assert linked[0]["can_bind"]
+    assert linked[0]["automatic_ingestion"] is False
+    assert "test-secret-encrypted" not in str(catalog)
+
+    account.status = "revoked"
+    await db_session.commit()
+    assert not (await sources.require_source(
+        db_session, tenant_id=tenant_a.id, kind="composio",
+        reference="test-connected-account-a", tool_slug="GMAIL_LIST_MESSAGES",
+    )).available
+
+
+@pytest.mark.asyncio
+async def test_approved_mira_proposal_reuses_governance_and_unique_outbox(
+    db_session, tenant,
+):
+    from app.models.student import Student, UploadBatch
+    from app.models.retention_campaign import RetentionCampaignProposal
+    from app.services.campaign_proposals import hash_audience_snapshot
+    from app.services.dispatch_proposals import materialize_proposal
+    from app.services.dispatch_sources import require_source
+    from app.services.dispatch_core import bind_tenant
+
+    org, _ = tenant
+    batch = UploadBatch(
+        tenant_id=org.id, filename="retention.csv",
+        original_filename="retention.csv", status="processed",
+    )
+    db_session.add(batch)
+    await db_session.flush()
+    student = Student(
+        tenant_id=org.id, batch_id=batch.id,
+        matricula="BRIDGE-001", nome="Ana", email="ana@example.test",
+        communication_preferences={
+            "channels": {"email": True},
+            "topics": {"retention": True},
+        },
+    )
+    db_session.add(student)
+    await db_session.flush()
+
+    snapshot = [{
+        "student_id": student.id,
+        "matched_group_ids": ["risk_increase"],
+        "eligible_channels": ["email"],
+        "blocked_reasons": [],
+        "internal_action_only": False,
+    }]
+    checksum = hash_audience_snapshot(snapshot)
+    now = datetime.now(timezone.utc)
+    proposal = RetentionCampaignProposal(
+        tenant_id=org.id, status="approved",
+        title="Permanência — alunos com risco",
+        source_group_ids=["risk_increase"],
+        source_catalog_version="2026", recommendation_engine="test",
+        source_evaluated_at=now, objective="Reduzir evasão",
+        strategy="Contato autorizado", recommended_channels=["email"],
+        cadence_days=[0], message_brief="Acompanhamento acadêmico",
+        audience_snapshot=snapshot, audience_hash=checksum,
+        audience_total=1, outreach_eligible_count=1, blocked_count=0,
+        internal_action_count=0, created_by="creator-a", approved_by="reviewer-b",
+        approved_at=now, authorization_status="institution_attested",
+        authorization_basis="institutional_test_policy",
+        authorization_reference="institutional-evidence-2026",
+        authorization_attested_by="reviewer-b",
+        authorization_attested_at=now,
+    )
+    db_session.add(proposal)
+    await db_session.commit()
+    await db_session.refresh(proposal)
+    await seed_authorizations(
+        db_session, org.id, [student.id], "student-retention-basis",
+    )
+    await bind_tenant(db_session, org.id)
+    template_id = str(uuid4())
+    await db_session.execute(text("""
+        INSERT INTO dispatch_approved_templates (
+            id,tenant_id,code,purpose,channel,subject,body,
+            status,created_by,approved_by,approved_at
+        ) VALUES (
+            :id,:tenant,'retention-approved','retention','email',
+            'Acompanhamento acadêmico','Olá {nome}, podemos ajudar?',
+            'approved','template-author','template-approver',now()
+        )
+    """), {"id": template_id, "tenant": org.id})
+    await db_session.commit()
+
+    first = await materialize_proposal(
+        db_session, tenant_id=org.id, actor="operator-c",
+        proposal_id=proposal.id, template_id=template_id,
+    )
+    assert first["status"] == "approved"
+    assert first["selected_count"] == 1
+    assert not first["deduplicated"]
+    repeated = await materialize_proposal(
+        db_session, tenant_id=org.id, actor="operator-c",
+        proposal_id=proposal.id, template_id=template_id,
+    )
+    assert repeated["id"] == first["id"]
+    assert repeated["deduplicated"]
+    await bind_tenant(db_session, org.id)
+    row = (await db_session.execute(text("""
+        SELECT source_kind,origin_proposal_id,origin_snapshot_hash,
+               approved_by,status FROM dispatch_campaigns
+        WHERE tenant_id=:tenant AND id=:id
+    """), {"tenant": org.id, "id": first["id"]})).mappings().one()
+    assert row["source_kind"] == "retention_proposal"
+    assert str(row["origin_proposal_id"]) == proposal.id
+    assert row["origin_snapshot_hash"] == checksum
+    assert row["approved_by"] == "reviewer-b"
+    assert (await db_session.execute(text("""
+        SELECT count(*) FROM dispatch_items WHERE tenant_id=:tenant AND campaign_id=:id
+    """), {"tenant": org.id, "id": first["id"]})).scalar_one() == 1
+    state = await require_source(
+        db_session, tenant_id=org.id, kind="retention_proposal",
+        reference=proposal.id, snapshot_hash=checksum,
+    )
+    assert state.available
+
+    proposal.status = "changes_requested"
+    await db_session.commit()
+    state = await require_source(
+        db_session, tenant_id=org.id, kind="retention_proposal",
+        reference=proposal.id, snapshot_hash=checksum,
+    )
+    assert not state.available
+
+
+@pytest.mark.asyncio
+async def test_retention_proposal_bridge_denies_unapproved_or_cross_tenant(
+    db_session, tenant_factory,
+):
+    from app.services.dispatch_proposals import materialize_proposal
+    from app.services.dispatch_sources import require_source
+
+    a, _ = await tenant_factory("bridge-a", "Bridge A")
+    b, _ = await tenant_factory("bridge-b", "Bridge B")
+    assert not (await require_source(
+        db_session, tenant_id=a.id, kind="retention_proposal",
+        reference="00000000-0000-0000-0000-000000000001",
+        snapshot_hash="0" * 64,
+    )).available
+    with pytest.raises(LookupError):
+        await materialize_proposal(
+            db_session, tenant_id=b.id, actor="reviewer",
+            proposal_id="00000000-0000-0000-0000-000000000001",
+            template_id="00000000-0000-0000-0000-000000000002",
+        )
