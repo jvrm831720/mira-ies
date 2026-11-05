@@ -434,7 +434,6 @@ async def review_tool_approval(
     row.reviewed_at = now
     db.add(_approval_audit(tenant_id=auth.tenant_id, actor_user_id=auth.user_id, row=row, approval_status=row.status))
     await db.commit()
-    await db.refresh(row)
     return _approval_response(row)
 
 
@@ -464,5 +463,4 @@ async def cancel_tool_approval(
     row.status = "cancelled"
     db.add(_approval_audit(tenant_id=auth.tenant_id, actor_user_id=auth.user_id, row=row, approval_status="cancelled"))
     await db.commit()
-    await db.refresh(row)
     return _approval_response(row)
