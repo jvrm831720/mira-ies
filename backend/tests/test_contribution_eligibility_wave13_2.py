@@ -202,6 +202,18 @@ async def test_shared_training_eligible_contribution(db_session, tenant_factory)
     )
     assert revoked.status == "revoked"
 
+    # Replaying the same data after revocation must fail closed.
+    with pytest.raises(ContributionBlockedError, match="Revoked contribution"):
+        await assess_contribution(
+            db_session,
+            tenant_id=tenant.id,
+            contribution_key="batch-shared-1",
+            source_dataset_ref="test-dataset://a",
+            source_rows=[_clean_row(), _clean_row(label=1)],
+            assessed_by_admin_id=admin.id,
+            approval_reason="attempt to reuse revoked data",
+        )
+
     with pytest.raises(ValueError, match="Nenhuma contribuição elegível"):
         await build_shared_training_dataset(
             db_session,

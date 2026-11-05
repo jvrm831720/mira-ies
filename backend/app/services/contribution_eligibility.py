@@ -140,6 +140,19 @@ async def assess_contribution(
         await session.commit()
         raise ContributionBlockedError(sanitization.rejection_reason or "Sanitization failed.")
 
+    # A revoked contribution must never become eligible again through an old
+    # idempotency key. The audit trail is immutable and keeps the original row.
+    revoked = await session.execute(
+        select(EligibleContribution.id).where(
+            EligibleContribution.tenant_id == tenant_id,
+            EligibleContribution.contribution_key == contribution_key,
+            EligibleContribution.sanitized_content_hash == sanitization.content_hash,
+            EligibleContribution.eligibility_status == "revoked",
+        ).limit(1)
+    )
+    if revoked.scalar_one_or_none() is not None:
+        raise ContributionBlockedError("Revoked contribution cannot be reused.")
+
     # 3) Idempotency — same tenant + key + hash already eligible
     existing = await session.execute(
         select(EligibleContribution).where(
