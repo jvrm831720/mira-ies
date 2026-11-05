@@ -52,3 +52,22 @@ def test_composio_tool_selection_is_validated_against_toolkit(monkeypatch):
     assert client.validate_tool_slugs("gmail", ["gmail_fetch_emails"]) == ["GMAIL_FETCH_EMAILS"]
     with pytest.raises(ValueError, match="não pertencem"):
         client.validate_tool_slugs("gmail", ["SLACK_SEND_MESSAGE"])
+
+
+
+def test_composio_endpoints_require_settings_manage_for_custom_roles():
+    from starlette.requests import Request
+
+    from app.core.auth import _permission_for_request
+
+    request = Request({
+        "type": "http",
+        "method": "GET",
+        "path": "/api/v1/integrations/composio/catalog",
+        "headers": [],
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("test", 123),
+        "scheme": "http",
+    })
+    assert _permission_for_request(request) == "settings.manage"
