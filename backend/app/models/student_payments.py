@@ -17,6 +17,7 @@ class StudentPaymentConnector(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_payment_connector_tenant_id"),
         UniqueConstraint("tenant_id", "name", name="uq_mira_payment_connector_tenant_name"),
+        UniqueConstraint("tenant_id", "finance_profile_id", "destination_wallet_id", name="uq_mira_payment_finance_destination"),
         ForeignKeyConstraint(["tenant_id", "finance_profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"], name="fk_mira_payment_connector_finance_tenant"),
         CheckConstraint("mode = 'sandbox'", name="ck_mira_payment_connector_sandbox"),
         CheckConstraint("provider_slug = 'asaas'", name="ck_mira_payment_connector_asaas"),

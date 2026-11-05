@@ -41,11 +41,18 @@ def test_amount_cannot_be_invented_by_client_or_round_partial():
         payment.amount_for_observation(observation(amount="100.005", paid="0"))
 
 
-def test_provider_slugs_are_metadata_not_arbitrary_python():
-    assert payment.validate_provider_name("Campus A PSP", "stripe") == ("Campus A PSP", "stripe")
-    for bad in ("", "__import__", "STRIPE", "../psp", "a", "stripe-url"):
+def test_asaas_split_is_fixed_to_100_percent_of_net_and_requires_wallet():
+    destination = str(uuid4())
+    assert payment.normalize_destination_wallet(destination) == destination
+    assert payment.build_asaas_charge_split(destination) == {
+        "split": [{"walletId": destination, "percentualValue": 100}]
+    }
+    assert "fixedValue" not in payment.build_asaas_charge_split(destination)["split"][0]
+    with pytest.raises(payment.PaymentPreparationDenied, match="próprio split"):
+        payment.normalize_destination_wallet(destination, issuer_wallet_id=destination)
+    for bad in ("", "__import__", "STRIPE", "../psp", "123456-7", str(uuid4()) + "x", str(uuid4()).replace("a","Z")):
         with pytest.raises(payment.PaymentPreparationDenied):
-            payment.validate_provider_name("Example Provider", bad)
+            payment.normalize_destination_wallet(bad)
 
 
 def test_payments_disabled_by_default(monkeypatch):
@@ -108,13 +115,16 @@ async def test_two_providers_and_two_person_approval_without_payment(db_session,
     )
     proposer, reviewer = str(uuid4()), str(uuid4())
     one = await payment.create_connector(db_session, tenant_id=tenant_id, actor_id=proposer,
-                                         name="PSP A", provider_slug="stripe",
+                                         destination_wallet_id=str(uuid4()),
                                          finance_profile_id=profile_id)
     two = await payment.create_connector(db_session, tenant_id=tenant_id, actor_id=proposer,
-                                         name="PSP B", provider_slug="custom_psp",
+                                         destination_wallet_id=str(uuid4()),
                                          finance_profile_id=profile_id)
     assert one.id != two.id
     assert one.mode == "sandbox" and not one.enabled
+    assert one.provider_slug == two.provider_slug == "asaas"
+    assert one.destination_verification_status == "pending"
+    assert one.destination_wallet_id != two.destination_wallet_id
     one = await payment.toggle_connector(db_session, tenant_id=tenant_id, connector_id=one.id,
                                          expected_version=1, enabled=True)
     two = await payment.toggle_connector(db_session, tenant_id=tenant_id, connector_id=two.id,
@@ -167,7 +177,7 @@ async def test_foreign_tenant_obligation_never_creates_payment(db_session, tenan
     )
     actor = str(uuid4())
     connector = await payment.create_connector(db_session, tenant_id=my_tenant, actor_id=actor,
-                                               name="Tenant PSP", provider_slug="stripe",
+                                               destination_wallet_id=str(uuid4()),
                                                finance_profile_id=my_profile)
     connector = await payment.toggle_connector(db_session, tenant_id=my_tenant,
                                                connector_id=connector.id,

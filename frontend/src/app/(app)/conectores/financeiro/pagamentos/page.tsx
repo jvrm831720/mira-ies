@@ -18,8 +18,7 @@ export default function PaymentPreparationPage() {
   const [orders, setOrders] = useState<PaymentProposal[]>([]);
   const [observations, setObservations] = useState<PaymentObservation[]>([]);
   const [selected, setSelected] = useState("");
-  const [newName, setNewName] = useState("");
-  const [providerSlug, setProviderSlug] = useState("stripe");
+  const [destinationWalletId, setDestinationWalletId] = useState("");
   const [financeSourceId, setFinanceSourceId] = useState("");
   const [observationId, setObservationId] = useState("");
   const [reason, setReason] = useState("Revisão e autorização institucional em sandbox.");
@@ -72,29 +71,29 @@ export default function PaymentPreparationPage() {
   ));
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
-      <Header title="Preparação de pagamentos" subtitle="Workspaces adaptáveis · propostas seguras · aprovação humana" />
+      <Header title="Asaas • Repasse para a IES" subtitle="Carteira de destino · 100% do líquido · aprovação segura" />
       <main className="mx-auto max-w-[1180px] space-y-5 px-5 py-7 md:px-8">
         <Link href="/conectores/financeiro" className="text-[12px] font-medium text-[#2563EB]">
           Fontes financeiras / Preparação
         </Link>
         <section className="rounded-xl border border-[#EAECF0] bg-white p-4">
           <h2 className="text-[13px] font-semibold text-[#101828]">Sandbox — nenhuma movimentação de dinheiro</h2>
-          <p className="mt-1 text-[12px] text-[#667085]">{legal} Provedores apresentados são perfis de planejamento; não representam contas PSP homologadas.</p>
+          <p className="mt-1 text-[12px] text-[#667085]">{legal} O split é de 100% do valor líquido (após taxas do Asaas), para a carteira validada da IES. Um walletId informado não é prova de titularidade; nenhum repasse real será executado.</p>
         </section>
         {error && <p role="alert" className="rounded-lg border border-[#FDA29B] bg-[#FFFBFA] p-3 text-[12px] text-[#B42318]">{error}</p>}
         {message && <p role="status" className="rounded-lg border border-[#EAECF0] bg-white p-3 text-[12px] text-[#344054]">{message}</p>}
         <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
           <div className="space-y-5">
             <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-              <h2 className="text-[14px] font-semibold text-[#101828]">Perfis de provedor</h2>
-              <p className="mt-1 text-[11px] text-[#667085]">Múltiplos perfis por workspace, vinculados às fontes da Wave 4C.</p>
+              <h2 className="text-[14px] font-semibold text-[#101828]">Destinos Asaas</h2>
+              <p className="mt-1 text-[11px] text-[#667085]">Cada workspace pode ter várias fontes financeiras; o destino precisa ser uma conta Asaas da instituição.</p>
               <div className="mt-4 space-y-2">
                 {connectors.map((item) => <button key={item.id} type="button" onClick={() => setSelected(item.id)}
                   className={"w-full rounded-lg border p-3 text-left " + (selected === item.id ? "border-[#2563EB] bg-[#EFF4FF]" : "border-[#EAECF0]")}>
                   <span className="flex items-center justify-between text-[12px] font-semibold text-[#344054]">
                     {item.name}<span className="text-[10px] font-normal">{item.enabled ? "Preparação ativa" : "Desabilitada"}</span>
                   </span>
-                  <p className="mt-1 text-[11px] text-[#667085]">{item.provider_slug} · sandbox</p>
+                  <p className="mt-1 text-[11px] text-[#667085]">Asaas • carteira {item.destination_wallet_id.slice(0, 8)}… • {item.destination_verification_status === "pending" ? "aguardando validação" : item.destination_verification_status}</p>
                 </button>)}
                 {loading && <p className="text-[11px] text-[#667085]">Carregando...</p>}
                 {!loading && connectors.length === 0 && <p className="text-[11px] text-[#667085]">Nenhum PSP preparado.</p>}
@@ -106,13 +105,11 @@ export default function PaymentPreparationPage() {
               </button>}
             </section>
             <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-              <h2 className="text-[14px] font-semibold text-[#101828]">Novo perfil</h2>
+              <h2 className="text-[14px] font-semibold text-[#101828]">Conta de destino da IES</h2>
+              <p className="mt-1 text-[11px] text-[#667085]">Informe somente o walletId da conta Asaas que receberá os pagamentos. A MIRA fixa o split em 100% do valor líquido.</p>
               <div className="mt-3 space-y-3">
-                <label className="block text-[12px] font-medium text-[#344054]">Nome
-                  <input className={"mt-1 " + field} value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex.: PSP Campus A" maxLength={100} />
-                </label>
-                <label className="block text-[12px] font-medium text-[#344054]">Identificador do PSP (somente metadados)
-                  <input className={"mt-1 " + field} value={providerSlug} onChange={(e) => setProviderSlug(e.target.value)} placeholder="stripe" maxLength={60} />
+                <label className="block text-[12px] font-medium text-[#344054]">Carteira de destino Asaas (walletId)
+                  <input className={"mt-1 " + field} value={destinationWalletId} onChange={(e) => setDestinationWalletId(e.target.value.trim())} placeholder="00000000-0000-4000-8000-000000000000" maxLength={36} />
                 </label>
                 <label className="block text-[12px] font-medium text-[#344054]">Fonte financeira vinculada
                   <select className={"mt-1 " + field} value={financeSourceId} onChange={(e) => setFinanceSourceId(e.target.value)}>
@@ -121,17 +118,17 @@ export default function PaymentPreparationPage() {
                   </select>
                 </label>
               </div>
-              <button type="button" className={"mt-4 " + button} disabled={busy || newName.trim().length < 3 || !financeSourceId}
+              <button type="button" className={"mt-4 " + button} disabled={busy || !destinationWalletId || !financeSourceId}
                 onClick={() => void act(
-                  () => paymentPreparationApi.createConnector({ name: newName, provider_slug: providerSlug, finance_profile_id: financeSourceId }),
-                  "Perfil criado desabilitado; nenhum PSP foi conectado.",
+                  () => paymentPreparationApi.createConnector({ destination_wallet_id: destinationWalletId, finance_profile_id: financeSourceId }),
+                  "Destino Asaas salvo como pendente de validação. Ainda não foi conectado nem habilitado para cobranças reais.",
                 )}>Criar perfil sandbox</button>
             </section>
           </div>
           <div className="space-y-5">
             <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-              <h2 className="text-[14px] font-semibold text-[#101828]">Preparar proposta</h2>
-              <p className="mt-1 text-[12px] text-[#667085]">O valor vem da última observação da fonte; o operador não o informa.</p>
+              <h2 className="text-[14px] font-semibold text-[#101828]">Preparar proposta Asaas</h2>
+              <p className="mt-1 text-[12px] text-[#667085]">O valor vem da fonte financeira. A regra futura será 100% do líquido para a IES; o split permanece não executado.</p>
               <label className="mt-4 block text-[12px] font-medium text-[#344054]">Obrigação financeira
                 <select className={"mt-1 " + field} value={observationId} onChange={(e) => setObservationId(e.target.value)}>
                   <option value="">Selecione uma obrigação elegível</option>

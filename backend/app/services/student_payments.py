@@ -53,10 +53,11 @@ def normalize_destination_wallet(wallet_id: str, issuer_wallet_id: str | None = 
         raise PaymentPreparationDenied("Carteira de destino inválida.")
     if issuer_wallet_id:
         try:
-            if wallet == UUID(str(issuer_wallet_id)):
-                raise PaymentPreparationDenied("A carteira emissora não pode receber seu próprio split.")
-        except ValueError as exc:
+            issuer = UUID(str(issuer_wallet_id))
+        except (ValueError, TypeError, AttributeError) as exc:
             raise PaymentPreparationDenied("Carteira da conta emissora não configurada corretamente.") from exc
+        if wallet == issuer:
+            raise PaymentPreparationDenied("A carteira emissora não pode receber seu próprio split.")
     return str(wallet)
 
 
@@ -84,7 +85,7 @@ async def create_connector(
     destination_wallet_id: str, finance_profile_id: str,
 ) -> StudentPaymentConnector:
     require_enabled()
-    destination = normalize_destination_wallet(destination_wallet_id, get_settings().asaas_issuer_wallet_id)
+    destination = normalize_destination_wallet(destination_wallet_id, getattr(get_settings(), "asaas_issuer_wallet_id", None))
     await bind_tenant(db, tenant_id)
     finance = (await db.execute(select(FinanceSourceProfile).where(
         FinanceSourceProfile.tenant_id == tenant_id,
@@ -93,7 +94,9 @@ async def create_connector(
     if finance is None:
         raise PaymentPreparationDenied("Fonte financeira inexistente no workspace.")
     connector = StudentPaymentConnector(
-        tenant_id=tenant_id, name="Asaas • " + destination.split("-")[0], provider_slug="asaas",
+        tenant_id=tenant_id,
+        name="Asaas • " + finance.name[:55] + " • " + destination.split("-")[0],
+        provider_slug="asaas",
         destination_wallet_id=destination, destination_verification_status="pending",
         finance_profile_id=finance_profile_id, mode="sandbox", enabled=False,
         created_by=actor_id, configuration_version=1,

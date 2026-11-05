@@ -27,7 +27,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export type PaymentConnector = {
-  id: string; name: string; provider_slug: string; finance_profile_id: string;
+  id: string; name: string; provider_slug: "asaas"; finance_profile_id: string;
+  destination_wallet_id: string; destination_verification_status: "pending" | "verified" | "blocked";
+  split_percentual_value: 100; split_basis: "netValue";
   mode: "sandbox"; enabled: boolean; configuration_version: number;
   payment_execution_enabled: false;
 };
@@ -43,7 +45,7 @@ export type PaymentObservation = {
 };
 export const paymentPreparationApi = {
   connectors: () => request<{ items: PaymentConnector[] }>(ROOT + "/connectors"),
-  createConnector: (data: { name: string; provider_slug: string; finance_profile_id: string }) =>
+  createConnector: (data: { destination_wallet_id: string; finance_profile_id: string }) =>
     request<PaymentConnector>(ROOT + "/connectors", { method: "POST", body: JSON.stringify(data) }),
   toggleConnector: (p: PaymentConnector, enabled: boolean) =>
     request<PaymentConnector>(ROOT + `/connectors/${p.id}`, {

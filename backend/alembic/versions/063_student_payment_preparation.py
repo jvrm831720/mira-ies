@@ -45,6 +45,7 @@ def upgrade():
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint("tenant_id","id",name="uq_mira_payment_connector_tenant_id"),
         sa.UniqueConstraint("tenant_id","name",name="uq_mira_payment_connector_tenant_name"),
+        sa.UniqueConstraint("tenant_id","finance_profile_id","destination_wallet_id",name="uq_mira_payment_finance_destination"),
         sa.ForeignKeyConstraint(["tenant_id","finance_profile_id"],["mira_finance_source_profiles.tenant_id","mira_finance_source_profiles.id"],name="fk_mira_payment_connector_finance_tenant"),
         sa.CheckConstraint("mode = 'sandbox'",name="ck_mira_payment_connector_sandbox"),
         sa.CheckConstraint("provider_slug = 'asaas'",name="ck_mira_payment_connector_asaas"),
