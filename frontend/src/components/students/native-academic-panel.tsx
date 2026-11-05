@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
-import { BookOpenCheck, Copy, GraduationCap, LockKeyhole, ShieldCheck } from "@/components/ui/icons";
+import { Copy, GraduationCap, LockKeyhole, ShieldCheck } from "@/components/ui/icons";
 
 type EngineStatus = {
   native_academic_enabled: boolean;
