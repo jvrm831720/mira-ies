@@ -2,7 +2,7 @@
 
 ## Objetivo e limite desta entrega
 
-Esta entrega prepara a fundação da MIRA para receber o Composio. Ela **não ativa o Composio**, não cria sessões remotas, não conecta contas externas e não executa ferramentas. A integração permanece desativada por padrão até que as credenciais, políticas e fluxos de autorização sejam configurados.
+A fundação inicial foi ampliada com o SDK Python, consulta dinâmica do catálogo e política persistida por instituição. A integração permanece desativada por padrão. Esta onda ainda não cria sessões remotas, não conecta contas externas e não executa ferramentas.
 
 O Composio é a camada de descoberta, autenticação e execução de ferramentas externas. A MIRA continua sendo a autoridade sobre identidade, tenant, permissões, contexto educacional, aprovação, política de dados e auditoria.
 
@@ -39,6 +39,16 @@ Audit trail MIRA (metadata only; append-only)
 - Conexões de colaboradores individuais exigem um modelo separado e explícito. Não reutilizar automaticamente a conexão pessoal de um membro como conexão institucional.
 - O backend sempre deriva o tenant do `AuthContext`. Nunca aceitar `tenant_id`, `composio_user_id` ou `connected_account_id` como autoridade enviada pelo cliente.
 
+## Catálogo dinâmico e exposição por instituição
+
+- O backend consulta o catálogo vivo pelo SDK Python oficial (`composio==0.31.0`); não há lista fixa de fornecedores.
+- `GET /api/v1/integrations/composio/catalog` retorna o catálogo e a política da instituição autenticada.
+- `GET /api/v1/integrations/composio/catalog/{toolkit_slug}/tools` entrega os schemas para seleção granular.
+- `PUT /api/v1/integrations/composio/catalog/{toolkit_slug}/policy` persiste a habilitação do toolkit e a seleção explícita de tool slugs.
+- A política é isolada por tenant, protegida por RLS e começa desabilitada. Um toolkit só pode ser habilitado com ao menos uma ferramenta selecionada.
+- O catálogo não é uma autorização de execução. O frontend futuro poderá editar a seleção, mas o backend permanece a autoridade.
+- Os endpoints exigem a permissão administrativa settings.manage e respondem com erro fechado quando o Composio está desativado ou sem credenciais.
+
 ## Dados persistidos
 
 Migration `045_composio_foundation` cria:
@@ -46,6 +56,7 @@ Migration `045_composio_foundation` cria:
 - `tenant_composio_sessions`: identidade opaca por tenant e referência da sessão Composio.
 - `tenant_composio_accounts`: toolkit, connected account, auth config e metadados não secretos.
 - `tenant_composio_tool_audit`: ator, toolkit/tool, estado, aprovação, fingerprint e duração da execução.
+- Migration `046_composio_toolkit_policies`: seleção de toolkits e ferramentas habilitadas por tenant.
 
 Todas as tabelas têm RLS habilitado e forçado, com política baseada em `app.tenant_id`. A auditoria de execução é append-only. Não persistir access tokens, refresh tokens, API keys de terceiros, argumentos completos ou respostas completas nessas tabelas.
 
@@ -85,17 +96,16 @@ Variáveis reservadas:
 - `COMPOSIO_CALLBACK_URL=` — callback HTTPS da aplicação quando o fluxo OAuth for implementado.
 - `COMPOSIO_ALLOWED_TOOLKITS=` — allowlist inicial explícita, vazia por padrão.
 
-A fundação atual apenas valida a configuração e fornece uma identidade estável. O SDK oficial ainda não foi adicionado porque não há credencial, toolkit inicial ou fluxo de autorização aprovado nesta etapa.
+O SDK oficial está integrado ao backend, mas só é instanciado quando `COMPOSIO_ENABLED`, `COMPOSIO_API_KEY` e `COMPOSIO_IDENTITY_SECRET` estão configurados. Nenhuma chamada é feita sem essa configuração.
 
 ## Ondas de implementação após esta fundação
 
-1. **Provider SDK:** fixar versão compatível do SDK Python, criar cliente singleton, timeout e testes com mocks.
-2. **Conexões:** endpoints admin para catálogo, iniciar OAuth, callback, listar/revogar contas; tudo tenant-scoped.
-3. **Tool policy:** catálogo interno de toolkits/slugs permitidos, schemas validados e classificação de risco.
-4. **Execução:** gateway backend-only, approval gate, idempotência, rate limits e auditoria append-only.
-5. **Agente:** descoberta sob demanda de ferramentas autorizadas, sem carregar catálogo inteiro no prompt.
-6. **Triggers:** webhooks com assinatura, replay protection, deduplicação e fila; nunca confiar no payload externo como contexto autorizado.
-7. **E2E:** dois tenants, duas contas, tentativa de acesso cruzado, revogação, falha OAuth, tool read/write e aprovação.
+1. **Conexões:** endpoints admin para iniciar OAuth, callback, listar/revogar contas; tudo tenant-scoped.
+2. **Policy Engine:** classificação de risco, RBAC por ferramenta, aprovação humana e aplicação da seleção ao contexto de sessão.
+3. **Execução:** gateway backend-only, validação de argumentos, approval gate, idempotência, rate limits e auditoria append-only.
+4. **Agente:** descoberta sob demanda de ferramentas autorizadas, sem carregar catálogo inteiro no prompt.
+5. **Triggers:** webhooks com assinatura, replay protection, deduplicação e fila; nunca confiar no payload externo como contexto autorizado.
+6. **E2E:** dois tenants, duas contas, tentativa de acesso cruzado, revogação, falha OAuth, tool read/write e aprovação.
 
 ## Critérios para ativação
 
@@ -111,7 +121,8 @@ A fundação atual apenas valida a configuração e fornece uma identidade está
 
 ## Referências oficiais
 
-- Python SDK / quickstart: https://docs.composio.dev/docs/quickstart
+- Python SDK / quickstart: https://pypi.org/project/composio/
+- Configuring sessions: https://docs.composio.dev/docs/configuring-sessions
 - Authentication and user identity: https://docs.composio.dev/docs/authentication
 - Configuring sessions and tool discovery: https://docs.composio.dev/docs/configuring-sessions
 - Tools API and execution: https://docs.composio.dev/reference/api-reference/tools
