@@ -56,6 +56,9 @@ async def test_student_request_visibility_is_tenant_and_student_scoped(
     from app.models.student_services import StudentServiceRequest
     from app.models.student import Student, UploadBatch
 
+    for flag in ("native_academic_enabled", "student_portal_enabled", "native_academic_services_enabled"):
+        monkeypatch.setattr(get_settings(), flag, True)
+
     a, _ = await tenant_factory(slug="services-tenant-a")
     b, _ = await tenant_factory(slug="services-tenant-b")
     records = []
