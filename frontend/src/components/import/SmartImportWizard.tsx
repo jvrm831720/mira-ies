@@ -76,6 +76,7 @@ export function SmartImportWizard() {
   async function handleCreateField(header: string, input: { label: string; data_type: string; options?: string[]; is_pii?: boolean }) {
     setBusy(true)
     setConfirmed(false)
+    setIdempotencyKey(crypto.randomUUID())
     try {
     const created = await createCustomField({
       label: input.label,
@@ -225,6 +226,7 @@ export function SmartImportWizard() {
                         setDraft((current) => ({ ...current, [header]: event.target.value }))
                         setMappingValidated(false)
                         setConfirmed(false)
+                        setIdempotencyKey(crypto.randomUUID())
                       }}
                       className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
                     >
