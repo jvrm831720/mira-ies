@@ -6,11 +6,11 @@ from app.services.composio.categories import (
 
 
 def test_support_toolkits_receive_category_metadata():
-    for slug in ("zendesk", "zoho_desk"):
+    for slug in ("zendesk", "freshdesk", "intercom", "zoho_desk"):
         item = annotate_toolkit({"slug": slug, "name": SUPPORT_TOOLKITS[slug]["name"]})
         assert item["mira_category"] == "support"
         assert item["mira_category_label"] == "Atendimento e suporte"
-        assert item["mira_channel"] == "helpdesk"
+        assert item["mira_channel"] in {"helpdesk", "customer_messaging"}
 
 
 def test_unknown_toolkit_is_not_classified_as_support():
@@ -24,6 +24,6 @@ def test_support_category_is_catalog_only():
     assert category["slug"] == "support"
     assert category["name"] == "Atendimento e suporte"
     assert {item["slug"] for item in category["composio_toolkits"]} == {
-        "zendesk", "zoho_desk"
+        "zendesk", "freshdesk", "intercom", "zoho_desk"
     }
     assert category["native_channels"] == []
