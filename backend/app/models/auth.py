@@ -82,6 +82,33 @@ class OrganizationInvite(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
+
+
+class OnboardingSession(Base):
+    """Sessão temporária emitida após OTP para concluir o cadastro de uma nova organização.
+
+    O token bruto só é entregue uma vez; apenas seu hash é persistido.
+    """
+    __tablename__ = "mira_onboarding_sessions"
+    __table_args__ = (
+        Index("ix_mira_onboarding_sessions_email", "email"),
+        Index("ix_mira_onboarding_sessions_expires", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    draft_data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    current_step: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True)
+    tenant_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True)
+    organization_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_organizations.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
 class AuthChallenge(Base):
     """Um OTP/reset token com expiração. Identificadores e tokens nunca ficam em texto puro."""
 
