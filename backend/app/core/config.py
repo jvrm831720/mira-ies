@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     allow_force_activate: bool = True
 
     # Composio integration (fail-closed; no SDK calls until explicitly activated)
+    # MIRA-operated Frappe engine: disabled until separate private service is homologated.
+    mira_education_engine_enabled: bool = False
+    mira_education_engine_url: str | None = None
+    mira_education_engine_allowed_sites: str = ""
+
     composio_enabled: bool = False
     composio_api_key: str | None = None
     composio_identity_secret: str | None = None
