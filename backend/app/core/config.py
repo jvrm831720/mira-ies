@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     allow_force_train: bool = True
     allow_force_activate: bool = True
 
+    # Composio integration (fail-closed; no SDK calls until explicitly activated)
+    composio_enabled: bool = False
+    composio_api_key: str | None = None
+    composio_identity_secret: str | None = None
+    composio_callback_url: str | None = None
+    composio_allowed_toolkits: str = ""
+
     # Scoring
     shap_on_batch: bool = False
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
