@@ -90,6 +90,17 @@ async def _prepare_test_database():
     import app.models.composio_approval  # noqa: F401
 
     async with db_session_module.engine.begin() as sa_conn:
+        # Dispatch tables are SQL-only and intentionally not in ORM metadata.
+        # Clean them before dropping tenant/student tables (cross-table FKs).
+        from sqlalchemy import text
+        await sa_conn.execute(text("""
+            DROP TABLE IF EXISTS
+              dispatch_worker_heartbeats, dispatch_payment_events, dispatch_inbound,
+              dispatch_rate_buckets, dispatch_events, dispatch_items,
+              dispatch_external_contacts, dispatch_obligations, dispatch_campaigns
+            CASCADE
+        """))
+        await sa_conn.execute(text("DROP FUNCTION IF EXISTS dispatch_events_append_only()"))
         await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
         await sa_conn.run_sync(db_session_module.Base.metadata.create_all)
     yield
