@@ -35,6 +35,13 @@ DOCUMENT_TOOLKITS: dict[str, dict[str, str]] = {
     "dropbox": {"name": "Dropbox", "kind": "cloud_storage"},
 }
 
+DATA_ANALYSIS_TOOLKITS: dict[str, dict[str, str]] = {
+    "googlesheets": {"name": "Google Sheets", "kind": "spreadsheet"},
+    "excel": {"name": "Microsoft Excel", "kind": "spreadsheet"},
+    "airtable": {"name": "Airtable", "kind": "structured_database"},
+}
+
+
 PRODUCTIVITY_TOOLKITS: dict[str, dict[str, str]] = {
     "asana": {"name": "Asana", "kind": "project_management"},
     "trello": {"name": "Trello", "kind": "kanban"},
@@ -51,6 +58,7 @@ def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
         ("crm", "CRM e relacionamento", CRM_TOOLKITS),
         ("documents", "Documentos e arquivos", DOCUMENT_TOOLKITS),
         ("productivity", "Produtividade e tarefas", PRODUCTIVITY_TOOLKITS),
+        ("data_analysis", "Dados, planilhas e análise", DATA_ANALYSIS_TOOLKITS),
     ):
         metadata = toolkits.get(slug)
         if metadata:
@@ -92,6 +100,23 @@ def documents_category() -> dict[str, Any]:
         "composio_toolkits": [
             {"slug": slug, **metadata}
             for slug, metadata in DOCUMENT_TOOLKITS.items()
+        ],
+        "native_channels": [],
+    }
+
+
+def data_analysis_category() -> dict[str, Any]:
+    """Return data and spreadsheet toolkits without enabling any toolkit."""
+    return {
+        "slug": "data_analysis",
+        "name": "Dados, planilhas e análise",
+        "description": (
+            "Consulta e organização de planilhas, tabelas e bases estruturadas "
+            "para análises e relatórios auxiliares."
+        ),
+        "composio_toolkits": [
+            {"slug": slug, **metadata}
+            for slug, metadata in DATA_ANALYSIS_TOOLKITS.items()
         ],
         "native_channels": [],
     }
