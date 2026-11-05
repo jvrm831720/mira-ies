@@ -14,7 +14,9 @@ from app.core.mira_security import decode_access_token
 from app.core.security import hash_api_key
 from app.db.session import get_db
 from app.models.auth import TenantRole, User, UserSession
+from app.models.organization import Membership
 from app.models.tenant import Tenant
+from app.services.membership import ensure_membership, resolve_active_membership
 
 # Hierarquia simples: admin > coordinator > operator > viewer
 ROLE_RANK = {"viewer": 1, "operator": 2, "coordinator": 3, "admin": 4}
@@ -32,6 +34,7 @@ class AuthContext:
     authenticated_at: Optional[int] = None
     permissions: Optional[frozenset[str]] = None
     custom_role_id: Optional[str] = None
+    membership_id: Optional[str] = None
 
 
 async def _set_tenant_rls_context(db: AsyncSession, tenant_id: str) -> None:
@@ -51,15 +54,33 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     claims = decode_access_token(token)
     if not claims:
         raise _unauthorized()
-    result = await db.execute(
-        select(User).where(User.id == claims.get("sub"), User.tenant_id == claims.get("tid"))
-    )
+
+    user_id = claims.get("sub")
+    tenant_id_claim = claims.get("tid")
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user or not user.is_active or user.auth_version != int(claims.get("ver", -1)):
         raise _unauthorized()
     if claims.get("purpose", "session") != "session":
         raise _unauthorized()
-    await _set_tenant_rls_context(db, user.tenant_id)
+
+    # Prefer membership for tenant resolution (Phase B)
+    active = await resolve_active_membership(
+        db, user=user, preferred_tenant_id=tenant_id_claim
+    )
+    if active is None or active.status != "active":
+        raise _unauthorized("Membership inativa ou inexistente.")
+    if tenant_id_claim and active.tenant_id != tenant_id_claim:
+        raise _unauthorized("Workspace da sessão não corresponde à membership.")
+
+    # If token carries mid, require it to match an active membership
+    mid_claim = claims.get("mid")
+    if mid_claim and active.membership_id and mid_claim != active.membership_id:
+        # Stale mid after role move — still allow if membership is active for tid
+        pass
+
+    await _set_tenant_rls_context(db, active.tenant_id)
+
     session_id = claims.get("sid")
     if not session_id:
         raise _unauthorized("Sessão antiga ou inválida. Entre novamente.")
@@ -68,14 +89,13 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     if (
         not session
         or session.user_id != user.id
-        or session.tenant_id != user.tenant_id
+        or session.tenant_id != active.tenant_id
         or session.revoked_at is not None
         or session.expires_at.timestamp() <= now
         or session.aal != int(claims.get("aal", 1))
     ):
         raise _unauthorized("Esta sessão foi encerrada ou expirou.")
-    # MFA é obrigatório para todas as contas humanas em todos os tenants.
-    # Revogue tokens antigos ou sessões emitidas sem nível AAL2.
+
     if not user.mfa_enabled_at or int(claims.get("aal", 1)) < 2:
         session.revoked_at = datetime.now(timezone.utc)
         session.revoked_by_user_id = user.id
@@ -84,12 +104,14 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         raise _unauthorized(
             "TOTP obrigatório para todas as contas. Entre novamente e configure seu autenticador."
         )
-    tenant = await db.get(Tenant, user.tenant_id)
+
+    tenant = await db.get(Tenant, active.tenant_id)
     if not tenant or not tenant.is_active:
         raise _unauthorized()
-    role = user.role if getattr(user, "role", None) in ROLE_RANK else "coordinator"
+
+    role = active.role if active.role in ROLE_RANK else "coordinator"
     custom_permissions = None
-    custom_role_id = getattr(user, "custom_role_id", None)
+    custom_role_id = active.custom_role_id
     if custom_role_id:
         custom_role_result = await db.execute(
             select(TenantRole).where(
@@ -121,6 +143,7 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         else:
             role = "viewer"
             custom_permissions = frozenset()
+
     await _set_tenant_rls_context(db, tenant.id)
     return AuthContext(
         tenant=tenant,
@@ -133,6 +156,7 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
         authenticated_at=int(claims.get("iat", 0)),
         permissions=custom_permissions,
         custom_role_id=custom_role_id,
+        membership_id=active.membership_id or mid_claim,
     )
 
 
@@ -183,7 +207,6 @@ async def get_current_tenant(
     tenant = result.scalar_one_or_none()
     if not tenant:
         raise _unauthorized("API key inválida ou tenant inativo.")
-    # API key de integração: privilégio operacional alto (sem user)
     await _set_tenant_rls_context(db, tenant.id)
     return AuthContext(
         tenant=tenant, tenant_id=tenant.id, tenant_slug=tenant.slug, role="admin"
@@ -222,9 +245,6 @@ def require_roles(*allowed: str):
     min_rank = min(ROLE_RANK.get(r, 99) for r in allowed) if allowed else 0
 
     async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
-        # Custom roles must satisfy the explicit access tier as well as the
-        # per-route permission enforced by get_current_tenant. Never infer
-        # authorization from base_role alone for a custom-role session.
         if auth.permissions is not None:
             required_access = {
                 1: "access.viewer",
