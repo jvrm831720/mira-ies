@@ -74,7 +74,7 @@ class CompleteOnboardingPayload(BaseModel):
     @classmethod
     def normalize_email(cls, value: str) -> str:
         normalized = value.strip().lower()
-        if not re.fullmatch(r"[^\\s@]+@[^\\s@]+\\.[^\\s@]+", normalized):
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized):
             raise ValueError("Informe um e-mail válido.")
         return normalized
 
