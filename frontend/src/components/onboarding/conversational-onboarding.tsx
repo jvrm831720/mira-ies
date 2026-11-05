@@ -208,6 +208,37 @@ export function ConversationalOnboarding() {
     }
   }
 
+  async function consultWebsite() {
+    if (!token || !form.website.trim()) return;
+    setLookupBusy(true);
+    setError("");
+    try {
+      const result = await enrichOnboarding({
+        onboarding_token: token, email,
+        cnpj: "", website: form.website.trim(),
+      });
+      setEnrichment((prev) => ({
+        website: result.website,
+        company: prev?.company || null,
+        warnings: result.warnings,
+      }));
+      const suggestedDescription = publicCompanyDescription(result);
+      setForm((prev) => ({
+        ...prev,
+        description: prev.description || suggestedDescription,
+        organizationName: prev.organizationName ||
+          (result.website?.title || "").split(" | ")[0].trim(),
+      }));
+      if (!result.website) {
+        setError(result.warnings.join(" ") || "Não foi possível encontrar informações públicas do site. Continue manualmente.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível consultar o site. Continue manualmente.");
+    } finally {
+      setLookupBusy(false);
+    }
+  }
+
   function acceptSuggestion() {
     if (!suggestion) return;
     setForm((prev) => ({
@@ -440,13 +471,19 @@ export function ConversationalOnboarding() {
                         <InputField id="org-site" label="Site da organização" note="A descoberta por domínio é apenas uma sugestão, não prova de vínculo.">
                           <input id="org-site" type="text" maxLength={255} placeholder="https://suaempresa.com.br" value={form.website} onChange={(e) => update("website", e.target.value)} />
                         </InputField>
-                        <InputField id="org-profile" label="Tipo de operação">
-                          <div className="mira-flow-profiles" id="org-profile">
+                        {form.website.trim() && (
+                          <button type="button" className="mira-flow-inline-action" onClick={() => void consultWebsite()} disabled={lookupBusy}>
+                            {lookupBusy ? "Consultando site…" : "Consultar informações do site"}
+                          </button>
+                        )}
+                        <div className="mira-flow-field">
+                          <p className="mira-flow-static-label">Tipo de operação</p>
+                          <div className="mira-flow-profiles" role="group" aria-label="Tipo de operação disponível">
                             <span className="mira-flow-profile-selected"><GraduationCap size={15} /> Educação <Check size={15} /></span>
                             <span className="mira-flow-profile-unavailable">Cobrança <small>Em preparação</small></span>
                             <span className="mira-flow-profile-unavailable">Outro <small>Em preparação</small></span>
                           </div>
-                        </InputField>
+                        </div>
                       </div>
                     </>
                   )}
