@@ -141,7 +141,7 @@ jobs:
         run: ruff check app
       - name: Run tests (pytest)
         working-directory: backend
-        run: PYTHONPATH=. pytest -v --maxfail=1
+        run: PYTHONPATH=. pytest -v --maxfail=10
 
   frontend-check:
     runs-on: ubuntu-latest

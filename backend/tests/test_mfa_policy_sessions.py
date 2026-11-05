@@ -148,6 +148,12 @@ async def test_user_can_revoke_another_totp_session_without_revoking_current(
     sessions = listing.json()["sessions"]
     assert len(sessions) == 2
     other = next(item for item in sessions if not item["current"])
+    current = next(item for item in sessions if item["current"])
+
+    self_revoke = await client.delete(
+        f"/api/v1/auth/mfa/sessions/{current['id']}", headers=headers
+    )
+    assert self_revoke.status_code == 409
 
     revoked = await client.delete(
         f"/api/v1/auth/mfa/sessions/{other['id']}",
@@ -162,6 +168,11 @@ async def test_user_can_revoke_another_totp_session_without_revoking_current(
     )
     assert still_valid.status_code == 200
     assert revoked_token.status_code == 401
+
+    after = await client.get("/api/v1/auth/mfa/sessions", headers=headers)
+    assert after.status_code == 200
+    assert len(after.json()["sessions"]) == 1
+    assert after.json()["sessions"][0]["id"] == current["id"]
 
 
 async def test_session_listing_is_scoped_to_current_user_and_tenant(
@@ -212,6 +223,18 @@ async def test_session_listing_is_scoped_to_current_user_and_tenant(
     assert len(sessions_a.json()["sessions"]) == 1
     assert len(sessions_b.json()["sessions"]) == 1
     assert sessions_a.json()["sessions"][0]["id"] != sessions_b.json()["sessions"][0]["id"]
+
+    # Cross-tenant session IDs must never be discoverable or revocable.
+    forbidden = await client.delete(
+        f"/api/v1/auth/mfa/sessions/{sessions_b.json()['sessions'][0]['id']}",
+        headers={"Authorization": f"Bearer {login_a['access_token']}"},
+    )
+    assert forbidden.status_code == 404
+    missing = await client.delete(
+        "/api/v1/auth/mfa/sessions/00000000-0000-0000-0000-000000000001",
+        headers={"Authorization": f"Bearer {login_a['access_token']}"},
+    )
+    assert missing.status_code == 404
 
 
 async def test_global_mfa_policy_cannot_be_disabled_or_limited(
