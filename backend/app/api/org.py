@@ -19,12 +19,13 @@ from app.core.config import get_settings
 from app.core.mira_security import hash_password
 from app.core.security import hash_api_key
 from app.db.session import get_db
-from app.models.auth import OrganizationInvite, TenantRole, TenantRoleAudit, User
+from app.models.auth import OrganizationInvite, TenantRole, TenantRoleAudit, User, UserSession
 from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
+from app.models.organization import Membership
 from app.models.tenant import Tenant
-from app.services.membership import ensure_membership
+from app.services.membership import ensure_membership, list_active_memberships
 
 router = APIRouter(prefix="/org", tags=["Organização / Membros"])
 logger = logging.getLogger(__name__)
@@ -65,6 +66,12 @@ class AcceptInvitePayload(BaseModel):
     password: str = Field(min_length=8, max_length=256)
     phone: str = Field(min_length=8, max_length=30)
     display_name: Optional[str] = Field(default=None, max_length=120)
+
+
+class SwitchWorkspacePayload(BaseModel):
+    """Switch active workspace by membership_id or tenant_id."""
+    membership_id: Optional[str] = Field(default=None, max_length=36)
+    tenant_id: Optional[str] = Field(default=None, max_length=36)
 
 
 def _member_dict(user: User) -> dict:
@@ -373,4 +380,211 @@ async def complete_onboarding(
         "onboarding_completed_at": user.onboarding_completed_at.isoformat()
         if user.onboarding_completed_at
         else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phase C — Workspaces (membership-aware list + switch)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/workspaces")
+async def list_workspaces(
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lista workspaces (tenants) aos quais o usuário autenticado tem membership ativa.
+
+    Inclui fallback legado (User.tenant_id) quando ainda não há Membership.
+    """
+    if not auth.user_id:
+        raise HTTPException(status_code=400, detail="Sessão sem usuário associado.")
+
+    user = await db.get(User, auth.user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Usuário inativo ou inexistente.")
+
+    memberships = await list_active_memberships(db, user.id)
+    workspaces: list[dict] = []
+    seen_tenant_ids: set[str] = set()
+
+    for m in memberships:
+        tenant = await db.get(Tenant, m.tenant_id)
+        if not tenant or not tenant.is_active:
+            continue
+        seen_tenant_ids.add(tenant.id)
+        workspaces.append(
+            {
+                "membership_id": m.id,
+                "tenant_id": tenant.id,
+                "tenant_name": tenant.name,
+                "tenant_slug": tenant.slug,
+                "role": m.role if m.role in _VALID_ROLES else "coordinator",
+                "custom_role_id": m.custom_role_id,
+                "status": m.status,
+                "is_current": tenant.id == auth.tenant_id,
+                "origin": m.origin,
+            }
+        )
+
+    # Legacy fallback: User still points at a tenant without Membership row
+    if user.tenant_id and user.tenant_id not in seen_tenant_ids:
+        tenant = await db.get(Tenant, user.tenant_id)
+        if tenant and tenant.is_active:
+            workspaces.append(
+                {
+                    "membership_id": None,
+                    "tenant_id": tenant.id,
+                    "tenant_name": tenant.name,
+                    "tenant_slug": tenant.slug,
+                    "role": user.role if user.role in _VALID_ROLES else "coordinator",
+                    "custom_role_id": user.custom_role_id,
+                    "status": "active" if user.is_active else "suspended",
+                    "is_current": tenant.id == auth.tenant_id,
+                    "origin": "legacy_user",
+                }
+            )
+
+    # Ensure current workspace appears even if somehow missing
+    if auth.tenant_id and auth.tenant_id not in {w["tenant_id"] for w in workspaces}:
+        workspaces.insert(
+            0,
+            {
+                "membership_id": auth.membership_id,
+                "tenant_id": auth.tenant_id,
+                "tenant_name": auth.tenant.name,
+                "tenant_slug": auth.tenant_slug,
+                "role": auth.role or "viewer",
+                "custom_role_id": auth.custom_role_id,
+                "status": "active",
+                "is_current": True,
+                "origin": "session",
+            },
+        )
+
+    # Current first, then alphabetical
+    workspaces.sort(key=lambda w: (not w["is_current"], (w["tenant_name"] or "").lower()))
+
+    return {
+        "current_tenant_id": auth.tenant_id,
+        "current_membership_id": auth.membership_id,
+        "workspaces": workspaces,
+    }
+
+
+@router.post("/workspaces/switch")
+async def switch_workspace(
+    body: SwitchWorkspacePayload,
+    request: Request,
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Troca o workspace ativo da sessão.
+
+    - Valida que o usuário tem membership ativa no destino.
+    - Revoga a sessão atual.
+    - Emite novo JWT com tid/mid do workspace escolhido (mesmo AAL).
+    - Cross-tenant isolation: só memberships do próprio user_id.
+    """
+    if not auth.user_id:
+        raise HTTPException(status_code=400, detail="Sessão sem usuário associado.")
+    if not body.membership_id and not body.tenant_id:
+        raise HTTPException(status_code=422, detail="Informe membership_id ou tenant_id.")
+
+    user = await db.get(User, auth.user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Usuário inativo ou inexistente.")
+
+    target_membership: Optional[Membership] = None
+    target_tenant: Optional[Tenant] = None
+
+    if body.membership_id:
+        result = await db.execute(
+            select(Membership).where(
+                Membership.id == body.membership_id,
+                Membership.user_id == user.id,
+                Membership.status == "active",
+            )
+        )
+        target_membership = result.scalar_one_or_none()
+        if not target_membership:
+            raise HTTPException(status_code=404, detail="Membership não encontrada ou inativa.")
+        target_tenant = await db.get(Tenant, target_membership.tenant_id)
+    else:
+        # Resolve by tenant_id — only if user has active membership there
+        result = await db.execute(
+            select(Membership).where(
+                Membership.user_id == user.id,
+                Membership.tenant_id == body.tenant_id,
+                Membership.status == "active",
+            )
+        )
+        target_membership = result.scalar_one_or_none()
+        if target_membership:
+            target_tenant = await db.get(Tenant, target_membership.tenant_id)
+        elif user.tenant_id == body.tenant_id:
+            # Legacy path: ensure membership then switch
+            target_tenant = await db.get(Tenant, body.tenant_id)
+            if target_tenant and target_tenant.is_active:
+                target_membership = await ensure_membership(
+                    db,
+                    user=user,
+                    tenant_id=target_tenant.id,
+                    role=user.role or "coordinator",
+                    custom_role_id=user.custom_role_id,
+                    origin="workspace_switch",
+                    status="active",
+                )
+
+    if not target_tenant or not target_tenant.is_active:
+        raise HTTPException(status_code=404, detail="Workspace não encontrado ou inativo.")
+    if not target_membership:
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem acesso a este workspace.",
+        )
+
+    # Already on this workspace — return current token shape without churn
+    if target_tenant.id == auth.tenant_id and (
+        not body.membership_id or body.membership_id == auth.membership_id
+    ):
+        return {
+            "switched": False,
+            "message": "Já está neste workspace.",
+            "tenant_id": auth.tenant_id,
+            "tenant_name": auth.tenant.name,
+            "membership_id": auth.membership_id,
+        }
+
+    # Revoke current session (force re-bind to new tid/mid)
+    if auth.session_id:
+        session = await db.get(UserSession, auth.session_id)
+        if session and session.revoked_at is None:
+            session.revoked_at = _now()
+            session.revoked_by_user_id = user.id
+            session.revoke_reason = "workspace_switch"
+
+    # Issue new session bound to target tenant + membership
+    # Keep the same AAL so MFA step-up is not lost
+    aal = max(1, int(auth.aal or 1))
+    token, ttl = await create_user_session(
+        db, user, target_tenant, request, aal=aal
+    )
+    await db.commit()
+
+    return {
+        "switched": True,
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": ttl,
+        "tenant_id": target_tenant.id,
+        "tenant_name": target_tenant.name,
+        "tenant_slug": target_tenant.slug,
+        "membership_id": target_membership.id,
+        "role": target_membership.role,
+        "user": {
+            "display_name": user.display_name,
+            "email": user.email,
+            "tenant_name": target_tenant.name,
+        },
     }
