@@ -234,7 +234,7 @@ async def authorize_tool_request(
         select(TenantComposioToolkitPolicy).where(
             TenantComposioToolkitPolicy.tenant_id == auth.tenant_id,
             TenantComposioToolkitPolicy.toolkit_slug == toolkit,
-        )
+        ).with_for_update()
     )
     policy = policy_result.scalar_one_or_none()
     if not policy or not policy.is_enabled or tool not in {
@@ -248,7 +248,7 @@ async def authorize_tool_request(
             TenantComposioAccount.connected_account_id == account_id,
             TenantComposioAccount.toolkit_slug == toolkit,
             TenantComposioAccount.status == "active",
-        )
+        ).with_for_update()
     )
     account = account_result.scalar_one_or_none()
     if not account:
