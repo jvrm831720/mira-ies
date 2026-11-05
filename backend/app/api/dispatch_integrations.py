@@ -213,6 +213,53 @@ async def reconcile_payment(
     return {"accepted": True, "replayed": False, "status": body.new_status}
 
 
+
+class UncertainOutcomeReconciliation(BaseModel):
+    item_id: str = Field(min_length=1, max_length=80)
+    provider: Literal["resend", "twilio"]
+    status: Literal["sent", "failed"]
+    evidence_ref: str = Field(min_length=10, max_length=200)
+    provider_message_id: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/integrations/unknown-outcomes/reconcile")
+async def reconcile_unknown_provider_outcome(
+    body: UncertainOutcomeReconciliation,
+    auth: AuthContext = Depends(require_permission("data.import", allow_service_key=True)),
+    db: AsyncSession = Depends(get_db),
+):
+    """A verified connector may resolve an UNKNOWN; never auto-requeue it."""
+    _require_connector(auth)
+    if body.status == "sent" and not body.provider_message_id:
+        raise HTTPException(status_code=422, detail="Envio confirmado precisa de ID do provedor.")
+    await bind_tenant(db, auth.tenant_id)
+    row = (await db.execute(text("""
+        UPDATE dispatch_items
+        SET status=:status, provider=:provider,
+            provider_message_id=COALESCE(:message,provider_message_id),
+            sent_at=CASE WHEN :status='sent' THEN now() ELSE sent_at END,
+            last_error=NULL,updated_at=now()
+        WHERE tenant_id=:tenant AND id=:item AND status='unknown'
+        RETURNING campaign_id
+    """), {
+        "status": body.status, "provider": body.provider,
+        "message": body.provider_message_id, "tenant": auth.tenant_id,
+        "item": body.item_id,
+    })).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=409, detail="Item não está em estado desconhecido.")
+    digest = hashlib.sha256(body.evidence_ref.encode()).hexdigest()
+    await audit(
+        db, tenant_id=auth.tenant_id, campaign_id=str(row), item_id=body.item_id,
+        event_type="outcome.reconciled",
+        event_key=f"reconciliation:{body.item_id}:{digest[:32]}",
+        details={"status": body.status, "provider": body.provider,
+                 "evidence_hash": digest[:16]},
+    )
+    await db.commit()
+    return {"accepted": True, "status": body.status}
+
+
 class VerifiedGatewayEvent(BaseModel):
     tenant_id: str
     provider_message_id: str = Field(min_length=1, max_length=200)
