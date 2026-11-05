@@ -13,7 +13,7 @@ import {
   RefreshCw,
   RotateCcw,
   Users,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { GroupRetentionCta } from "@/components/students/group-retention-cta";
 import { StudentDrawer } from "@/components/students/student-drawer";

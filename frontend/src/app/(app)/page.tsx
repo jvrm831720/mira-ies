@@ -16,7 +16,7 @@ import {
   UserRoundX,
   ClipboardList,
   MessageSquareHeart,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { CriticalList } from "@/components/risk/critical-list";
 import { RecentActivity } from "@/components/dashboard/recent-activity";

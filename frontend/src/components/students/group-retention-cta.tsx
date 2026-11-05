@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowRight, MessageSquareText, Users } from "lucide-react";
+import { ArrowRight, MessageSquareText, Users } from "@/components/ui/icons";
 import { api } from "@/lib/api";
 
 /**

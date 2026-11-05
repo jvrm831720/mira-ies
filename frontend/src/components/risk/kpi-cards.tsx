@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RiskSummary } from "@/types/api";
-import { AlertTriangle, Activity, CheckCircle2, Users } from "lucide-react";
+import { AlertTriangle, Activity, CheckCircle2, Users } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: boolean }) {

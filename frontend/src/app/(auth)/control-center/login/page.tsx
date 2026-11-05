@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Fingerprint, KeyRound, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Fingerprint, KeyRound, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from "@/components/ui/icons";
 
 
 type LoginResponse = { message?: string; expires_in?: number };

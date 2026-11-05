@@ -18,7 +18,7 @@ import {
   GraduationCap,
   Wallet,
   UserRound,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { RiskBadge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
