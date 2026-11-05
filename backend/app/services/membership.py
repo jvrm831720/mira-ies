@@ -134,7 +134,11 @@ async def ensure_membership(
     origin: str = "legacy_backfill",
     status: str = "active",
 ) -> Membership:
-    """Idempotent dual-write: create or refresh membership for user+tenant."""
+    """Create a missing legacy membership without mutating an existing grant.
+
+    Status and role transitions must be performed by authorized, tenant-scoped
+    workflows; login/session creation is never such a workflow.
+    """
     tid = tenant_id or user.tenant_id
     if not tid:
         raise ValueError("tenant_id is required to ensure membership")
@@ -147,13 +151,6 @@ async def ensure_membership(
     )
     existing = result.scalar_one_or_none()
     if existing:
-        # Keep role/custom_role in sync during dual-write period
-        if role is not None and existing.role != role:
-            existing.role = role
-        if custom_role_id is not None and existing.custom_role_id != custom_role_id:
-            existing.custom_role_id = custom_role_id
-        if status and existing.status != status:
-            existing.status = status
         return existing
 
     m = Membership(

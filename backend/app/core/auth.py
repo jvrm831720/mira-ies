@@ -82,10 +82,10 @@ async def _auth_session_token(token: str, db: AsyncSession) -> AuthContext:
     if tenant_id_claim and active.tenant_id != tenant_id_claim:
         raise _unauthorized("Workspace da sessão não corresponde à membership.")
 
-    # New tokens are bound to one membership. Legacy tokens without mid remain
-    # accepted during the transition; a supplied stale/mismatched mid fails closed.
+    # Human sessions must bind to the exact current membership. Tokens minted
+    # before this claim existed fail closed and require a fresh login.
     mid_claim = claims.get("mid")
-    if mid_claim and mid_claim != active.membership_id:
+    if not mid_claim or not active.membership_id or mid_claim != active.membership_id:
         raise _unauthorized("Membership da sessão foi alterada. Entre novamente.")
 
     await _set_tenant_rls_context(db, active.tenant_id)
