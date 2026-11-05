@@ -334,38 +334,64 @@ async def import_read_tool(
             SELECT id FROM dispatch_source_import_runs
             WHERE tenant_id=:tenant AND id=:run AND status='running' FOR UPDATE
         """), {"tenant": tenant_id, "run": run_id})
-        for item in rows:
+        for item in sorted(rows, key=lambda row: row["source_record_id"]):
             ciphertext = _encrypt_values(item["values"])
             digest = _fingerprint(item)
-            result = (await db.execute(text("""
-                INSERT INTO dispatch_source_observations (
-                  id,tenant_id,connected_account_id,toolkit_slug,tool_slug,
-                  source_record_id,subject_type,subject_ref,record_type,
-                  payload_ciphertext,payload_hash
-                ) VALUES (
-                  :id,:tenant,:account,:toolkit,:tool,:record,:kind,:subject,:type,:cipher,:hash
-                )
-                ON CONFLICT (tenant_id,connected_account_id,tool_slug,source_record_id)
-                DO UPDATE SET
-                  subject_type=EXCLUDED.subject_type,subject_ref=EXCLUDED.subject_ref,
-                  record_type=EXCLUDED.record_type,
-                  payload_ciphertext=EXCLUDED.payload_ciphertext,
-                  payload_hash=EXCLUDED.payload_hash,
-                  source_version=dispatch_source_observations.source_version+1,
-                  observed_at=now(),updated_at=now()
-                WHERE dispatch_source_observations.payload_hash IS DISTINCT FROM EXCLUDED.payload_hash
-                RETURNING source_version
+            # A consistent record-level advisory lock prevents concurrent
+            # overlapping syncs from racing over source versions.
+            await db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+                {"key": (
+                    f"dispatch:observation:{tenant_id}:{account_id}:"
+                    f"{tool_slug.upper()}:{item['source_record_id']}"
+                )},
+            )
+            existing = (await db.execute(text("""
+                SELECT payload_hash FROM dispatch_source_observations
+                WHERE tenant_id=:tenant AND connected_account_id=:account
+                  AND tool_slug=:tool AND source_record_id=:record FOR UPDATE
             """), {
+                "tenant": tenant_id, "account": account_id,
+                "tool": tool_slug.upper(), "record": item["source_record_id"],
+            })).scalar_one_or_none()
+            args = {
                 "id": str(uuid4()), "tenant": tenant_id,
                 "account": account_id, "toolkit": toolkit,
                 "tool": tool_slug.upper(), "record": item["source_record_id"],
-                "kind": subject_type, "subject": item["subject_ref"],
+                "kind": item["subject_type"], "subject": item["subject_ref"],
                 "type": record_type, "cipher": ciphertext, "hash": digest,
-            })).scalar_one_or_none()
-            if result == 1:
+            }
+            if existing is None:
+                await db.execute(text("""
+                    INSERT INTO dispatch_source_observations (
+                      id,tenant_id,connected_account_id,toolkit_slug,tool_slug,
+                      source_record_id,subject_type,subject_ref,record_type,
+                      payload_ciphertext,payload_hash
+                    ) VALUES (
+                      :id,:tenant,:account,:toolkit,:tool,:record,:kind,:subject,:type,:cipher,:hash
+                    )
+                """), args)
                 created += 1
-            elif result is not None:
+            elif existing != digest:
+                await db.execute(text("""
+                    UPDATE dispatch_source_observations
+                    SET subject_type=:kind,subject_ref=:subject,record_type=:type,
+                        payload_ciphertext=:cipher,payload_hash=:hash,
+                        source_version=source_version+1,
+                        observed_at=now(),updated_at=now()
+                    WHERE tenant_id=:tenant AND connected_account_id=:account
+                      AND tool_slug=:tool AND source_record_id=:record
+                """), args)
                 updated += 1
+            else:
+                # Even unchanged source records receive a fresh observation
+                # timestamp, without rewriting their encrypted payload/version.
+                await db.execute(text("""
+                    UPDATE dispatch_source_observations
+                    SET observed_at=now(),updated_at=now()
+                    WHERE tenant_id=:tenant AND connected_account_id=:account
+                      AND tool_slug=:tool AND source_record_id=:record
+                """), args)
         await db.execute(text("""
             UPDATE dispatch_source_import_runs
             SET status='succeeded',rows_total=:total,
@@ -449,6 +475,7 @@ async def stage_authorized_observations(
         SELECT source_record_id,subject_type,subject_ref,record_type,payload_ciphertext
         FROM dispatch_source_observations
         WHERE tenant_id=:tenant AND connected_account_id=:account AND tool_slug=:tool
+          AND observed_at>=now()-interval '24 hours'
     """
     params: dict[str, Any] = {
         "tenant": tenant_id, "account": account_id, "tool": tool_slug,
