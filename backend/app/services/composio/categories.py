@@ -1,4 +1,4 @@
-"""Curated MIRA taxonomy for communication integrations.
+"""Curated MIRA taxonomy for Composio integrations.
 
 Composio toolkits are catalogued separately from native MIRA channel providers.
 A toolkit being listed here never enables it or grants an agent permission to use it.
