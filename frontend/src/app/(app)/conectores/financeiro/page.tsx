@@ -319,6 +319,9 @@ export default function FinancialSourcesPage() {
     <div className="min-h-screen bg-[#F9FAFB]">
       <Header title="Fontes financeiras" subtitle="Várias integrações, mapeamentos por workspace e conciliação orientada por metadados" />
       <main className="mx-auto max-w-[1230px] space-y-5 px-5 py-7 md:px-8 xl:px-10">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href="/conectores/financeiro/pagamentos" className="text-[12px] font-semibold text-[#2563EB]">Preparação de pagamentos (sandbox)</Link>
+        </div>
         <Link href="/conectores" className="text-[12px] font-medium text-[#667085] hover:text-[#2563EB]">
           Integrações / Fontes financeiras
         </Link>

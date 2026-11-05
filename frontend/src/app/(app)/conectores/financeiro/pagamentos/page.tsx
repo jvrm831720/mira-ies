@@ -1,0 +1,181 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Header } from "@/components/layout/header";
+import { financeApi, type FinanceProfile } from "@/lib/finance-reconciliation-api";
+import { paymentPreparationApi, type PaymentConnector, type PaymentObservation, type PaymentProposal } from "@/lib/student-payment-preparation-api";
+
+const field = "w-full rounded-lg border border-[#D0D5DD] bg-white px-3 py-2.5 text-[12px] text-[#344054] outline-none focus:border-[#2563EB]";
+const button = "rounded-lg bg-[#101828] px-4 py-2.5 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40";
+const light = "rounded-lg border border-[#D0D5DD] bg-white px-3 py-2 text-[12px] font-semibold text-[#344054] disabled:opacity-40";
+const legal = "Aprovação institucional em sandbox. Nenhuma cobrança, boleto, Pix, cartão ou liquidação está habilitada.";
+function errorMessage(e: unknown) { return e instanceof Error ? e.message : "Operação indisponível."; }
+
+export default function PaymentPreparationPage() {
+  const [sources, setSources] = useState<FinanceProfile[]>([]);
+  const [connectors, setConnectors] = useState<PaymentConnector[]>([]);
+  const [orders, setOrders] = useState<PaymentProposal[]>([]);
+  const [observations, setObservations] = useState<PaymentObservation[]>([]);
+  const [selected, setSelected] = useState("");
+  const [newName, setNewName] = useState("");
+  const [providerSlug, setProviderSlug] = useState("stripe");
+  const [financeSourceId, setFinanceSourceId] = useState("");
+  const [observationId, setObservationId] = useState("");
+  const [reason, setReason] = useState("Revisão e autorização institucional em sandbox.");
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    const [finance, profiles, prepared] = await Promise.allSettled([
+      financeApi.profiles(), paymentPreparationApi.connectors(),
+      paymentPreparationApi.orders(),
+    ]);
+    if (finance.status === "fulfilled") setSources(finance.value.items);
+    if (profiles.status === "fulfilled") {
+      setConnectors(profiles.value.items);
+      setSelected((id) => id || profiles.value.items[0]?.id || "");
+    }
+    if (prepared.status === "fulfilled") setOrders(prepared.value.items);
+    if (profiles.status === "rejected") setError(errorMessage(profiles.reason));
+    setLoading(false);
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const connector = useMemo(() => connectors.find((p) => p.id === selected), [selected, connectors]);
+  const myOrders = orders.filter((item) => item.connector_id === selected);
+
+  useEffect(() => {
+    if (!connector) { setObservations([]); return; }
+    let live = true;
+    paymentPreparationApi.observations(connector.finance_profile_id)
+      .then((response) => { if (live) setObservations(response.items); })
+      .catch(() => { if (live) setObservations([]); });
+    return () => { live = false; };
+  }, [connector]);
+
+  async function act(work: () => Promise<unknown>, success: string) {
+    setBusy(true); setError(null); setMessage(null);
+    try {
+      await work();
+      setMessage(success);
+      await refresh();
+    } catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(false); }
+  }
+
+  const payable = observations.filter((item) => (
+    ["open", "overdue", "partially_paid"].includes(item.canonical_state)
+    && Number(item.amount) > Number(item.paid_amount)
+  ));
+  return (
+    <div className="min-h-screen bg-[#F9FAFB]">
+      <Header title="Preparação de pagamentos" subtitle="Workspaces adaptáveis · propostas seguras · aprovação humana" />
+      <main className="mx-auto max-w-[1180px] space-y-5 px-5 py-7 md:px-8">
+        <Link href="/conectores/financeiro" className="text-[12px] font-medium text-[#2563EB]">
+          Fontes financeiras / Preparação
+        </Link>
+        <section className="rounded-xl border border-[#EAECF0] bg-white p-4">
+          <h2 className="text-[13px] font-semibold text-[#101828]">Sandbox — nenhuma movimentação de dinheiro</h2>
+          <p className="mt-1 text-[12px] text-[#667085]">{legal} Provedores apresentados são perfis de planejamento; não representam contas PSP homologadas.</p>
+        </section>
+        {error && <p role="alert" className="rounded-lg border border-[#FDA29B] bg-[#FFFBFA] p-3 text-[12px] text-[#B42318]">{error}</p>}
+        {message && <p role="status" className="rounded-lg border border-[#EAECF0] bg-white p-3 text-[12px] text-[#344054]">{message}</p>}
+        <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+          <div className="space-y-5">
+            <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
+              <h2 className="text-[14px] font-semibold text-[#101828]">Perfis de provedor</h2>
+              <p className="mt-1 text-[11px] text-[#667085]">Múltiplos perfis por workspace, vinculados às fontes da Wave 4C.</p>
+              <div className="mt-4 space-y-2">
+                {connectors.map((item) => <button key={item.id} type="button" onClick={() => setSelected(item.id)}
+                  className={"w-full rounded-lg border p-3 text-left " + (selected === item.id ? "border-[#2563EB] bg-[#EFF4FF]" : "border-[#EAECF0]")}>
+                  <span className="flex items-center justify-between text-[12px] font-semibold text-[#344054]">
+                    {item.name}<span className="text-[10px] font-normal">{item.enabled ? "Preparação ativa" : "Desabilitada"}</span>
+                  </span>
+                  <p className="mt-1 text-[11px] text-[#667085]">{item.provider_slug} · sandbox</p>
+                </button>)}
+                {loading && <p className="text-[11px] text-[#667085]">Carregando...</p>}
+                {!loading && connectors.length === 0 && <p className="text-[11px] text-[#667085]">Nenhum PSP preparado.</p>}
+              </div>
+              {connector && <button type="button" className={"mt-4 " + light} disabled={busy}
+                onClick={() => void act(() => paymentPreparationApi.toggleConnector(connector, !connector.enabled),
+                connector.enabled ? "Preparação desabilitada." : "Apenas a preparação de propostas foi habilitada.")}>
+                {connector.enabled ? "Desabilitar perfil" : "Habilitar preparação sandbox"}
+              </button>}
+            </section>
+            <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
+              <h2 className="text-[14px] font-semibold text-[#101828]">Novo perfil</h2>
+              <div className="mt-3 space-y-3">
+                <label className="block text-[12px] font-medium text-[#344054]">Nome
+                  <input className={"mt-1 " + field} value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex.: PSP Campus A" maxLength={100} />
+                </label>
+                <label className="block text-[12px] font-medium text-[#344054]">Identificador do PSP (somente metadados)
+                  <input className={"mt-1 " + field} value={providerSlug} onChange={(e) => setProviderSlug(e.target.value)} placeholder="stripe" maxLength={60} />
+                </label>
+                <label className="block text-[12px] font-medium text-[#344054]">Fonte financeira vinculada
+                  <select className={"mt-1 " + field} value={financeSourceId} onChange={(e) => setFinanceSourceId(e.target.value)}>
+                    <option value="">Selecione uma fonte existente</option>
+                    {sources.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.source_kind})</option>)}
+                  </select>
+                </label>
+              </div>
+              <button type="button" className={"mt-4 " + button} disabled={busy || newName.trim().length < 3 || !financeSourceId}
+                onClick={() => void act(
+                  () => paymentPreparationApi.createConnector({ name: newName, provider_slug: providerSlug, finance_profile_id: financeSourceId }),
+                  "Perfil criado desabilitado; nenhum PSP foi conectado.",
+                )}>Criar perfil sandbox</button>
+            </section>
+          </div>
+          <div className="space-y-5">
+            <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
+              <h2 className="text-[14px] font-semibold text-[#101828]">Preparar proposta</h2>
+              <p className="mt-1 text-[12px] text-[#667085]">O valor vem da última observação da fonte; o operador não o informa.</p>
+              <label className="mt-4 block text-[12px] font-medium text-[#344054]">Obrigação financeira
+                <select className={"mt-1 " + field} value={observationId} onChange={(e) => setObservationId(e.target.value)}>
+                  <option value="">Selecione uma obrigação elegível</option>
+                  {payable.map((x) => <option key={x.id} value={x.id}>
+                    {x.external_id} · R$ {x.amount} (relato: {x.canonical_state})
+                  </option>)}
+                </select>
+              </label>
+              <button className={"mt-4 " + button} type="button" disabled={busy || !connector?.enabled || !observationId}
+                onClick={() => void act(
+                  () => paymentPreparationApi.prepare(selected, observationId),
+                  "Proposta criada sem qualquer cobrança ou pagamento.",
+                )}>Criar proposta sem pagamento</button>
+            </section>
+            <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
+              <h2 className="text-[14px] font-semibold text-[#101828]">Aprovações</h2>
+              <p className="mt-1 text-[12px] text-[#667085]">Uma segunda pessoa deve aprovar. Aprovar não inicia checkout.</p>
+              <label className="mt-4 block text-[12px] font-medium text-[#344054]">Justificativa
+                <input className={"mt-1 " + field} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+              </label>
+              <div className="mt-4 divide-y divide-[#EAECF0]">
+                {myOrders.length === 0 && <p className="py-4 text-[12px] text-[#667085]">Nenhuma proposta deste perfil.</p>}
+                {myOrders.map((o) => <div key={o.id} className="space-y-2 py-4">
+                  <div className="flex justify-between gap-3 text-[12px] text-[#344054]">
+                    <span className="font-semibold">R$ {o.amount}</span><span>{o.status.replaceAll("_", " ")}</span>
+                  </div>
+                  <p className="text-[11px] text-[#667085]">Aluno {o.student_id.slice(0, 8)}… · sem liquidação confirmada</p>
+                  <div className="flex flex-wrap gap-2">
+                    {o.status === "draft" && <button className={light} disabled={busy || reason.length < 5}
+                      onClick={() => void act(() => paymentPreparationApi.review(o, "awaiting_approval", reason),
+                        "Proposta enviada à aprovação.")}>Enviar à aprovação</button>}
+                    {o.status === "awaiting_approval" && <button className={light} disabled={busy || reason.length < 5}
+                      onClick={() => void act(() => paymentPreparationApi.review(o, "approved", reason),
+                        "Proposta aprovada em sandbox; nenhuma cobrança foi criada.")}>Aprovar</button>}
+                    {o.status !== "cancelled" && <button className={light} disabled={busy || reason.length < 5}
+                      onClick={() => void act(() => paymentPreparationApi.review(o, "cancelled", reason),
+                        "Proposta cancelada.")}>Cancelar</button>}
+                  </div>
+                </div>)}
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
