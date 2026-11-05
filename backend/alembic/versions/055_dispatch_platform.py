@@ -161,6 +161,18 @@ def upgrade() -> None:
     """)
     op.execute("CREATE INDEX ix_dispatch_payments_obligation ON dispatch_payment_events(tenant_id,obligation_ref)")
     op.execute("""
+    CREATE TABLE dispatch_suppressions (
+        id UUID PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        subject_type VARCHAR(20) NOT NULL CHECK (subject_type IN ('student','external')),
+        subject_ref VARCHAR(160) NOT NULL,
+        channel VARCHAR(20) NOT NULL CHECK (channel IN ('all','email','sms','whatsapp')),
+        reason VARCHAR(80) NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(tenant_id,subject_type,subject_ref,channel)
+    )
+    """)
+    op.execute("""
     CREATE TABLE dispatch_worker_heartbeats (
         tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
         worker_id VARCHAR(160) NOT NULL,
@@ -171,7 +183,7 @@ def upgrade() -> None:
     """)
     for table in (
         "dispatch_campaigns","dispatch_obligations","dispatch_external_contacts",
-        "dispatch_items","dispatch_events","dispatch_rate_buckets","dispatch_inbound","dispatch_payment_events","dispatch_worker_heartbeats",
+        "dispatch_items","dispatch_events","dispatch_rate_buckets","dispatch_inbound","dispatch_payment_events","dispatch_worker_heartbeats","dispatch_suppressions",
     ):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
@@ -201,7 +213,7 @@ def downgrade() -> None:
     op.execute("DROP TRIGGER IF EXISTS dispatch_payments_immutable ON dispatch_payment_events")
     op.execute("DROP FUNCTION IF EXISTS dispatch_events_append_only()")
     for table in (
-        "dispatch_worker_heartbeats","dispatch_payment_events","dispatch_inbound","dispatch_rate_buckets","dispatch_events","dispatch_items",
+        "dispatch_suppressions","dispatch_worker_heartbeats","dispatch_payment_events","dispatch_inbound","dispatch_rate_buckets","dispatch_events","dispatch_items",
         "dispatch_external_contacts","dispatch_obligations","dispatch_campaigns",
     ):
         op.execute(f"DROP TABLE IF EXISTS {table}")
