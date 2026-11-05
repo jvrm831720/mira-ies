@@ -26,7 +26,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export type DispatchCampaign = {
   id: string;
   name: string;
-  purpose: "retention" | "collections";
+  purpose: "retention" | "academic" | "service" | "collections";
+  delivery_mode: "individual" | "targeted" | "bulk";
   channel: "email" | "sms" | "whatsapp";
   status: "draft" | "approved" | "scheduled" | "running" | "paused" | "completed" | "cancelled";
   template_ref: string;
@@ -44,6 +45,8 @@ export type DispatchCampaign = {
 };
 export type DispatchMetrics = {
   campaigns: number; queued: number; accepted: number;
+  worker_online?: boolean; worker_last_seen?: string | null;
+  estimated_cost_brl?: number;
   simulated: number; problems: number; replies: number; note: string;
 };
 export type DispatchPaymentResults = {
@@ -52,13 +55,65 @@ export type DispatchPaymentResults = {
   note: string;
 };
 export type CampaignDraft = {
-  name: string; purpose: "retention" | "collections";
+  name: string; purpose: "retention" | "academic" | "service" | "collections";
+  delivery_mode: "targeted" | "bulk";
   channel: "email" | "sms" | "whatsapp";
   template_ref: string; template_body: string;
   per_minute_limit?: number;
 };
 
+export type DispatchTemplate = {
+  id: string; code: string; version: number;
+  purpose: "retention" | "academic" | "service" | "collections";
+  channel: "email" | "sms" | "whatsapp";
+  subject: string; status: "draft" | "approved" | "retired";
+  created_by: string; approved_by: string | null;
+  approved_at: string | null;
+};
+export type DispatchProviderAccount = {
+  provider: "resend" | "twilio"; status: "active" | "disabled";
+  configured_at: string; credential_version: number;
+  last_verified_at: string | null;
+};
+export type IndividualIntervention = {
+  template_id: string; subject_type: "student" | "external";
+  subject_ref: string; evidence_ref: string; scheduled_for?: string;
+};
+
 export const dispatchApi = {
+  templates: () => request<{ items: DispatchTemplate[] }>("/templates"),
+  createTemplate: (data: {
+    code: string; purpose: DispatchTemplate["purpose"];
+    channel: DispatchTemplate["channel"]; subject: string; body: string;
+  }) => request<{ id: string; status: string }>("/templates", {
+    method: "POST", body: JSON.stringify(data),
+  }),
+  approveTemplate: (id: string, evidenceRef: string) =>
+    request<{ id: string; status: string }>(
+      `/templates/${encodeURIComponent(id)}/approve`,
+      { method: "POST", body: JSON.stringify({ evidence_ref: evidenceRef }) },
+    ),
+  intervene: (data: IndividualIntervention, idempotencyKey: string) =>
+    request<{ id: string; status: string; deduplicated: boolean }>(
+      "/interventions", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify(data),
+      },
+    ),
+  providers: () => request<{ items: DispatchProviderAccount[] }>("/providers"),
+  configureProvider: (provider: "resend" | "twilio", credentials: Record<string, string>) =>
+    request<DispatchProviderAccount>(`/providers/${provider}`, {
+      method: "PUT", body: JSON.stringify({ credentials }),
+    }),
+  verifyProvider: (provider: "resend" | "twilio") =>
+    request<{ verified: boolean }>(`/providers/${provider}/verify`, { method: "POST" }),
+  activateProvider: (provider: "resend" | "twilio", evidenceRef: string) =>
+    request<{ status: string }>(`/providers/${provider}/activate`, {
+      method: "POST", body: JSON.stringify({ evidence_ref: evidenceRef }),
+    }),
+  disableProvider: (provider: "resend" | "twilio") =>
+    request<{ status: string }>(`/providers/${provider}/disable`, { method: "POST" }),
   campaigns: () => request<{ items: DispatchCampaign[] }>("/campaigns"),
   metrics: () => request<DispatchMetrics>("/metrics"),
   financial: () => request<DispatchPaymentResults>("/recovery/summary"),
