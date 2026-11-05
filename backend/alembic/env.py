@@ -29,6 +29,7 @@ import app.models.rm_sync_jobs  # noqa: F401
 import app.models.connector_destination  # noqa: F401
 import app.models.composio_connection  # noqa: F401
 import app.models.composio_approval  # noqa: F401
+import app.models.frappe_connection  # noqa: F401
 import app.models.integration_features  # noqa: F401
 
 config = context.config
