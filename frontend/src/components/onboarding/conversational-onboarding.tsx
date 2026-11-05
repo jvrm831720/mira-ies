@@ -87,6 +87,19 @@ export function ConversationalOnboarding() {
 
   useEffect(() => {
     if (!email) { setInitialized(true); return; }
+    const pendingMfa = window.sessionStorage.getItem("mira_onboarding_pending_mfa:" + email);
+    if (pendingMfa) {
+      try {
+        const pending = JSON.parse(pendingMfa) as { mode: SecurityStep; ticket: string };
+        if ((pending.mode === "verify" || pending.mode === "enroll") && pending.ticket) {
+          setMfaTicket(pending.ticket);
+          setSecurityStep(pending.mode);
+          setInitialized(true);
+          return;
+        }
+      } catch { /* Expired or invalid local recovery state is ignored. */ }
+      window.sessionStorage.removeItem("mira_onboarding_pending_mfa:" + email);
+    }
     const verifiedToken = window.sessionStorage.getItem("mira_onboarding_token") || "";
     if (!verifiedToken) { setInitialized(true); return; }
     setToken(verifiedToken);
@@ -286,6 +299,11 @@ export function ConversationalOnboarding() {
       window.sessionStorage.removeItem(draftKey);
       if ("challenge_token" in result) {
         setMfaTicket(result.challenge_token);
+        const nextSecurityStep = "mfa_enrollment_required" in result && result.mfa_enrollment_required
+          ? "enroll" : "verify";
+        window.sessionStorage.setItem("mira_onboarding_pending_mfa:" + email, JSON.stringify({
+          ticket: result.challenge_token, mode: nextSecurityStep,
+        }));
         if ("mfa_enrollment_required" in result && result.mfa_enrollment_required) {
           setSecurityStep("enroll");
           try {
@@ -316,6 +334,7 @@ export function ConversationalOnboarding() {
         ? await api.confirmRequiredMfaEnrollment(mfaTicket, mfaCode)
         : await api.verifyMfaLogin(mfaTicket, mfaCode);
       setAccessToken(result.access_token);
+      window.sessionStorage.removeItem("mira_onboarding_pending_mfa:" + email);
       if ("recovery_codes" in result && Array.isArray(result.recovery_codes) && result.recovery_codes.length) {
         setRecoveryCodes(result.recovery_codes);
       } else {
@@ -417,7 +436,7 @@ export function ConversationalOnboarding() {
                 <div className="mira-flow-message" key={step}>
                   <h1 ref={headingRef} tabIndex={-1}>
                     {step === "workspace" ? "Criar seu workspace" :
-                      step === "description" ? "Conhecemos um pouco da sua empresa." :
+                      step === "description" ? (publicCompanyDescription(enrichment) ? "Encontramos informações sobre sua empresa." : "Conte um pouco sobre sua empresa.") :
                       step === "name" ? "E como você prefere que te chamem?" :
                       step === "integrations" ? (form.firstName || "Agora") + ", vamos falar das suas ferramentas." :
                       "Seu workspace está quase pronto."}
