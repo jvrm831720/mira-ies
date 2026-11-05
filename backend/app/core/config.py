@@ -89,6 +89,14 @@ class Settings(BaseSettings):
     agents_cost_per_email_message_brl: float = Field(default=0.0, ge=0.0, le=100.0)
     agents_cost_per_sms_message_brl: float = Field(default=0.0, ge=0.0, le=100.0)
 
+    # Dispatch Platform — all defaults fail closed. Worker is separate from API.
+    dispatch_worker_enabled: bool = False
+    dispatch_live_enabled: bool = False
+    dispatch_live_tenants: str = ""
+    dispatch_live_channels: str = ""
+    dispatch_webhook_secret: str | None = None
+    dispatch_contact_encryption_key: str | None = None
+
     # Agentes de retencao (orquestrador + canais WhatsApp/E-mail/SMS)
     agents_dry_run_default: bool = True
     agents_min_hours_between_contact: int = 48
