@@ -83,6 +83,17 @@ export const financeApi = {
   create: (payload: ProfilePayload) => request<FinanceProfile>(
     ROOT + "/profiles", { method: "POST", body: JSON.stringify(payload) },
   ),
+  configure: (p: FinanceProfile, settings: ProfilePayload) => request<FinanceProfile>(
+    ROOT + `/profiles/${encodeURIComponent(p.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        expected_version: p.mapping_version, name: settings.name,
+        rows_path: settings.rows_path, field_map: settings.field_map,
+        status_map: settings.status_map, review_workflow: settings.review_workflow,
+        student_lookup: settings.student_lookup, enabled: p.enabled,
+      }),
+    },
+  ),
   update: (p: FinanceProfile, enabled: boolean) => request<FinanceProfile>(
     ROOT + `/profiles/${encodeURIComponent(p.id)}`, {
       method: "PUT",
