@@ -14,6 +14,7 @@ depends_on = None
 U = postgresql.UUID(as_uuid=False)
 
 TABLES = (
+    "mira_asaas_workspace_destinations",
     "mira_payment_provider_profiles",
     "mira_student_payment_intents",
     "mira_student_payment_evidence",
@@ -37,6 +38,21 @@ def protection(table):
 
 
 def upgrade():
+    op.create_table(
+        "mira_asaas_workspace_destinations",
+        pk(), tenant(),
+        sa.Column("wallet_id", U, nullable=False),
+        sa.Column("status", sa.String(16), nullable=False, server_default="pending"),
+        sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
+        sa.Column("confirmed_by_user_id", U, nullable=False),
+        sa.Column("verified_at", sa.DateTime(timezone=True)),
+        sa.Column("verified_by_user_id", U),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.UniqueConstraint("tenant_id", name="uq_mira_asaas_destination_tenant"),
+        sa.CheckConstraint("status IN ('pending','verified','rejected')", name="ck_mira_asaas_destination_status"),
+        sa.CheckConstraint("version >= 1", name="ck_mira_asaas_destination_version"),
+    )
     op.create_unique_constraint(
         "uq_mira_finance_observation_tenant_id",
         "mira_finance_observations", ["tenant_id", "id"],

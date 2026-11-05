@@ -92,3 +92,27 @@ class StudentPaymentEvidence(Base):
     signature_type: Mapped[str] = mapped_column(String(40), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now)
+
+class AsaasWorkspaceDestination(Base):
+    """Single net-revenue destination for an entire workspace, independent of ERP sources.
+
+    Only the Asaas wallet UUID is accepted; bank coordinates are not stored.
+    Ownership verification is an independent compliance step, not inferred from
+    a submitted wallet ID or an imported financial record.
+    """
+    __tablename__ = "mira_asaas_workspace_destinations"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_mira_asaas_destination_tenant"),
+        CheckConstraint("status IN ('pending','verified','rejected')", name="ck_mira_asaas_destination_status"),
+        CheckConstraint("version >= 1", name="ck_mira_asaas_destination_version"),
+    )
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
+    wallet_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    confirmed_by_user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_by_user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now)
