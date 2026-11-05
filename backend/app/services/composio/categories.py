@@ -44,6 +44,8 @@ DATA_ANALYSIS_TOOLKITS: dict[str, dict[str, str]] = {
 
 SUPPORT_TOOLKITS: dict[str, dict[str, str]] = {
     "zendesk": {"name": "Zendesk", "kind": "helpdesk"},
+    "freshdesk": {"name": "Freshdesk", "kind": "helpdesk"},
+    "intercom": {"name": "Intercom", "kind": "customer_messaging"},
     "zoho_desk": {"name": "Zoho Desk", "kind": "helpdesk"},
 }
 
