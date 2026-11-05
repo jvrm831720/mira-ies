@@ -73,7 +73,7 @@ def normalize_destination(channel: str, value: str) -> str | None:
     raw = value.strip()
     if channel == "email":
         _, address = parseaddr(raw)
-        if address != raw or "@" not in address or len(address) > 254:
+        if address != raw or "@" not in address or "." not in address.split("@")[-1] or len(address) > 254:
             return None
         return address.lower()
     if channel in {"sms", "whatsapp"}:

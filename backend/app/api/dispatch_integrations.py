@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Literal
 from uuid import uuid4
@@ -73,7 +72,7 @@ async def upsert_obligation(
     await bind_tenant(db, auth.tenant_id)
     if body.status == "open" and (body.balance is None or body.balance <= 0):
         raise HTTPException(status_code=422, detail="Saldo positivo é obrigatório para obrigação aberta.")
-    await db.execute(text("""
+    written = await db.execute(text("""
         INSERT INTO dispatch_obligations (
             id, tenant_id, external_ref, subject_type, subject_ref, status,
             balance, source, evidence_ref, verified_at
@@ -84,6 +83,7 @@ async def upsert_obligation(
             verified_at=now(), updated_at=now()
         WHERE dispatch_obligations.subject_type=EXCLUDED.subject_type
           AND dispatch_obligations.subject_ref=EXCLUDED.subject_ref
+        RETURNING id
     """), {
         "id": str(uuid4()), "tenant": auth.tenant_id,
         "ref": body.external_ref, "kind": body.subject_type,
@@ -91,6 +91,8 @@ async def upsert_obligation(
         "balance": body.balance, "source": body.source,
         "evidence": body.evidence_ref,
     })
+    if written.scalar_one_or_none() is None:
+        raise HTTPException(status_code=409, detail="Obrigação já associada a outro destinatário.")
     if body.status != "open":
         await db.execute(text("""
             UPDATE dispatch_items SET status='blocked', last_error='obligation_no_longer_open',
@@ -276,12 +278,16 @@ async def verified_gateway_webhook(
             "delivered": "delivered", "read": "read",
             "reply": "replied", "failed": "failed",
         }[event.kind]
-        if item["status"] in {"sent","delivered","read","replied"}:
-            if not (item["status"] == "replied" and target in {"delivered","read"}):
-                await db.execute(text("""
-                    UPDATE dispatch_items SET status=:status,updated_at=now()
-                    WHERE id=:id AND tenant_id=:tenant
-                """), {"status": target, "id": item["id"], "tenant": event.tenant_id})
+        rank = {"sent": 1, "delivered": 2, "read": 3, "replied": 4}
+        # Gateway callbacks are not ordered. Never downgrade a prior receipt.
+        if item["status"] in rank and (
+            (target in rank and rank[target] > rank[item["status"]])
+            or (target == "failed" and item["status"] == "sent")
+        ):
+            await db.execute(text("""
+                UPDATE dispatch_items SET status=:status,updated_at=now()
+                WHERE id=:id AND tenant_id=:tenant
+            """), {"status": target, "id": item["id"], "tenant": event.tenant_id})
         if intent in {"opt_out", "wrong_recipient"}:
             if item["subject_type"] == "external":
                 await db.execute(text("""

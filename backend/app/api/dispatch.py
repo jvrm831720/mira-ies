@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, get_current_tenant, require_permission
+from app.core.auth import AuthContext, require_permission
 from app.db.session import get_db
 from app.services import dispatch_core as core
 
