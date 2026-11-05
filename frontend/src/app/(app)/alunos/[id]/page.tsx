@@ -70,9 +70,9 @@ function displayValue(
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">{label}</p>
-      <p className="mt-2 text-[14px] font-semibold text-[#111827]">{value}</p>
+    <article className="rounded-xl border border-[#e4e7ec] bg-white p-4">
+      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9fa1a7]">{label}</p>
+      <p className="mt-2 text-[14px] font-semibold text-[#1c1d1f]">{value}</p>
     </article>
   );
 }
@@ -143,7 +143,7 @@ export default function StudentDetailPage() {
         ? "#FDB022"
         : data?.risk_level === "baixo"
           ? "#12B76A"
-          : "#98A2B3";
+          : "#9fa1a7";
 
   const summaryText =
     businessText(data?.shap_summary) ||
@@ -180,7 +180,7 @@ export default function StudentDetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/alunos"
-            className="inline-flex items-center gap-2 rounded-lg text-[13px] font-semibold text-[#667085] transition hover:text-[#2563EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+            className="inline-flex items-center gap-2 rounded-lg text-[13px] font-semibold text-[#6f7988] transition hover:text-[#266df0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar para alunos
@@ -190,13 +190,29 @@ export default function StudentDetailPage() {
               type="button"
               onClick={() => void refetch()}
               disabled={isFetching}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-3 text-[12px] font-medium text-[#1c1d1f] transition hover:bg-[#f4f5f6] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
               Atualizar
             </button>
           )}
         </div>
+
+        {data && (
+          <nav aria-label="Seções da ficha" className="sticky top-[52px] z-10 -mx-4 flex gap-6 overflow-x-auto border-b border-[#e4e7ec] bg-white px-4 md:mx-0 md:px-0">
+            {[
+              ["#identificacao", "Visão geral"],
+              ["#dados-academicos", "Dados acadêmicos"],
+              ["#risco", "Análise de risco"],
+              ["#intervencoes", "Intervenções"],
+              ["#atividade", "Atividade"],
+            ].map(([href, label]) => (
+              <a key={href} href={href} className="whitespace-nowrap border-b-2 border-transparent py-3 text-[12px] font-medium text-[#6f7988] transition hover:border-[#d3d8df] hover:text-[#1c1d1f]">
+                {label}
+              </a>
+            ))}
+          </nav>
+        )}
 
         {isLoading && (
           <div className="space-y-4">
@@ -215,8 +231,8 @@ export default function StudentDetailPage() {
             <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-white text-[#B42318]">
               <CircleAlert className="h-5 w-5" />
             </span>
-            <p className="mt-4 text-[15px] font-semibold text-[#111827]">Não foi possível abrir esta ficha.</p>
-            <p className="mt-1 text-[13px] text-[#667085]">
+            <p className="mt-4 text-[15px] font-semibold text-[#1c1d1f]">Não foi possível abrir esta ficha.</p>
+            <p className="mt-1 text-[13px] text-[#6f7988]">
               A consulta de risco falhou ou o aluno não está acessível nesta instituição.
             </p>
             <button type="button" onClick={() => void refetch()} className="mt-4 text-[13px] font-semibold text-[#B42318] underline underline-offset-4">
@@ -227,48 +243,48 @@ export default function StudentDetailPage() {
 
         {data && (
           <>
-            <section className="rounded-xl border border-[#E5E7EB] bg-white p-5 sm:p-6">
+            <section id="identificacao" className="scroll-mt-28 rounded-xl border border-[#e4e7ec] bg-white p-5 sm:p-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">Identificação</p>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9fa1a7]">Identificação</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2.5">
-                    <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#111827] sm:text-[24px]">
+                    <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#1c1d1f] sm:text-[24px]">
                       {data.nome || "Nome não informado"}
                     </h1>
                     <RiskBadge level={data.risk_level} />
                   </div>
-                  <p className="mt-1.5 text-[13px] text-[#667085]">
+                  <p className="mt-1.5 text-[13px] text-[#6f7988]">
                     Matrícula {data.matricula || "—"}
                     {data.curso ? ` · ${data.curso}` : ""}
                     {data.campus ? ` · ${data.campus}` : ""}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-[#344054]">
+                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-[#2e3238]">
                     {data.telefone ? (
                       <span className="inline-flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 text-[#667085]" />
+                        <Phone className="h-3.5 w-3.5 text-[#6f7988]" />
                         {data.telefone}
                       </span>
                     ) : null}
                     {data.email ? (
                       <span className="inline-flex items-center gap-2">
-                        <Mail className="h-3.5 w-3.5 text-[#667085]" />
+                        <Mail className="h-3.5 w-3.5 text-[#6f7988]" />
                         {data.email}
                       </span>
                     ) : null}
                     {!data.telefone && !data.email && (
-                      <span className="text-[#98A2B3]">Sem telefone ou e-mail cadastrado</span>
+                      <span className="text-[#9fa1a7]">Sem telefone ou e-mail cadastrado</span>
                     )}
                   </div>
                 </div>
-                <div className="w-full shrink-0 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-4 sm:w-[240px]">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">Score de risco</p>
+                <div className="w-full shrink-0 rounded-xl border border-[#e4e7ec] bg-[#f4f5f6] p-4 sm:w-[240px]">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9fa1a7]">Score de risco</p>
                   {scoreAvailable ? (
                     <>
                       <div className="mt-2 flex items-baseline gap-1">
-                        <span className="text-[32px] font-semibold tracking-[-0.04em] tabular-nums text-[#111827]">
+                        <span className="text-[32px] font-semibold tracking-[-0.04em] tabular-nums text-[#1c1d1f]">
                           {formatScore(data.risk_score)}
                         </span>
-                        <span className="text-[12px] text-[#98A2B3]">/ 100</span>
+                        <span className="text-[12px] text-[#9fa1a7]">/ 100</span>
                       </div>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
                         <div className="h-full rounded-full transition-all" style={{ width: `${scoreBarWidth}%`, backgroundColor: scoreBarColor }} />
@@ -276,16 +292,16 @@ export default function StudentDetailPage() {
                     </>
                   ) : (
                     <>
-                      <p className="mt-3 text-[20px] font-semibold text-[#667085]">Sem score</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-[#98A2B3]">Ausência de score não significa baixo risco.</p>
+                      <p className="mt-3 text-[20px] font-semibold text-[#6f7988]">Sem score</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-[#9fa1a7]">Ausência de score não significa baixo risco.</p>
                     </>
                   )}
                 </div>
               </div>
             </section>
 
-            <section aria-label="Resumo acadêmico e financeiro">
-              <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[#111827]">Situação acadêmica e financeira</h2>
+            <section id="dados-academicos" aria-label="Resumo acadêmico e financeiro" className="scroll-mt-28">
+              <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[#1c1d1f]">Situação acadêmica e financeira</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <InfoCard label="Curso" value={displayValue(data.curso)} />
                 <InfoCard label="Semestre" value={data.semestre != null ? `Semestre ${data.semestre}` : "Não informado"} />
@@ -294,43 +310,43 @@ export default function StudentDetailPage() {
               </div>
             </section>
 
-            <StudentWorkTimeline studentId={id} />
+            <div id="atividade" className="scroll-mt-28"><StudentWorkTimeline studentId={id} /></div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
+            <div id="risco" className="scroll-mt-28 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
               <div className="space-y-4">
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-                  <h2 className="text-[15px] font-semibold text-[#111827]">Análise de risco</h2>
-                  <p className="mt-1 text-[12px] text-[#667085]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
+                <section className="rounded-xl border border-[#e4e7ec] bg-white p-5">
+                  <h2 className="text-[15px] font-semibold text-[#1c1d1f]">Análise de risco</h2>
+                  <p className="mt-1 text-[12px] text-[#6f7988]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
                   {explanationMetadata?.available && (
-                    <p className="mt-2 text-[11px] text-[#98A2B3]">
+                    <p className="mt-2 text-[11px] text-[#9fa1a7]">
                       SHAP · modelo {explanationMetadata.model_scope || "não informado"} · versão {explanationMetadata.model_version || "não informada"}
                     </p>
                   )}
                   {summaryText ? (
-                    <p className="mt-4 text-[13px] leading-relaxed text-[#344054]">{summaryText}</p>
+                    <p className="mt-4 text-[13px] leading-relaxed text-[#2e3238]">{summaryText}</p>
                   ) : (
-                    <p className="mt-4 rounded-lg bg-[#F8FAFC] px-3 py-3 text-[13px] text-[#667085]">Explicação detalhada indisponível para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[#f4f5f6] px-3 py-3 text-[13px] text-[#6f7988]">Explicação detalhada indisponível para este aluno.</p>
                   )}
                   {factors.length > 0 ? (
                     <ul className="mt-4 space-y-2">
                       {factors.map((factor, index) => (
-                        <li key={`${factor}-${index}`} className="flex items-center gap-3 rounded-lg border border-[#E5E7EB] px-3.5 py-3">
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#EFF6FF] text-[11px] font-semibold text-[#2563EB]">
+                        <li key={`${factor}-${index}`} className="flex items-center gap-3 rounded-lg border border-[#e4e7ec] px-3.5 py-3">
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#EFF6FF] text-[11px] font-semibold text-[#266df0]">
                             {String(index + 1).padStart(2, "0")}
                           </span>
-                          <span className="text-[13px] font-medium text-[#111827]">{factor}</span>
+                          <span className="text-[13px] font-medium text-[#1c1d1f]">{factor}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    !summaryText && <p className="mt-3 text-[12px] text-[#98A2B3]">Nenhum fator de negócio disponível nesta avaliação.</p>
+                    !summaryText && <p className="mt-3 text-[12px] text-[#9fa1a7]">Nenhum fator de negócio disponível nesta avaliação.</p>
                   )}
                 </section>
 
                 {scoreBreakdown && (
-                  <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-                    <h2 className="text-[15px] font-semibold text-[#111827]">Composição do score</h2>
-                    <p className="mt-1 text-[12px] text-[#667085]">
+                  <section className="rounded-xl border border-[#e4e7ec] bg-white p-5">
+                    <h2 className="text-[15px] font-semibold text-[#1c1d1f]">Composição do score</h2>
+                    <p className="mt-1 text-[12px] text-[#6f7988]">
                       Componentes apresentados separadamente. Os pontos das regras e os ajustes dinâmicos não são contribuições SHAP.
                     </p>
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -343,9 +359,9 @@ export default function StudentDetailPage() {
                 )}
 
                 {ruleAdjustments.length > 0 && (
-                  <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-                    <h2 className="text-[15px] font-semibold text-[#111827]">Regras acionadas</h2>
-                    <p className="mt-1 text-[12px] text-[#667085]">
+                  <section className="rounded-xl border border-[#e4e7ec] bg-white p-5">
+                    <h2 className="text-[15px] font-semibold text-[#1c1d1f]">Regras acionadas</h2>
+                    <p className="mt-1 text-[12px] text-[#6f7988]">
                       Cada item mostra a condição observada e o ajuste solicitado pela regra.
                     </p>
                     <ul className="mt-4 space-y-2">
@@ -358,20 +374,20 @@ export default function StudentDetailPage() {
                         const field = typeof evidence.field === "string" ? evidence.field : null;
                         const recommendation = businessText(typeof rule.recommendation === "string" ? rule.recommendation : null);
                         return (
-                          <li key={String(rule.flag || index)} className="rounded-lg border border-[#E5E7EB] px-3.5 py-3">
+                          <li key={String(rule.flag || index)} className="rounded-lg border border-[#e4e7ec] px-3.5 py-3">
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <p className="text-[13px] font-semibold text-[#111827]">{businessText(String(rule.description || rule.flag || "Regra aplicada"))}</p>
+                              <p className="text-[13px] font-semibold text-[#1c1d1f]">{businessText(String(rule.description || rule.flag || "Regra aplicada"))}</p>
                               <span className="shrink-0 rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-semibold tabular-nums text-[#9A3412]">
                                 +{displayValue(typeof rule.delta_points === "number" ? rule.delta_points : null)} pts
                               </span>
                             </div>
                             {field && observed != null && (
-                              <p className="mt-1.5 text-[12px] text-[#667085]">
+                              <p className="mt-1.5 text-[12px] text-[#6f7988]">
                                 Evidência: {field} = {String(observed)}
                                 {threshold != null ? ` · limite ${String(evidence.operator || "")} ${String(threshold)}` : ""}
                               </p>
                             )}
-                            {recommendation && <p className="mt-2 text-[12px] leading-relaxed text-[#344054]">Próxima ação sugerida: {recommendation}</p>}
+                            {recommendation && <p className="mt-2 text-[12px] leading-relaxed text-[#2e3238]">Próxima ação sugerida: {recommendation}</p>}
                           </li>
                         );
                       })}
@@ -385,16 +401,16 @@ export default function StudentDetailPage() {
                   </p>
                 )}
 
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-                  <h2 className="text-[15px] font-semibold text-[#111827]">Sugestões operacionais</h2>
-                  <p className="mt-1 text-[12px] text-[#667085]">Sugestões retornadas pelo sistema — não são decisões automáticas nem comprovação de resultado.</p>
+                <section id="intervencoes" className="scroll-mt-28 rounded-xl border border-[#e4e7ec] bg-white p-5">
+                  <h2 className="text-[15px] font-semibold text-[#1c1d1f]">Sugestões operacionais</h2>
+                  <p className="mt-1 text-[12px] text-[#6f7988]">Sugestões retornadas pelo sistema — não são decisões automáticas nem comprovação de resultado.</p>
                   {actions.length === 0 ? (
-                    <p className="mt-4 rounded-lg bg-[#F8FAFC] px-3 py-3 text-[13px] text-[#667085]">Nenhuma sugestão operacional disponível para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[#f4f5f6] px-3 py-3 text-[13px] text-[#6f7988]">Nenhuma sugestão operacional disponível para este aluno.</p>
                   ) : (
                     <ol className="mt-4 space-y-2">
                       {actions.map((action, index) => (
-                        <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-3.5 py-3 text-[13px] leading-relaxed text-[#344054]">
-                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[#2563EB] ring-1 ring-[#E5E7EB]">{index + 1}</span>
+                        <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[#e4e7ec] bg-[#f4f5f6] px-3.5 py-3 text-[13px] leading-relaxed text-[#2e3238]">
+                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[#266df0] ring-1 ring-[#e4e7ec]">{index + 1}</span>
                           {action}
                         </li>
                       ))}
@@ -404,14 +420,14 @@ export default function StudentDetailPage() {
               </div>
 
               <div className="space-y-4">
-                <section className={cn("rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[#E5E7EB] bg-white")}>
+                <section className={cn("rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[#e4e7ec] bg-white")}>
                   <div className="flex items-start gap-3">
-                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[#EFF6FF] text-[#2563EB]")}>
+                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[#EFF6FF] text-[#266df0]")}>
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[#111827]">Comunicação</h2>
-                      <p className="mt-1 text-[12px] leading-relaxed text-[#667085]">
+                      <h2 className="text-[15px] font-semibold text-[#1c1d1f]">Comunicação</h2>
+                      <p className="mt-1 text-[12px] leading-relaxed text-[#6f7988]">
                         {data.communication_opt_out ? "Opt-out ativo — não contatar automaticamente." : "Contato autorizado, sujeito a regras de anti-spam."}
                       </p>
                     </div>
@@ -421,49 +437,49 @@ export default function StudentDetailPage() {
                     disabled={preferenceMutation.isPending}
                     onClick={() => preferenceMutation.mutate(!data.communication_opt_out)}
                     className={cn(
-                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] disabled:opacity-60",
-                      data.communication_opt_out ? "bg-[#2563EB] text-white hover:bg-[#1D4ED8]" : "border border-[#E5E7EB] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0] disabled:opacity-60",
+                      data.communication_opt_out ? "bg-[#266df0] text-white hover:bg-[#407ff2]" : "border border-[#e4e7ec] bg-white text-[#1c1d1f] hover:bg-[#f4f5f6]"
                     )}
                   >
                     {preferenceMutation.isPending ? "Salvando…" : data.communication_opt_out ? "Revogar opt-out" : "Registrar opt-out"}
                   </button>
                 </section>
 
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                <section className="rounded-xl border border-[#e4e7ec] bg-white p-5">
                   <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#2563EB]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#266df0]">
                       <MessageSquareText className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[#111827]">Preparar contato</h2>
-                      <p className="mt-1 text-[12px] text-[#667085]">Gera a prévia da mensagem sem enviar.</p>
+                      <h2 className="text-[15px] font-semibold text-[#1c1d1f]">Preparar contato</h2>
+                      <p className="mt-1 text-[12px] text-[#6f7988]">Gera a prévia da mensagem sem enviar.</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => void loadPreview()}
                     disabled={loadingPreview}
-                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2563EB] text-[13px] font-semibold text-white transition hover:bg-[#1D4ED8] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#266df0] text-[13px] font-semibold text-white transition hover:bg-[#407ff2] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {loadingPreview ? "Preparando…" : "Gerar prévia da mensagem"}
                   </button>
                   {preview && (
-                    <div className="mt-4 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] p-4">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">Prévia</p>
-                      <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-[#344054]">{preview}</p>
+                    <div className="mt-4 rounded-lg border border-[#e4e7ec] bg-[#f4f5f6] p-4">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9fa1a7]">Prévia</p>
+                      <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-[#2e3238]">{preview}</p>
                     </div>
                   )}
                 </section>
 
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                <section className="rounded-xl border border-[#e4e7ec] bg-white p-5">
                   <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8FAFC] text-[#667085]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f4f5f6] text-[#6f7988]">
                       <History className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[#111827]">Contatos (retenção)</h2>
-                      <p className="mt-1 text-[12px] text-[#667085]">Logs de retenção. Status de envio não confirma permanência.</p>
+                      <h2 className="text-[15px] font-semibold text-[#1c1d1f]">Contatos (retenção)</h2>
+                      <p className="mt-1 text-[12px] text-[#6f7988]">Logs de retenção. Status de envio não confirma permanência.</p>
                     </div>
                   </div>
                   {logs.isLoading && (
@@ -472,9 +488,9 @@ export default function StudentDetailPage() {
                       <Skeleton className="h-14 w-full rounded-lg" />
                     </div>
                   )}
-                  {logs.isError && <p className="mt-4 text-[12px] text-[#667085]">Histórico de contatos indisponível no momento.</p>}
+                  {logs.isError && <p className="mt-4 text-[12px] text-[#6f7988]">Histórico de contatos indisponível no momento.</p>}
                   {!logs.isLoading && !logs.isError && (logs.data?.logs?.length ?? 0) === 0 && (
-                    <p className="mt-4 rounded-lg bg-[#F8FAFC] px-3 py-3 text-[13px] text-[#667085]">Nenhum contato de retenção registrado para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[#f4f5f6] px-3 py-3 text-[13px] text-[#6f7988]">Nenhum contato de retenção registrado para este aluno.</p>
                   )}
                   {!logs.isLoading && !logs.isError && (logs.data?.logs?.length ?? 0) > 0 && (
                     <ul className="mt-4 space-y-2">
@@ -482,12 +498,12 @@ export default function StudentDetailPage() {
                         const visibleStatus = log.status === "dry_run" ? "dry_run" : log.delivery_status || log.status;
                         const label = STATUS_LABELS[visibleStatus] || visibleStatus.replaceAll("_", " ");
                         return (
-                          <li key={log.id} className="rounded-lg border border-[#E5E7EB] px-3 py-2.5">
+                          <li key={log.id} className="rounded-lg border border-[#e4e7ec] px-3 py-2.5">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[12px] font-semibold capitalize text-[#111827]">{log.channel || "Canal não informado"}</span>
-                              <span className="rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-medium text-[#667085]">{label}</span>
+                              <span className="text-[12px] font-semibold capitalize text-[#1c1d1f]">{log.channel || "Canal não informado"}</span>
+                              <span className="rounded-full bg-[#f4f5f6] px-2 py-0.5 text-[10px] font-medium text-[#6f7988]">{label}</span>
                             </div>
-                            <p className="mt-1 text-[11px] text-[#98A2B3]">
+                            <p className="mt-1 text-[11px] text-[#9fa1a7]">
                               {formatDateTime(log.created_at) || "Data indisponível"}
                               {log.campaign_id ? ` · Campanha ${log.campaign_id}` : ""}
                             </p>
