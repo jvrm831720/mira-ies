@@ -153,6 +153,8 @@ async def eligibility(
         # Missing preference is NOT consent; fail closed, even if old code defaults to True.
         if prefs.get("channels", {}).get(campaign["channel"]) is not True:
             return Eligibility(False, "channel_consent_not_verified")
+        if campaign["purpose"] == "retention" and prefs.get("topics", {}).get("retention") is not True:
+            return Eligibility(False, "retention_purpose_not_verified")
         dest = student["email"] if campaign["channel"] == "email" else student["telefone"]
         normalized = normalize_destination(campaign["channel"], dest or "")
         if not normalized:

@@ -160,8 +160,10 @@ async def enqueue_recipients(
             # External audiences require an encrypted, pre-verified contact.
             contact = (await db.execute(text("""
                 SELECT 1 FROM dispatch_external_contacts WHERE tenant_id=:tenant
-                AND subject_ref=:ref AND channel=:channel AND opt_out IS FALSE
-            """), {"tenant": tenant_id, "ref": ref, "channel": campaign["channel"]})).first()
+                AND subject_ref=:ref AND channel=:channel
+                AND consent_ref=:consent AND opt_out IS FALSE
+            """), {"tenant": tenant_id, "ref": ref, "channel": campaign["channel"],
+                     "consent": consent})).first()
             if not contact:
                 raise ValueError("Contato externo não verificado ou desautorizado.")
         if obligation:

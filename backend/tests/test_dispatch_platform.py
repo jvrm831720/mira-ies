@@ -141,7 +141,8 @@ async def test_outbox_deduplication_approval_and_simulated_send(
     student = Student(
         tenant_id=tenant_row.id, batch_id=batch.id,
         matricula="DISP001", nome="Ana", email="ana@example.test",
-        communication_preferences={"channels": {"email": True}},
+        communication_preferences={"channels": {"email": True},
+                                   "topics": {"retention": True}},
     )
     db_session.add(student)
     await db_session.commit()
@@ -451,7 +452,8 @@ async def test_concurrent_workers_claim_disjoint_items(db_session, tenant):
             tenant_id=org.id, batch_id=batch.id,
             matricula=f"LOAD-{index:04d}", nome=f"Pessoa {index}",
             email=f"person{index}@example.test",
-            communication_preferences={"channels": {"email": True}},
+            communication_preferences={"channels": {"email": True},
+                                   "topics": {"retention": True}},
         ) for index in range(30)
     ]
     db_session.add_all(students)
