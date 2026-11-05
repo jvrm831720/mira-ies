@@ -1,12 +1,12 @@
 """Tenant-scoped dispatch outbox, leases, evidence and delivery events.
 
 Revision ID: 055_dispatch_platform
-Revises: 054_smart_import_custom_fields
+Revises: 055_eligible_contrib_revocation
 """
 from alembic import op
 
 revision = "055_dispatch_platform"
-down_revision = "054_smart_import_custom_fields"
+down_revision = "055_eligible_contrib_revocation"
 branch_labels = None
 depends_on = None
 
