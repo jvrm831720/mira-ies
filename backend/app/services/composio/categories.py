@@ -29,6 +29,13 @@ CRM_TOOLKITS: dict[str, dict[str, str]] = {
     "dynamics365": {"name": "Dynamics 365", "kind": "crm"},
 }
 
+DOCUMENT_TOOLKITS: dict[str, dict[str, str]] = {
+    "googledrive": {"name": "Google Drive", "kind": "cloud_storage"},
+    "one_drive": {"name": "OneDrive", "kind": "cloud_storage"},
+    "share_point": {"name": "SharePoint", "kind": "document_collaboration"},
+    "dropbox": {"name": "Dropbox", "kind": "cloud_storage"},
+}
+
 
 def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
     """Attach MIRA category metadata using verified Composio toolkit slugs."""
@@ -36,6 +43,7 @@ def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
     for category_slug, category_label, toolkits in (
         ("communication", "Comunicação", COMMUNICATION_TOOLKITS),
         ("crm", "CRM e relacionamento", CRM_TOOLKITS),
+        ("documents", "Documentos e arquivos", DOCUMENT_TOOLKITS),
     ):
         metadata = toolkits.get(slug)
         if metadata:
@@ -60,6 +68,23 @@ def crm_category() -> dict[str, Any]:
         "composio_toolkits": [
             {"slug": slug, **metadata}
             for slug, metadata in CRM_TOOLKITS.items()
+        ],
+        "native_channels": [],
+    }
+
+
+def documents_category() -> dict[str, Any]:
+    """Return the curated document category without enabling any toolkit."""
+    return {
+        "slug": "documents",
+        "name": "Documentos e arquivos",
+        "description": (
+            "Localização, consulta e gestão de arquivos autorizados em "
+            "repositórios corporativos e espaços de colaboração."
+        ),
+        "composio_toolkits": [
+            {"slug": slug, **metadata}
+            for slug, metadata in DOCUMENT_TOOLKITS.items()
         ],
         "native_channels": [],
     }
