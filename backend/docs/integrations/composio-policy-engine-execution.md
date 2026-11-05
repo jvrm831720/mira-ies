@@ -4,6 +4,8 @@
 
 Wave 3 iniciada em `feat/composio-policy-engine-approval-gate`, baseada na `main` em `19517f9698149cea842607cb0cda0a1007568a5a`.
 
+**Checkpoint 3.0 (fundação):** a migration `049_composio_tool_approvals`, o modelo ORM de aprovações, a FK composta tenant+conta e a flag `COMPOSIO_TOOL_EXECUTION_ENABLED=false` foram adicionados. Ainda não há endpoint de execução nem chamada ao SDK nesta entrega. A migration não foi aplicada a nenhum banco.
+
 Esta primeira entrega define o contrato de segurança antes de habilitar qualquer chamada externa. **A execução permanece desabilitada por padrão.** A existência de uma conta OAuth ou a seleção de uma ferramenta no catálogo não concede, isoladamente, autorização para executá-la.
 
 ## Objetivo
