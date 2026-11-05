@@ -15,7 +15,6 @@ import {
   Check,
   ChevronDown,
   ChevronsUpDown,
-  CircleHelp,
   CreditCard,
   Database,
   FileClock,
