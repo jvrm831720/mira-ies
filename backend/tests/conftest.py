@@ -95,7 +95,7 @@ async def _prepare_test_database():
         from sqlalchemy import text
         await sa_conn.execute(text("""
             DROP TABLE IF EXISTS
-              dispatch_worker_heartbeats, dispatch_payment_events, dispatch_inbound,
+              dispatch_suppressions, dispatch_worker_heartbeats, dispatch_payment_events, dispatch_inbound,
               dispatch_rate_buckets, dispatch_events, dispatch_items,
               dispatch_external_contacts, dispatch_obligations, dispatch_campaigns
             CASCADE
