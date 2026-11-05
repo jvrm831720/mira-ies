@@ -143,6 +143,21 @@ async def update_toolkit_policy(
         row.tool_slugs = tools
         row.updated_by_user_id = auth.user_id
         row.updated_at = now
+
+    # A policy change revokes any pending request whose tool is no longer exposed.
+    pending_result = await db.execute(select(TenantComposioToolApproval).where(
+        TenantComposioToolApproval.tenant_id == auth.tenant_id,
+        TenantComposioToolApproval.toolkit_slug == slug,
+        TenantComposioToolApproval.status == "pending_approval",
+    ).with_for_update())
+    selected_tools = {item.upper() for item in tools}
+    for approval in pending_result.scalars().all():
+        if not body.enabled or approval.tool_slug.upper() not in selected_tools:
+            approval.status = "cancelled"
+            db.add(_approval_audit(
+                tenant_id=auth.tenant_id, actor_user_id=auth.user_id,
+                row=approval, approval_status="cancelled",
+            ))
     await db.commit()
     return {
         "toolkit_slug": row.toolkit_slug,
