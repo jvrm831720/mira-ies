@@ -14,9 +14,8 @@ from app.core.mira_security import decode_access_token
 from app.core.security import hash_api_key
 from app.db.session import get_db
 from app.models.auth import TenantRole, User, UserSession
-from app.models.organization import Membership
 from app.models.tenant import Tenant
-from app.services.membership import ensure_membership, resolve_active_membership
+from app.services.membership import resolve_active_membership
 
 # Hierarquia simples: admin > coordinator > operator > viewer
 ROLE_RANK = {"viewer": 1, "operator": 2, "coordinator": 3, "admin": 4}

@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from app.services.custom_fields import build_catalog, coerce_value, slugify_label
+from app.services.custom_fields import coerce_value, slugify_label
 from app.services.smart_import import (
     build_catalog_by_field,
     normalize_header,
@@ -13,7 +13,7 @@ from app.services.smart_import import (
 
 
 def _catalog(custom=None):
-    return build_catalog_by_field(build_catalog(custom or []), canonical_aliases={
+    return build_catalog_by_field(custom or [], canonical_aliases={
         "telefone": ["celular", "whatsapp", "contato"],
         "communication_opt_out": ["opt_out", "nao_contatar", "do_not_contact"],
     })
