@@ -14,7 +14,12 @@ from app.models.sophia_sync import SophiaSyncJob, SophiaSyncJobEvent, SophiaStud
 from app.models.rm_sync import RmSyncScope, RmSyncRun, RmSyncPage, RmSyncRecord
 from app.models.rm_sync_jobs import RmSyncJob, RmSyncJobEvent
 from app.models.connector_destination import TenantConnectorDestination, TenantConnectorDestinationAudit
-from app.models.composio_connection import TenantComposioSession, TenantComposioAccount, TenantComposioToolAudit
+from app.models.composio_connection import (
+    TenantComposioSession,
+    TenantComposioAccount,
+    TenantComposioToolAudit,
+    TenantComposioToolkitPolicy,
+)
 
 __all__ = [
     "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
@@ -27,5 +32,5 @@ __all__ = [
     "SophiaSyncJob", "SophiaSyncJobEvent", "SophiaStudentResource",
     "RmSyncScope", "RmSyncRun", "RmSyncPage", "RmSyncRecord",
     "RmSyncJob", "RmSyncJobEvent", "TenantConnectorDestination", "TenantConnectorDestinationAudit",
-    "TenantComposioSession", "TenantComposioAccount", "TenantComposioToolAudit",
+    "TenantComposioSession", "TenantComposioAccount", "TenantComposioToolAudit", "TenantComposioToolkitPolicy",
 ]
