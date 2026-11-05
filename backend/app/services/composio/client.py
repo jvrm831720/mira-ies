@@ -67,19 +67,32 @@ def list_toolkits() -> list[dict[str, Any]]:
     return sorted(normalized, key=lambda item: item["name"].lower())
 
 
-def validate_tool_slugs(tool_slugs: list[str]) -> list[str]:
-    """Validate every selected tool against Composio's live tool registry."""
+def list_tools_for_toolkit(toolkit_slug: str) -> list[dict[str, Any]]:
+    """Return live tool schemas for one toolkit, with a bounded catalog request."""
     client = get_composio_client()
-    validated: list[str] = []
-    for slug in tool_slugs:
-        normalized = slug.strip().upper()
-        if not normalized or len(normalized) > 120:
-            raise ValueError("Tool slug inválido.")
-        try:
-            tool = client.tools.get_raw_composio_tool_by_slug(normalized)
-        except Exception as exc:
-            raise ValueError(f"Ferramenta não encontrada no catálogo Composio: {normalized}") from exc
-        if tool is None:
-            raise ValueError(f"Ferramenta não encontrada no catálogo Composio: {normalized}")
-        validated.append(normalized)
-    return sorted(set(validated))
+    response = client.tools.get_raw_composio_tools(toolkits=[toolkit_slug.upper()], limit=1000)
+    normalized: list[dict[str, Any]] = []
+    for item in response or []:
+        data = _as_dict(item)
+        slug = data.get("slug") or data.get("tool_slug") or getattr(item, "slug", None)
+        if not isinstance(slug, str) or not slug.strip():
+            continue
+        normalized.append({
+            "slug": slug.strip().upper(),
+            "name": data.get("name") or slug,
+            "description": data.get("description"),
+            "input_parameters": data.get("input_parameters") or data.get("inputParameters") or {},
+        })
+    return sorted(normalized, key=lambda item: item["slug"])
+
+
+def validate_tool_slugs(toolkit_slug: str, tool_slugs: list[str]) -> list[str]:
+    """Validate selected tools against the live schemas for the exact toolkit."""
+    available = {item["slug"] for item in list_tools_for_toolkit(toolkit_slug)}
+    validated = sorted({slug.strip().upper() for slug in tool_slugs if isinstance(slug, str)})
+    if any(not slug or len(slug) > 120 for slug in validated):
+        raise ValueError("Tool slug inválido.")
+    unknown = sorted(set(validated) - available)
+    if unknown:
+        raise ValueError(f"Ferramentas não pertencem ao toolkit ou não existem: {', '.join(unknown)}")
+    return validated
