@@ -79,3 +79,12 @@ def test_due_date_requires_timezone():
     assert finance.parse_datetime(None) is None
     with pytest.raises(finance.FinancialReadDenied):
         finance.parse_datetime("2026-11-30T00:00:00")
+
+
+@pytest.mark.parametrize("path", [
+    "access_token", "credentials.password", "private_key",
+    "financial.bank_account", "api_key",
+])
+def test_finance_mapping_rejects_sensitive_paths(path):
+    with pytest.raises(finance.FinancialReadDenied):
+        finance.safe_mapping_path(path)
