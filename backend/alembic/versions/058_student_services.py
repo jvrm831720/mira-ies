@@ -84,8 +84,23 @@ def upgrade():
     op.create_index("ix_mira_financial_reference_student", "mira_student_financial_references", ["tenant_id", "student_id"])
     for table in TABLES:
         protect(table)
+    # Database-level append-only audit history for student requests.
+    op.execute("""
+        CREATE FUNCTION mira_service_event_immutable() RETURNS trigger AS $
+        BEGIN
+            RAISE EXCEPTION 'student service history is append-only';
+        END;
+        $ LANGUAGE plpgsql
+    """)
+    op.execute("""
+        CREATE TRIGGER mira_student_service_event_immutable
+        BEFORE UPDATE OR DELETE ON mira_student_service_events
+        FOR EACH ROW EXECUTE FUNCTION mira_service_event_immutable()
+    """)
 
 
 def downgrade():
+    op.execute("DROP TRIGGER IF EXISTS mira_student_service_event_immutable ON mira_student_service_events")
+    op.execute("DROP FUNCTION IF EXISTS mira_service_event_immutable()")
     for table in reversed(TABLES):
         op.drop_table(table)
