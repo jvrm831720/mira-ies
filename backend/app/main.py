@@ -12,7 +12,7 @@ from app.api import (
     outcomes, academic_outcomes, outcome_analytics, agents, auth, mfa, delivery_webhooks, org, billing,
     retention_campaigns, retention_campaign_execution, retention_campaign_intelligence, retention_campaign_proposal_workflow, control_center_auth,
     control_center_admin, mira_admin, work_activities, student_work_timeline, composio,
-    signals, student_groups, totvs_rm_operations, connector_destinations, tenant_rbac,
+    signals, student_groups, totvs_rm_operations, connector_destinations, tenant_rbac, omie,
 )
 from app.db.session import init_db, apply_runtime_schema_patches, SchemaPatchError
 from app.ml.model import load_model
@@ -151,6 +151,7 @@ app.add_middleware(
 
 app.include_router(health.router, tags=["Health"])
 app.include_router(composio.router, prefix="/api/v1")
+app.include_router(omie.router, prefix="/api/v1")
 app.include_router(upload.router, prefix="/api/v1", tags=["Upload & Students"])
 app.include_router(scoring.router, prefix="/api/v1", tags=["Motor Preditivo (Risk + SHAP)"])
 app.include_router(connectors.router, prefix="/api/v1", tags=["Conectores ERP/LMS"])
