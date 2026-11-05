@@ -23,7 +23,9 @@ def main() -> int:
         if len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
             errors.append("SHA inválido: " + source["key"])
             continue
-        if not path.exists():
+        # An uninitialized gitlink may still have an empty directory on disk.
+        # Require a nested .git file/directory instead of walking up to the parent repo.
+        if not (path / ".git").exists():
             if args.require_checkout:
                 errors.append("Submódulo não inicializado: " + source["path"])
             else:
