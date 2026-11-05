@@ -43,7 +43,7 @@ def live_enabled(tenant_id: str, channel: str) -> bool:
     channels = {x.strip() for x in settings.dispatch_live_channels.split(",") if x.strip()}
     return (
         settings.dispatch_live_enabled
-        and not settings.agents_dry_run_default
+        and not settings.dispatch_dry_run_default
         and tenant_id in tenants
         and channel in channels
         and channel in {"email", "sms"}

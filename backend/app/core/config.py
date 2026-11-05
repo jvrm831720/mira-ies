@@ -91,6 +91,7 @@ class Settings(BaseSettings):
 
     # Dispatch Platform — all defaults fail closed. Worker is separate from API.
     dispatch_worker_enabled: bool = False
+    dispatch_dry_run_default: bool = True
     dispatch_live_enabled: bool = False
     dispatch_live_tenants: str = ""
     dispatch_live_channels: str = ""

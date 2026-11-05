@@ -49,7 +49,7 @@ reference. Collection recipients need a separately verifiable obligation.
 
 - The new worker is **off** until `DISPATCH_WORKER_ENABLED=true`.
 - Live delivery is **off** until `DISPATCH_LIVE_ENABLED=true`,
-  `AGENTS_DRY_RUN_DEFAULT=false`, plus explicit `DISPATCH_LIVE_TENANTS`
+  `DISPATCH_DRY_RUN_DEFAULT=false`, plus explicit `DISPATCH_LIVE_TENANTS`
   and `DISPATCH_LIVE_CHANNELS` allowlists.
   Current worker adapter supports **email/Resend** and **SMS/Twilio** only.
   Existing MIRA providers are reused. No channel auto-failover is attempted
