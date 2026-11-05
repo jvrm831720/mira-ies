@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   Building2,
@@ -23,7 +23,6 @@ import { Input } from "@/components/ui/input";
 type Panel = "none" | "notifications" | "help" | "account";
 
 export function Header({ title, subtitle, compact = false }: { title: string; subtitle?: string; compact?: boolean }) {
-  const pathname = usePathname();
   const router = useRouter();
   const [panel, setPanel] = useState<Panel>("none");
   const panelRef = useRef<HTMLDivElement>(null);
@@ -226,7 +225,6 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
         </div>
       </div>
 
-}
     </header>
   );
 }
