@@ -193,6 +193,7 @@ def upgrade() -> None:
         tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
         item_id UUID,
         provider VARCHAR(40) NOT NULL,
+        provider_message_id VARCHAR(200) NOT NULL,
         external_event_id VARCHAR(180) NOT NULL,
         event_hash VARCHAR(64) NOT NULL,
         event_kind VARCHAR(30) NOT NULL,
@@ -202,6 +203,11 @@ def upgrade() -> None:
         UNIQUE(tenant_id,provider,external_event_id),
         FOREIGN KEY (item_id,tenant_id) REFERENCES dispatch_items(id,tenant_id)
     )
+    """)
+    op.execute("""
+    CREATE INDEX ix_dispatch_inbound_pending
+    ON dispatch_inbound(tenant_id,provider,provider_message_id)
+    WHERE item_id IS NULL
     """)
     op.execute("""
     CREATE TABLE dispatch_payment_events (
