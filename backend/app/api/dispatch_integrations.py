@@ -298,6 +298,13 @@ async def verified_gateway_webhook(
         event = VerifiedGatewayEvent.model_validate(json.loads(raw))
     except (ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=422, detail="Evento inválido.") from exc
+    return await ingest_verified_event(provider=provider, event=event, raw=raw)
+
+
+async def ingest_verified_event(
+    *, provider: str, event: VerifiedGatewayEvent, raw: bytes,
+) -> dict:
+    """Used only after trusted gateway HMAC or native provider signature verification."""
     async with AsyncSessionLocal() as db:
         await bind_tenant(db, event.tenant_id)
         found = (await db.execute(text("""
