@@ -203,7 +203,7 @@ async def student_attendance(
     # Attendance is based ONLY on explicitly recorded and published lessons;
     # missing attendance rows never count as presence.
     rows = (await db.execute(
-        select(AcademicSubject.name, AcademicClass.code,
+        select(AcademicClass.id, AcademicSubject.name, AcademicClass.code,
                AcademicAttendance.status, func.count())
         .join(AcademicLesson, and_(
             AcademicLesson.id == AcademicAttendance.lesson_id,
@@ -224,20 +224,19 @@ async def student_attendance(
             AcademicAttendance.class_id.in_(_visible_enrollments(identity)),
             AcademicLesson.publication_status == "published",
         )
-        .group_by(AcademicSubject.name, AcademicClass.code, AcademicAttendance.status)
+        .group_by(AcademicClass.id, AcademicSubject.name, AcademicClass.code, AcademicAttendance.status)
         .order_by(AcademicSubject.name, AcademicClass.code)
         .limit(1000)
     )).all()
     result = {}
-    for subject, class_code, status, number in rows:
-        key = (subject, class_code)
-        if key not in result:
-            result[key] = {
-                "subject": subject, "class_code": class_code,
+    for class_id, subject, class_code, status, number in rows:
+        if class_id not in result:
+            result[class_id] = {
+                "class_id": class_id, "subject": subject, "class_code": class_code,
                 "present": 0, "absent": 0, "excused": 0, "unrecorded": 0,
             }
         if status in {"present", "absent", "excused", "unrecorded"}:
-            result[key][status] = int(number)
+            result[class_id][status] = int(number)
     return {
         "items": list(result.values()),
         "rate": None,
