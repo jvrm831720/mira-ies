@@ -6,15 +6,11 @@ No provider, webhook, or production endpoint is called by these tests.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
-import importlib.util
 import hmac
 import hashlib
 
 import pytest
 import pytest_asyncio
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 from sqlalchemy import text
 
 
@@ -81,41 +77,6 @@ async def seed_authorizations(db, tenant_id: str, references: list[str],
             "expires":now+timedelta(days=7),
         })
     await db.commit()
-
-
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def dispatch_schema(_prepare_test_database):
-    """Existing tests use metadata.create_all; materialize unmapped dispatch tables."""
-    from app.db.session import engine
-
-    migration_path = (Path(__file__).resolve().parents[1]
-                      / "alembic" / "versions" / "055_dispatch_platform.py")
-    spec = importlib.util.spec_from_file_location("dispatch_test_migration", migration_path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    extra_path = migration_path.with_name("056_dispatch_composio_ingestion.py")
-    extra_spec = importlib.util.spec_from_file_location("dispatch_composio_test_migration", extra_path)
-    assert extra_spec and extra_spec.loader
-    extra = importlib.util.module_from_spec(extra_spec)
-    extra_spec.loader.exec_module(extra)
-
-    async with engine.begin() as conn:
-        present = await conn.scalar(text("SELECT to_regclass('public.dispatch_campaigns')"))
-        if not present:
-            def _upgrade(connection):
-                ctx = MigrationContext.configure(connection)
-                with Operations.context(ctx):
-                    module.upgrade()
-            await conn.run_sync(_upgrade)
-        other = await conn.scalar(text("SELECT to_regclass('public.dispatch_source_observations')"))
-        if not other:
-            def _upgrade_composio(connection):
-                ctx = MigrationContext.configure(connection)
-                with Operations.context(ctx):
-                    extra.upgrade()
-            await conn.run_sync(_upgrade_composio)
-    yield
 
 
 def test_policy_prohibits_collection_whatsapp():
