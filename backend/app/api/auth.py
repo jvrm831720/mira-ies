@@ -25,6 +25,7 @@ from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
 from app.models.tenant import Tenant
+from app.services.membership import ensure_membership
 
 router = APIRouter(prefix="/auth", tags=["Autenticação Mira"])
 logger = logging.getLogger(__name__)
@@ -60,8 +61,8 @@ def _reset_digest(token: str) -> str:
     return hash_api_key(f"mira:password-reset:{token}")
 
 
-def _token_response(user: User, tenant: Tenant, request: Request, db: AsyncSession) -> dict:
-    token, ttl = create_user_session(db, user, tenant, request, aal=1)
+async def _token_response(user: User, tenant: Tenant, request: Request, db: AsyncSession) -> dict:
+    token, ttl = await create_user_session(db, user, tenant, request, aal=1)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -148,7 +149,7 @@ async def login_password(body: PasswordLoginPayload, request: Request, db: Async
         return await create_login_challenge(
             db, user, tenant, purpose="verify" if user.mfa_enabled_at else "enroll"
         )
-    response = _token_response(user, tenant, request, db)
+    response = await _token_response(user, tenant, request, db)
     await db.commit()
     return response
 
@@ -252,7 +253,7 @@ async def verify_email_login_code(
         return await create_login_challenge(
             db, user, tenant, purpose="verify" if user.mfa_enabled_at else "enroll"
         )
-    response = _token_response(user, tenant, request, db)
+    response = await _token_response(user, tenant, request, db)
     await db.commit()
     return response
 
@@ -343,7 +344,7 @@ async def verify_whatsapp_code(body: WhatsAppVerifyPayload, request: Request, db
         return await create_login_challenge(
             db, user, tenant, purpose="verify" if user.mfa_enabled_at else "enroll"
         )
-    response = _token_response(user, tenant, request, db)
+    response = await _token_response(user, tenant, request, db)
     await db.commit()
     return response
 
@@ -471,9 +472,19 @@ async def provision_user(
         email=body.email,
         phone_e164=phone,
         password_hash=hash_password(body.password),
+        role="admin",
         is_active=True,
     )
     db.add(user)
+    await db.flush()
+    await ensure_membership(
+        db,
+        user=user,
+        tenant_id=tenant.id,
+        role=user.role or "admin",
+        origin="provision",
+        status="active",
+    )
     try:
         await db.commit()
     except Exception:
