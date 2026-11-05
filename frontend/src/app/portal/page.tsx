@@ -20,6 +20,29 @@ type StudentProfile = {
   institution: string;
 };
 type RecordKind = "enrollment" | "attendance" | "assessment" | "fee";
+type ExtraTab = "schedule" | "calendar" | "report-card" | "attendance";
+type AcademicItem = {
+  id?: string;
+  class_id?: string;
+  class_code?: string;
+  title?: string;
+  topic?: string | null;
+  subject?: string;
+  teacher_name?: string | null;
+  starts_at?: string;
+  ends_at?: string;
+  location?: string | null;
+  room?: string | null;
+  assessment?: string;
+  score?: string;
+  max_score?: string;
+  term_label?: string;
+  present?: number;
+  absent?: number;
+  excused?: number;
+  unrecorded?: number;
+};
+type ExtraResponse = { items: AcademicItem[]; note?: string };
 type AcademicRecord = {
   id: string;
   kind: RecordKind;
@@ -74,6 +97,28 @@ function money(amount: string | null, currency: string | null): string {
   if (!Number.isFinite(number)) return "Não informado";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(number);
 }
+function formatTimestamp(raw?: string): string {
+  if (!raw) return "Data não informada";
+  const time = new Date(raw);
+  if (Number.isNaN(time.getTime())) return "Data não informada";
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo", dateStyle: "medium", timeStyle: "short",
+  }).format(time);
+}
+function academicDescription(tab: ExtraTab, item: AcademicItem): string {
+  if (tab === "report-card") return "Nota: " + value(item.score) + " / " + value(item.max_score) + " · " + value(item.term_label);
+  if (tab === "attendance") return (
+    "Presentes: " + (item.present ?? 0) + " · Faltas registradas: " + (item.absent ?? 0) +
+    " · Justificadas: " + (item.excused ?? 0) + " · Sem registro: " + (item.unrecorded ?? 0)
+  );
+  return formatTimestamp(item.starts_at) + (item.room || item.location ? " · " + (item.room || item.location) : "");
+}
+function academicTitle(tab: ExtraTab, item: AcademicItem): string {
+  if (tab === "schedule") return item.subject || "Aula" ;
+  if (tab === "report-card") return (item.subject ? item.subject + " · " : "") + (item.assessment || "Avaliação");
+  if (tab === "attendance") return (item.subject || "Disciplina") + (item.class_code ? " · Turma " + item.class_code : "");
+  return item.title || "Evento acadêmico";
+}
 function date(raw: string | null): string {
   if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "Não informado";
   const [year, month, day] = raw.split("-");
@@ -93,6 +138,10 @@ export default function StudentPortalPage() {
   const [token, setToken] = useState("");
   const [tab, setTab] = useState<RecordKind>("enrollment");
   const [records, setRecords] = useState<AcademicRecord[]>([]);
+  const [extraTab, setExtraTab] = useState<ExtraTab>("schedule");
+  const [extraRecords, setExtraRecords] = useState<AcademicItem[]>([]);
+  const [extraMessage, setExtraMessage] = useState<string | null>(null);
+  const [extraLoading, setExtraLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [recordsLoading, setRecordsLoading] = useState(false);
@@ -135,6 +184,31 @@ export default function StudentPortalPage() {
       .finally(() => { if (active) setRecordsLoading(false); });
     return () => { active = false; };
   }, [student, tab]);
+
+  useEffect(() => {
+    if (!student) return;
+    let active = true;
+    setExtraRecords([]);
+    setExtraMessage(null);
+    setExtraLoading(true);
+    portalFetch<ExtraResponse>("/" + extraTab)
+      .then((result) => {
+        if (active) {
+          setExtraRecords(result.items);
+          setExtraMessage(result.note || null);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setExtraMessage((cause as { status?: number }).status === 503
+            ? "Este recurso acadêmico ainda está em homologação."
+            : "Não foi possível consultar esta seção.");
+          if ((cause as { status?: number }).status === 401) setStudent(null);
+        }
+      })
+      .finally(() => { if (active) setExtraLoading(false); });
+    return () => { active = false; };
+  }, [student, extraTab]);
 
   async function claim(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -318,6 +392,62 @@ export default function StudentPortalPage() {
             </ul>}
         </div>
       </div>
+      <section className="overflow-hidden rounded-xl border border-[#E4E7EC] bg-white">
+        <div className="flex items-center gap-2 border-b border-[#E4E7EC] p-5 md:p-7">
+          <CalendarDays className="h-5 w-5 text-[#2563EB]" />
+          <div>
+            <h2 className="text-[16px] font-semibold">Vida acadêmica</h2>
+            <p className="mt-1 text-[12px] text-[#98A2B3]">Dados publicados e autorizados pela sua instituição.</p>
+          </div>
+        </div>
+        <div role="tablist" aria-label="Vida acadêmica" className="flex flex-wrap gap-2 border-b border-[#E4E7EC] px-5 pt-3 md:px-7">
+          {([
+            ["schedule", "Horários"],
+            ["calendar", "Calendário"],
+            ["attendance", "Frequência por aula"],
+            ["report-card", "Boletim"],
+          ] as [ExtraTab,string][]).map(([key,label]) =>
+            <button type="button" key={key} role="tab" aria-selected={extraTab === key}
+              onClick={() => setExtraTab(key)}
+              className={"border-b-2 px-3 py-3 text-[12px] font-semibold " +
+                (extraTab === key ? "border-[#2563EB] text-[#2563EB]" : "border-transparent text-[#667085] hover:text-[#344054]")}>
+              {label}
+            </button>)}
+        </div>
+        <div className="min-h-[190px] p-5 md:p-7">
+          {extraLoading && <p className="flex items-center gap-2 text-[12px] text-[#667085]">
+            <Loader2 className="h-4 w-4 animate-spin" /> Consultando dados publicados…
+          </p>}
+          {!extraLoading && extraRecords.length === 0 &&
+            <p className="rounded-lg bg-[#F9FAFB] p-5 text-[12px] text-[#667085]">
+              {extraMessage || "Nenhum registro publicado disponível nesta seção."}
+            </p>}
+          {!extraLoading && extraRecords.length > 0 &&
+            <ul className="divide-y divide-[#EAECF0] rounded-lg border border-[#EAECF0]">
+              {extraRecords.map((item,index) => <li key={item.id || item.class_id || index}
+                className="flex flex-wrap justify-between gap-3 px-4 py-4">
+                <div>
+                  <p className="text-[12px] font-semibold text-[#344054]">{academicTitle(extraTab, item)}</p>
+                  <p className="mt-2 text-[11px] text-[#667085]">{academicDescription(extraTab, item)}</p>
+                  {extraTab === "schedule" && item.teacher_name &&
+                    <p className="mt-1 text-[11px] text-[#98A2B3]">Docente: {item.teacher_name}</p>}
+                </div>
+              </li>)}
+            </ul>}
+          {extraMessage && extraRecords.length > 0 &&
+            <p className="mt-4 text-[11px] leading-5 text-[#667085]">{extraMessage}</p>}
+          {extraTab === "report-card" &&
+            <p className="mt-4 text-[11px] leading-5 text-[#667085]">
+              Apenas notas liberadas pela instituição. A MIRA não calcula média final
+              sem a regra acadêmica homologada.
+            </p>}
+          {extraTab === "attendance" &&
+            <p className="mt-4 text-[11px] leading-5 text-[#667085]">
+              Aulas e chamadas sem registro não são presumidas como presença.
+            </p>}
+        </div>
+      </section>
+
       <div className="flex items-start gap-3 rounded-xl border border-[#E4E7EC] bg-white p-5">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#2563EB]" />
         <p className="text-[12px] leading-6 text-[#667085]">
