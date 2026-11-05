@@ -70,10 +70,12 @@ function displayValue(
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-xl border border-[#e4e7ec] bg-white p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9fa1a7]">{label}</p>
-      <p className="mt-2 text-[14px] font-semibold text-[#1c1d1f]">{value}</p>
-    </article>
+    <div className="min-w-0 border-b border-[#e4e7ec] py-3">
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-[12px] text-[#6f7988]">{label}</p>
+        <p className="text-right text-[13px] font-medium text-[#1c1d1f]">{value}</p>
+      </div>
+    </div>
   );
 }
 
@@ -243,7 +245,7 @@ export default function StudentDetailPage() {
 
         {data && (
           <>
-            <section id="identificacao" className="scroll-mt-28 rounded-xl border border-[#e4e7ec] bg-white p-5 sm:p-6">
+            <section id="identificacao" className="scroll-mt-28 border-b border-[#e4e7ec] pb-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                   <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9fa1a7]">Identificação</p>
@@ -301,7 +303,7 @@ export default function StudentDetailPage() {
             </section>
 
             <section id="dados-academicos" aria-label="Resumo acadêmico e financeiro" className="scroll-mt-28">
-              <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[#1c1d1f]">Situação acadêmica e financeira</h2>
+              <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[#1c1d1f]">Detalhes do aluno</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <InfoCard label="Curso" value={displayValue(data.curso)} />
                 <InfoCard label="Semestre" value={data.semestre != null ? `Semestre ${data.semestre}` : "Não informado"} />
