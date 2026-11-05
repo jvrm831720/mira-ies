@@ -39,14 +39,14 @@ async def test_apply_is_idempotent_and_consent_is_audited(client, tenant):
                "communication_opt_out": "communication_opt_out"}
 
     first = await client.post(
-        "/api/v1/import/apply", headers=headers,
+        "/api/v1/import/apply?auto_score=false", headers=headers,
         files=_upload(csv), data=_mapping(mapping),
     )
     assert first.status_code == 201, first.text
     assert first.json()["created"] == 1
 
     replay = await client.post(
-        "/api/v1/import/apply", headers=headers,
+        "/api/v1/import/apply?auto_score=false", headers=headers,
         files=_upload(csv), data=_mapping(mapping),
     )
     assert replay.status_code == 201, replay.text
@@ -54,7 +54,7 @@ async def test_apply_is_idempotent_and_consent_is_audited(client, tenant):
     assert replay.json()["created"] == 1
 
     second = await client.post(
-        "/api/v1/import/apply",
+        "/api/v1/import/apply?auto_score=false",
         headers={"X-API-Key": key, "Idempotency-Key": "smart-two"},
         files=_upload(b"matricula,nome,communication_opt_out\n001,Ana Nova,nao\n"),
         data=_mapping(mapping),
@@ -77,7 +77,7 @@ async def test_apply_is_idempotent_and_consent_is_audited(client, tenant):
     assert audit.json()["events"][0]["event_type"] == "global_opt_out_enabled"
 
     changed_file = await client.post(
-        "/api/v1/import/apply", headers=headers,
+        "/api/v1/import/apply?auto_score=false", headers=headers,
         files=_upload(b"matricula,nome\n001,Eva\n"),
         data=_mapping({"matricula": "matricula", "nome": "nome"}),
     )
@@ -88,7 +88,7 @@ async def test_apply_is_idempotent_and_consent_is_audited(client, tenant):
 async def test_invalid_and_duplicate_rows_are_excluded(client, tenant):
     _org, key = tenant
     reply = await client.post(
-        "/api/v1/import/apply",
+        "/api/v1/import/apply?auto_score=false",
         headers={"X-API-Key": key, "Idempotency-Key": "smart-invalid"},
         files=_upload(b"matricula,nome,semestre\n001,Ana,2\n001,Ana,3\n002,Bia,2.5\n"),
         data=_mapping({"matricula": "matricula", "nome": "nome", "semestre": "semestre"}),
@@ -104,7 +104,7 @@ async def test_invalid_and_duplicate_rows_are_excluded(client, tenant):
 async def test_no_valid_records_never_create_a_batch(client, tenant):
     _org, key = tenant
     reply = await client.post(
-        "/api/v1/import/apply",
+        "/api/v1/import/apply?auto_score=false",
         headers={"X-API-Key": key, "Idempotency-Key": "smart-empty"},
         files=_upload(b"matricula,nome,semestre\n001,Ana,2.5\n"),
         data=_mapping({"matricula": "matricula", "nome": "nome", "semestre": "semestre"}),
@@ -133,3 +133,28 @@ async def test_custom_fields_do_not_cross_tenants(client, tenant_factory):
         headers={"X-API-Key": key_b}, json={"label": "Alterado"},
     )
     assert cross.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_smart_import_can_run_scoring_without_inventing_risk(client, tenant, monkeypatch):
+    from app.ml import scoring
+
+    _org, key = tenant
+    called = []
+
+    async def fake_score(session, batch_id, *, force, tenant_id, tenant_slug):
+        called.append((batch_id, force, tenant_id, tenant_slug))
+        return {"scored": 0, "indeterminate_count": 1, "summary": {}}
+
+    monkeypatch.setattr(scoring, "score_batch", fake_score)
+    reply = await client.post(
+        "/api/v1/import/apply",
+        headers={"X-API-Key": key, "Idempotency-Key": "smart-scoring"},
+        files=_upload(b"matricula,nome\n900,Ana\n"),
+        data=_mapping({"matricula": "matricula", "nome": "nome"}),
+    )
+    assert reply.status_code == 201, reply.text
+    assert reply.json()["created"] == 1
+    assert reply.json()["scoring"]["scored"] == 0
+    assert reply.json()["scoring"]["indeterminate_count"] == 1
+    assert len(called) == 1 and called[0][1] is True
