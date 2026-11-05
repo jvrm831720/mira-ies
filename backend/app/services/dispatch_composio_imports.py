@@ -285,6 +285,18 @@ async def import_read_tool(
                 "updated": previous["rows_updated"], "deduplicated": True,
             }
         raise ComposioIngestDenied("Importação já registrada; revise o resultado antes de reenviar.")
+    # Bound remote API spend per workspace. The transaction-scoped lock
+    # serializes the quota check across different Idempotency-Keys.
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+        {"key": f"dispatch:composio:hourly:{tenant_id}"},
+    )
+    recent = (await db.execute(text("""
+        SELECT count(*) FROM dispatch_source_import_runs
+        WHERE tenant_id=:tenant AND started_at>=now()-interval '1 hour'
+    """), {"tenant": tenant_id})).scalar_one()
+    if recent >= 60:
+        raise ComposioIngestDenied("Limite de 60 consultas Composio por hora por organização atingido.")
     run_id = str(uuid4())
     await db.execute(text("""
         INSERT INTO dispatch_source_import_runs (
