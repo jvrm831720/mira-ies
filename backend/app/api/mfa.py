@@ -510,6 +510,55 @@ async def disable_mfa(
 
 
 
+@router.post("/admin/users/{member_id}/revoke-sessions")
+async def admin_revoke_member_sessions(
+    member_id: str,
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Terminate a member's sessions only after recent administrator MFA."""
+    admin_id = _require_admin(auth)
+    from uuid import UUID
+
+    try:
+        UUID(member_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Membro não encontrado.") from None
+    if member_id == admin_id:
+        raise HTTPException(status_code=409, detail="Use a gestão de suas sessões para encerrá-las.")
+
+    member = await db.get(User, member_id)
+    membership = (
+        await get_membership_for_tenant(
+            db, user_id=member_id, tenant_id=auth.tenant_id, for_update=True
+        )
+        if member is not None
+        else None
+    )
+    if member is None or membership is None or membership.status != "active":
+        raise HTTPException(status_code=404, detail="Membro não encontrado.")
+
+    result = await db.execute(
+        update(UserSession)
+        .where(
+            UserSession.tenant_id == auth.tenant_id,
+            UserSession.user_id == member_id,
+            UserSession.revoked_at.is_(None),
+            UserSession.expires_at > _now(),
+        )
+        .values(
+            revoked_at=_now(),
+            revoked_by_user_id=admin_id,
+            revoke_reason="revoked_by_institution_admin",
+        )
+        .returning(UserSession.id)
+    )
+    revoked_count = len(result.scalars().all())
+    _audit(db, auth.tenant_id, admin_id, "member_sessions_revoked")
+    await db.commit()
+    return {"revoked_count": revoked_count}
+
+
 @router.get("/sessions")
 async def list_my_mfa_sessions(
     auth: AuthContext = Depends(get_current_tenant),
