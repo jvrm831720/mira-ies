@@ -65,6 +65,14 @@ SCHEDULING_TOOLKITS: dict[str, dict[str, str]] = {
 }
 
 
+MARKETING_TOOLKITS: dict[str, dict[str, str]] = {
+    "mailchimp": {"name": "Mailchimp", "kind": "email_marketing"},
+    "brevo": {"name": "Brevo", "kind": "multichannel_marketing"},
+    "active_campaign": {"name": "ActiveCampaign", "kind": "marketing_automation"},
+    "customerio": {"name": "Customer.io", "kind": "customer_engagement"},
+}
+
+
 def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
     """Attach MIRA category metadata using verified Composio toolkit slugs."""
     slug = str(item.get("slug") or "").strip().lower()
@@ -76,6 +84,7 @@ def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
         ("data_analysis", "Dados, planilhas e análise", DATA_ANALYSIS_TOOLKITS),
         ("support", "Atendimento e suporte", SUPPORT_TOOLKITS),
         ("scheduling", "Agenda e agendamento", SCHEDULING_TOOLKITS),
+        ("marketing", "Marketing institucional", MARKETING_TOOLKITS),
     ):
         metadata = toolkits.get(slug)
         if metadata:
@@ -168,6 +177,23 @@ def scheduling_category() -> dict[str, Any]:
         "composio_toolkits": [
             {"slug": slug, **metadata}
             for slug, metadata in SCHEDULING_TOOLKITS.items()
+        ],
+        "native_channels": [],
+    }
+
+
+def marketing_category() -> dict[str, Any]:
+    """Return marketing toolkits without enabling campaigns or automations."""
+    return {
+        "slug": "marketing",
+        "name": "Marketing institucional",
+        "description": (
+            "Gestão de públicos e preferências, campanhas, jornadas de relacionamento "
+            "e análise de engajamento em canais de marketing."
+        ),
+        "composio_toolkits": [
+            {"slug": slug, **metadata}
+            for slug, metadata in MARKETING_TOOLKITS.items()
         ],
         "native_channels": [],
     }
