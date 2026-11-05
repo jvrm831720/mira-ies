@@ -280,6 +280,8 @@ def _permission_for_request(request: Request, fallback_role: str = "viewer") -> 
         return "students.view" if path.endswith("/critical") else "dashboard.view"
     if path.startswith("/upload"):
         return "data.import"
+    if path.startswith("/integrations/composio"):
+        return "settings.manage"
     if path.startswith("/connectors") or path.startswith("/integrations"):
         return "data.import" if method in {"POST", "PUT", "PATCH"} else "data.view"
     if path.startswith("/agents/retention/campaigns"):
