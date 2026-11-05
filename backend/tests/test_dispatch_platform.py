@@ -27,6 +27,40 @@ from app.core.config import get_settings
 def dispatch_trusted_test_source(monkeypatch):
     # Test-only authorization registry; no production source is implicitly trusted.
     monkeypatch.setattr(get_settings(), "dispatch_trusted_authorization_sources", "test_registry")
+    from cryptography.fernet import Fernet
+    monkeypatch.setattr(get_settings(), "dispatch_source_encryption_key",
+                        Fernet.generate_key().decode())
+
+
+async def source_test_secret(db,tenant_id,source,scope):
+    from app.services import dispatch_ingress_security as gate
+    registered=await gate.configure(
+        db,tenant_id=tenant_id,actor="source-manager",
+        source=source,scope=scope,
+    )
+    await gate.activate(
+        db,tenant_id=tenant_id,actor="source-approver",
+        source=source,scope=scope,evidence="source-approval-001",
+    )
+    return registered["secret_once"]
+
+
+async def signed_post(client,key,source,secret,path,payload):
+    import json
+    import secrets
+    import time
+    from app.services.dispatch_ingress_security import signature
+    raw=json.dumps(payload,separators=(",",":"),ensure_ascii=False).encode()
+    timestamp=str(int(time.time()))
+    nonce=secrets.token_urlsafe(24)
+    headers={
+        "X-API-Key":key,"Content-Type":"application/json",
+        "X-Mira-Source":source,
+        "X-Mira-Timestamp":timestamp,
+        "X-Mira-Nonce":nonce,
+        "X-Mira-Signature":signature(secret,timestamp,nonce,"POST",path,raw),
+    }
+    return await client.post(path,headers=headers,content=raw)
 
 
 async def seed_authorizations(db, tenant_id: str, references: list[str],
