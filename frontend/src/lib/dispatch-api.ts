@@ -31,6 +31,7 @@ export type DispatchCampaign = {
   channel: "email" | "sms" | "whatsapp";
   status: "draft" | "approved" | "scheduled" | "running" | "paused" | "completed" | "cancelled";
   template_ref: string;
+  template_body?: string;
   created_at: string;
   scheduled_for: string | null;
   approved_at?: string | null;
@@ -115,6 +116,9 @@ export const dispatchApi = {
   disableProvider: (provider: "resend" | "twilio") =>
     request<{ status: string }>(`/providers/${provider}/disable`, { method: "POST" }),
   campaigns: () => request<{ items: DispatchCampaign[] }>("/campaigns"),
+  detail: (id: string) => request<{ campaign: DispatchCampaign; items: Array<{
+    id: string; status: string; subject_ref: string; subject_type: string;
+  }> }>(`/campaigns/${encodeURIComponent(id)}`),
   metrics: () => request<DispatchMetrics>("/metrics"),
   financial: () => request<DispatchPaymentResults>("/recovery/summary"),
   create: (data: CampaignDraft) =>

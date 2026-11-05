@@ -48,6 +48,7 @@ export default function DispatchConsolePage() {
   const [individualSchedule, setIndividualSchedule] = useState("");
   const requestIdRef = useRef<string>("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<DispatchCampaign | null>(null);
   const [approvalRef, setApprovalRef] = useState("");
   const [audience, setAudience] = useState("");
   const [consentRef, setConsentRef] = useState("");
@@ -84,6 +85,11 @@ export default function DispatchConsolePage() {
       setShowCreate(false);
     }
   }, []);
+  useEffect(() => {
+    if (!selected) { setSelectedDetail(null); return; }
+    dispatchApi.detail(selected).then(value => setSelectedDetail(value.campaign))
+      .catch(() => setSelectedDetail(null));
+  }, [selected, campaigns]);
   useEffect(() => {
     if (!selected) { setReplies([]); return; }
     dispatchApi.replies(selected).then((value) => setReplies(value.items))
@@ -334,6 +340,12 @@ export default function DispatchConsolePage() {
           {!current ? <p className="text-sm text-[#85858B]">Selecione uma campanha para gerenciar.</p> : <>
             <h2 className="text-base font-semibold text-[#202124]">{current.name}</h2>
             <p className="text-xs text-[#85858B]">Estado: {statusLabels[current.status]} · {current.total} contatos planejados</p>
+            {selectedDetail && <div className="rounded-lg border border-[#E7E7E9] bg-[#FAFAFA] p-3">
+              <p className="text-xs font-semibold">Prévia do conteúdo em revisão</p>
+              <p className="mt-1 text-xs text-[#85858B]">{selectedDetail.template_ref}</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm">{selectedDetail.template_body}</p>
+              <p className="mt-2 text-xs text-[#85858B]">Variáveis renderizadas somente no momento do contato.</p>
+            </div>}
             {current.status === "draft" && <>
               <label className="block text-xs font-medium text-[#66666B]">Importar destinatários
                 <textarea className="mt-1 w-full rounded-lg border border-[#DADADD] p-2 text-xs" rows={3}

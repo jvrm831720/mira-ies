@@ -55,7 +55,7 @@ async def get_campaign(
     suffix = " FOR UPDATE" if lock else ""
     result = await db.execute(
         text("""
-            SELECT id, tenant_id, name, purpose, channel, delivery_mode, request_key, template_ref,
+            SELECT id, tenant_id, name, purpose, channel, delivery_mode, request_key, template_ref, template_body,
                    status, authorization_ref, created_by, approved_by, approved_at,
                    scheduled_for, timezone, start_hour, end_hour,
                    per_minute_limit, daily_contact_limit, paused_reason,
