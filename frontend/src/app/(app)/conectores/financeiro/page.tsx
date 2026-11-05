@@ -100,6 +100,8 @@ export default function FinancialSourcesPage() {
   const [sourceArgs, setSourceArgs] = useState("{}");
   const [previewText, setPreviewText] = useState("[]");
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [mappingFile, setMappingFile] = useState<File | null>(null);
+  const [headerSuggestions, setHeaderSuggestions] = useState<Record<string, { suggested_header: string; confidence: number }>>({});
   const [confirmed, setConfirmed] = useState(false);
   const [linkRef, setLinkRef] = useState("");
   const [linkStudent, setLinkStudent] = useState("");
@@ -160,6 +162,37 @@ export default function FinancialSourcesPage() {
     setStatusText("ABERTO=open\nVENCIDO=overdue\nPAGO=reported_paid");
     setWorkflowText(JSON.stringify(DEFAULT_WORKFLOW, null, 2)); setStudentLookup("mira_id");
     setStep(1); setShowCreator(true); setError(null); setMessage(null);
+    setMappingFile(null); setHeaderSuggestions({});
+  }
+
+  async function inspectHeaders() {
+    if (!mappingFile) return;
+    setBusy(true); setError(null); setMessage(null);
+    try {
+      const result = await financeApi.csvHeaders(mappingFile);
+      setHeaderSuggestions(result.suggestions);
+      setMessage(`Foram encontrados ${result.headers.length} cabeçalhos. Confirme as sugestões antes de aplicá-las.`);
+    } catch (reason) { setError(safeError(reason)); }
+    finally { setBusy(false); }
+  }
+
+  function applySuggestions() {
+    const mapped = Object.fromEntries(
+      Object.entries(headerSuggestions).map(([name, value]) => [name, value.suggested_header]),
+    );
+    setMapping((old) => ({ ...old, ...mapped }));
+    setMessage("Sugestões aplicadas ao formulário. Confira cada coluna antes de salvar.");
+    setHeaderSuggestions({});
+  }
+
+  async function previewCsvFile() {
+    if (!selected || !csvFile) return;
+    setBusy(true); setError(null); setMessage(null);
+    try {
+      const result = await financeApi.csvPreview(selected.id, csvFile);
+      setMessage(`CSV: ${result.total} registros; vínculos de alunos ${result.students_linked ? "validados" : "pendentes"}. Nada foi gravado.`);
+    } catch (reason) { setError(safeError(reason)); }
+    finally { setBusy(false); }
   }
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
@@ -369,6 +402,29 @@ export default function FinancialSourcesPage() {
                 </>}
                 {step === 2 && <>
                   <p className="text-[12px] text-[#667085]">Indique a coluna de CSV ou o caminho JSON de cada campo. Campos com * são obrigatórios.</p>
+                  {sourceKind === "import" && <div className="rounded-xl border border-[#EAECF0] bg-[#F9FAFB] p-3">
+                    <p className="text-[12px] font-semibold text-[#344054]">Sugerir mapeamento a partir de um CSV</p>
+                    <p className="mt-1 text-[11px] text-[#667085]">As sugestões não são aplicadas automaticamente. Confirme antes de salvar.</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <input aria-label="Arquivo CSV para analisar cabeçalhos" type="file" accept=".csv,text/csv"
+                        onChange={(e) => setMappingFile(e.target.files?.[0] || null)}
+                        className="max-w-full text-[11px]" />
+                      <button type="button" className={secondary} disabled={!mappingFile || busy}
+                        onClick={() => void inspectHeaders()}>Analisar cabeçalhos</button>
+                    </div>
+                    {Object.keys(headerSuggestions).length > 0 && <div className="mt-3">
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(headerSuggestions).map(([key,value]) => (
+                          <span key={key} className="rounded-md bg-white px-2 py-1 text-[11px] text-[#475467]">
+                            {value.suggested_header} → {key} ({Math.round(value.confidence * 100)}%)
+                          </span>
+                        ))}
+                      </div>
+                      <button type="button" className={"mt-3 " + secondary} onClick={applySuggestions}>
+                        Confirmar e aplicar sugestões
+                      </button>
+                    </div>}
+                  </div>}
                   <div className="grid gap-3 md:grid-cols-2">
                     {COLUMNS.map((field) => (
                       <label key={field.key} className="space-y-1 text-[12px] font-medium text-[#344054]">
@@ -445,6 +501,8 @@ export default function FinancialSourcesPage() {
                 {selected.source_kind === "import" ? <>
                   <input type="file" accept=".csv,text/csv" className={fieldClass} onChange={(e) => setCsvFile(e.target.files?.[0] || null)} />
                   <p className="mt-2 text-[11px] text-[#667085]">CSV UTF-8 de até 512 KB. Cabeçalhos devem coincidir com o mapeamento aprovado.</p>
+                  <button className={"mt-3 " + secondary} disabled={busy || !csvFile}
+                    onClick={() => void previewCsvFile()}>Pré-visualizar CSV sem gravar</button>
                   <details className="mt-3 rounded-lg border border-[#EAECF0] px-3 py-2">
                     <summary className="cursor-pointer text-[12px] font-medium text-[#344054]">Testar dados de exemplo (sem gravar)</summary>
                     <textarea className={"mt-3 " + fieldClass} rows={4} spellCheck={false}
