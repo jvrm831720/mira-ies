@@ -97,8 +97,8 @@ class Settings(BaseSettings):
     # Explicit allowlist for verifiable permission evidence source identifiers.
     dispatch_trusted_authorization_sources: str = ""
     dispatch_webhook_secret: str | None = None
-    dispatch_resend_webhook_secret: str | None = None
-    dispatch_twilio_callback_url: str | None = None
+    dispatch_provider_encryption_key: str | None = None
+    dispatch_twilio_callback_base_url: str | None = None
     dispatch_contact_encryption_key: str | None = None
 
     # Agentes de retencao (orquestrador + canais WhatsApp/E-mail/SMS)

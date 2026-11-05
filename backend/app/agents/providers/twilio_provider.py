@@ -11,10 +11,16 @@ from app.core.config import get_settings
 
 async def send_sms_twilio(
     *, to: str, message: str, idempotency_key: str | None = None,
-    status_callback_url: str | None = None
+    status_callback_url: str | None = None,
+    account_sid_override: str | None = None,
+    auth_token_override: str | None = None,
+    from_override: str | None = None
 ) -> SendResult:
     settings = get_settings()
-    if not (settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from):
+    sid = account_sid_override or settings.twilio_account_sid
+    auth_token = auth_token_override or settings.twilio_auth_token
+    sender = from_override or settings.twilio_from
+    if not (sid and auth_token and sender):
         return SendResult(
             ok=False,
             channel="sms",
@@ -22,8 +28,8 @@ async def send_sms_twilio(
             error="credenciais Twilio nao configuradas",
             outcome="confirmed_failure",
         )
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json"
-    data = {"To": to, "From": settings.twilio_from, "Body": message}
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+    data = {"To": to, "From": sender, "Body": message}
     if status_callback_url:
         if not status_callback_url.startswith("https://"):
             return SendResult(
@@ -44,7 +50,7 @@ async def send_sms_twilio(
                 url,
                 data=data,
                 headers=headers,
-                auth=(settings.twilio_account_sid, settings.twilio_auth_token),
+                auth=(sid, auth_token),
             )
             resp.raise_for_status()
             body = resp.json()
