@@ -9,7 +9,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from app.api.education_engine import _link
+from app.api.education_engine import _link, _require_ies
 from app.core.auth import AuthContext
 from app.models.education_engine import TenantEducationEngineStudent
 from app.models.student import Student, UploadBatch
@@ -183,3 +183,15 @@ async def test_student_identity_cannot_cross_institution(
     with pytest.raises(HTTPException) as error:
         await _link(db_session, auth, student.id)
     assert error.value.status_code == 404
+
+
+async def test_billing_workspace_cannot_use_academic_engine(tenant, db_session):
+    workspace, _ = tenant
+    workspace.segment = "billing"
+    await db_session.commit()
+    auth = AuthContext(
+        tenant=workspace, tenant_id=workspace.id, tenant_slug=workspace.slug,
+    )
+    with pytest.raises(HTTPException) as error:
+        await _require_ies(auth, db_session)
+    assert error.value.status_code == 403
