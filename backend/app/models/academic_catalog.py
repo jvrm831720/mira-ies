@@ -13,7 +13,7 @@ from sqlalchemy import (
     CheckConstraint, Date, DateTime, ForeignKey,
     ForeignKeyConstraint, Index, Integer, Numeric, String, UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import Base
@@ -241,3 +241,19 @@ class AcademicCalendarEvent(Base):
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     location: Mapped[str | None] = mapped_column(String(120))
     publication_status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+
+
+class AcademicCatalogAudit(Base):
+    """Append-only import and publication ledger; no data fields or secrets."""
+
+    __tablename__ = "mira_academic_catalog_audit"
+    __table_args__ = (
+        Index("ix_mira_academic_catalog_audit_tenant", "tenant_id", "occurred_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="RESTRICT"), nullable=False)
+    action: Mapped[str] = mapped_column(String(60), nullable=False)
+    counts: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now_utc)
