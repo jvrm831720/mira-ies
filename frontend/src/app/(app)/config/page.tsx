@@ -18,7 +18,7 @@ import {
   Smartphone,
   TriangleAlert,
   Users,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

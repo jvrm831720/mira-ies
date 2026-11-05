@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, LoaderCircle, Save, Shield, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, LoaderCircle, Save, Shield, Trash2 } from "@/components/ui/icons";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";

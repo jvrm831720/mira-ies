@@ -11,7 +11,7 @@ import {
   LoaderCircle,
   Plug,
   UploadCloud,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
