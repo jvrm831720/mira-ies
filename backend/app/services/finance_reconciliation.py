@@ -101,6 +101,7 @@ def validate_workflow(raw: Any) -> dict[str, Any]:
         raise ReconciliationDenied("Rótulos obrigatórios para todas as etapas.")
     for state, next_states in transitions.items():
         if (not isinstance(next_states, list) or len(next_states) > 8
+                or any(not isinstance(n, str) for n in next_states)
                 or len(set(next_states)) != len(next_states)
                 or any(n not in states or n == state or n == "open" for n in next_states)):
             raise ReconciliationDenied("Transições configuradas são inválidas.")
@@ -122,6 +123,8 @@ def validate_profile(
         raise ReconciliationDenied("Vínculo com aluno deve ser explícito e verificável.")
     if not isinstance(field_map, dict) or not REQUIRED <= set(field_map) <= REQUIRED | OPTIONAL:
         raise ReconciliationDenied("Mapeamento canônico incompleto ou contém campos extras.")
+    if any(not isinstance(value, str) for value in field_map.values()):
+        raise ReconciliationDenied("Caminhos de origem devem ser texto.")
     if len(set(field_map.values())) != len(field_map):
         raise ReconciliationDenied("Um campo de origem não pode alimentar dois campos canônicos.")
     for value in field_map.values():
@@ -147,7 +150,7 @@ def validate_profile(
         raise ReconciliationDenied("Mapa de situações inválido.")
     normalized_status = {}
     for raw, state in status_map.items():
-        if not isinstance(raw, str) or not 1 <= len(raw.strip()) <= 50 or state not in STATES:
+        if not isinstance(raw, str) or not 1 <= len(raw.strip()) <= 50 or not isinstance(state, str) or state not in STATES:
             raise ReconciliationDenied("Estado financeiro fora dos valores canônicos.")
         key = raw.strip().casefold()
         if key in normalized_status:
