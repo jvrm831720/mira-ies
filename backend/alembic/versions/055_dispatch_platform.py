@@ -143,9 +143,26 @@ def upgrade() -> None:
         FOREIGN KEY (item_id,tenant_id) REFERENCES dispatch_items(id,tenant_id)
     )
     """)
+    op.execute("""
+    CREATE TABLE dispatch_payment_events (
+        id UUID PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        obligation_ref VARCHAR(160) NOT NULL,
+        source VARCHAR(80) NOT NULL,
+        source_event_id VARCHAR(160) NOT NULL,
+        amount_paid NUMERIC(14,2) NOT NULL CHECK (amount_paid >= 0),
+        evidence_ref VARCHAR(200) NOT NULL,
+        paid_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE(tenant_id,source,source_event_id),
+        FOREIGN KEY (tenant_id,obligation_ref)
+            REFERENCES dispatch_obligations(tenant_id,external_ref)
+    )
+    """)
+    op.execute("CREATE INDEX ix_dispatch_payments_obligation ON dispatch_payment_events(tenant_id,obligation_ref)")
     for table in (
         "dispatch_campaigns","dispatch_obligations","dispatch_external_contacts",
-        "dispatch_items","dispatch_events","dispatch_rate_buckets","dispatch_inbound",
+        "dispatch_items","dispatch_events","dispatch_rate_buckets","dispatch_inbound","dispatch_payment_events",
     ):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
@@ -162,15 +179,20 @@ def upgrade() -> None:
     $$;
     """)
     op.execute("""
+    CREATE TRIGGER dispatch_payments_immutable BEFORE UPDATE OR DELETE
+    ON dispatch_payment_events FOR EACH ROW EXECUTE FUNCTION dispatch_events_append_only()
+    """)
+    op.execute("""
     CREATE TRIGGER dispatch_events_immutable BEFORE UPDATE OR DELETE
     ON dispatch_events FOR EACH ROW EXECUTE FUNCTION dispatch_events_append_only()
     """)
 
 def downgrade() -> None:
     op.execute("DROP TRIGGER IF EXISTS dispatch_events_immutable ON dispatch_events")
+    op.execute("DROP TRIGGER IF EXISTS dispatch_payments_immutable ON dispatch_payment_events")
     op.execute("DROP FUNCTION IF EXISTS dispatch_events_append_only()")
     for table in (
-        "dispatch_inbound","dispatch_rate_buckets","dispatch_events","dispatch_items",
+        "dispatch_payment_events","dispatch_inbound","dispatch_rate_buckets","dispatch_events","dispatch_items",
         "dispatch_external_contacts","dispatch_obligations","dispatch_campaigns",
     ):
         op.execute(f"DROP TABLE IF EXISTS {table}")
