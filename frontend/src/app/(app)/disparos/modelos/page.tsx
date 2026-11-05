@@ -90,6 +90,7 @@ export default function MessageTemplatesPage() {
           <div>
             <p className="text-sm font-medium">{t.subject}</p>
             <p className="text-xs text-[#85858B]">{t.code} · v{t.version} · {t.purpose} · {t.channel} · {t.status==="approved" ? "Aprovado" : "Aguardando revisão"}</p>
+            <p className="mt-2 max-w-xl whitespace-pre-wrap text-xs leading-relaxed text-[#55555C]">{t.body}</p>
           </div>
           {t.status==="draft" && <button type="button" disabled={busy || evidence.length<8}
             onClick={()=>void approve(t.id)} className="rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
