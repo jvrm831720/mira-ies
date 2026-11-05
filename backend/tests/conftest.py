@@ -18,6 +18,9 @@ _base_url = make_url(os.environ.get("DATABASE_URL", _DEFAULT_DEV_DATABASE_URL))
 _test_db_name = _base_url.database if (_base_url.database or "").endswith("_test") else f"{_base_url.database}_test"
 _test_url = _base_url.set(database=_test_db_name)
 _admin_url = _base_url.set(database="postgres")
+_preserve_migrated_schema = os.environ.get("MIRA_TEST_PRESERVE_MIGRATED_SCHEMA", "").strip().lower() in {"1", "true", "yes"}
+if _preserve_migrated_schema and not _test_db_name.endswith("_test"):
+    raise RuntimeError("Preserving migrated schema is only permitted for an isolated *_test database")
 
 # Precisa rodar ANTES de qualquer import de `app.*` — o engine e os settings sao
 # construidos na importacao e ficam cacheados (lru_cache / modulo global).
@@ -101,9 +104,14 @@ async def _prepare_test_database():
         yield
         return
 
-    async with db_session_module.engine.begin() as sa_conn:
-        await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
-        await sa_conn.run_sync(db_session_module.Base.metadata.create_all)
+
+    # GitHub CI already migrated the disposable database with Alembic. Do not
+    # drop/recreate it here: RLS policies and append-only triggers depend on it.
+    # Local tests without the flag retain their existing ORM schema bootstrap.
+    if not _preserve_migrated_schema:
+        async with db_session_module.engine.begin() as sa_conn:
+            await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
+            await sa_conn.run_sync(db_session_module.Base.metadata.create_all)
     yield
 
 
@@ -111,8 +119,19 @@ async def _prepare_test_database():
 async def _clean_tables():
     yield
     async with db_session_module.engine.begin() as conn:
-        for table in reversed(db_session_module.Base.metadata.sorted_tables):
-            await conn.execute(table.delete())
+        if _preserve_migrated_schema:
+            # Database is disposable and guard-checked above. TRUNCATE avoids
+            # append-only DELETE triggers, and CASCADE clears migration-only
+            # dependent tables without dropping RLS policies or schema objects.
+            tables = ", ".join(
+                conn.dialect.identifier_preparer.format_table(table)
+                for table in db_session_module.Base.metadata.tables.values()
+            )
+            if tables:
+                await conn.exec_driver_sql(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE")
+        else:
+            for table in reversed(db_session_module.Base.metadata.sorted_tables):
+                await conn.execute(table.delete())
 
 
 @pytest_asyncio.fixture
