@@ -107,3 +107,17 @@ def test_approval_response_only_returns_redacted_decrypted_preview(monkeypatch):
     }
     assert "arguments_ciphertext" not in result
     assert "arguments" not in result
+
+
+
+def test_redaction_masks_personal_values_even_under_generic_keys():
+    value = {
+        "destination": "contato@example.com",
+        "notes": "CPF 123.456.789-00",
+        "text": "Ligue +55 (21) 99999-1234",
+    }
+
+    preview = policy.redact_arguments(value)
+    assert preview["destination"] == "[redacted]"
+    assert preview["notes"] == "[redacted]"
+    assert preview["text"] == "[redacted]"
