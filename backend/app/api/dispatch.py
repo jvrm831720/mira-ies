@@ -19,6 +19,9 @@ class CampaignCreate(BaseModel):
     name: str = Field(min_length=3, max_length=160)
     purpose: Literal["retention", "academic", "service", "collections"]
     delivery_mode: Literal["targeted", "bulk"] = "targeted"
+    source_kind: Literal["manual", "native", "composio"] = "manual"
+    source_ref: str | None = Field(default=None, max_length=160)
+    source_tool_slug: str | None = Field(default=None, max_length=120)
     channel: Literal["email", "sms", "whatsapp"]
     template_ref: str = Field(min_length=2, max_length=160)
     template_body: str = Field(min_length=3, max_length=2000)
@@ -58,6 +61,16 @@ def _error(exc: ValueError | LookupError) -> HTTPException:
     return HTTPException(status_code=404 if isinstance(exc, LookupError) else 422, detail=str(exc))
 
 
+@router.get("/sources")
+async def available_dispatch_sources(
+    auth: AuthContext = Depends(require_permission("campaigns.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Connections owned by this workspace; no Composio tool executes here."""
+    from app.services.dispatch_sources import list_sources
+    return await list_sources(db, tenant_id=auth.tenant_id)
+
+
 @router.get("/campaigns")
 async def campaigns(
     limit: int = Query(50, ge=1, le=100),
@@ -82,6 +95,8 @@ async def create_campaign(
             daily_contact_limit=body.daily_contact_limit,
             timezone_name=body.timezone, start_hour=body.start_hour,
             end_hour=body.end_hour, delivery_mode=body.delivery_mode,
+            source_kind=body.source_kind, source_ref=body.source_ref,
+            source_tool_slug=body.source_tool_slug,
         )
     except ValueError as exc:
         await db.rollback()
