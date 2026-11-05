@@ -79,6 +79,7 @@ export type DispatchSource = {
   connected: boolean;
   can_bind: boolean;
   tools: string[];
+  ingestion_tools?: string[];
   automatic_ingestion: boolean;
   note: string;
 };

@@ -193,6 +193,15 @@ async def list_sources(db: AsyncSession, *, tenant_id: str) -> dict:
             and composio_toolkit_allowed(account.toolkit_slug, settings)
             and policy and policy.is_enabled and selected_tools
         )
+        ingestion_tools = (
+            [slug for slug in selected_tools if slug in {
+                item.strip().upper()
+                for item in getattr(settings, "dispatch_composio_ingestion_read_tools", "").split(",")
+                if item.strip()
+            }]
+            if getattr(settings, "dispatch_composio_ingestion_enabled", False)
+            else []
+        )
         records.append({
             "kind": "composio",
             "reference": account.connected_account_id,
@@ -202,6 +211,7 @@ async def list_sources(db: AsyncSession, *, tenant_id: str) -> dict:
             "connected": connected,
             "can_bind": can_bind,
             "tools": selected_tools if can_bind else [],
+            "ingestion_tools": ingestion_tools if can_bind else [],
             "automatic_ingestion": False,
             "note": (
                 "Conta e política verificadas. Usar ferramentas requer o executor Composio autorizado."

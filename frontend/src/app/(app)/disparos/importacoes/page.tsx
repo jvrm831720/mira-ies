@@ -52,7 +52,7 @@ export default function DispatchComposioImportsPage() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const selected = sources.find(item => item.reference === accountId);
-  const tools = selected?.tools ?? [];
+  const tools = selected?.ingestion_tools ?? [];
 
   const resetKey = () => { idempotencyRef.current = ""; };
 
