@@ -65,7 +65,7 @@ function MetricCard({
   }[tone];
 
   return (
-    <article className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+    <article className="rounded-[10px] border border-[#E4E7EC] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-medium text-[#667085]">{label}</p>
@@ -97,7 +97,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] text-[#344054] outline-none focus:border-[#4050CD] focus:ring-2 focus:ring-[#4050CD]/15"
+        className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
       >
         {children}
       </select>
@@ -119,7 +119,7 @@ function EducationalBreakdown({
   rows: PermanenceBreakdown[];
 }) {
   return (
-    <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+    <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5">
       <div className="mb-4">
         <h2 className="text-[14px] font-semibold text-[#101828]">{title}</h2>
         <p className="mt-1 text-[11px] text-[#667085]">{description}</p>
@@ -127,7 +127,7 @@ function EducationalBreakdown({
       {rows.length === 0 ? <EmptyBreakdown text="Sem outcomes acadêmicos confirmados neste recorte." /> : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-[12px]">
-            <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
+            <thead className="bg-[#F8F9FA] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
               <tr>
                 <th className="px-3 py-2">Grupo</th>
                 <th className="px-3 py-2">Desfechos</th>
@@ -164,7 +164,7 @@ function OperationalBreakdown({
   rows: OperationalPermanenceBreakdown[];
 }) {
   return (
-    <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+    <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5">
       <div className="mb-4">
         <h2 className="text-[14px] font-semibold text-[#101828]">{title}</h2>
         <p className="mt-1 text-[11px] text-[#667085]">{description}</p>
@@ -249,8 +249,8 @@ function ComparisonCard({ data }: { data: PermanenceAnalytics["comparison"] }) {
 
 function EducationalHistory({ data }: { data: PermanenceAnalytics["educational"] }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white">
-      <div className="flex flex-col gap-1 border-b border-[#EAECF0] px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="overflow-hidden rounded-[10px] border border-[#E4E7EC] bg-white">
+      <div className="flex flex-col gap-1 border-b border-[#E4E7EC] px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-[14px] font-semibold text-[#101828]">Histórico de resultados por estudante</h2>
           <p className="mt-1 text-[11px] text-[#667085]">Eventos acadêmicos mais recentes. Exibição limitada a 100 registros.</p>
@@ -284,7 +284,7 @@ function EducationalHistory({ data }: { data: PermanenceAnalytics["educational"]
                 <tr key={record.event_id} className="hover:bg-[#F9FAFB]">
                   <td className="px-4 py-3">
                     {record.student_id ? (
-                      <Link href={`/alunos/${record.student_id}`} className="font-semibold text-[#4050CD] hover:underline">
+                      <Link href={`/alunos/${record.student_id}`} className="font-semibold text-[#266DF0] hover:underline">
                         {record.student_name || record.matricula}
                       </Link>
                     ) : <span className="font-semibold text-[#101828]">{record.student_name || record.matricula}</span>}
@@ -385,7 +385,7 @@ function OperationalResults({ data }: { data: PermanenceAnalytics }) {
           }))}
         />
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#E4E7EC] bg-white p-4">
         <div>
           <p className="text-[12px] font-semibold text-[#101828]">Precisa revisar um contato específico?</p>
           <p className="mt-1 text-[11px] text-[#667085]">O histórico detalhado fica separado dos outcomes educacionais.</p>
@@ -421,10 +421,10 @@ export function PermanenceResultsPage() {
   return (
     <>
       <Header title="Resultados de permanência" subtitle="Desfechos acadêmicos confirmados, separados dos indicadores operacionais." />
-      <main className="mx-auto w-full max-w-[1600px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
+      <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
         <section className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#4050CD]">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#266DF0]">
               <BookOpenCheck className="h-3.5 w-3.5" /> Mensuração educacional
             </div>
             <h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#101828]">Resultados de permanência</h1>
@@ -441,7 +441,7 @@ export function PermanenceResultsPage() {
             >
               <RefreshCw className={`h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} /> Atualizar
             </button>
-            <Link href="/retencao/logs" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#4050CD] px-3.5 text-[12px] font-semibold text-white hover:bg-[#303FAF]">
+            <Link href="/retencao/logs" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#266DF0] px-3.5 text-[12px] font-semibold text-white hover:bg-[#1F5DD1]">
               Histórico de contatos <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -473,14 +473,14 @@ export function PermanenceResultsPage() {
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div role="tablist" aria-label="Tipo de resultados" className="inline-flex rounded-xl border border-[#E5E7EB] bg-white p-1">
+          <div role="tablist" aria-label="Tipo de resultados" className="inline-flex items-center gap-5 border-b border-[#E4E7EC] bg-white">
             <button
               id="tab-educational"
               role="tab"
               aria-selected={tab === "educational"}
               aria-controls="panel-educational"
               onClick={() => setTab("educational")}
-              className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold ${tab === "educational" ? "bg-[#4050CD] text-white" : "text-[#475467] hover:bg-[#F9FAFB]"}`}
+              className={`inline-flex h-10 items-center gap-2 border-b-2 px-1 text-[12px] font-medium transition ${tab === "educational" ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:text-[#1C1D1F]"}`}
             >
               <GraduationCap className="h-3.5 w-3.5" /> Resultados educacionais
             </button>
@@ -490,7 +490,7 @@ export function PermanenceResultsPage() {
               aria-selected={tab === "operational"}
               aria-controls="panel-operational"
               onClick={() => setTab("operational")}
-              className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold ${tab === "operational" ? "bg-[#4050CD] text-white" : "text-[#475467] hover:bg-[#F9FAFB]"}`}
+              className={`inline-flex h-10 items-center gap-2 border-b-2 px-1 text-[12px] font-medium transition ${tab === "operational" ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:text-[#1C1D1F]"}`}
             >
               <Activity className="h-3.5 w-3.5" /> Resultados operacionais
             </button>
