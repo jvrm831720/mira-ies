@@ -126,15 +126,39 @@ Referências:
 - https://pypi.org/project/composio/0.31.0/
 
 
-## Checkpoint Wave 3.0 — policy primitives
+## Checkpoint Wave 3.0 — implementação entregue na PR #123
 
-A camada `backend/app/services/composio/policy.py` agora contém:
-- resolução fail-closed da policy global, policy do tenant, conta ativa tenant-scoped e ferramenta do catálogo atual;
-- validação conservadora de argumentos contra um subconjunto explícito de JSON Schema; palavras-chave desconhecidas ou schemas incompatíveis são negados;
-- fingerprint SHA-256 sobre tenant, conta, toolkit, tool, schema e argumentos canônicos;
+### Policy e autorização
+A camada `backend/app/services/composio/policy.py` implementa:
+- sessão humana AAL2 obrigatória para solicitar e revisar aprovações;
+- allowlist global, policy do tenant, ferramenta selecionada e conta ativa do mesmo tenant/toolkit;
+- consulta ao catálogo atual e validação conservadora do schema; schemas com palavras-chave não suportadas são negados;
+- fingerprint SHA-256 sobre tenant, conta, toolkit, ferramenta, schema e argumentos canônicos;
 - envelope AES-256-GCM com nonce aleatório e AAD vinculada ao tenant;
-- preview com redação recursiva de campos sensíveis.
+- preview com redação de campos sensíveis e sem retorno do ciphertext.
 
-Testes unitários iniciais cobrem round-trip criptográfico, vinculação ao tenant, redação e rejeição de schema incompleto/não suportado.
+### API entregue
+- `POST /integrations/composio/approvals`: solicita aprovação. Exige `idempotency_key` (16–120 caracteres), valida policy/conta/schema e expira em 30 minutos.
+- `GET /integrations/composio/approvals`: lista solicitações do tenant, com filtro opcional de status e limite máximo 100; marca pendências expiradas.
+- `POST /integrations/composio/approvals/{id}/review`: aprova ou rejeita; exige sessão humana AAL2, `settings.manage` e four-eyes.
+- `POST /integrations/composio/approvals/{id}/cancel`: somente o solicitante pode cancelar uma pendência ainda válida.
 
-**Ainda não entregue:** endpoints de solicitação/revisão/cancelamento, locks e idempotência transacional da API, auditoria dos eventos de approval, testes PostgreSQL/RLS e integração completa com o schema real de cada toolkit. A função de policy não executa tools. O executor permanece ausente e a feature flag continua false.
+A idempotência usa lock advisory transacional PostgreSQL e constraint única por tenant. Revisão e cancelamento usam `SELECT FOR UPDATE`. A API nunca aceita tenant, user ou identidade Composio do cliente como autoridade. As respostas mostram somente preview redigido.
+
+### Persistência e auditoria
+- Migration `049_composio_tool_approvals` cria a tabela tenant-scoped com RLS ENABLE + FORCE, FK composta tenant+connected account, estados controlados, four-eyes e unique idempotency key.
+- O modelo de aprovação está registrado tanto no Alembic quanto nos metadados de teste.
+- A tabela existente `tenant_composio_tool_audit` já tinha RLS e proteção append-only (incluindo bloqueio de TRUNCATE) desde a migration 045; a Wave 3 reutiliza essa proteção e registra eventos sem argumentos ou respostas.
+
+### Limites deliberados
+- Nenhum endpoint executa ferramentas.
+- Nenhuma chamada `composio.tools.execute` foi adicionada.
+- `COMPOSIO_TOOL_EXECUTION_ENABLED=false` continua sendo o padrão.
+- `tool_version` ainda não é fixada na aprovação; a versão explícita e o consumo de aprovação pertencem à Wave 3.1.
+- Migration 049 não foi aplicada em ambiente de produção e nenhum OAuth real foi usado.
+
+### Validação
+Testes unitários foram adicionados para criptografia/tenant binding, redação, validação de schema e exigência de sessão humana AAL2. A CI associada ao HEAD `f120451944b9cc94770c20205641bc9380437ea7` iniciou, mas ambos os jobs terminaram em falha imediata sem steps ou logs acessíveis pelo conector. O HEAD posterior ainda precisa de execução confirmada. Portanto, não declarar CI aprovado nem liberar merge/deploy até obter um resultado confiável no HEAD final.
+
+### Próxima onda
+Wave 3.1 deve adicionar o adapter server-side com versão pinada, consumo atômico de aprovação, revalidação da policy/conta imediatamente antes da execução, timeout ambíguo como `unknown`, sem retry automático e testes sandbox. A feature flag permanece desligada até aprovação específica dessa onda.
