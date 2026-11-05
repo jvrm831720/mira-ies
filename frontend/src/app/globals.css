@@ -260,7 +260,7 @@ textarea {
 }
 
 
-/* Login: composição editorial escura inspirada na referência Attio; escopo restrito à autenticação. */
+/* Login: composição editorial escura da referência Attio (#101112 / #11151d, azul #3577f1); escopo restrito à autenticação. */
 .auth-login-page {
   --auth-bg: #101112;
   --auth-panel: #101112;
