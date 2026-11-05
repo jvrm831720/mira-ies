@@ -1,4 +1,4 @@
-import { Activity, AlertCircle, CheckCircle2, Mail, MessageCircle, ShieldCheck, Smartphone, Zap } from "lucide-react";
+import { Activity, AlertCircle, CheckCircle2, Mail, MessageCircle, ShieldCheck, Smartphone, Zap } from "@/components/ui/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AgentsStatus, ModelInfo } from "@/types/api";

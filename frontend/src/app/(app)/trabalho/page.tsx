@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Search,
   XCircle,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { RiskBadge } from "@/components/ui/badge";
 import { CriticalList } from "@/components/risk/critical-list";
