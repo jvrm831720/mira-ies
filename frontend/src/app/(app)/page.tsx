@@ -81,8 +81,8 @@ export default function CommandCenterPage() {
           {
             label: "Sem score",
             count: risk.sem_score,
-            color: "bg-[#D0D5DD]",
-            text: "text-[#667085]",
+            color: "bg-[#cad0d9]",
+            text: "text-[#6f7988]",
           },
         ]
       : [];
@@ -167,16 +167,16 @@ export default function CommandCenterPage() {
     <>
       <Header title="Visão geral" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        <section className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <section className="flex flex-col gap-3 border-b border-[#e4e7ec] pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#111827] sm:text-[24px]">
+            <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#1c1d1f] sm:text-[24px]">
               Visão geral
             </h1>
-            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
+            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#6f7988]">
               Estado operacional da base e prioridades de acompanhamento.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 text-[12px] text-[#667085]">
+          <div className="flex shrink-0 items-center gap-2 text-[12px] text-[#6f7988]">
             <span
               className={cn(
                 "h-2 w-2 rounded-full",
@@ -193,16 +193,16 @@ export default function CommandCenterPage() {
 
         <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <form onSubmit={onSearchSubmit} className="relative w-full sm:max-w-[420px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9fa1a7]" />
             <input
               aria-label="Buscar aluno por nome, matrícula ou curso"
               value={q}
               onChange={(event) => setQ(event.target.value)}
               placeholder="Buscar aluno"
-              className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white pl-10 pr-3 text-[13px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15"
+              className="h-10 w-full rounded-lg border border-[#e4e7ec] bg-white pl-10 pr-3 text-[13px] text-[#1c1d1f] outline-none placeholder:text-[#9fa1a7] focus:border-[#266df0] focus:ring-2 focus:ring-[#266df0]/15"
             />
             {searchHits.length > 0 && (
-              <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] shadow-lg">
+              <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-lg border border-[#e4e7ec] bg-[#f4f5f6] shadow-lg">
                 {searchHits.map((student) => (
                   <li key={student.id}>
                     <button
@@ -214,15 +214,15 @@ export default function CommandCenterPage() {
                       }}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-medium text-[#111827]">
+                        <span className="block truncate text-[13px] font-medium text-[#1c1d1f]">
                           {student.nome}
                         </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-[#667085]">
+                        <span className="mt-0.5 block truncate text-[11px] text-[#6f7988]">
                           {student.matricula || "Sem matrícula"}
                           {student.curso ? ` · ${student.curso}` : ""}
                         </span>
                       </span>
-                      <ArrowRight className="h-4 w-4 shrink-0 text-[#98A2B3]" />
+                      <ArrowRight className="h-4 w-4 shrink-0 text-[#9fa1a7]" />
                     </button>
                   </li>
                 ))}
@@ -234,14 +234,14 @@ export default function CommandCenterPage() {
               type="button"
               onClick={() => void refreshDashboard()}
               disabled={isRefreshing}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#e4e7ec] bg-white px-3.5 text-[13px] font-medium text-[#1c1d1f] transition hover:bg-[#f4f5f6] disabled:opacity-60"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
               Atualizar
             </button>
             <Link
               href="/importar"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#2563EB] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1D4ED8]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-4 text-[13px] font-medium text-white transition hover:bg-[#101113]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar
@@ -257,8 +257,8 @@ export default function CommandCenterPage() {
             <div className="flex items-start gap-3">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#B42318]" />
               <div>
-                <p className="text-sm font-semibold text-[#111827]">Não foi possível carregar os dados.</p>
-                <p className="mt-1 text-sm text-[#667085]">Tente atualizar a página em instantes.</p>
+                <p className="text-sm font-semibold text-[#1c1d1f]">Não foi possível carregar os dados.</p>
+                <p className="mt-1 text-sm text-[#6f7988]">Tente atualizar a página em instantes.</p>
               </div>
             </div>
             <button
@@ -273,15 +273,15 @@ export default function CommandCenterPage() {
           <section aria-label="Indicadores principais">
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-[#111827]">
+                <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-[#1c1d1f]">
                   Indicadores principais
                 </h2>
-                <p className="mt-0.5 text-[12px] text-[#667085]">
+                <p className="mt-0.5 text-[12px] text-[#6f7988]">
                   Resumo da base e da operação de retenção.
                 </p>
               </div>
               {!summary.isLoading && !summary.isError && (
-                <span className="hidden text-[12px] text-[#98A2B3] sm:inline">
+                <span className="hidden text-[12px] text-[#9fa1a7] sm:inline">
                   {scoredStudents?.toLocaleString("pt-BR") ?? "—"} com score
                 </span>
               )}
@@ -361,20 +361,20 @@ export default function CommandCenterPage() {
                 className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]"
                 aria-label="Distribuição de risco e qualidade da base"
               >
-                <article className="rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
+                <article className="rounded-xl border border-[#e4e7ec] bg-white p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-[13px] font-semibold text-[#111827]">Distribuição de risco</h3>
-                      <p className="mt-1 text-[12px] text-[#667085]">
+                      <h3 className="text-[13px] font-semibold text-[#1c1d1f]">Distribuição de risco</h3>
+                      <p className="mt-1 text-[12px] text-[#6f7988]">
                         Classificação apenas com score. Sem score permanece separado.
                       </p>
                     </div>
-                    <span className="rounded-full border border-[#E5E7EB] px-2.5 py-1 text-[11px] font-medium text-[#667085]">
+                    <span className="rounded-full border border-[#e4e7ec] px-2.5 py-1 text-[11px] font-medium text-[#6f7988]">
                       {scoredStudents?.toLocaleString("pt-BR") ?? "—"} com score
                     </span>
                   </div>
                   <div
-                    className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-[#F8FAFC]"
+                    className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-[#f4f5f6]"
                     role="img"
                     aria-label={
                       riskTotal > 0
@@ -396,14 +396,14 @@ export default function CommandCenterPage() {
                   <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
                     {riskSegments.map((segment) => (
                       <div key={segment.label} className="min-w-0">
-                        <div className="flex items-center gap-2 text-[11px] text-[#667085]">
+                        <div className="flex items-center gap-2 text-[11px] text-[#6f7988]">
                           <span className={"h-2 w-2 shrink-0 rounded-full " + segment.color} />
                           {segment.label}
                         </div>
                         <p className={"mt-1 text-xl font-semibold tabular-nums " + segment.text}>
                           {segment.count.toLocaleString("pt-BR")}
                         </p>
-                        <p className="text-[11px] text-[#98A2B3]">
+                        <p className="text-[11px] text-[#9fa1a7]">
                           {riskTotal > 0
                             ? ((segment.count / riskTotal) * 100).toLocaleString("pt-BR", {
                                 maximumFractionDigits: 1,
@@ -414,38 +414,38 @@ export default function CommandCenterPage() {
                     ))}
                   </div>
                 </article>
-                <article className="rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-5">
-                  <h3 className="text-[13px] font-semibold text-[#111827]">Cobertura da análise</h3>
-                  <p className="mt-1 text-[12px] leading-relaxed text-[#667085]">
+                <article className="rounded-xl border border-[#e4e7ec] bg-white p-4 sm:p-5">
+                  <h3 className="text-[13px] font-semibold text-[#1c1d1f]">Cobertura da análise</h3>
+                  <p className="mt-1 text-[12px] leading-relaxed text-[#6f7988]">
                     Alunos sem score não entram como baixo risco e exigem revisão de dados.
                   </p>
                   <div className="mt-5 flex items-end justify-between gap-3">
                     <div>
-                      <p className="text-[28px] font-semibold tracking-[-0.04em] tabular-nums text-[#111827]">
+                      <p className="text-[28px] font-semibold tracking-[-0.04em] tabular-nums text-[#1c1d1f]">
                         {unscoredCount?.toLocaleString("pt-BR") ?? "—"}
                       </p>
-                      <p className="mt-1 text-[11px] text-[#667085]">Sem score</p>
+                      <p className="mt-1 text-[11px] text-[#6f7988]">Sem score</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-semibold tabular-nums text-[#111827]">
+                      <p className="text-lg font-semibold tabular-nums text-[#1c1d1f]">
                         {totalStudents != null && totalStudents > 0 && unscoredCount != null
                           ? ((unscoredCount / totalStudents) * 100).toLocaleString("pt-BR", {
                               maximumFractionDigits: 1,
                             }) + "%"
                           : "—"}
                       </p>
-                      <p className="mt-1 text-[11px] text-[#667085]">da base total</p>
+                      <p className="mt-1 text-[11px] text-[#6f7988]">da base total</p>
                     </div>
                   </div>
                   <Link
                     href="/alunos"
-                    className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#2563EB] hover:text-[#1D4ED8]"
+                    className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#266df0] hover:text-[#407ff2]"
                   >
                     Revisar alunos sem score
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                   {operationalGeneratedAtLabel && (
-                    <p className="mt-4 border-t border-[#E5E7EB] pt-3 text-[11px] text-[#98A2B3]">
+                    <p className="mt-4 border-t border-[#e4e7ec] pt-3 text-[11px] text-[#9fa1a7]">
                       Resumo operacional gerado em {operationalGeneratedAtLabel}
                     </p>
                   )}
@@ -465,19 +465,19 @@ export default function CommandCenterPage() {
         )}
 
         {isEmpty ? (
-          <section className="rounded-xl border border-[#E5E7EB] bg-white px-5 py-10 text-center sm:py-14">
-            <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#F8FAFC] text-[#2563EB]">
+          <section className="rounded-xl border border-[#e4e7ec] bg-white px-5 py-10 text-center sm:py-14">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#f4f5f6] text-[#266df0]">
               <Upload className="h-5 w-5" />
             </span>
-            <h2 className="mt-4 text-[16px] font-semibold tracking-[-0.02em] text-[#111827]">
+            <h2 className="mt-4 text-[16px] font-semibold tracking-[-0.02em] text-[#1c1d1f]">
               Vamos começar pela sua base de alunos
             </h2>
-            <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-[#667085]">
+            <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-[#6f7988]">
               Envie uma planilha para ver os alunos e identificar quem precisa de atenção.
             </p>
             <Link
               href="/importar"
-              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[#2563EB] px-4 text-[13px] font-semibold text-white hover:bg-[#1D4ED8]"
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[#266df0] px-4 text-[13px] font-semibold text-white hover:bg-[#407ff2]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar alunos
@@ -508,37 +508,37 @@ export default function CommandCenterPage() {
           <section className="grid gap-3 sm:grid-cols-2" aria-label="Atalhos operacionais">
             <Link
               href="/trabalho"
-              className="group flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#CBD5E1] hover:shadow-sm"
+              className="group flex items-center gap-3 rounded-xl border border-[#e4e7ec] bg-white p-4 transition hover:border-[#CBD5E1] hover:shadow-sm"
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8FAFC] text-[#667085]">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f4f5f6] text-[#6f7988]">
                 <ClipboardList className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-semibold text-[#111827]">Central de trabalho</span>
-                <span className="mt-0.5 block text-[12px] text-[#667085]">
+                <span className="block text-[13px] font-semibold text-[#1c1d1f]">Central de trabalho</span>
+                <span className="mt-0.5 block text-[12px] text-[#6f7988]">
                   Intervenções e acompanhamento.
                 </span>
               </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-[#98A2B3] transition group-hover:translate-x-0.5" />
+              <ArrowRight className="h-4 w-4 shrink-0 text-[#9fa1a7] transition group-hover:translate-x-0.5" />
             </Link>
             <Link
               href="/retencao"
-              className="group flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#CBD5E1] hover:shadow-sm"
+              className="group flex items-center gap-3 rounded-xl border border-[#e4e7ec] bg-white p-4 transition hover:border-[#CBD5E1] hover:shadow-sm"
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8FAFC] text-[#667085]">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f4f5f6] text-[#6f7988]">
                 <MessageSquareHeart className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-semibold text-[#111827]">Intervenções</span>
-                <span className="mt-0.5 block text-[12px] text-[#667085]">Régua de retenção e fluxos.</span>
+                <span className="block text-[13px] font-semibold text-[#1c1d1f]">Intervenções</span>
+                <span className="mt-0.5 block text-[12px] text-[#6f7988]">Régua de retenção e fluxos.</span>
               </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-[#98A2B3] transition group-hover:translate-x-0.5" />
+              <ArrowRight className="h-4 w-4 shrink-0 text-[#9fa1a7] transition group-hover:translate-x-0.5" />
             </Link>
           </section>
         )}
 
         {!isEmpty && !summary.isError && (
-          <div className="flex items-center gap-2 border-t border-[#E5E7EB] pt-4 text-[12px] text-[#98A2B3]">
+          <div className="flex items-center gap-2 border-t border-[#e4e7ec] pt-4 text-[12px] text-[#9fa1a7]">
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#027A48]" />
             Indicadores refletem apenas dados retornados pela API; ausência não é tratada como zero.
           </div>
@@ -565,25 +565,25 @@ function MetricCard({
   href?: string;
 }) {
   const tones = {
-    neutral: "text-[#667085]",
+    neutral: "text-[#6f7988]",
     coral: "text-[#B42318]",
-    indigo: "text-[#2563EB]",
+    indigo: "text-[#266df0]",
     amber: "text-[#B54708]",
   };
   const body = (
     <>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">{label}</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9fa1a7]">{label}</p>
         <span className={cn("shrink-0", tones[tone])}>{icon}</span>
       </div>
-      <p className="mt-4 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[#111827]">
+      <p className="mt-4 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[#1c1d1f]">
         {value}
       </p>
-      <p className="mt-2 text-[11px] leading-snug text-[#667085]">{hint}</p>
+      <p className="mt-2 text-[11px] leading-snug text-[#6f7988]">{hint}</p>
     </>
   );
   const cls =
-    "block rounded-xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#D0D5DD] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]";
+    "block rounded-xl border border-[#e4e7ec] bg-white p-4 transition hover:border-[#cad0d9] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]";
   if (href) {
     return (
       <Link href={href} data-mira-card="true" className={cls}>
