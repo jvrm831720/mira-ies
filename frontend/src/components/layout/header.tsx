@@ -88,8 +88,8 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
   ];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-black/[0.06] bg-[rgba(247,245,239,0.88)] backdrop-blur-xl">
-      <div className={cn("flex w-full items-center gap-4 pl-14 pr-4 md:px-8 xl:px-10", compact ? "min-h-[52px] justify-end py-2" : "min-h-[72px] justify-between py-3")}>
+    <header className="sticky top-0 z-20 border-b border-[#E4E7EC] bg-white/95 backdrop-blur-xl">
+      <div className={cn("flex w-full items-center gap-4 pl-14 pr-4 md:px-8 xl:px-10", compact ? "min-h-[48px] justify-end py-1.5" : "min-h-[64px] justify-between py-2.5")}>
         {!compact && <div className="min-w-0">
           <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-neutral-400 sm:flex">
             <span className="inline-flex items-center gap-1.5 uppercase tracking-[0.14em]">
@@ -200,8 +200,8 @@ function IconButton({
       aria-label={label}
       aria-expanded={active}
         className={cn(
-        "grid h-9 w-9 place-items-center rounded-[11px] text-neutral-500 transition hover:bg-white hover:text-neutral-900",
-        active && "bg-white text-neutral-900 shadow-sm"
+        "grid h-8 w-8 place-items-center rounded-[8px] text-[#6F7988] transition hover:bg-[#F4F5F6] hover:text-[#1C1D1F]",
+        active && "bg-[#F4F5F6] text-[#1C1D1F]"
       )}
     >
       {children}

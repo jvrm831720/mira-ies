@@ -15,6 +15,9 @@ import {
   ShieldCheck,
   Sparkles,
   RefreshCw,
+  GraduationCap,
+  Wallet,
+  UserRound,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { RiskBadge } from "@/components/ui/badge";
@@ -70,7 +73,7 @@ function displayValue(
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+    <article className="rounded-[10px] border border-[#E4E7EC] bg-white p-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">{label}</p>
       <p className="mt-2 text-[14px] font-semibold text-[#111827]">{value}</p>
     </article>
@@ -81,6 +84,12 @@ export default function StudentDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [preview, setPreview] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<"overview" | "academic" | "finance" | "risk" | "activity" | "communication">("overview");
+
+  function navigateToSection(section: "overview" | "academic" | "finance" | "risk" | "activity" | "communication", id: string) {
+    setActiveSection(section);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   const [loadingPreview, setLoadingPreview] = useState(false);
   const queryClient = useQueryClient();
 
@@ -180,7 +189,7 @@ export default function StudentDetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/alunos"
-            className="inline-flex items-center gap-2 rounded-lg text-[13px] font-semibold text-[#667085] transition hover:text-[#2563EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+            className="inline-flex items-center gap-2 rounded-lg text-[13px] font-semibold text-[#667085] transition hover:text-[#266DF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar para alunos
@@ -190,7 +199,7 @@ export default function StudentDetailPage() {
               type="button"
               onClick={() => void refetch()}
               disabled={isFetching}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#111827] transition hover:bg-[#F8F9FA] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
               Atualizar
@@ -227,10 +236,11 @@ export default function StudentDetailPage() {
 
         {data && (
           <>
-            <section className="rounded-xl border border-[#E5E7EB] bg-white p-5 sm:p-6">
+            <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5 sm:p-6">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">Identificação</p>
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[#E4E7EC] bg-[#F5F6F8] text-[17px] font-semibold text-[#454A54]" aria-hidden="true">{(data.nome || "?").trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}</div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">Registro do aluno</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2.5">
                     <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#111827] sm:text-[24px]">
                       {data.nome || "Nome não informado"}
@@ -284,7 +294,28 @@ export default function StudentDetailPage() {
               </div>
             </section>
 
-            <section aria-label="Resumo acadêmico e financeiro">
+            <nav aria-label="Seções da ficha do aluno" className="flex flex-wrap items-center gap-6 border-b border-[#E4E7EC]">
+              {([
+                ["overview", "Visão geral", "student-overview"],
+                ["academic", "Acadêmico", "student-academic"],
+                ["finance", "Financeiro", "student-finance"],
+                ["risk", "Análise de risco", "risk-analysis"],
+                ["activity", "Atividade", "student-activity"],
+                ["communication", "Comunicação", "student-communication"],
+              ] as const).map(([section, label, id]) => (
+                <button
+                  key={section}
+                  type="button"
+                  aria-current={activeSection === section ? "page" : undefined}
+                  onClick={() => navigateToSection(section, id)}
+                  className={`inline-flex h-10 items-center border-b-2 text-[12px] font-medium transition ${activeSection === section ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:border-[#E4E7EC] hover:text-[#1C1D1F]"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+
+            <section id="student-overview" className="scroll-mt-24" aria-label="Resumo acadêmico e financeiro">
               <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[#111827]">Situação acadêmica e financeira</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <InfoCard label="Curso" value={displayValue(data.curso)} />
@@ -294,11 +325,58 @@ export default function StudentDetailPage() {
               </div>
             </section>
 
-            <StudentWorkTimeline studentId={id} />
+            <section id="student-academic" className="scroll-mt-24 rounded-[10px] border border-[#E4E7EC] bg-white p-5" aria-label="Dados acadêmicos">
+              <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-[#667085]" /><h2 className="text-[15px] font-semibold text-[#111827]">Acadêmico</h2></div>
+              <p className="mt-1 text-[12px] text-[#667085]">Dados recebidos da instituição. Informações não integradas permanecem indisponíveis.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <InfoCard label="Programa / curso" value={displayValue(data.curso)} />
+                <InfoCard label="Campus" value={displayValue(data.campus)} />
+                <InfoCard label="Semestre" value={data.semestre != null ? String(data.semestre) : "Não informado"} />
+                <InfoCard label="Situação acadêmica" value={displayValue(data.status_aluno)} />
+                <InfoCard label="Turma" value={displayValue(data.turma)} />
+                <InfoCard label="Forma de ingresso" value={displayValue(data.forma_ingresso)} />
+                <InfoCard label="Matrícula" value={displayValue(data.matricula)} />
+                <InfoCard label="Engajamento" value={data.engagement_score != null ? String(data.engagement_score) : "Não informado"} />
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Frequência e presença</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[#111827]">{data.presenca_percentual != null ? `${data.presenca_percentual}%` : "Não informado"}</p><p className="mt-1 text-[12px] text-[#667085]">Presença agregada informada pela instituição; histórico por disciplina ainda não disponível.</p></div>
+                <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Notas e avaliações</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[#111827]">{data.nota_media != null ? String(data.nota_media) : "Não informado"}</p><p className="mt-1 text-[12px] text-[#667085]">Média informada pela instituição · {data.reprovacoes != null ? `${data.reprovacoes} reprovações` : "reprovações não informadas"}. Histórico por disciplina ainda não disponível.</p></div>
+              </div>
+            </section>
+
+            <section id="student-finance" className="scroll-mt-24 rounded-[10px] border border-[#E4E7EC] bg-white p-5" aria-label="Dados financeiros">
+              <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-[#667085]" /><h2 className="text-[15px] font-semibold text-[#111827]">Financeiro</h2></div>
+              <p className="mt-1 text-[12px] text-[#667085]">Resumo financeiro informado pela fonte de dados, não um extrato transacional ou confirmação de pagamento.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <InfoCard label="Saldo informado" value={data.saldo_devedor != null && Number.isFinite(data.saldo_devedor) ? new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"}).format(data.saldo_devedor) : "Não informado"} />
+                <InfoCard label="Dias em atraso" value={data.dias_atraso_boleto != null ? String(data.dias_atraso_boleto) : "Não informado"} />
+                <InfoCard label="Status financeiro" value={displayValue(data.status_financeiro)} />
+              </div>
+              <div className="mt-4 overflow-hidden rounded-lg border border-[#E4E7EC]">
+                <div className="grid grid-cols-3 border-b border-[#E4E7EC] bg-[#F9FAFB] px-4 py-3 text-[11px] font-medium text-[#667085]"><span>Obrigação / parcela</span><span>Vencimento</span><span>Pagamento</span></div>
+                <p className="px-4 py-6 text-center text-[12px] text-[#667085]">Faturas, parcelas e pagamentos ainda não estão disponíveis como registros verificados nesta ficha.</p>
+              </div>
+              <div className="mt-3 rounded-lg border border-[#E4E7EC] px-4 py-4"><p className="text-[13px] font-semibold text-[#111827]">Acordos e negociações</p><p className="mt-1 text-[12px] text-[#667085]">Sem integração homologada para consultar acordos vinculados a este aluno.</p></div>
+            </section>
+
+            <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5" aria-label="Atributos adicionais">
+              <div className="flex items-center gap-2"><UserRound className="h-4 w-4 text-[#667085]" /><h2 className="text-[15px] font-semibold text-[#111827]">Campos personalizados</h2></div>
+              {Object.entries(data.behavior_properties?.custom_properties ?? {}).length > 0 ? (
+                <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {Object.entries(data.behavior_properties?.custom_properties ?? {}).map(([key, value]) => (
+                    <div key={key} className="rounded-lg border border-[#E4E7EC] px-3 py-2"><dt className="text-[11px] text-[#667085]">{key.replaceAll("_", " ")}</dt><dd className="mt-1 break-words text-[13px] font-medium text-[#111827]">{value == null ? "Não informado" : String(value)}</dd></div>
+                  ))}
+                </dl>
+              ) : <p className="mt-3 text-[12px] text-[#667085]">Nenhum campo personalizado disponível na fonte atual.</p>}
+            </section>
+
+            <section id="student-activity" className="scroll-mt-24" aria-label="Atividade do aluno">
+              <StudentWorkTimeline studentId={id} />
+            </section>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
               <div className="space-y-4">
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                <section id="risk-analysis" className="scroll-mt-24 rounded-xl border border-[#E5E7EB] bg-white p-5">
                   <h2 className="text-[15px] font-semibold text-[#111827]">Análise de risco</h2>
                   <p className="mt-1 text-[12px] text-[#667085]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
                   {explanationMetadata?.available && (
@@ -315,7 +393,7 @@ export default function StudentDetailPage() {
                     <ul className="mt-4 space-y-2">
                       {factors.map((factor, index) => (
                         <li key={`${factor}-${index}`} className="flex items-center gap-3 rounded-lg border border-[#E5E7EB] px-3.5 py-3">
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#EFF6FF] text-[11px] font-semibold text-[#2563EB]">
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#EFF6FF] text-[11px] font-semibold text-[#266DF0]">
                             {String(index + 1).padStart(2, "0")}
                           </span>
                           <span className="text-[13px] font-medium text-[#111827]">{factor}</span>
@@ -394,7 +472,7 @@ export default function StudentDetailPage() {
                     <ol className="mt-4 space-y-2">
                       {actions.map((action, index) => (
                         <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-3.5 py-3 text-[13px] leading-relaxed text-[#344054]">
-                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[#2563EB] ring-1 ring-[#E5E7EB]">{index + 1}</span>
+                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[#266DF0] ring-1 ring-[#E5E7EB]">{index + 1}</span>
                           {action}
                         </li>
                       ))}
@@ -404,15 +482,15 @@ export default function StudentDetailPage() {
               </div>
 
               <div className="space-y-4">
-                <section className={cn("rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[#E5E7EB] bg-white")}>
+                <section id="student-communication" className={cn("scroll-mt-24 rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[#E5E7EB] bg-white")}>
                   <div className="flex items-start gap-3">
-                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[#EFF6FF] text-[#2563EB]")}>
+                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[#EFF6FF] text-[#266DF0]")}>
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <div>
                       <h2 className="text-[15px] font-semibold text-[#111827]">Comunicação</h2>
                       <p className="mt-1 text-[12px] leading-relaxed text-[#667085]">
-                        {data.communication_opt_out ? "Opt-out ativo — não contatar automaticamente." : "Contato autorizado, sujeito a regras de anti-spam."}
+                        {data.communication_opt_out ? "Opt-out ativo — não contatar automaticamente." : "Sem opt-out global registrado. A autorização por canal e finalidade deve ser verificada antes de qualquer contato."}
                       </p>
                     </div>
                   </div>
@@ -421,8 +499,8 @@ export default function StudentDetailPage() {
                     disabled={preferenceMutation.isPending}
                     onClick={() => preferenceMutation.mutate(!data.communication_opt_out)}
                     className={cn(
-                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] disabled:opacity-60",
-                      data.communication_opt_out ? "bg-[#2563EB] text-white hover:bg-[#1D4ED8]" : "border border-[#E5E7EB] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0] disabled:opacity-60",
+                      data.communication_opt_out ? "bg-[#266DF0] text-white hover:bg-[#1F5DD1]" : "border border-[#E5E7EB] bg-white text-[#111827] hover:bg-[#F8FAFC]"
                     )}
                   >
                     {preferenceMutation.isPending ? "Salvando…" : data.communication_opt_out ? "Revogar opt-out" : "Registrar opt-out"}
@@ -431,7 +509,7 @@ export default function StudentDetailPage() {
 
                 <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
                   <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#2563EB]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#266DF0]">
                       <MessageSquareText className="h-4 w-4" />
                     </span>
                     <div>
@@ -443,7 +521,7 @@ export default function StudentDetailPage() {
                     type="button"
                     onClick={() => void loadPreview()}
                     disabled={loadingPreview}
-                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2563EB] text-[13px] font-semibold text-white transition hover:bg-[#1D4ED8] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#266DF0] text-[13px] font-semibold text-white transition hover:bg-[#1F5DD1] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {loadingPreview ? "Preparando…" : "Gerar prévia da mensagem"}

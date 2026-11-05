@@ -97,6 +97,12 @@ export type StudentRisk = {
   curso?: string | null;
   campus?: string | null;
   status_aluno?: string | null;
+  turma?: string | null;
+  forma_ingresso?: string | null;
+  presenca_percentual?: number | null;
+  nota_media?: number | null;
+  reprovacoes?: number | null;
+  dias_sem_login?: number | null;
   semestre?: number | null;
   dias_atraso_boleto?: number | null;
   saldo_devedor?: number | null;
