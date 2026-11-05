@@ -102,7 +102,8 @@ def test_provider_gate_is_closed_by_default(monkeypatch):
     import app.services.dispatch_delivery as delivery
 
     monkeypatch.setattr(delivery, "get_settings", lambda: SimpleNamespace(
-        dispatch_live_enabled=False, dispatch_live_tenants="tenant",
+        dispatch_live_enabled=False, dispatch_worker_enabled=False,
+        dispatch_dry_run_default=True, dispatch_live_tenants="tenant",
         dispatch_live_channels="email,sms",
     ))
     assert not delivery.live_enabled("tenant", "email")
@@ -307,6 +308,8 @@ async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
         "subject_ref": "opaque-customer-a", "status": "open",
         "balance": "150.00", "source": "test_erp",
         "evidence_ref": "erp:verified:invoice-001",
+        "source_version": 1,
+        "observed_at": datetime.now(timezone.utc).isoformat(),
     }
     created = await client.post(
         "/api/v1/dispatch/integrations/obligations",
@@ -323,6 +326,8 @@ async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
         "source_event_id": "payment-test-0001", "amount_paid": "150.00",
         "evidence_ref": "erp:verified:payment-0001",
         "new_status": "paid", "balance": "0.00",
+        "source_version": 2,
+        "observed_at": (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat(),
     }
     result = await client.post(
         "/api/v1/dispatch/integrations/payments",
@@ -352,6 +357,21 @@ async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
         WHERE tenant_id=:tenant AND external_ref=:ref
     """), {"tenant": org.id, "ref": ref})).one()
     assert obligation.status == "paid" and obligation.balance == 0
+
+    stale = await client.post(
+        "/api/v1/dispatch/integrations/obligations",headers=headers,
+        json={**body,"source_version":1,"status":"open",
+              "observed_at": datetime.now(timezone.utc).isoformat()},
+    )
+    assert stale.status_code in {200,409}
+    assert stale.status_code == 409  # version 1 cannot roll back version 2
+    later = await client.post(
+        "/api/v1/dispatch/integrations/obligations",headers=headers,
+        json={**body,"source_version":3,
+              "observed_at":datetime.now(timezone.utc).isoformat()},
+    )
+    assert later.status_code == 409  # a settled obligation never reopens
+
 
 
 @pytest.mark.asyncio
