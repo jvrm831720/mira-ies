@@ -11,9 +11,9 @@ SITE="${MIRA_EDUCATION_SITE_NAME:-}"
 : "${MIRA_REDIS_CACHE:?MIRA_REDIS_CACHE required}"
 : "${MIRA_REDIS_QUEUE:?MIRA_REDIS_QUEUE required}"
 : "${MIRA_FRAPPE_ADMIN_PASSWORD:?MIRA_FRAPPE_ADMIN_PASSWORD required}"
-: "${RENDER_DISK_MOUNT_PATH:?Persistent sites disk required}"
+: "${MIRA_PERSISTENT_SITES_PATH:?Persistent sites disk required}"
 
-if [[ "$RENDER_DISK_MOUNT_PATH" != "$BENCH/sites" ]] || ! mountpoint -q "$BENCH/sites"; then
+if [[ "$MIRA_PERSISTENT_SITES_PATH" != "$BENCH/sites" ]] || ! mountpoint -q "$BENCH/sites"; then
   echo "ERROR: persistent disk is not mounted at $BENCH/sites; refusing ephemeral site startup." >&2
   exit 1
 fi
