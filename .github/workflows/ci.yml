@@ -79,13 +79,11 @@ jobs:
       - name: Apply Alembic migrations on disposable CI database
         working-directory: backend
         run: |
-          # Revision 002's legacy create_all materializes tables from today's ORM metadata,
-          # including objects owned by later revisions. Build that baseline, mark history
-          # through 038, then remove objects owned by 039+ so those real migrations create them.
           PYTHONPATH=. alembic upgrade 006_safe_agent_delivery
           PYTHONPATH=. alembic stamp 038_high_risk_confirmation
           psql "$MIRA_TEST_PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
           DROP TABLE IF EXISTS mira_tenant_role_audit, mira_tenant_roles,
+            student_feature_observations, tenant_integration_data_sources,
             tenant_composio_toolkit_policies, tenant_composio_tool_audit,
             tenant_composio_accounts, tenant_composio_sessions,
             tenant_connector_destination_audit, tenant_connector_destinations,
