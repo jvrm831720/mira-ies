@@ -77,16 +77,16 @@ export function SmartImportWizard() {
     setBusy(true)
     setConfirmed(false)
     try {
-    await createCustomField({
+    const created = await createCustomField({
       label: input.label,
       data_type: input.data_type as never,
       options: input.options,
       is_pii: input.is_pii,
       aliases: [header],
     })
-    // Novo campo disponível: re-rodar o preview recarrega o catálogo.
+    // Preserva o restante do de-para manual durante a criação inline.
     setCreatingFor(null)
-    if (file) await runPreview(file)  // o header agora casa por alias com o novo campo
+    if (file) await runPreview(file, { ...draft, [header]: created.name })
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível criar o campo.")
     } finally {
