@@ -25,7 +25,7 @@ from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
 from app.models.tenant import Tenant
-from app.services.membership import ensure_membership
+from app.services.membership import ensure_membership, get_membership_for_tenant
 
 router = APIRouter(prefix="/auth", tags=["Autenticação Mira"])
 logger = logging.getLogger(__name__)
@@ -74,6 +74,13 @@ async def _token_response(user: User, tenant: Tenant, request: Request, db: Asyn
 async def _active_tenant(db: AsyncSession, user: User) -> Tenant | None:
     tenant = await db.get(Tenant, user.tenant_id)
     if not user.is_active or not tenant or not tenant.is_active:
+        return None
+    await db.execute(text("SELECT set_config('app.user_id', :user_id, true)"), {"user_id": user.id})
+    await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": tenant.id})
+    membership = await get_membership_for_tenant(
+        db, user_id=user.id, tenant_id=tenant.id
+    )
+    if membership and membership.status != "active":
         return None
     return tenant
 
@@ -477,6 +484,8 @@ async def provision_user(
     )
     db.add(user)
     await db.flush()
+    await db.execute(text("SELECT set_config('app.user_id', :user_id, true)"), {"user_id": user.id})
+    await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": tenant.id})
     await ensure_membership(
         db,
         user=user,

@@ -1,4 +1,4 @@
-import { clearAuth, getAccessToken, getApiKey } from "./auth";
+import { clearAuth, getAccessToken, getApiKey, setAccessToken } from "./auth";
 import type {
   AcceptInviteRequest,
   AgentsStatus,
@@ -62,7 +62,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     path.startsWith("/api/v1/auth/email/") ||
     path.startsWith("/api/v1/auth/password/") ||
     path.startsWith("/api/v1/auth/mfa/login/") ||
-    path.startsWith("/api/v1/org/invites/accept");
+    path === "/api/v1/org/invites/accept";
   const token = getAccessToken();
   const key = getApiKey();
   const headers = new Headers(init.headers || {});
@@ -634,6 +634,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  acceptExistingInvite: (body: { token: string }) =>
+    request<AuthResponse>("/api/v1/org/invites/accept-existing", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
   me: () => request<OrgMeResponse>("/api/v1/org/me"),
 
   completeOnboarding: () =>
@@ -644,11 +650,14 @@ export const api = {
 
   listWorkspaces: () => request<WorkspacesResponse>("/api/v1/org/workspaces"),
 
-  switchWorkspace: (body: { membership_id?: string; tenant_id?: string }) =>
-    request<SwitchWorkspaceResponse>("/api/v1/org/workspaces/switch", {
+  switchWorkspace: async (body: { membership_id?: string; tenant_id?: string }) => {
+    const response = await request<SwitchWorkspaceResponse>("/api/v1/org/workspaces/switch", {
       method: "POST",
       body: JSON.stringify(body),
-    }),
+    });
+    if (response.access_token) setAccessToken(response.access_token);
+    return response;
+  },
 
   listConnectors: () =>
     request<{
