@@ -134,7 +134,6 @@ async def verify_provider(
     secrets=await load_provider(db,tenant_id=tenant_id,provider=provider,require_active=False)
     if not secrets:
         raise ValueError("Conta não configurada ou chave de criptografia indisponível.")
-    settings=get_settings()
     # Pinned provider domains only; no user-supplied URL or SSRF.
     async with httpx.AsyncClient(timeout=8.0,follow_redirects=False) as client:
         if provider=="resend":

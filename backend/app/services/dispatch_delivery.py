@@ -245,34 +245,48 @@ async def send_authorized(
     *, tenant_id: str, campaign: dict[str, Any],
     item: dict[str, Any], destination: str, display_name: str,
 ) -> DeliveryResult:
-    """Only email/SMS can be live, and only with both server-side opt-ins."""
+    """Only live-approved email/SMS, with tenant-owned verified provider profiles."""
     if not live_enabled(tenant_id, campaign["channel"]):
         return DeliveryResult("simulated", "simulation")
+    from app.db.session import AsyncSessionLocal
+    from app.services.dispatch_providers import load_provider
+    provider = "resend" if campaign["channel"] == "email" else "twilio"
+    if campaign["channel"] not in {"email", "sms"}:
+        return DeliveryResult("blocked", "policy", error_code="channel_not_authorized")
+    async with AsyncSessionLocal() as db:
+        credentials = await load_provider(
+            db, tenant_id=tenant_id, provider=provider, require_active=True,
+        )
+    if not credentials:
+        return DeliveryResult("blocked", "policy", error_code="provider_not_verified_for_tenant")
+
     body = campaign["template_body"].replace("{nome}", display_name[:150])
     idempotency_key = f"mira-dispatch:{item['id']}"
-    if campaign["channel"] == "email":
+    if provider == "resend":
         from app.agents.providers.resend_provider import send_email_resend
         result = await send_email_resend(
             to=destination, subject=campaign["template_ref"][:150],
             body=body, idempotency_key=idempotency_key,
+            api_key_override=credentials["api_key"],
+            from_override=credentials["from_email"],
         )
-        provider = "resend"
-    elif campaign["channel"] == "sms":
+    else:
         from app.agents.providers.twilio_provider import send_sms_twilio
-        # A live SMS needs provider-native delivery reconciliation configured.
-        from app.core.config import get_settings
-        url = get_settings().dispatch_twilio_callback_url
-        if not url or not url.startswith("https://"):
+        base_url = get_settings().dispatch_twilio_callback_base_url
+        if not base_url or not base_url.startswith("https://") or not base_url.endswith("/api/v1/dispatch/native/twilio"):
             return DeliveryResult("blocked", "policy", error_code="twilio_callback_not_configured")
+        callback_url = base_url + "/" + tenant_id
         result = await send_sms_twilio(
             to=destination, message=body, idempotency_key=idempotency_key,
-            status_callback_url=url,
+            account_sid_override=credentials["account_sid"],
+            auth_token_override=credentials["auth_token"],
+            from_override=credentials["from_number"],
+            status_callback_url=callback_url,
         )
-        provider = "twilio"
-    else:
-        return DeliveryResult("blocked", "policy", error_code="channel_not_authorized")
-
     if result.ok:
+        if not result.external_id:
+            # Provider may have accepted without an ID: never retry blindly.
+            return DeliveryResult("unknown", provider, error_code="provider_id_missing")
         return DeliveryResult("sent", provider, result.external_id)
     if getattr(result, "outcome", None) == "unknown" or getattr(result, "ambiguous", False):
         return DeliveryResult("unknown", provider, error_code="provider_uncertain")

@@ -44,14 +44,17 @@ async def resend_events(tenant_id: str, request: Request):
     tenant = _parse_tenant(tenant_id)
     raw = await request.body()
     _require_bytes(raw)
-    settings = get_settings()
-    if not settings.dispatch_resend_webhook_secret:
-        raise HTTPException(status_code=503, detail="Webhook Resend não configurado.")
+    from app.db.session import AsyncSessionLocal
+    from app.services.dispatch_providers import load_provider
+    async with AsyncSessionLocal() as db:
+        profile = await load_provider(db, tenant_id=tenant, provider="resend", require_active=False)
+    if not profile:
+        raise HTTPException(status_code=503, detail="Webhook Resend não configurado para organização.")
     headers = {key: request.headers.get(key) or "" for key in
                ("svix-id", "svix-timestamp", "svix-signature")}
     if not all(headers.values()):
         raise HTTPException(status_code=401, detail="Assinatura ausente.")
-    verify_resend_signature(raw, headers, settings.dispatch_resend_webhook_secret)
+    verify_resend_signature(raw, headers, profile["webhook_secret"])
 
     try:
         payload: dict[str, Any] = json.loads(raw)
@@ -89,14 +92,18 @@ async def twilio_events(tenant_id: str, request: Request):
     tenant = _parse_tenant(tenant_id)
     raw = await request.body()
     _require_bytes(raw)
-    settings = get_settings()
-    url = settings.dispatch_twilio_callback_url
-    if not settings.twilio_auth_token or not settings.twilio_account_sid or not url:
-        raise HTTPException(status_code=503, detail="Webhook Twilio não configurado.")
-    # The URL is configured and pinned to the provider, never built from
-    # untrusted Host/X-Forwarded-* headers.
-    if not url.startswith("https://") or not url.endswith(f"/dispatch/native/twilio/{tenant}"):
-        raise HTTPException(status_code=503, detail="StatusCallback não corresponde ao tenant.")
+    from app.db.session import AsyncSessionLocal
+    from app.services.dispatch_providers import load_provider
+    async with AsyncSessionLocal() as db:
+        profile = await load_provider(db,tenant_id=tenant,provider="twilio",require_active=False)
+    settings=get_settings()
+    base=settings.dispatch_twilio_callback_base_url
+    if not profile or not base:
+        raise HTTPException(status_code=503, detail="Webhook Twilio não configurado para organização.")
+    # Pinned public URL: never trust arbitrary Host / X-Forwarded-* headers.
+    if not base.startswith("https://") or not base.endswith("/api/v1/dispatch/native/twilio"):
+        raise HTTPException(status_code=503, detail="URL de callback Twilio inválida.")
+    url=base+"/"+tenant
     content_type = request.headers.get("content-type", "").lower()
     if not content_type.startswith("application/x-www-form-urlencoded"):
         raise HTTPException(status_code=415, detail="Tipo de evento Twilio não aceito.")
@@ -106,11 +113,11 @@ async def twilio_events(tenant_id: str, request: Request):
     except (UnicodeDecodeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Parâmetros inválidos.") from exc
     from twilio.request_validator import RequestValidator
-    validator = RequestValidator(settings.twilio_auth_token)
+    validator = RequestValidator(profile["auth_token"])
     signature = request.headers.get("X-Twilio-Signature") or ""
     if not signature or not validator.validate(url, params, signature):
         raise HTTPException(status_code=401, detail="Assinatura Twilio inválida.")
-    if params.get("AccountSid") != settings.twilio_account_sid:
+    if params.get("AccountSid") != profile["account_sid"]:
         raise HTTPException(status_code=401, detail="Conta Twilio incompatível.")
 
     kinds = {
