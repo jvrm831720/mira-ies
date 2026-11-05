@@ -8,10 +8,12 @@ import { Header } from "@/components/layout/header";
 import {
   dispatchApi, type DispatchCampaign, type DispatchMetrics,
   type DispatchPaymentResults, type CampaignDraft, type DispatchTemplate,
+  type DispatchSource,
 } from "@/lib/dispatch-api";
 
 const initialDraft: CampaignDraft = {
   name: "", purpose: "retention", channel: "email", delivery_mode: "targeted",
+  source_kind: "manual", source_ref: null, source_tool_slug: null,
   template_ref: "Aviso institucional",
   template_body: "Olá {nome}, entre em contato conosco para atendimento.",
   per_minute_limit: 10,
@@ -40,6 +42,10 @@ export default function DispatchConsolePage() {
   const [showCreate, setShowCreate] = useState(false);
   const [draft, setDraft] = useState<CampaignDraft>(initialDraft);
   const [templates, setTemplates] = useState<DispatchTemplate[]>([]);
+  const [sources, setSources] = useState<DispatchSource[]>([]);
+  const [composioExecutionAvailable, setComposioExecutionAvailable] = useState(false);
+  const [showProposal, setShowProposal] = useState(false);
+  const [proposalTemplateId, setProposalTemplateId] = useState("");
   const [showIndividual, setShowIndividual] = useState(false);
   const [individualTemplateId, setIndividualTemplateId] = useState("");
   const [individualSubjectType, setIndividualSubjectType] = useState<"student" | "external">("student");
@@ -70,6 +76,14 @@ export default function DispatchConsolePage() {
     if (payment.status === "fulfilled") setFinancial(payment.value);
     try { setTemplates((await dispatchApi.templates()).items); }
     catch { setTemplates([]); }
+    try {
+      const catalog = await dispatchApi.sources();
+      setSources(catalog.items);
+      setComposioExecutionAvailable(catalog.composio_tool_execution_enabled);
+    } catch {
+      setSources([]);
+      setComposioExecutionAvailable(false);
+    }
     setLoading(false);
   }, []);
 
@@ -77,6 +91,13 @@ export default function DispatchConsolePage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const studentId = params.get("student");
+    const originProposal = params.get("proposal");
+    if (originProposal) {
+      setProposalId(originProposal);
+      setShowProposal(true);
+      setShowCreate(false);
+      setShowIndividual(false);
+    }
     if (params.get("mode") === "individual" && studentId) {
       // Never trigger an action automatically based on a query string.
       setIndividualSubjectType("student");
@@ -138,6 +159,19 @@ export default function DispatchConsolePage() {
     }, "Intervenção individual preparada e encaminhada para a fila.");
   }
 
+  async function materializeApprovedProposal() {
+    if (!proposalId.trim() || !proposalTemplateId) {
+      setError("Selecione uma proposta aprovada e um modelo de permanência aprovado.");
+      return;
+    }
+    await execute(async () => {
+      const result = await dispatchApi.materializeRetentionProposal(proposalId.trim(), proposalTemplateId);
+      setSelected(result.id);
+      setShowProposal(false);
+      setProposalTemplateId("");
+    }, "Execução vinculada à proposta aprovada, sem nova aprovação de campanha.");
+  }
+
   async function create() {
     await execute(async () => {
       const result = await dispatchApi.create(draft);
@@ -187,11 +221,15 @@ export default function DispatchConsolePage() {
         <div className="flex gap-2">
           <Link href="/disparos/modelos" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Modelos e aprovações</Link>
           <Link href="/disparos/provedores" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Provedores</Link>
-          <button onClick={() => { setShowIndividual(v => !v); setShowCreate(false); }} type="button"
+          <button onClick={() => { setShowProposal(v => !v); setShowCreate(false); setShowIndividual(false); }} type="button"
+            className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">
+            Usar proposta aprovada
+          </button>
+          <button onClick={() => { setShowIndividual(v => !v); setShowCreate(false); setShowProposal(false); }} type="button"
             className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#202124]">
             Intervenção individual
           </button>
-          <button onClick={() => { setShowCreate(v => !v); setShowIndividual(false); }} type="button"
+          <button onClick={() => { setShowCreate(v => !v); setShowIndividual(false); setShowProposal(false); }} type="button"
             className="inline-flex items-center gap-2 rounded-lg bg-[#202124] px-4 py-2 text-sm font-medium text-white hover:bg-[#35363A]">
             <Plus className="h-4 w-4" /> Nova campanha
           </button>
