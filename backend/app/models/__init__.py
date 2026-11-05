@@ -1,7 +1,25 @@
 from app.models.student import UploadBatch, Student
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.models.educational_outcome import AcademicOutcome
-from app.models.auth import AuthChallenge, MfaAuditEvent, MfaLoginChallenge, MfaRecoveryCode, MfaTenantPolicy, OrganizationInvite, User, UserSession
+from app.models.auth import (
+    AuthChallenge,
+    MfaAuditEvent,
+    MfaLoginChallenge,
+    MfaRecoveryCode,
+    MfaTenantPolicy,
+    OrganizationInvite,
+    User,
+    UserSession,
+    TenantRole,
+    TenantRoleAudit,
+)
+from app.models.organization import (
+    Organization,
+    Membership,
+    TenantBranding,
+    TenantDomain,
+    ModuleEntitlement,
+)
 from app.models.retention_campaign import RetentionCampaign, RetentionCampaignProposal, RetentionCampaignProposalAuditEvent
 from app.models.data_governance import TenantDataUsePolicy
 from app.models.institutional_training_authorization import InstitutionalTrainingAuthorization
@@ -28,8 +46,10 @@ from app.models.omie_connection import TenantOmieConnection
 __all__ = [
     "UploadBatch", "Student", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
     "AuthChallenge", "MfaLoginChallenge", "MfaRecoveryCode", "MfaAuditEvent",
-    "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User",
-    "RetentionCampaign", "RetentionCampaignProposal", "RetentionCampaignProposalAuditEvent", "TenantDataUsePolicy", "InstitutionalTrainingAuthorization",
+    "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User", "TenantRole", "TenantRoleAudit",
+    "Organization", "Membership", "TenantBranding", "TenantDomain", "ModuleEntitlement",
+    "RetentionCampaign", "RetentionCampaignProposal", "RetentionCampaignProposalAuditEvent",
+    "TenantDataUsePolicy", "InstitutionalTrainingAuthorization",
     "RiskAssessment", "WorkActivity", "WorkActivityEvent",
     "TenantJacadConnection", "TenantSponteConnection",
     "TenantSophiaConnection", "TenantSophiaStudentLink",
