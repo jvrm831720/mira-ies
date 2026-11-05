@@ -92,18 +92,7 @@ class TenantComposioToolkitPolicy(Base):
     __tablename__ = "tenant_composio_toolkit_policies"
     __table_args__ = (
         UniqueConstraint("tenant_id", "toolkit_slug", name="uq_tenant_composio_toolkit_policy"),
-        CheckConstraint("toolkit_slug ~ '^[a-z0-9][a-z0-9_-]*"ix_tenant_composio_toolkit_policies_enabled", "tenant_id", "is_enabled"),
-    )
-
-    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    toolkit_slug: Mapped[str] = mapped_column(String(80), nullable=False)
-    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    tool_slugs: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
-    updated_by_user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, onupdate=_utc_now, nullable=False)
-", name="ck_composio_toolkit_slug"),
+        CheckConstraint("toolkit_slug ~ '^[a-z0-9][a-z0-9_-]*$'", name="ck_composio_toolkit_slug"),
         CheckConstraint("NOT is_enabled OR jsonb_array_length(tool_slugs) > 0", name="ck_composio_enabled_requires_tools"),
         Index("ix_tenant_composio_toolkit_policies_enabled", "tenant_id", "is_enabled"),
     )
