@@ -53,6 +53,9 @@ class Organization(Base):
     tax_id_display: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)  # formatted
     # Operation profile chosen at onboarding: institution | billing | other
     operation_profile: Mapped[str] = mapped_column(String(32), nullable=False, default="institution")
+    website_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    profile_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     # Provenance of cadastral data
     tax_id_source: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # provider name or "manual"
     tax_id_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
