@@ -77,6 +77,8 @@ async def _prepare_test_database():
     import app.models.control_center  # noqa: F401
     import app.models.data_governance  # noqa: F401
     import app.models.institutional_training_authorization  # noqa: F401
+    import app.models.training_run  # noqa: F401
+    import app.models.mira_base_lifecycle  # noqa: F401
     import app.models.eligible_contribution  # noqa: F401
     import app.models.work_activity  # noqa: F401
     import app.models.jacad_connection  # noqa: F401

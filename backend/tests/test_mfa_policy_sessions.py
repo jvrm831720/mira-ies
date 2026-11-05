@@ -99,7 +99,7 @@ async def test_legacy_aal1_session_is_revoked_by_global_mfa_requirement(
     )
     db_session.add(user)
     await db_session.flush()
-    legacy_token, _ttl = create_user_session(db_session, user, tenant, aal=1)
+    legacy_token, _ttl = await create_user_session(db_session, user, tenant, aal=1)
     await db_session.commit()
 
     rejected = await client.get(
