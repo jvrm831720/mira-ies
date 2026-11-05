@@ -82,7 +82,13 @@ jobs:
           PYTHONPATH=. alembic upgrade 006_safe_agent_delivery
           PYTHONPATH=. alembic stamp 038_high_risk_confirmation
           psql "$MIRA_TEST_PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          DROP TABLE IF EXISTS mira_tenant_role_audit, mira_tenant_roles,
+          # Legacy 002/004 bootstrap create_all uses the current ORM metadata.
+          # Remove later-wave tables/columns before replaying revisions 039..head.
+          DROP TABLE IF EXISTS custom_field_definitions,
+            tenant_composio_tool_approvals, tenant_omie_connections,
+            mira_module_entitlements, mira_tenant_domains, mira_tenant_branding,
+            mira_memberships, mira_organizations,
+            mira_tenant_role_audit, mira_tenant_roles,
             student_feature_observations, tenant_integration_data_sources,
             tenant_composio_oauth_states,
             tenant_composio_toolkit_policies, tenant_composio_tool_audit,
@@ -90,6 +96,8 @@ jobs:
             tenant_connector_destination_audit, tenant_connector_destinations,
             eligible_contributions, training_dataset_snapshots, training_runs,
             mira_base_lifecycle_events CASCADE;
+          ALTER TABLE students DROP COLUMN IF EXISTS custom_fields CASCADE;
+          ALTER TABLE tenants DROP COLUMN IF EXISTS organization_id CASCADE;
           ALTER TABLE mira_users DROP COLUMN IF EXISTS custom_role_id CASCADE;
           ALTER TABLE mira_org_invites DROP COLUMN IF EXISTS custom_role_id CASCADE;
           SQL
