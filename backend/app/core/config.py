@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     sponte_requests_per_minute: int = Field(default=900, ge=1, le=1000)
     sponte_global_requests_per_second: int = Field(default=5, ge=1, le=15)
 
+    # Composio — integração organizacional multi-tenant (desabilitada por padrão)
+    composio_enabled: bool = False
+    composio_api_key: str | None = None
+    composio_auth_configs_json: str = "{}"
+    composio_base_url: str = "https://backend.composio.dev"
+    composio_timeout_seconds: float = Field(default=20.0, ge=3.0, le=60.0)
+
 
     max_upload_size_mb: int = 50
     allowed_extensions: str = "csv,xlsx,xls"
