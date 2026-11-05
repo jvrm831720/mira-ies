@@ -38,8 +38,8 @@ _SENSITIVE_KEY = re.compile(
 _MAX_ARGUMENT_BYTES = 64 * 1024
 _MAX_DEPTH = 12
 _MAX_ITEMS = 500
-_EMAIL_VALUE = re.compile(r"(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b")
-_CPF_VALUE = re.compile(r"(?<!\\d)\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}(?!\\d)")
+_EMAIL_VALUE = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
+_CPF_VALUE = re.compile(r"(?<!\d)\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?!\d)")
 
 
 class ComposioPolicyDenied(RuntimeError):
