@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Uploa
 from pydantic import BaseModel
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.upload import read_file_to_dataframe, sanitize_filename, validate_extension
@@ -100,17 +101,32 @@ async def preview_import(
     row_errors: list[dict[str, Any]] = []
     key_stats: dict[str, Any] = {"valid": 0, "invalid": 0, "duplicates": 0, "existing": 0}
     if key_header is not None:
-        validated = engine.validate_records(df, mapping, _catalog_index(catalog), key_field)
+        try:
+            validated = engine.validate_records(df, mapping, _catalog_index(catalog), key_field)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         row_errors = validated["row_errors"]
         key_stats = validated["key_stats"]
         keys = [r["key"] for r in validated["records"]]
+        existing_keys: set[str] = set()
         if keys:
             existing = await db.execute(
                 select(Student.matricula).where(
                     Student.tenant_id == auth.tenant_id, Student.matricula.in_(keys)
                 )
             )
-            key_stats["existing"] = len(set(existing.scalars().all()))
+            existing_keys = set(existing.scalars().all())
+        key_stats["existing"] = len(existing_keys)
+        missing_names = [
+            r for r in validated["records"]
+            if r["key"] not in existing_keys and not r["standard"].get("nome")
+        ]
+        key_stats["missing_name"] = len(missing_names)
+        key_stats["valid"] -= len(missing_names)
+        key_stats["invalid"] += len(missing_names)
+        for r in missing_names[:max(0, engine.MAX_ROW_ERRORS_RETURNED - len(row_errors))]:
+            row_errors.append({"row": r["row"], "field": "nome",
+                               "message": "Aluno novo sem nome; inclua a coluna nome."})
 
     return {
         "filename": sanitize_filename(file.filename or ""),
@@ -187,6 +203,8 @@ async def apply_import(
     }
     try:
         validated = engine.validate_records(df, mapping, catalog_index, body.key_field)
+        if not validated["records"]:
+            raise ValueError("Nenhuma linha válida para importar.")
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -198,6 +216,22 @@ async def apply_import(
             validated=validated, mapping=mapping, key_field=body.key_field,
             fingerprint=fingerprint,
         )
+    except IntegrityError as exc:
+        await db.rollback()
+        # Concorrência com a mesma chave: releitura segura depois do rollback.
+        current = await db.execute(
+            select(UploadBatch).where(
+                UploadBatch.id == deterministic_batch_id,
+                UploadBatch.tenant_id == auth.tenant_id,
+            )
+        )
+        winner = current.scalar_one_or_none()
+        if winner is not None and (winner.columns or {}).get("fingerprint") == fingerprint:
+            return {"batch_id": deterministic_batch_id, "idempotent_replay": True,
+                    **((winner.columns or {}).get("result_summary") or {})}
+        raise HTTPException(
+            status_code=409, detail="Importação concorrente ou conflito de chave; tente novamente."
+        ) from exc
     except ValueError as exc:
         await db.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
