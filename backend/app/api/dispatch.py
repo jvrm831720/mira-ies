@@ -261,8 +261,26 @@ async def metrics(
     auth: AuthContext = Depends(require_permission("campaigns.view")),
     db: AsyncSession = Depends(get_db),
 ):
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import text
+    from app.core.config import get_settings
     items = await core.list_campaigns(db, tenant_id=auth.tenant_id, limit=100)
+    row = (await db.execute(text("""
+        SELECT max(seen_at) AS seen_at FROM dispatch_worker_heartbeats
+        WHERE tenant_id=:tenant
+    """), {"tenant": auth.tenant_id})).mappings().one()
+    last_heartbeat = row["seen_at"]
+    settings = get_settings()
+    estimates = {
+        "email": settings.agents_cost_per_email_message_brl,
+        "sms": settings.agents_cost_per_sms_message_brl,
+        "whatsapp": settings.agents_cost_per_whatsapp_message_brl,
+    }
+    estimated_cost = sum(int(item["accepted"]) * estimates.get(item["channel"], 0) for item in items)
     return {
+        "worker_last_seen": last_heartbeat,
+        "worker_online": bool(last_heartbeat and last_heartbeat >= datetime.now(timezone.utc) - timedelta(seconds=90)),
+        "estimated_cost_brl": round(estimated_cost, 2),
         "campaigns": len(items),
         "queued": sum(int(x["pending"]) for x in items),
         "accepted": sum(int(x["accepted"]) for x in items),
