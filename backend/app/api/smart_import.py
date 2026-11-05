@@ -247,10 +247,15 @@ async def apply_import(
     if auto_score and result["created"] + result["updated"] > 0:
         try:
             from app.ml.scoring import score_batch
-            scoring_result = await score_batch(
+            scored = await score_batch(
                 db, deterministic_batch_id, force=True,
                 tenant_id=auth.tenant_id, tenant_slug=auth.tenant_slug,
             )
+            # A permissão de importação não concede acesso a scores individuais.
+            scoring_result = {
+                "scored": scored.get("scored", 0),
+                "indeterminate_count": scored.get("indeterminate_count", 0),
+            }
         except Exception:
             await db.rollback()
             scoring_result = {
