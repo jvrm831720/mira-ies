@@ -231,6 +231,15 @@ async def catalog_overview(
     terms = (await db.execute(select(AcademicTerm).where(
         AcademicTerm.tenant_id == auth.tenant_id,
     ).order_by(AcademicTerm.starts_on.desc()).limit(50))).scalars().all()
+    subjects = (await db.execute(select(AcademicSubject).where(
+        AcademicSubject.tenant_id == auth.tenant_id,
+    ).order_by(AcademicSubject.name).limit(100))).scalars().all()
+    teachers = (await db.execute(select(AcademicTeacher).where(
+        AcademicTeacher.tenant_id == auth.tenant_id,
+    ).order_by(AcademicTeacher.display_name).limit(100))).scalars().all()
+    classes = (await db.execute(select(AcademicClass).where(
+        AcademicClass.tenant_id == auth.tenant_id,
+    ).order_by(AcademicClass.code).limit(100))).scalars().all()
     return {
         "backend": "mira_native", "counts": counts,
         "programs": [{"id": p.id, "code": p.code, "name": p.name,
@@ -238,6 +247,19 @@ async def catalog_overview(
         "terms": [{"id": t.id, "code": t.code, "label": t.label,
                    "starts_on": t.starts_on.isoformat(), "ends_on": t.ends_on.isoformat(),
                    "status": t.status} for t in terms],
+        "subjects": [{"id": s.id, "code": s.code, "name": s.name,
+                      "program_id": s.program_id, "credit_hours": s.credit_hours,
+                      "status": s.status} for s in subjects],
+        "teachers": [{"id": teacher.id, "display_name": teacher.display_name,
+                      "department": teacher.department,
+                      "status": teacher.status} for teacher in teachers],
+        "classes": [{"id": c.id, "code": c.code, "subject_id": c.subject_id,
+                     "term_id": c.term_id, "teacher_id": c.teacher_id,
+                     "status": c.status} for c in classes],
+        "preview_limited": any(counts[key] > limit for key, limit in (
+            ("programs", 50), ("terms", 50), ("subjects", 100),
+            ("teachers", 100), ("classes", 100),
+        )),
     }
 
 
