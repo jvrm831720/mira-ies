@@ -139,6 +139,14 @@ async def enqueue_recipients(
             raise ValueError("Destinatário inválido.")
         if not consent or len(consent) > 200:
             raise ValueError("Cada destinatário exige referência verificável de autorização.")
+        suppressed = (await db.execute(text("""
+            SELECT 1 FROM dispatch_suppressions
+            WHERE tenant_id=:tenant AND subject_type=:kind AND subject_ref=:ref
+              AND channel IN ('all', :channel)
+        """), {"tenant": tenant_id, "kind": kind, "ref": ref,
+                 "channel": campaign["channel"]})).first()
+        if suppressed:
+            raise ValueError("Destinatário com bloqueio de contato registrado.")
         if campaign["purpose"] == "collections" and not obligation:
             raise ValueError("Cobrança exige referência de obrigação para revalidação.")
         if kind == "student":

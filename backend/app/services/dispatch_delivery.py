@@ -97,6 +97,14 @@ async def eligibility(
         return Eligibility(False, "outside_contact_window")
     if not item.get("consent_ref"):
         return Eligibility(False, "missing_contact_basis")
+    suppressed = (await db.execute(text("""
+        SELECT 1 FROM dispatch_suppressions
+        WHERE tenant_id=:tenant AND subject_type=:kind AND subject_ref=:ref
+          AND channel IN ('all', :channel)
+    """), {"tenant": tenant_id, "kind": item["subject_type"],
+           "ref": item["subject_ref"], "channel": campaign["channel"]})).first()
+    if suppressed:
+        return Eligibility(False, "recipient_suppressed")
     if campaign["purpose"] == "collections":
         obligation = (await db.execute(text("""
             SELECT status, balance, verified_at FROM dispatch_obligations

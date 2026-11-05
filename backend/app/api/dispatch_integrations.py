@@ -121,6 +121,14 @@ async def upsert_external_contact(
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     await bind_tenant(db, auth.tenant_id)
+    suppressed = (await db.execute(text("""
+        SELECT 1 FROM dispatch_suppressions
+        WHERE tenant_id=:tenant AND subject_type='external' AND subject_ref=:ref
+          AND channel IN ('all', :channel)
+    """), {"tenant": auth.tenant_id, "ref": body.subject_ref,
+             "channel": body.channel})).first()
+    if suppressed and not body.opt_out:
+        raise HTTPException(status_code=409, detail="Contato suprimido não pode ser reativado por sincronização.")
     await db.execute(text("""
         INSERT INTO dispatch_external_contacts
             (id, tenant_id, subject_ref, channel, recipient_ciphertext,
