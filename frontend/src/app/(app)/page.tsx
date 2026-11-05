@@ -477,7 +477,7 @@ export default function CommandCenterPage() {
             </p>
             <Link
               href="/importar"
-              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[#266DF0] px-4 text-[13px] font-semibold text-white hover:bg-[#1F5DD1]"
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-4 text-[13px] font-medium text-white hover:bg-[#101112]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar alunos
