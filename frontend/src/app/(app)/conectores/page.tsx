@@ -43,6 +43,16 @@ export default function DadosIntegracoesPage() {
     queryFn: () => api.listConnectors(),
     retry: false,
   });
+  const identity = useQuery({
+    queryKey: ["org-me"],
+    queryFn: () => api.me(),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const canManageAcademicEngine = identity.data?.operation_profile === "institution"
+    && (identity.data.permissions
+      ? identity.data.permissions.includes("settings.manage")
+      : identity.data.role === "admin");
 
   const jacadConnection = useQuery({
     queryKey: ["jacad-connection"],
@@ -210,6 +220,7 @@ export default function DadosIntegracoesPage() {
         subtitle="Fontes da instituição, conectores ERP/LMS e histórico de importações."
       />
       <main className="mira-page mx-auto w-full max-w-5xl space-y-6 px-4 pb-10 pt-5 md:px-9 md:pt-7">
+        {canManageAcademicEngine && (
         <Link
           href="/conectores/education-engine"
           className="group flex flex-col gap-3 rounded-[12px] border border-[#E4E7EC] bg-white p-5 shadow-[0_1px_3px_rgba(16,24,40,.04)] transition hover:border-[#C7D7FE] hover:shadow-[0_3px_12px_rgba(16,24,40,.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0] sm:flex-row sm:items-center sm:justify-between"
@@ -230,6 +241,7 @@ export default function DadosIntegracoesPage() {
             Configurar
           </span>
         </Link>
+        )}
         <Tabs
           value={tab}
           onValueChange={setTab}
