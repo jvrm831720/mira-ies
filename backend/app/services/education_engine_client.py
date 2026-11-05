@@ -99,7 +99,7 @@ def safe_remote_student_id(value: str) -> bool:
     return bool(
         isinstance(value, str) and 1 <= len(value) <= 180
         and value == value.strip() and value not in (".", "..")
-        and not any(ch in value for ch in ("/", "\\\\", "?", "#", "%"))
+        and not any(ch in value for ch in ("/", chr(92), "?", "#", "%"))
         and not any(ord(ch) < 32 or ord(ch) == 127 for ch in value)
     )
 
