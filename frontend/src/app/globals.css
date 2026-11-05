@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  /* ── Legacy HSL (shadcn compatibility) ── */
   --background: 36 33% 97%;
   --foreground: 222 25% 12%;
   --card: 40 33% 99%;
@@ -24,18 +25,65 @@
   --border: 34 18% 86%;
   --input: 34 18% 86%;
   --ring: 233 56% 53%;
+
+  /* ── MIRA brand (preserved) ── */
   --brand-indigo: #4050cd;
   --brand-blue: #29399f;
   --brand-coral: #f47769;
   --brand-midnight: #17191d;
   --brand-black: #101114;
   --brand-paper: #f7f5ef;
+
+  /* ── Attio-aligned neutrals (product light) ── */
+  --color-black-0: #000000;
+  --color-ink: #101112;
+  --color-ink-900: #232529;
+  --color-ink-850: #242629;
+  --color-slate-600: #505967;
+  --color-slate-500: #505155;
+  --color-steel: #383E47;
+  --color-muted: #75777C;
+  --color-faint: #9FA1A7;
+  --color-divider: #CDCED2;
+  --color-line: #BABBBC;
+  --color-border: #E6E7EA;
+  --color-border-subtle: #EEEFF1;
+  --color-panel: #F8F9FA;
+  --color-surface-raised: #FBFBFB;
+  --color-canvas: #FFFFFF;
+
+  /* ── Attio interactive & semantic tags ── */
+  --color-blue: #266DF0;
+  --color-blue-ink: #006699;
+  --color-blue-tint: #E5EEFF;
+  --color-blue-tint-border: #D6E5FF;
+  --color-green: #007D53;
+  --color-green-deep: #095A39;
+  --color-green-tint: #E0FCED;
+  --color-green-tint-border: #CBF7E1;
+  --color-green-tint-alt: #E7F6EF;
+  --color-purple: #6238B5;
+  --color-violet: #9B69FF;
+  --color-purple-tint: #F5F0FF;
+  --color-purple-tint-border: #E8DDFE;
+  --color-peach-tint: #FEEEE1;
+  --color-peach-tint-border: #FEE0C8;
+  --color-red: #772322;
+  --color-red-tint-border: #FEE7E7;
+
+  /* ── Radius ── */
   --radius: 1rem;
   --radius-control: 0.75rem;
   --radius-card: 1rem;
   --radius-pill: 999px;
+  --radius-xs: 5px;
+  --radius-sm: 7px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 20px;
 
-  /* Spacing scale (4px base) */
+  /* ── Spacing (4px base) ── */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -45,18 +93,28 @@
   --space-8: 2rem;
   --space-10: 2.5rem;
   --space-12: 3rem;
+  --spacing-2xs: 4px;
+  --spacing-xs: 6px;
+  --spacing-sm: 8px;
+  --spacing-md: 10px;
+  --spacing-lg: 12px;
+  --spacing-xl: 13px;
+  --spacing-2xl: 20px;
 
-  /* Semantic surfaces and text */
-  --surface-page: hsl(var(--background));
-  --surface-card: hsl(var(--card));
-  --surface-subtle: hsl(var(--muted));
-  --text-primary: hsl(var(--foreground));
-  --text-secondary: hsl(var(--muted-foreground));
-  --border-subtle: hsl(var(--border));
-  --border-strong: #c9c5bd;
+  /* ── Semantic surfaces (product) ── */
+  --surface-page: #f7f6f2;
+  --surface-card: #ffffff;
+  --surface-subtle: #f2f1ed;
+  --text-primary: #17191d;
+  --text-secondary: #667085;
+  --border-subtle: #e6e4df;
+  --border-strong: #d0cdc5;
   --focus-ring: hsl(var(--ring));
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 1px 2px rgba(23, 25, 29, 0.03), 0 8px 24px rgba(23, 25, 29, 0.045);
   --shadow-overlay: 0 16px 48px rgba(15, 23, 42, 0.16);
+  --shadow-button-attio: rgba(255, 255, 255, 0.1) 0.2px 0.2px 2px 0px inset, rgba(0, 0, 0, 0.25) 0px 1.5px 1.5px 0px;
+  --shadow-card-attio: rgba(0, 22, 62, 0.01) 0px 0px 1px 1px, rgba(0, 22, 62, 0.04) 0px 4px 12px -1px, rgba(0, 22, 62, 0.18) 0px 1px 3px -1px;
+  --shadow-focus-attio: rgba(83, 139, 243, 0.1) 0px 0px 0px 4px, rgba(28, 40, 64, 0.1) 0px 1px 2px -1px, rgba(28, 40, 64, 0.06) 0px 2px 4px 0px;
   --motion-fast: 120ms;
   --motion-standard: 180ms;
   --motion-slow: 260ms;
@@ -94,7 +152,7 @@ body {
 ::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: rgba(23, 25, 29, 0.18);
+  background: rgba(23, 25, 29,.18);
   background-clip: padding-box;
 }
 
@@ -131,18 +189,7 @@ textarea {
   }
 }
 
-/* MIRA visual system: clear hierarchy, calmer surfaces, purposeful accent color. */
-:root {
-  --surface-page: #f7f6f2;
-  --surface-card: #ffffff;
-  --surface-subtle: #f2f1ed;
-  --text-primary: #17191d;
-  --text-secondary: #667085;
-  --border-subtle: #e6e4df;
-  --border-strong: #d0cdc5;
-  --shadow-card: 0 1px 2px rgba(23, 25, 29, 0.03), 0 8px 24px rgba(23, 25, 29, 0.045);
-}
-
+/* ── MIRA product surfaces (light, Attio-aligned) ── */
 .mira-page {
   color: var(--text-primary);
 }
@@ -153,7 +200,7 @@ textarea {
 
 .mira-page input:not([type="checkbox"]),
 .mira-page select {
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-lg);
   border-color: var(--border-subtle);
   transition: border-color var(--motion-fast), box-shadow var(--motion-fast), background var(--motion-fast);
 }
@@ -177,7 +224,6 @@ textarea {
   text-transform: uppercase;
 }
 
-/* Shared layout primitives — incremental MIRA design-system rollout */
 @layer components {
   .mira-page {
     color: var(--text-primary);
@@ -189,7 +235,7 @@ textarea {
 
   .mira-surface {
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-card);
+    border-radius: var(--radius-xl);
     background: var(--surface-card);
     box-shadow: var(--shadow-card);
   }
@@ -197,10 +243,47 @@ textarea {
   .mira-muted {
     color: var(--text-secondary);
   }
+
+  /* Semantic status tags — Attio three-part contract */
+  .mira-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    border: 1px solid transparent;
+  }
+  .mira-tag--green {
+    color: var(--color-green);
+    background: var(--color-green-tint);
+    border-color: var(--color-green-tint-border);
+  }
+  .mira-tag--blue {
+    color: var(--color-blue-ink);
+    background: var(--color-blue-tint);
+    border-color: var(--color-blue-tint-border);
+  }
+  .mira-tag--purple {
+    color: var(--color-purple);
+    background: var(--color-purple-tint);
+    border-color: var(--color-purple-tint-border);
+  }
+  .mira-tag--peach {
+    color: #9a5b1a;
+    background: var(--color-peach-tint);
+    border-color: var(--color-peach-tint-border);
+  }
+  .mira-tag--red {
+    color: var(--color-red);
+    background: #FEF2F2;
+    border-color: var(--color-red-tint-border);
+  }
 }
 
-
-/* Overview visual direction: dark executive dashboard, grounded in MIRA semantic tokens. */
+/* ── Overview dark executive (preserved) ── */
 .mira-overview-dark {
   --overview-bg: #090a0c;
   --overview-surface: #121417;
@@ -259,8 +342,9 @@ textarea {
   }
 }
 
-
-/* Login: composição editorial escura da referência Attio (#101112 / #11151d, azul #3577f1); escopo restrito à autenticação. */
+/* ── Auth surface (Login = canonical reference) ──
+   Composição editorial escura Attio. Escopo restrito a autenticação / onboarding.
+   Primary action = azul #3577f1. Não misturar com product light. */
 .auth-login-page {
   --auth-bg: #101112;
   --auth-panel: #101112;
