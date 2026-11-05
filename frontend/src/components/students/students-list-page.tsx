@@ -226,7 +226,7 @@ export function StudentsListPage() {
             </button>
             <Link
               href="/importar"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#266df0] px-4 text-[13px] font-semibold text-white transition hover:bg-[#407ff2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-4 text-[13px] font-medium text-white transition hover:bg-[#101113] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar
