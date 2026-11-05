@@ -18,9 +18,6 @@ _base_url = make_url(os.environ.get("DATABASE_URL", _DEFAULT_DEV_DATABASE_URL))
 _test_db_name = _base_url.database if (_base_url.database or "").endswith("_test") else f"{_base_url.database}_test"
 _test_url = _base_url.set(database=_test_db_name)
 _admin_url = _base_url.set(database="postgres")
-_preserve_migrated_schema = os.environ.get("MIRA_TEST_PRESERVE_MIGRATED_SCHEMA", "").strip().lower() in {"1", "true", "yes"}
-if _preserve_migrated_schema and not _test_db_name.endswith("_test"):
-    raise RuntimeError("Preserving migrated schema is only permitted for an isolated *_test database")
 
 # Precisa rodar ANTES de qualquer import de `app.*` — o engine e os settings sao
 # construidos na importacao e ficam cacheados (lru_cache / modulo global).
@@ -80,7 +77,6 @@ async def _prepare_test_database():
     import app.models.control_center  # noqa: F401
     import app.models.data_governance  # noqa: F401
     import app.models.institutional_training_authorization  # noqa: F401
-    # Required for FK-safe metadata drop/create after Alembic creates these tables.
     import app.models.training_run  # noqa: F401
     import app.models.mira_base_lifecycle  # noqa: F401
     import app.models.eligible_contribution  # noqa: F401
@@ -95,23 +91,9 @@ async def _prepare_test_database():
     import app.models.composio_connection  # noqa: F401
     import app.models.composio_approval  # noqa: F401
 
-    # O CI aplica Alembic antes do pytest e valida policies/triggers reais.
-    # Recriar as tabelas aqui quebraria FKs de tabelas criadas por migrations
-    # que não estão integralmente registradas em Base.metadata; também
-    # removeria RLS e outras garantias que os testes devem preservar.
-    # Restrito ao banco de teste: a conexão acima sempre usa sufixo _test.
-    if os.environ.get("MIRA_TEST_PRESERVE_MIGRATED_SCHEMA", "").lower() in {"1", "true", "yes"}:
-        yield
-        return
-
-
-    # GitHub CI already migrated the disposable database with Alembic. Do not
-    # drop/recreate it here: RLS policies and append-only triggers depend on it.
-    # Local tests without the flag retain their existing ORM schema bootstrap.
-    if not _preserve_migrated_schema:
-        async with db_session_module.engine.begin() as sa_conn:
-            await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
-            await sa_conn.run_sync(db_session_module.Base.metadata.create_all)
+    async with db_session_module.engine.begin() as sa_conn:
+        await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
+        await sa_conn.run_sync(db_session_module.Base.metadata.create_all)
     yield
 
 
@@ -119,19 +101,8 @@ async def _prepare_test_database():
 async def _clean_tables():
     yield
     async with db_session_module.engine.begin() as conn:
-        if _preserve_migrated_schema:
-            # Database is disposable and guard-checked above. TRUNCATE avoids
-            # append-only DELETE triggers, and CASCADE clears migration-only
-            # dependent tables without dropping RLS policies or schema objects.
-            tables = ", ".join(
-                conn.dialect.identifier_preparer.format_table(table)
-                for table in db_session_module.Base.metadata.tables.values()
-            )
-            if tables:
-                await conn.exec_driver_sql(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE")
-        else:
-            for table in reversed(db_session_module.Base.metadata.sorted_tables):
-                await conn.execute(table.delete())
+        for table in reversed(db_session_module.Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
 
 
 @pytest_asyncio.fixture
