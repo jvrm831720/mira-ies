@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Activity, AlertTriangle, CheckCircle2, Clock3, MessageCircle, Pause, Play, Plus, ShieldCheck } from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import {
   dispatchApi, type DispatchCampaign, type DispatchMetrics,
-  type DispatchPaymentResults, type CampaignDraft,
+  type DispatchPaymentResults, type CampaignDraft, type DispatchTemplate,
 } from "@/lib/dispatch-api";
 
 const initialDraft: CampaignDraft = {
-  name: "", purpose: "retention", channel: "email",
+  name: "", purpose: "retention", channel: "email", delivery_mode: "targeted",
   template_ref: "Aviso institucional",
   template_body: "Olá {nome}, entre em contato conosco para atendimento.",
   per_minute_limit: 10,
@@ -38,6 +39,14 @@ export default function DispatchConsolePage() {
   const [busy, setBusy] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [draft, setDraft] = useState<CampaignDraft>(initialDraft);
+  const [templates, setTemplates] = useState<DispatchTemplate[]>([]);
+  const [showIndividual, setShowIndividual] = useState(false);
+  const [individualTemplateId, setIndividualTemplateId] = useState("");
+  const [individualSubjectType, setIndividualSubjectType] = useState<"student" | "external">("student");
+  const [individualSubjectRef, setIndividualSubjectRef] = useState("");
+  const [individualEvidence, setIndividualEvidence] = useState("");
+  const [individualSchedule, setIndividualSchedule] = useState("");
+  const requestIdRef = useRef<string>("");
   const [selected, setSelected] = useState<string | null>(null);
   const [approvalRef, setApprovalRef] = useState("");
   const [audience, setAudience] = useState("");
@@ -58,6 +67,8 @@ export default function DispatchConsolePage() {
     else setError(all.reason instanceof Error ? all.reason.message : "Falha ao carregar campanhas.");
     if (summary.status === "fulfilled") setMetrics(summary.value);
     if (payment.status === "fulfilled") setFinancial(payment.value);
+    try { setTemplates((await dispatchApi.templates()).items); }
+    catch { setTemplates([]); }
     setLoading(false);
   }, []);
 
@@ -86,6 +97,30 @@ export default function DispatchConsolePage() {
     }
   }
 
+  async function individual() {
+    if (!individualTemplateId || !individualSubjectRef.trim() || individualEvidence.trim().length < 8) {
+      setError("Selecione modelo aprovado, destinatário e autorização válida.");
+      return;
+    }
+    if (!requestIdRef.current) requestIdRef.current = crypto.randomUUID();
+    await execute(async () => {
+      const result = await dispatchApi.intervene({
+        template_id: individualTemplateId,
+        subject_type: individualSubjectType,
+        subject_ref: individualSubjectRef.trim(),
+        evidence_ref: individualEvidence.trim(),
+        scheduled_for: individualSchedule
+          ? new Date(individualSchedule).toISOString() : undefined,
+      }, requestIdRef.current);
+      setSelected(result.id);
+      requestIdRef.current = "";
+      setShowIndividual(false);
+      setIndividualSubjectRef("");
+      setIndividualEvidence("");
+      setIndividualSchedule("");
+    }, "Intervenção individual preparada e encaminhada para a fila.");
+  }
+
   async function create() {
     await execute(async () => {
       const result = await dispatchApi.create(draft);
@@ -101,16 +136,20 @@ export default function DispatchConsolePage() {
       const rows = audience.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
       if (rows.length > 1000) throw new Error("Limite de 1.000 destinatários por lote.");
       const targets = rows.map((row) => {
-        const [kind, ref, obligation] = row.split("|").map((value) => value.trim());
+        const [kind, ref, evidence, obligation] = row.split("|").map((value) => value.trim());
+        const contactEvidence = evidence || consentRef;
         if (!["student", "external"].includes(kind) || !ref) {
           throw new Error("Formato: student|UUID ou external|referência|obrigação");
         }
         if (current.purpose === "collections" && !obligation) {
           throw new Error("Cobrança exige obrigação: tipo|destinatário|obrigação.");
         }
+        if (!contactEvidence || contactEvidence.length < 8) {
+          throw new Error("Informe autorização vigente por destinatário.");
+        }
         return {
           subject_type: kind as "student" | "external", subject_ref: ref,
-          consent_ref: consentRef, obligation_ref: obligation || undefined,
+          consent_ref: contactEvidence, obligation_ref: obligation || undefined,
         };
       });
       await execute(() => dispatchApi.stage(current.id, targets), "Audiência adicionada ao outbox.");
@@ -125,13 +164,21 @@ export default function DispatchConsolePage() {
     <main className="mx-auto max-w-[1400px] space-y-6 px-4 pb-14 pt-6 md:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#202124]">Central de disparos</h1>
-          <p className="mt-1 text-sm text-[#85858B]">Cobranças e permanência, com execução controlada por organização.</p>
+          <h1 className="text-xl font-semibold text-[#202124]">Comunicações e intervenções</h1>
+          <p className="mt-1 text-sm text-[#85858B]">Um contato individual, um grupo de alunos ou campanhas em escala — com os mesmos controles.</p>
         </div>
-        <button onClick={() => setShowCreate((value) => !value)} type="button"
-          className="inline-flex items-center gap-2 rounded-lg bg-[#202124] px-4 py-2 text-sm font-medium text-white hover:bg-[#35363A]">
-          <Plus className="h-4 w-4" /> Nova campanha
-        </button>
+        <div className="flex gap-2">
+          <Link href="/disparos/modelos" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Modelos e aprovações</Link>
+          <Link href="/disparos/provedores" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Provedores</Link>
+          <button onClick={() => { setShowIndividual(v => !v); setShowCreate(false); }} type="button"
+            className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#202124]">
+            Intervenção individual
+          </button>
+          <button onClick={() => { setShowCreate(v => !v); setShowIndividual(false); }} type="button"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#202124] px-4 py-2 text-sm font-medium text-white hover:bg-[#35363A]">
+            <Plus className="h-4 w-4" /> Nova campanha
+          </button>
+        </div>
       </div>
 
       <div className="flex items-start gap-3 rounded-xl border border-[#E8E3D6] bg-[#FFFCF6] p-4 text-sm text-[#655735]">
@@ -158,9 +205,49 @@ export default function DispatchConsolePage() {
         <Stat icon={AlertTriangle} label="Problemas" value={metrics?.problems ?? "—"} />
       </div>
 
+      {showIndividual && <section className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-5">
+        <div>
+          <h2 className="text-base font-semibold text-[#202124]">Contato individual</h2>
+          <p className="mt-1 text-sm text-[#85858B]">Indicado para retenção, acompanhamento acadêmico ou atendimento. Exige modelo revisado e autorização específica.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-xs text-[#55555C]">Modelo aprovado
+            <select value={individualTemplateId} onChange={e => { setIndividualTemplateId(e.target.value); requestIdRef.current = ""; }}
+              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm">
+              <option value="">Selecione um modelo</option>
+              {templates.filter(t => t.status === "approved" && t.purpose !== "collections").map(t =>
+                <option key={t.id} value={t.id}>{t.subject} · {t.channel} · {t.purpose}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-[#55555C]">Destinatário
+            <select value={individualSubjectType} onChange={e => setIndividualSubjectType(e.target.value as "student" | "external")}
+              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm">
+              <option value="student">Aluno da MIRA</option><option value="external">Contato externo</option>
+            </select>
+          </label>
+          <label className="text-xs text-[#55555C]">ID do destinatário
+            <input value={individualSubjectRef} onChange={e => { setIndividualSubjectRef(e.target.value); requestIdRef.current = ""; }}
+              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm"
+              placeholder="UUID do aluno ou referência externa" />
+          </label>
+          <label className="text-xs text-[#55555C]">Referência de autorização individual
+            <input value={individualEvidence} onChange={e => { setIndividualEvidence(e.target.value); requestIdRef.current = ""; }}
+              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm" placeholder="Evidência da integração autorizada" />
+          </label>
+          <label className="text-xs text-[#55555C]">Agendar (opcional)
+            <input type="datetime-local" value={individualSchedule} onChange={e => { setIndividualSchedule(e.target.value); requestIdRef.current = ""; }}
+              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm" />
+          </label>
+        </div>
+        <button type="button" disabled={busy || !individualTemplateId || !individualSubjectRef || individualEvidence.length < 8}
+          onClick={() => void individual()} className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          Preparar intervenção
+        </button>
+      </section>}
+
       {showCreate && <section className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-5">
         <h2 className="text-base font-semibold text-[#202124]">Nova campanha</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <label className="text-sm text-[#55555C]">Nome
             <input className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5" value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Ex.: Lembrete de mensalidade" />
@@ -170,7 +257,16 @@ export default function DispatchConsolePage() {
               onChange={(e) => setDraft({ ...draft, purpose: e.target.value as CampaignDraft["purpose"],
                 channel: e.target.value === "collections" ? "email" : draft.channel })}>
               <option value="retention">Permanência</option>
+              <option value="academic">Comunicação acadêmica</option>
+              <option value="service">Atendimento</option>
               <option value="collections">Cobrança</option>
+            </select>
+          </label>
+          <label className="text-sm text-[#55555C]">Modo
+            <select className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5"
+              value={draft.delivery_mode} onChange={e => setDraft({ ...draft, delivery_mode: e.target.value as "targeted" | "bulk" })}>
+              <option value="targeted">Segmentada (seleção de destinatários)</option>
+              <option value="bulk">Em escala (lotes sucessivos)</option>
             </select>
           </label>
           <label className="text-sm text-[#55555C]">Canal
@@ -209,7 +305,11 @@ export default function DispatchConsolePage() {
                   onClick={() => setSelected(campaign.id)} className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#FAFAFA] ${selected === campaign.id ? "bg-[#F5F8FF]" : ""}`}>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-[#202124]">{campaign.name}</div>
-                    <div className="mt-1 text-xs text-[#85858B]">{campaign.purpose === "collections" ? "Cobrança" : "Permanência"} · {campaign.channel} · {campaign.total} destinatários</div>
+                    <div className="mt-1 text-xs text-[#85858B]">
+                    {campaign.purpose === "collections" ? "Cobrança" : campaign.purpose === "retention" ? "Permanência" : "Atendimento"}
+                    {" · "}{campaign.delivery_mode === "individual" ? "Contato individual" : campaign.delivery_mode === "bulk" ? "Em escala" : "Segmentada"}
+                    {" · "}{campaign.channel}{" · "}{campaign.total} destinatário(s)
+                  </div>
                   </div>
                   <div className="shrink-0 text-right">
                     <span className="rounded-md bg-[#F1F1F2] px-2 py-1 text-[11px] font-medium">{statusLabels[campaign.status]}</span>
@@ -227,13 +327,13 @@ export default function DispatchConsolePage() {
               <label className="block text-xs font-medium text-[#66666B]">Importar destinatários
                 <textarea className="mt-1 w-full rounded-lg border border-[#DADADD] p-2 text-xs" rows={3}
                   value={audience} onChange={(e) => setAudience(e.target.value)}
-                  placeholder={"student|UUID\nexternal|referência|obrigação"} />
+                  placeholder={"student|UUID|autorização\nexternal|referência|autorização|obrigação"} />
               </label>
-              <label className="block text-xs text-[#66666B]">Referência da autorização de contato
+              <label className="block text-xs text-[#66666B]">Autorização compartilhada (opcional para lote com evidências individuais)
                 <input value={consentRef} onChange={(e) => setConsentRef(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[#DADADD] p-2" placeholder="Registro institucional ou contratual" />
               </label>
-              <button disabled={busy || !audience.trim() || consentRef.length < 8}
+              <button disabled={busy || !audience.trim()}
                 onClick={() => void addTargets()}
                 className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
                 Adicionar ao outbox
