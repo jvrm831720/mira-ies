@@ -107,6 +107,22 @@ export const financeApi = {
   }>(ROOT + `/profiles/${profileId}/preview`, {
     method: "POST", body: JSON.stringify({ rows }),
   }),
+  csvHeaders: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{
+      headers: string[];
+      suggestions: Record<string, { suggested_header: string; confidence: number; requires_confirmation: true }>;
+    }>(ROOT + "/suggest-headers-csv", { method: "POST", body: form });
+  },
+  csvPreview: (profileId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{
+      total: number; students_linked: boolean;
+      states: Record<string, number>; persisted: false; settlement_confirmed: false;
+    }>(ROOT + `/profiles/${profileId}/preview-csv`, { method: "POST", body: form });
+  },
   csvImport: (profileId: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
