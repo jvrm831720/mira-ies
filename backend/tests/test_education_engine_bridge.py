@@ -107,6 +107,17 @@ async def test_redirects_and_unlisted_doctypes_fail_closed():
         await engine.aclose()
     assert error.value.code == "redirect_denied"
 
+@pytest.mark.parametrize("bad_id", ["..", "../admin", "bad\\\\path", "name?filter=x", "bad#fragment", "percent%2Fslash"])
+async def test_frappe_student_id_is_not_an_arbitrary_url_segment(bad_id):
+    engine = _client(httpx.MockTransport(
+        lambda request: pytest.fail("unsafe student name reached the network"),
+    ))
+    try:
+        with pytest.raises(ValueError):
+            await engine.student(bad_id)
+    finally:
+        await engine.aclose()
+
 
 @pytest.mark.parametrize("value, env", [
     ("http://169.254.169.254", "production"),
