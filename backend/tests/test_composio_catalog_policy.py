@@ -36,3 +36,17 @@ def test_composio_catalog_adapter_is_fail_closed_without_configuration(monkeypat
     )
     with pytest.raises(Exception):
         client.list_toolkits()
+
+
+
+def test_composio_tool_selection_is_validated_against_toolkit(monkeypatch):
+    from app.services.composio import client
+
+    monkeypatch.setattr(
+        client,
+        "list_tools_for_toolkit",
+        lambda _toolkit: [{"slug": "GMAIL_FETCH_EMAILS"}, {"slug": "GMAIL_CREATE_DRAFT"}],
+    )
+    assert client.validate_tool_slugs("gmail", ["gmail_fetch_emails"]) == ["GMAIL_FETCH_EMAILS"]
+    with pytest.raises(ValueError, match="não pertencem"):
+        client.validate_tool_slugs("gmail", ["SLACK_SEND_MESSAGE"])
