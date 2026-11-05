@@ -89,6 +89,7 @@ def list_toolkits() -> list[dict[str, Any]]:
 
     return sorted(normalized.values(), key=lambda item: item["name"].lower())
 
+
 def list_tools_for_toolkit(toolkit_slug: str) -> list[dict[str, Any]]:
     """Return live tool schemas for one toolkit, with a bounded catalog request."""
     client = get_composio_client()
@@ -118,3 +119,85 @@ def validate_tool_slugs(toolkit_slug: str, tool_slugs: list[str]) -> list[str]:
     if unknown:
         raise ValueError(f"Ferramentas não pertencem ao toolkit ou não existem: {', '.join(unknown)}")
     return validated
+
+
+def create_connect_link(
+    *,
+    user_id: str,
+    auth_config_id: str,
+    callback_url: str | None = None,
+) -> dict[str, Any]:
+    """Create a Composio Connect Link (hosted OAuth). Returns redirect_url only."""
+    client = get_composio_client()
+    kwargs: dict[str, Any] = {}
+    if callback_url:
+        kwargs["callback_url"] = callback_url
+    request = client.connected_accounts.link(user_id, auth_config_id, **kwargs)
+    data = _as_dict(request)
+    redirect_url = (
+        data.get("redirect_url")
+        or getattr(request, "redirect_url", None)
+        or data.get("redirectUrl")
+    )
+    if not isinstance(redirect_url, str) or not redirect_url.strip():
+        raise RuntimeError("Composio não retornou redirect_url para o Connect Link.")
+    return {
+        "redirect_url": redirect_url.strip(),
+        "connection_id": data.get("id") or getattr(request, "id", None),
+        "connected_account_id": data.get("connected_account_id") or data.get("connectedAccountId"),
+    }
+
+
+def list_connected_accounts_for_user(user_id: str) -> list[dict[str, Any]]:
+    """List remote connected accounts for one opaque Composio user id."""
+    client = get_composio_client()
+    response = client.connected_accounts.list(user_ids=[user_id], limit=100)
+    data = _as_dict(response)
+    if isinstance(response, dict):
+        items = response.get("items") or response.get("data") or []
+    else:
+        items = getattr(response, "items", None) or data.get("items") or data.get("data") or []
+
+    normalized: list[dict[str, Any]] = []
+    for item in items or []:
+        row = _as_dict(item)
+        account_id = (
+            row.get("id")
+            or row.get("nanoid")
+            or row.get("connected_account_id")
+            or getattr(item, "id", None)
+        )
+        if not isinstance(account_id, str) or not account_id.strip():
+            continue
+        toolkit = (
+            row.get("toolkit_slug")
+            or row.get("toolkit")
+            or (row.get("toolkit") or {}).get("slug")
+            if isinstance(row.get("toolkit"), dict)
+            else row.get("appName")
+            or row.get("app_name")
+        )
+        if isinstance(toolkit, dict):
+            toolkit = toolkit.get("slug")
+        status = row.get("status") or getattr(item, "status", None) or "active"
+        normalized.append({
+            "connected_account_id": account_id.strip(),
+            "toolkit_slug": str(toolkit).strip().lower() if toolkit else "unknown",
+            "auth_config_id": row.get("auth_config_id") or row.get("authConfigId"),
+            "display_name": row.get("display_name") or row.get("alias") or row.get("name"),
+            "status": str(status).strip().lower(),
+        })
+    return normalized
+
+
+def revoke_connected_account(connected_account_id: str) -> None:
+    """Revoke/delete a connected account at Composio (best-effort)."""
+    client = get_composio_client()
+    accounts = client.connected_accounts
+    if hasattr(accounts, "revoke"):
+        accounts.revoke(connected_account_id)
+        return
+    if hasattr(accounts, "delete"):
+        accounts.delete(connected_account_id)
+        return
+    raise RuntimeError("SDK Composio não expõe revoke/delete de connected accounts.")

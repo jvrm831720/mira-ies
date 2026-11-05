@@ -1,4 +1,4 @@
-"""Tenant-scoped metadata for future Composio sessions, accounts and tool audit.
+"""Tenant-scoped metadata for Composio sessions, accounts, OAuth state and tool audit.
 
 OAuth credentials are intentionally never stored in MIRA. Composio remains the
 credential custodian; this module stores only opaque references and audit metadata.
@@ -58,6 +58,37 @@ class TenantComposioAccount(Base):
     disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, onupdate=_utc_now, nullable=False)
+
+
+class TenantComposioOAuthState(Base):
+    """One-time anti-CSRF state for Connect Link flows. Never stores OAuth tokens."""
+
+    __tablename__ = "tenant_composio_oauth_states"
+    __table_args__ = (
+        UniqueConstraint("state_token", name="uq_tenant_composio_oauth_state_token"),
+        CheckConstraint(
+            "status IN ('pending', 'consumed', 'expired', 'failed')",
+            name="ck_composio_oauth_state_status",
+        ),
+        CheckConstraint(
+            "toolkit_slug ~ '^[a-z0-9][a-z0-9_-]*$'",
+            name="ck_composio_oauth_toolkit_slug",
+        ),
+        Index("ix_tenant_composio_oauth_states_tenant_status", "tenant_id", "status", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    toolkit_slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    auth_config_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    state_token: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="pending", nullable=False)
+    created_by_user_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utc_now, nullable=False)
 
 
 class TenantComposioToolAudit(Base):
