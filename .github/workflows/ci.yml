@@ -131,6 +131,32 @@ jobs:
             ) THEN
               RAISE EXCEPTION 'Expected tenant RLS policy is missing on migrated schema';
             END IF;
+            IF EXISTS (
+              SELECT 1 FROM (VALUES
+                ('mira_student_service_requests'),
+                ('mira_student_service_events'),
+                ('mira_student_documents'),
+                ('mira_student_financial_references')
+              ) AS required(table_name)
+              LEFT JOIN pg_class cls ON cls.relname = required.table_name
+              LEFT JOIN pg_namespace ns ON ns.oid = cls.relnamespace AND ns.nspname = 'public'
+              WHERE cls.oid IS NULL OR ns.oid IS NULL
+                OR NOT cls.relrowsecurity OR NOT cls.relforcerowsecurity
+                OR NOT EXISTS (
+                  SELECT 1 FROM pg_policies pol
+                  WHERE pol.schemaname = 'public' AND pol.tablename = required.table_name
+                    AND pol.policyname = required.table_name || '_tenant_access'
+                )
+            ) THEN
+              RAISE EXCEPTION 'Wave 3 RLS/FORCE RLS controls missing';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_trigger
+              WHERE tgname = 'mira_student_service_event_immutable'
+                AND NOT tgisinternal
+            ) THEN
+              RAISE EXCEPTION 'Student request audit immutable trigger is missing';
+            END IF;
           END
           $mira$;
           SQL
