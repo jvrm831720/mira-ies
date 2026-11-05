@@ -88,6 +88,7 @@ async def _prepare_test_database():
     import app.models.retention_campaign  # noqa: F401
     import app.models.composio_connection  # noqa: F401
     import app.models.composio_approval  # noqa: F401
+    import app.models.frappe_connection  # noqa: F401
 
     async with db_session_module.engine.begin() as sa_conn:
         await sa_conn.run_sync(db_session_module.Base.metadata.drop_all)
