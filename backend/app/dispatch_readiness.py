@@ -22,6 +22,7 @@ from app.services.dispatch_core import bind_tenant
 TABLES=(
     "dispatch_campaigns", "dispatch_approved_templates",
     "dispatch_authorizations", "dispatch_provider_accounts",
+    "dispatch_source_credentials", "dispatch_source_nonces",
     "dispatch_items", "dispatch_events", "dispatch_obligations",
     "dispatch_external_contacts", "dispatch_rate_buckets",
     "dispatch_inbound", "dispatch_payment_events",
@@ -49,6 +50,8 @@ def config_errors(settings, *, require_live: bool) -> list[str]:
             errors.append("Explicit tenant/channel live allowlists must not be empty")
         if not settings.dispatch_provider_encryption_key:
             errors.append("Per-tenant provider encryption key is missing")
+        if not settings.dispatch_source_encryption_key:
+            errors.append("Connector ingress signing key encryption is missing")
         if not settings.dispatch_trusted_authorization_sources:
             errors.append("At least one reviewed contact evidence source is required")
         if "sms" in channels:
