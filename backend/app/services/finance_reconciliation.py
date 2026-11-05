@@ -529,6 +529,11 @@ async def list_reconciliation(db: AsyncSession, tenant_id: str, limit: int = 50)
         report.append({
             "student_id": student_id, "correlation_key": correlation,
             "sources": len(sources), "observations": len(entries),
+            "items": [{
+                "profile_id": item.profile_id, "external_id": item.external_id,
+                "state": item.canonical_state, "amount": str(item.amount),
+                "paid_amount": str(item.paid_amount),
+            } for item in entries],
             "result": "conflict" if disagreement and len(sources) > 1 else (
                 "multi_source_consistent" if len(sources) > 1 else "single_source"
             ),
