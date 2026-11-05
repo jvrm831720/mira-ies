@@ -12,6 +12,8 @@ from urllib.parse import urlparse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.composio_approval import TenantComposioToolApproval
+from app.models.composio_connection import TenantComposioToolAudit
 from app.models.composio_connection import (
     TenantComposioAccount,
     TenantComposioOAuthState,
@@ -118,6 +120,42 @@ def _verify_remote_account(
         raise ConnectionDenied(f"Conta remota não está ativa (status={status}).")
 
     return remote
+
+
+
+async def _cancel_pending_approvals_for_account(
+    db: AsyncSession,
+    *,
+    tenant_id: str,
+    connected_account_id: str,
+    actor_user_id: str | None = None,
+) -> int:
+    result = await db.execute(
+        select(TenantComposioToolApproval)
+        .where(
+            TenantComposioToolApproval.tenant_id == tenant_id,
+            TenantComposioToolApproval.connected_account_id == connected_account_id,
+            TenantComposioToolApproval.status == "pending_approval",
+        )
+        .with_for_update()
+    )
+    rows = result.scalars().all()
+    now = datetime.now(timezone.utc)
+    for approval in rows:
+        approval.status = "cancelled"
+        db.add(TenantComposioToolAudit(
+            tenant_id=tenant_id,
+            actor_user_id=actor_user_id,
+            connected_account_id=connected_account_id,
+            toolkit_slug=approval.toolkit_slug,
+            tool_slug=approval.tool_slug,
+            status="pending_approval",
+            approval_required=True,
+            approval_status="cancelled",
+            request_fingerprint=approval.request_fingerprint,
+            created_at=now,
+        ))
+    return len(rows)
 
 
 async def start_connect_link(
@@ -304,6 +342,10 @@ async def list_tenant_accounts(
                 )
             else:
                 local.status = status
+                if status != "active":
+                    await _cancel_pending_approvals_for_account(
+                        db, tenant_id=tenant_id, connected_account_id=account_id
+                    )
                 local.display_name = remote_item.get("display_name") or local.display_name
                 local.auth_config_id = remote_item.get("auth_config_id") or local.auth_config_id
                 local.updated_at = now
@@ -335,6 +377,7 @@ async def revoke_tenant_account(
     tenant_id: str,
     connected_account_id: str,
     revoke_remote: bool = True,
+    actor_user_id: str | None = None,
 ) -> dict[str, Any]:
     """Disable local use immediately; report remote revoke status honestly."""
     require_composio_configuration()
@@ -375,6 +418,10 @@ async def revoke_tenant_account(
         "error": remote_error,
     }
     row.account_metadata = meta
+    await _cancel_pending_approvals_for_account(
+        db, tenant_id=tenant_id, connected_account_id=account_id,
+        actor_user_id=actor_user_id,
+    )
     await db.commit()
 
     return {
