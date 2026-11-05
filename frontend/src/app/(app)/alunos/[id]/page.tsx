@@ -81,6 +81,12 @@ export default function StudentDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [preview, setPreview] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<"overview" | "risk" | "activity" | "communication">("overview");
+
+  function navigateToSection(section: "overview" | "risk" | "activity" | "communication", id: string) {
+    setActiveSection(section);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   const [loadingPreview, setLoadingPreview] = useState(false);
   const queryClient = useQueryClient();
 
@@ -285,10 +291,22 @@ export default function StudentDetailPage() {
             </section>
 
             <nav aria-label="Seções da ficha do aluno" className="flex flex-wrap items-center gap-6 border-b border-[#E4E7EC]">
-              <a href="#student-overview" className="inline-flex h-10 items-center border-b-2 border-[#1C1D1F] text-[12px] font-medium text-[#1C1D1F]">Visão geral</a>
-              <a href="#risk-analysis" className="inline-flex h-10 items-center border-b-2 border-transparent text-[12px] font-medium text-[#6F7988] transition hover:border-[#E4E7EC] hover:text-[#1C1D1F]">Análise de risco</a>
-              <a href="#student-activity" className="inline-flex h-10 items-center border-b-2 border-transparent text-[12px] font-medium text-[#6F7988] transition hover:border-[#E4E7EC] hover:text-[#1C1D1F]">Atividade</a>
-              <a href="#student-communication" className="inline-flex h-10 items-center border-b-2 border-transparent text-[12px] font-medium text-[#6F7988] transition hover:border-[#E4E7EC] hover:text-[#1C1D1F]">Comunicação</a>
+              {([
+                ["overview", "Visão geral", "student-overview"],
+                ["risk", "Análise de risco", "risk-analysis"],
+                ["activity", "Atividade", "student-activity"],
+                ["communication", "Comunicação", "student-communication"],
+              ] as const).map(([section, label, id]) => (
+                <button
+                  key={section}
+                  type="button"
+                  aria-current={activeSection === section ? "page" : undefined}
+                  onClick={() => navigateToSection(section, id)}
+                  className={`inline-flex h-10 items-center border-b-2 text-[12px] font-medium transition ${activeSection === section ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:border-[#E4E7EC] hover:text-[#1C1D1F]"}`}
+                >
+                  {label}
+                </button>
+              ))}
             </nav>
 
             <section id="student-overview" className="scroll-mt-24" aria-label="Resumo acadêmico e financeiro">
