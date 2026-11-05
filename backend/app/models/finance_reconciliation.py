@@ -152,7 +152,37 @@ class FinanceReviewCase(Base):
             ["tenant_id", "profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"],
             name="fk_mira_finance_case_profile_tenant",
         ),
-        CheckConstraint("step IN ('open','triage','awaiting_source','reviewed')", name="ck_mira_finance_case_step"),
+        CheckConstraint("step ~ '^[a-z][a-z0-9_]{0,23}", name="ck_mira_finance_case_step"),
+        Index("ix_mira_finance_case_tenant_step", "tenant_id", "step"),
+    )
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
+    profile_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    step: Mapped[str] = mapped_column(String(24), nullable=False, default="open")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_by: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    updated_by: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class FinanceReviewEvent(Base):
+    __tablename__ = "mira_finance_review_events"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "case_id"], ["mira_finance_review_cases.tenant_id", "mira_finance_review_cases.id"],
+            name="fk_mira_finance_review_case_tenant",
+        ),
+        Index("ix_mira_finance_review_history", "tenant_id", "case_id", "recorded_at"),
+    )
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
+    case_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    step: Mapped[str] = mapped_column(String(24), nullable=False)
+    actor_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+", name="ck_mira_finance_case_step"),
         Index("ix_mira_finance_case_tenant_step", "tenant_id", "step"),
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
