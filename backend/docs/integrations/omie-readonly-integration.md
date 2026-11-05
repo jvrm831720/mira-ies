@@ -16,7 +16,7 @@ Fonte: https://api.omie.com.br/docs
 
 ## Escopo desta fase
 
-- Configurar credenciais de um aplicativo Omie por tenant.
+- Configurar credenciais de um aplicativo Omie por tenant, informando o instante de expiração com fuso horário para evitar assumir incorretamente a validade restante do token.
 - Cifrar access token e refresh token com chave derivada de `SECRET_KEY`.
 - Armazenar `app_hash`, tokens cifrados, expiração e status em tabela com RLS e isolamento por tenant.
 - Renovar token automaticamente antes de expirar e persistir o par rotacionado.
@@ -31,7 +31,7 @@ Prefixo: `/api/v1/integrations/omie`
 | Método | Rota | Finalidade |
 |---|---|---|
 | GET | `/` | Estado da conexão, sem segredos |
-| PUT | `/connection` | Configurar ou substituir credenciais |
+| PUT | `/connection` | Configurar ou substituir credenciais e instante de expiração (ISO 8601 com fuso) |
 | POST | `/test` | Testar permissões de leitura |
 | GET | `/accounts-receivable?page=1&page_size=50` | Consultar contas a receber |
 | GET | `/accounts-payable?page=1&page_size=50` | Consultar contas a pagar |
@@ -59,6 +59,6 @@ Todas as rotas exigem `settings.manage`. Respostas de consulta são provenientes
 
 ## Limitações conhecidas
 
-- A MIRA ainda não recebe credenciais reais; a instituição deve criar a integração no Omie e fornecer token, refresh token e app hash por canal seguro.
+- A MIRA ainda não recebe credenciais reais; a instituição deve criar a integração no Omie e fornecer token, refresh token, app hash e instante de expiração por canal seguro.
 - Não existe sincronização automática ou ingestão para o modelo nesta fase.
 - A documentação Omie informa que cada empresa corresponde a um aplicativo e que há limites de uso; respeitar as cotas e evitar polling agressivo.
