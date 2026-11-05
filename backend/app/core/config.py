@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     # Composio integration (fail-closed; no SDK calls until explicitly activated)
     composio_enabled: bool = False
+    frappe_ies_enabled: bool = False  # Opt-in; never activate remote finance in production implicitly.
     composio_api_key: str | None = None
     composio_identity_secret: str | None = None
     composio_callback_url: str | None = None
