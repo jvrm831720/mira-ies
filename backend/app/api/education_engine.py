@@ -23,7 +23,7 @@ from app.models.education_engine import (
 from app.models.student import Student
 from app.services.education_engine_client import (
     ALLOWED_COLLECTIONS, EducationEngineClient, EducationEngineError,
-    checked_engine_url, checked_site,
+    checked_engine_url, checked_site, safe_remote_student_id,
 )
 from app.services.education_engine_secrets import (
     EducationEngineSecretError, encrypt_credential, decrypt_credential,
@@ -52,7 +52,7 @@ class StudentLinkSetup(BaseModel):
     @field_validator("frappe_student_id")
     @classmethod
     def safe_student_id(cls, value: str) -> str:
-        if value != value.strip() or any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        if not safe_remote_student_id(value):
             raise ValueError("Identificador acadêmico inválido.")
         return value
 
