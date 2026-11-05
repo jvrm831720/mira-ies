@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 import re
 import secrets
+import unicodedata
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -20,11 +23,12 @@ from app.core.config import get_settings
 from app.core.mira_security import hash_password, verify_password
 from app.core.security import hash_api_key
 from app.db.session import get_db
-from app.models.auth import AuthChallenge, User, UserSession
+from app.models.auth import AuthChallenge, OnboardingSession, User, UserSession
 from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
 from app.models.tenant import Tenant
+from app.models.organization import Organization, ModuleEntitlement
 from app.services.membership import ensure_membership, get_membership_for_tenant
 
 router = APIRouter(prefix="/auth", tags=["Autenticação Mira"])
@@ -85,6 +89,30 @@ async def _active_tenant(db: AsyncSession, user: User) -> Tenant | None:
     return tenant
 
 
+
+
+def _onboarding_token_hash(token: str) -> str:
+    return hash_api_key(f"mira:onboarding-session:{token}")
+
+
+def _workspace_slug(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+    return slug[:80]
+
+
+async def _load_onboarding_session(db: AsyncSession, token: str) -> OnboardingSession:
+    result = await db.execute(
+        select(OnboardingSession)
+        .where(OnboardingSession.token_hash == _onboarding_token_hash(token))
+        .with_for_update()
+    )
+    onboarding = result.scalar_one_or_none()
+    if not onboarding or onboarding.expires_at <= _now():
+        raise HTTPException(status_code=401, detail="Sessão de onboarding inválida ou expirada.")
+    return onboarding
+
+
 async def _check_cooldown(db: AsyncSession, kind: str, identifier_hash: str) -> None:
     cutoff = _now() - timedelta(seconds=_LOGIN_COOLDOWN_SECONDS)
     previous = await db.execute(
@@ -105,6 +133,66 @@ class EmailPayload(BaseModel):
     @classmethod
     def normalize_email(cls, value: str) -> str:
         return _email(value)
+
+
+
+
+class OnboardingDraftPayload(BaseModel):
+    onboarding_token: str = Field(min_length=32, max_length=128)
+    current_step: int = Field(ge=0, le=10)
+    draft: dict = Field(default_factory=dict)
+
+
+class OnboardingPersonPayload(BaseModel):
+    first_name: str = Field(min_length=1, max_length=60)
+    last_name: str = Field(min_length=1, max_length=60)
+    job_title: Optional[str] = Field(default=None, max_length=120)
+
+
+class OnboardingInstitutionPayload(BaseModel):
+    legal_name: str = Field(min_length=2, max_length=255)
+    trade_name: str = Field(min_length=2, max_length=255)
+    cnpj: str = Field(min_length=14, max_length=18)
+    website_url: Optional[str] = Field(default=None, max_length=500)
+    workspace_slug: str = Field(min_length=2, max_length=80, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    country_code: str = Field(default="BR", min_length=2, max_length=2)
+
+    @field_validator("cnpj")
+    @classmethod
+    def valid_cnpj(cls, value: str) -> str:
+        digits = re.sub(r"\\D", "", value)
+        if len(digits) != 14 or len(set(digits)) == 1:
+            raise ValueError("Informe um CNPJ válido.")
+        def digit_for(numbers: str, weights: list[int]) -> int:
+            total = sum(int(number) * weight for number, weight in zip(numbers, weights))
+            digit = (total * 10) % 11
+            return 0 if digit == 10 else digit
+        first = digit_for(digits[:12], [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+        second = digit_for(digits[:12] + str(first), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+        if digits[-2:] != f"{first}{second}":
+            raise ValueError("Informe um CNPJ válido.")
+        return digits
+
+
+class OnboardingContextPayload(BaseModel):
+    description: str = Field(min_length=10, max_length=4000)
+    institution_type: str = Field(min_length=2, max_length=80)
+    student_count_band: str = Field(min_length=1, max_length=40)
+    campus_count: str = Field(min_length=1, max_length=40)
+    systems: list[str] = Field(default_factory=list, max_length=20)
+    goals: list[str] = Field(default_factory=list, max_length=20)
+
+
+class OnboardingWorkspacePayload(BaseModel):
+    objects: list[str] = Field(min_length=1, max_length=20)
+
+
+class OnboardingCompletePayload(BaseModel):
+    onboarding_token: str = Field(min_length=32, max_length=128)
+    person: OnboardingPersonPayload
+    institution: OnboardingInstitutionPayload
+    context: OnboardingContextPayload
+    workspace: OnboardingWorkspacePayload
 
 
 class PasswordLoginPayload(EmailPayload):
@@ -248,8 +336,19 @@ async def verify_email_login_code(
 
     challenge.consumed_at = now
     if challenge.user_id is None:
+        onboarding_token = secrets.token_urlsafe(32)
+        db.add(OnboardingSession(
+            email=body.email,
+            token_hash=_onboarding_token_hash(onboarding_token),
+            expires_at=now + timedelta(hours=2),
+        ))
         await db.commit()
-        return {"onboarding_required": True, "email": body.email}
+        return {
+            "onboarding_required": True,
+            "email": body.email,
+            "onboarding_token": onboarding_token,
+            "expires_in": 7200,
+        }
 
     user = await db.get(User, challenge.user_id)
     tenant = await _active_tenant(db, user) if user else None
@@ -263,6 +362,149 @@ async def verify_email_login_code(
     response = await _token_response(user, tenant, request, db)
     await db.commit()
     return response
+
+
+
+
+@router.post("/onboarding/draft")
+async def save_onboarding_draft(body: OnboardingDraftPayload, db: AsyncSession = Depends(get_db)):
+    """Salva o progresso do onboarding usando o token temporário emitido após OTP."""
+    onboarding = await _load_onboarding_session(db, body.onboarding_token)
+    if onboarding.completed_at:
+        raise HTTPException(status_code=409, detail="Este onboarding já foi concluído.")
+    if len(json.dumps(body.draft, ensure_ascii=False)) > 65_536:
+        raise HTTPException(status_code=413, detail="O rascunho excede o tamanho permitido.")
+    onboarding.draft_data = body.draft
+    onboarding.current_step = body.current_step
+    onboarding.updated_at = _now()
+    await db.commit()
+    return {"saved": True, "current_step": onboarding.current_step}
+
+
+@router.post("/onboarding/complete")
+async def complete_self_serve_onboarding(
+    body: OnboardingCompletePayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Cria organização, workspace, primeiro administrador e membership após OTP validado."""
+    onboarding = await _load_onboarding_session(db, body.onboarding_token)
+
+    if onboarding.completed_at:
+        user = await db.get(User, onboarding.user_id) if onboarding.user_id else None
+        tenant = await db.get(Tenant, onboarding.tenant_id) if onboarding.tenant_id else None
+        if not user or not tenant or not user.is_active or not tenant.is_active:
+            raise HTTPException(status_code=409, detail="O cadastro anterior não pode ser retomado.")
+        return await create_login_challenge(db, user, tenant, purpose="enroll")
+
+    if body.institution.country_code != "BR":
+        raise HTTPException(status_code=422, detail="No momento, o cadastro está disponível para instituições brasileiras.")
+
+    existing_user = await db.execute(select(User.id).where(User.email == onboarding.email))
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Este e-mail já possui uma conta. Entre pela tela de acesso.")
+
+    existing_org = await db.execute(
+        select(Organization.id).where(
+            Organization.country_code == body.institution.country_code,
+            Organization.tax_id_normalized == body.institution.cnpj,
+        )
+    )
+    if existing_org.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Esta instituição já possui cadastro na MIRA. Solicite um convite ao administrador.")
+
+    slug = body.institution.workspace_slug
+    existing_slug = await db.execute(select(Tenant.id).where(Tenant.slug == slug))
+    if existing_slug.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Este endereço de workspace já está em uso. Escolha outro.")
+
+    now = _now()
+    organization_id = str(uuid4())
+    tenant_id = str(uuid4())
+    user_id = str(uuid4())
+    display_name = f"{body.person.first_name.strip()} {body.person.last_name.strip()}".strip()
+    profile_data = {
+        "description": body.context.description.strip(),
+        "institution_type": body.context.institution_type,
+        "student_count_band": body.context.student_count_band,
+        "campus_count": body.context.campus_count,
+        "systems": body.context.systems,
+        "goals": body.context.goals,
+        "workspace_objects": body.workspace.objects,
+        "primary_contact": {
+            "job_title": body.person.job_title.strip() if body.person.job_title else None,
+        },
+    }
+
+    organization = Organization(
+        id=organization_id,
+        legal_name=body.institution.legal_name.strip(),
+        trade_name=body.institution.trade_name.strip(),
+        country_code=body.institution.country_code,
+        tax_id_normalized=body.institution.cnpj,
+        tax_id_display=body.institution.cnpj,
+        tax_id_source="user_provided",
+        website_url=body.institution.website_url.strip() if body.institution.website_url else None,
+        description=body.context.description.strip(),
+        profile_data=profile_data,
+        operation_profile="institution",
+        is_active=True,
+    )
+    tenant = Tenant(
+        id=tenant_id,
+        slug=slug,
+        name=body.institution.trade_name.strip(),
+        segment=body.context.institution_type,
+        organization_id=organization_id,
+        is_active=True,
+    )
+    user = User(
+        id=user_id,
+        tenant_id=tenant_id,
+        display_name=display_name,
+        email=onboarding.email,
+        password_hash=hash_password(secrets.token_urlsafe(48)),
+        role="admin",
+        is_active=True,
+        onboarding_completed_at=now,
+    )
+
+    await db.execute(text("SELECT set_config('app.user_id', :user_id, true)"), {"user_id": user_id})
+    await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
+    db.add_all([organization, tenant, user])
+    await db.flush()
+
+    await ensure_membership(
+        db,
+        user=user,
+        tenant_id=tenant_id,
+        role="admin",
+        origin="self_serve_onboarding",
+        status="active",
+    )
+    for module_key in ("permanence", "data", "workspace", "mira_plan"):
+        db.add(ModuleEntitlement(
+            id=str(uuid4()),
+            tenant_id=tenant_id,
+            module_key=module_key,
+            status="enabled",
+            source="default",
+        ))
+
+    onboarding.draft_data = {
+        "person": body.person.model_dump(),
+        "institution": body.institution.model_dump(),
+        "context": body.context.model_dump(),
+        "workspace": body.workspace.model_dump(),
+    }
+    onboarding.current_step = 5
+    onboarding.completed_at = now
+    onboarding.user_id = user_id
+    onboarding.tenant_id = tenant_id
+    onboarding.organization_id = organization_id
+    await db.commit()
+
+    return await create_login_challenge(db, user, tenant, purpose="enroll")
 
 
 @router.post("/whatsapp/request", status_code=status.HTTP_202_ACCEPTED)
