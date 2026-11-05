@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Activity, AlertTriangle, CheckCircle2, Clock3, MessageCircle, Pause, Play, Plus, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Clock3, MessageCircle, Pause, Play, Plus, ShieldCheck } from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import {
   dispatchApi, type DispatchCampaign, type DispatchMetrics,
