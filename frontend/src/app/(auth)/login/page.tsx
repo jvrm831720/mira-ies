@@ -64,7 +64,7 @@ export default function LoginPage() {
     try {
       const response = await api.verifyEmailCode(email.trim(), code);
       if ("onboarding_required" in response && response.onboarding_required) {
-        router.replace(`/onboarding?email=${encodeURIComponent(response.email)}`);
+        router.replace(`/onboarding?email=${encodeURIComponent(response.email)}&token=${encodeURIComponent(response.onboarding_token)}`);
         return;
       }
       if ("mfa_enrollment_required" in response && response.mfa_enrollment_required) {
