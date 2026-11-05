@@ -50,7 +50,7 @@ def test_asaas_split_is_fixed_to_100_percent_of_net_and_requires_wallet():
     assert "fixedValue" not in payment.build_asaas_charge_split(destination)["split"][0]
     with pytest.raises(payment.PaymentPreparationDenied, match="próprio split"):
         payment.normalize_destination_wallet(destination, issuer_wallet_id=destination)
-    for bad in ("", "__import__", "STRIPE", "../psp", "123456-7", str(uuid4()) + "x", str(uuid4()).replace("a","Z")):
+    for bad in ("", "__import__", "STRIPE", "../psp", "123456-7", str(uuid4()) + "x", "ZZZZZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZZZZZZZZZ"):
         with pytest.raises(payment.PaymentPreparationDenied):
             payment.normalize_destination_wallet(bad)
 
@@ -125,6 +125,7 @@ async def test_two_providers_and_two_person_approval_without_payment(db_session,
     assert one.provider_slug == two.provider_slug == "asaas"
     assert one.destination_verification_status == "pending"
     assert one.destination_wallet_id != two.destination_wallet_id
+    assert payment.build_asaas_charge_split(one.destination_wallet_id)["split"][0]["percentualValue"] == 100
     one = await payment.toggle_connector(db_session, tenant_id=tenant_id, connector_id=one.id,
                                          expected_version=1, enabled=True)
     two = await payment.toggle_connector(db_session, tenant_id=tenant_id, connector_id=two.id,
