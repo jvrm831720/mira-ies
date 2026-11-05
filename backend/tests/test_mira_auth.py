@@ -246,7 +246,7 @@ async def test_email_otp_login_sends_code_and_requires_mfa(
     monkeypatch.setattr(settings, "email_from", "MIRA <no-reply@example.test>")
     sent: list[str] = []
 
-    async def fake_send(*, to: str, subject: str, body: str):
+    async def fake_send(*, to: str, subject: str, body: str, html: str | None = None):
         assert to == user.email
         assert subject == "Seu código de acesso à MIRA"
         sent.append(body)
@@ -287,7 +287,7 @@ async def test_email_otp_request_routes_verified_unknown_email_to_onboarding(
     monkeypatch.setattr(settings, "email_from", "MIRA <no-reply@example.test>")
     sent: list[str] = []
 
-    async def fake_send(*, to: str, subject: str, body: str):
+    async def fake_send(*, to: str, subject: str, body: str, html: str | None = None):
         assert to == "new-user@example.test"
         sent.append(body)
         return SendResult(ok=True, channel="email", provider="resend")
@@ -333,7 +333,7 @@ async def test_email_otp_rejects_invalid_codes_and_enforces_attempt_limit(
 
     sent: list[str] = []
 
-    async def fake_send(*, to: str, subject: str, body: str):
+    async def fake_send(*, to: str, subject: str, body: str, html: str | None = None):
         sent.append(body)
         return SendResult(ok=True, channel="email", provider="resend")
 
