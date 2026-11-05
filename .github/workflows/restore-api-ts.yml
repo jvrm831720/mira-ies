@@ -3,7 +3,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "docs/_restore_api/api.ts.zlib.b64"
+      - "docs/_restore_api/api.ts.zlib.b64.p1"
+      - "docs/_restore_api/api.ts.zlib.b64.p2"
 jobs:
   restore:
     runs-on: ubuntu-latest
@@ -16,15 +17,17 @@ jobs:
           python3 - <<'PY'
           import zlib, base64
           from pathlib import Path
-          b64 = Path("docs/_restore_api/api.ts.zlib.b64").read_text().strip()
-          data = zlib.decompress(base64.b64decode(b64))
+          p1 = Path("docs/_restore_api/api.ts.zlib.b64.p1").read_text().strip()
+          p2 = Path("docs/_restore_api/api.ts.zlib.b64.p2").read_text().strip()
+          data = zlib.decompress(base64.b64decode(p1 + p2))
           Path("frontend/src/lib/api.ts").write_bytes(data)
           print("restored", len(data), "bytes")
+          assert b"listWorkspaces" in data
+          assert b"purchaseCredits" in data
           PY
       - name: Commit restore
         run: |
           git config user.name "mira-bot"
           git config user.email "bot@mira.local"
           git add frontend/src/lib/api.ts
-          git diff --cached --quiet || git commit -m "fix: restore frontend/src/lib/api.ts from compressed snapshot"
-          git push
+          git diff --cached --quiet || (git commit -m "fix: restore frontend/src/lib/api.ts from compressed snapshot" && git push)
