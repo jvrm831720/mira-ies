@@ -250,3 +250,176 @@ async def test_stale_sending_becomes_unknown_never_requeued(db_session, tenant):
     recovered = await recover_expired_leases(db_session, org.id)
     assert recovered == {"requeued": 0, "unknown": 1}
     assert await claim_batch(db_session, org.id, "another", 1) == []
+
+
+@pytest.mark.asyncio
+async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
+    client, db_session, tenant,
+):
+    from app.services import dispatch_core as core
+
+    org, key = tenant
+    headers = {"X-API-Key": key}
+    ref = "invoice-001"
+    body = {
+        "external_ref": ref, "subject_type": "external",
+        "subject_ref": "opaque-customer-a", "status": "open",
+        "balance": "150.00", "source": "test_erp",
+        "evidence_ref": "erp:verified:invoice-001",
+    }
+    created = await client.post(
+        "/api/v1/dispatch/integrations/obligations",
+        headers=headers, json=body,
+    )
+    assert created.status_code == 200, created.text
+    await core.bind_tenant(db_session, org.id)
+    assert (await db_session.execute(text("""
+        SELECT status FROM dispatch_obligations WHERE tenant_id=:tenant AND external_ref=:ref
+    """), {"tenant": org.id, "ref": ref})).scalar_one() == "open"
+
+    payment = {
+        "obligation_ref": ref, "source": "test_erp",
+        "source_event_id": "payment-test-0001", "amount_paid": "150.00",
+        "evidence_ref": "erp:verified:payment-0001",
+        "new_status": "paid", "balance": "0.00",
+    }
+    result = await client.post(
+        "/api/v1/dispatch/integrations/payments",
+        headers=headers, json=payment,
+    )
+    assert result.status_code == 200, result.text
+    assert result.json() == {"accepted": True, "replayed": False, "status": "paid"}
+    replay = await client.post(
+        "/api/v1/dispatch/integrations/payments", headers=headers, json=payment,
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["replayed"] is True
+
+    changed = await client.post(
+        "/api/v1/dispatch/integrations/payments", headers=headers,
+        json={**payment, "amount_paid": "250.00"},
+    )
+    assert changed.status_code == 409
+
+    await core.bind_tenant(db_session, org.id)
+    paid = (await db_session.execute(text("""
+        SELECT count(*) FROM dispatch_payment_events WHERE tenant_id=:tenant
+    """), {"tenant": org.id})).scalar_one()
+    assert paid == 1
+    obligation = (await db_session.execute(text("""
+        SELECT status,balance FROM dispatch_obligations
+        WHERE tenant_id=:tenant AND external_ref=:ref
+    """), {"tenant": org.id, "ref": ref})).one()
+    assert obligation.status == "paid" and obligation.balance == 0
+
+
+@pytest.mark.asyncio
+async def test_connector_contacts_are_encrypted_and_api_keys_cannot_approve(
+    client, db_session, tenant, monkeypatch,
+):
+    from types import SimpleNamespace
+    from cryptography.fernet import Fernet
+    import app.services.dispatch_delivery as delivery
+
+    org, key = tenant
+    monkeypatch.setattr(delivery, "get_settings", lambda: SimpleNamespace(
+        dispatch_contact_encryption_key=Fernet.generate_key().decode(),
+    ))
+    headers = {"X-API-Key": key}
+    created = await client.post(
+        "/api/v1/dispatch/integrations/contacts",
+        headers=headers,
+        json={
+            "subject_ref": "opaque-external-ref",
+            "channel": "email", "recipient": "person@example.test",
+            "consent_ref": "verified-basis-001", "opt_out": False,
+        },
+    )
+    assert created.status_code == 200, created.text
+    from app.services.dispatch_core import bind_tenant
+    await bind_tenant(db_session, org.id)
+    encrypted = (await db_session.execute(text("""
+        SELECT recipient_ciphertext FROM dispatch_external_contacts
+        WHERE tenant_id=:tenant
+    """), {"tenant": org.id})).scalar_one()
+    assert "person@example.test" not in encrypted
+    rejected = await client.post(
+        "/api/v1/dispatch/campaigns",
+        headers=headers, json={
+            "name": "Unauthorized Campaign",
+            "purpose": "retention", "channel": "email",
+            "template_ref": "Test", "template_body": "Hello",
+        },
+    )
+    assert rejected.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_signed_gateway_never_counts_reply_as_payment(
+    client, db_session, tenant, monkeypatch,
+):
+    from types import SimpleNamespace
+    import json
+    import app.api.dispatch_integrations as integrations
+    from app.services import dispatch_core as core
+    from app.models.student import Student, UploadBatch
+
+    org, _ = tenant
+    batch = UploadBatch(
+        tenant_id=org.id, filename="reply.csv", original_filename="reply.csv",
+        status="processed",
+    )
+    db_session.add(batch)
+    await db_session.flush()
+    student = Student(tenant_id=org.id, batch_id=batch.id,
+                      matricula="REPLY-001", nome="Bruna", email="bruna@example.test")
+    db_session.add(student)
+    await db_session.commit()
+    await db_session.refresh(student)
+    campaign = await core.create_campaign(
+        db_session, tenant_id=org.id, created_by="creator",
+        name="Reply test", purpose="retention", channel="email",
+        template_ref="Aviso", template_body="Mensagem",
+    )
+    await core.enqueue_recipients(
+        db_session, tenant_id=org.id, campaign_id=str(campaign["id"]),
+        targets=[{
+            "subject_type": "student", "subject_ref": student.id,
+            "consent_ref": "contact-policy-0001",
+        }], actor="creator",
+    )
+    await core.bind_tenant(db_session, org.id)
+    await db_session.execute(text("""
+        UPDATE dispatch_items
+        SET status='sent',provider='resend',provider_message_id='provider-msg-001',
+            sent_at=now()
+        WHERE tenant_id=:tenant AND campaign_id=:id
+    """), {"tenant": org.id, "id": campaign["id"]})
+    await db_session.commit()
+
+    secret = "signed-gateway-secret-0123456789-abcdef"
+    monkeypatch.setattr(integrations, "get_settings", lambda: SimpleNamespace(
+        dispatch_webhook_secret=secret,
+    ))
+    event = {
+        "tenant_id": org.id, "provider_message_id": "provider-msg-001",
+        "external_event_id": "gateway-event-0001", "kind": "reply",
+        "message": "Já paguei, preciso que vocês verifiquem.",
+    }
+    raw = json.dumps(event, separators=(",", ":")).encode()
+    signature = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+    response = await client.post(
+        "/api/v1/dispatch/webhooks/resend", content=raw,
+        headers={"X-Mira-Dispatch-Signature": signature, "Content-Type": "application/json"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["intent"] == "claims_paid"
+    replay = await client.post(
+        "/api/v1/dispatch/webhooks/resend", content=raw,
+        headers={"X-Mira-Dispatch-Signature": signature, "Content-Type": "application/json"},
+    )
+    assert replay.json()["replayed"] is True
+    await core.bind_tenant(db_session, org.id)
+    assert (await db_session.execute(text("""
+        SELECT count(*) FROM dispatch_payment_events WHERE tenant_id=:tenant
+    """), {"tenant": org.id})).scalar_one() == 0
