@@ -13,7 +13,7 @@ import {
   RotateCcw,
   UserPlus,
   XCircle,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { workApi } from "@/lib/work-api";
 import { api } from "@/lib/api";
 import type {

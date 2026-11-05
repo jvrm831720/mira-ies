@@ -10,7 +10,7 @@ import {
   RefreshCw,
   Shield,
   Sparkles,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { workApi } from "@/lib/work-api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";

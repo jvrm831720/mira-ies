@@ -6,7 +6,7 @@ import {
   Loader2,
   Send,
   XCircle,
-} from "lucide-react";
+} from "@/components/ui/icons";
 
 const variants = {
   pending: {
