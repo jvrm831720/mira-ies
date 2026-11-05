@@ -174,7 +174,7 @@ def upgrade() -> None:
             id, user_id, tenant_id, role, custom_role_id, status, origin, joined_at, created_at, updated_at
         )
         SELECT
-            gen_random_uuid()::text,
+            gen_random_uuid(),
             u.id,
             u.tenant_id,
             COALESCE(u.role, 'coordinator'),
@@ -196,7 +196,7 @@ def upgrade() -> None:
     op.execute(
         """
         INSERT INTO mira_module_entitlements (id, tenant_id, module_key, status, source, created_at, updated_at)
-        SELECT gen_random_uuid()::text, t.id, mod.key, 'enabled', 'default', now(), now()
+        SELECT gen_random_uuid(), t.id, mod.key, 'enabled', 'default', now(), now()
         FROM tenants t
         CROSS JOIN (VALUES ('permanence'), ('data'), ('workspace'), ('mira_plan')) AS mod(key)
         WHERE NOT EXISTS (
