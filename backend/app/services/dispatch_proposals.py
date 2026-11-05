@@ -147,7 +147,7 @@ async def materialize_proposal(
             authorization_ref,created_by,approved_by,approved_at,timezone
         ) VALUES (
             :id,:tenant,:name,'retention',:channel,'targeted',
-            'retention_proposal',:proposal,:proposal,:snapshot,
+            'retention_proposal',:proposal,CAST(:origin_proposal AS uuid),:snapshot,
             :key,:hash,:subject,:body,'approved',
             :authorization,:actor,:approver,:approved_at,:timezone
         )
@@ -157,6 +157,7 @@ async def materialize_proposal(
     """), {
         "id": campaign_id, "tenant": tenant_id, "name": proposal.title,
         "channel": template["channel"], "proposal": str(proposal.id),
+        "origin_proposal": str(proposal.id),
         "snapshot": proposal.audience_hash, "key": claim_key, "hash": fingerprint,
         "subject": template["subject"], "body": template["body"],
         "authorization": proposal.authorization_reference,

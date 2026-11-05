@@ -184,7 +184,7 @@ async def enqueue_recipients(
                 text("""
                     SELECT 1 FROM students
                     WHERE tenant_id=:tenant AND id::text=:id AND is_active IS TRUE
-                      AND (:batch IS NULL OR batch_id::text=:batch)
+                      AND (CAST(:batch AS text) IS NULL OR batch_id::text=CAST(:batch AS text))
                 """),
                 {"tenant": tenant_id, "id": ref,
                  "batch": campaign.get("source_ref") if campaign.get("source_kind") == "manual" else None},

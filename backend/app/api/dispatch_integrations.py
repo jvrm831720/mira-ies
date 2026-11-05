@@ -32,7 +32,9 @@ router = APIRouter(prefix="/dispatch", tags=["Dispatch Integration"])
 
 
 def _require_connector(auth: AuthContext) -> None:
-    if auth.user_id is not None or auth.role is not None:
+    # get_current_tenant currently labels verified API keys with role="admin".
+    # A service key has no human user/session; never use role to distinguish it.
+    if auth.user_id is not None or auth.session_id is not None:
         raise HTTPException(status_code=403, detail="Somente integração autenticada pode atualizar evidências.")
 
 

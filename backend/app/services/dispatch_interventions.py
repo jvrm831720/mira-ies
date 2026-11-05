@@ -52,9 +52,9 @@ async def create_template(
         INSERT INTO dispatch_approved_templates
             (id,tenant_id,code,version,purpose,channel,subject,body,created_by)
         VALUES (
-            :id,:tenant,:code,
+            :id,:tenant,CAST(:code AS varchar),
             coalesce((SELECT max(version)+1 FROM dispatch_approved_templates
-                     WHERE tenant_id=:tenant AND code=:code),1),
+                     WHERE tenant_id=:tenant AND code=CAST(:code AS varchar)),1),
             :purpose,:channel,:subject,:body,:actor
         )
         RETURNING id,code,version,status
