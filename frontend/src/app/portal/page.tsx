@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowRight, BookOpen, CheckCircle2, GraduationCap, LockKeyhole,
   LogOut, ShieldCheck, Wallet, CalendarDays, AlertCircle, Loader2,
@@ -136,7 +136,7 @@ export default function StudentPortalPage() {
     return () => { active = false; };
   }, [student, tab]);
 
-  async function claim(event: React.FormEvent<HTMLFormElement>) {
+  async function claim(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token.trim()) return;
     setBusy(true);
