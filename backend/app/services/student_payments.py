@@ -238,7 +238,7 @@ def signed_sandbox_event(raw: bytes, timestamp: str, signature: str,
     enabled(event_ingress=True)
     if not isinstance(raw, bytes) or not 1 <= len(raw) <= 16384:
         raise PaymentDenied("Evento inválido ou acima do limite.")
-    if not timestamp.isdecimal() or len(timestamp) not in {10, 11}:
+    if not isinstance(timestamp, str) or not re.fullmatch(r"[0-9]{10,11}", timestamp):
         raise PaymentDenied("Timestamp inválido.")
     try:
         stamp = int(timestamp)
@@ -273,7 +273,8 @@ def normalize_event(raw: bytes) -> dict:
         payload["intent_id"] = str(UUID(payload["intent_id"]))
     except (ValueError, TypeError, AttributeError) as exc:
         raise PaymentDenied("Referência de rascunho inválida.") from exc
-    if payload["state"] not in EVENT_STATES or payload["currency"] != "BRL":
+    if (not isinstance(payload["state"], str) or payload["state"] not in EVENT_STATES
+            or payload["currency"] != "BRL"):
         raise PaymentDenied("Estado ou moeda do evento inválido.")
     try:
         payload["amount"] = parse_amount(payload["amount"])
@@ -301,6 +302,14 @@ async def store_sandbox_event(db: AsyncSession, *, tenant_id: str, provider_id: 
         raise PaymentDenied("O provedor de sandbox está desabilitado.")
     if payload["account_id"] != provider.connected_account_id:
         raise PaymentDenied("Evento vinculado a outra conexão.")
+    source = (await db.execute(select(FinanceSourceProfile).where(
+        FinanceSourceProfile.tenant_id == tenant_id,
+        FinanceSourceProfile.id == provider.finance_profile_id,
+    ))).scalar_one_or_none()
+    if source is None or await validate_connection(
+        db, tenant_id, source, provider.connection_kind, provider.provider_slug,
+    ) != provider.connected_account_id:
+        raise PaymentDenied("Conexão Composio revogada ou desabilitada.")
     old = (await db.execute(select(StudentPaymentEvidence).where(
         StudentPaymentEvidence.tenant_id == tenant_id,
         StudentPaymentEvidence.provider_id == provider_id,
@@ -319,6 +328,10 @@ async def store_sandbox_event(db: AsyncSession, *, tenant_id: str, provider_id: 
         raise PaymentDenied("Rascunho de outro provedor ou workspace.")
     if payload["amount"] > intent.amount:
         raise PaymentDenied("Valor relatado excede o rascunho.")
+    if payload["state"] == "paid_reported" and payload["amount"] != intent.amount:
+        raise PaymentDenied("Pagamento integral relatado deve ter o valor completo.")
+    if payload["state"] == "partially_paid_reported" and not (0 < payload["amount"] < intent.amount):
+        raise PaymentDenied("Parcial relatada deve ser positiva e menor que o saldo.")
     db.add(StudentPaymentEvidence(
         tenant_id=tenant_id, provider_id=provider_id, intent_id=intent.id,
         provider_event_id=payload["event_id"],
