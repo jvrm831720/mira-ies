@@ -4,7 +4,6 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
-from app.core.config import get_settings
 from app.services.composio.gateway import require_composio_configuration
 
 
