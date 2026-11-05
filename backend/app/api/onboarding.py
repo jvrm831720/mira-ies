@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -182,7 +182,7 @@ async def complete_onboarding(
     await db.flush()
 
     await db.execute(
-        __import__("sqlalchemy").text("SELECT set_config('app.user_id', :user_id, true)"),
+        text("SELECT set_config('app.user_id', :user_id, true)"),
         {"user_id": user.id},
     )
     await db.execute(
