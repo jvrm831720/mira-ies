@@ -122,6 +122,62 @@ async def stage_targets(
         raise _error(exc) from exc
 
 
+
+class FromProposal(BaseModel):
+    proposal_id: str = Field(min_length=1, max_length=80)
+
+
+@router.post("/campaigns/{campaign_id}/targets/from-proposal")
+async def import_approved_proposal_audience(
+    campaign_id: str, body: FromProposal,
+    auth: AuthContext = Depends(require_permission("campaigns.edit")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Use approved, immutable audience snapshots—not a fresh unreviewed query."""
+    from sqlalchemy import select
+    from app.models.retention_campaign import RetentionCampaignProposal
+    from app.services.campaign_proposals import hash_audience_snapshot
+
+    actor = _actor(auth)
+    campaign = await core.get_campaign(db, tenant_id=auth.tenant_id, campaign_id=campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada.")
+    if campaign["purpose"] != "retention":
+        raise HTTPException(status_code=422, detail="Propostas de permanência não autorizam cobrança.")
+    proposal = (await db.execute(select(RetentionCampaignProposal).where(
+        RetentionCampaignProposal.tenant_id == auth.tenant_id,
+        RetentionCampaignProposal.id == body.proposal_id,
+    ))).scalar_one_or_none()
+    if proposal is None or proposal.status != "approved":
+        raise HTTPException(status_code=409, detail="Proposta inexistente ou ainda não aprovada.")
+    if proposal.authorization_status != "institution_attested" or not proposal.authorization_reference:
+        raise HTTPException(status_code=409, detail="Evidência institucional de autorização ausente.")
+    audience = proposal.audience_snapshot or []
+    if hash_audience_snapshot(audience) != proposal.audience_hash:
+        raise HTTPException(status_code=409, detail="Snapshot da audiência foi alterado.")
+    targets = [{
+        "subject_type": "student",
+        "subject_ref": record["student_id"],
+        "consent_ref": proposal.authorization_reference,
+    } for record in audience
+        if campaign["channel"] in record.get("eligible_channels", [])
+        and not record.get("blocked_reasons")
+        and not record.get("internal_action_only")
+    ]
+    if not targets:
+        raise HTTPException(status_code=409, detail="Nenhum destinatário elegível para este canal.")
+    if len(targets) > 1000:
+        raise HTTPException(status_code=422, detail="Snapshot muito grande: pagine sua importação por lote.")
+    try:
+        return await core.enqueue_recipients(
+            db, tenant_id=auth.tenant_id, campaign_id=campaign_id,
+            targets=targets, actor=actor,
+        )
+    except (ValueError, LookupError) as exc:
+        await db.rollback()
+        raise _error(exc) from exc
+
+
 @router.post("/campaigns/{campaign_id}/approve")
 async def approve(
     campaign_id: str,
