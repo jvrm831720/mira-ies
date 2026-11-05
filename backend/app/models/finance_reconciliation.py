@@ -152,7 +152,7 @@ class FinanceReviewCase(Base):
             ["tenant_id", "profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"],
             name="fk_mira_finance_case_profile_tenant",
         ),
-        CheckConstraint("step ~ '^[a-z][a-z0-9_]{0,23}", name="ck_mira_finance_case_step"),
+        CheckConstraint("step ~ '^[a-z][a-z0-9_]{0,23}$'", name="ck_mira_finance_case_step"),
         Index("ix_mira_finance_case_tenant_step", "tenant_id", "step"),
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
