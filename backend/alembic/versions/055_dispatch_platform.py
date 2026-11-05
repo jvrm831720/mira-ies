@@ -19,6 +19,12 @@ def upgrade() -> None:
         purpose VARCHAR(30) NOT NULL CHECK (purpose IN ('retention','academic','service','collections')),
         channel VARCHAR(20) NOT NULL CHECK (channel IN ('email','sms','whatsapp')),
         delivery_mode VARCHAR(20) NOT NULL DEFAULT 'targeted' CHECK (delivery_mode IN ('individual','targeted','bulk')),
+        source_kind VARCHAR(32) NOT NULL DEFAULT 'manual'
+            CHECK (source_kind IN ('manual','native','composio','retention_proposal')),
+        source_ref VARCHAR(160),
+        source_tool_slug VARCHAR(120),
+        origin_proposal_id UUID,
+        origin_snapshot_hash VARCHAR(64),
         request_key VARCHAR(128),
         request_hash VARCHAR(64),
         template_ref VARCHAR(160) NOT NULL,
@@ -39,12 +45,30 @@ def upgrade() -> None:
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         UNIQUE (id, tenant_id),
+        FOREIGN KEY (origin_proposal_id, tenant_id)
+            REFERENCES retention_campaign_proposals(id, tenant_id),
+        CONSTRAINT dispatch_origin_consistency CHECK (
+            (source_kind='retention_proposal' AND origin_proposal_id IS NOT NULL
+             AND source_ref = origin_proposal_id::text AND origin_snapshot_hash IS NOT NULL)
+            OR (source_kind <> 'retention_proposal' AND origin_proposal_id IS NULL
+                AND origin_snapshot_hash IS NULL)
+        ),
+        CONSTRAINT dispatch_source_shape CHECK (
+            (source_kind='composio' AND source_ref IS NOT NULL AND source_tool_slug IS NOT NULL)
+            OR (source_kind='native' AND source_ref IS NOT NULL AND source_tool_slug IS NULL)
+            OR (source_kind='manual' AND source_tool_slug IS NULL)
+            OR (source_kind='retention_proposal' AND source_tool_slug IS NULL)
+        ),
         CONSTRAINT dispatch_window_order CHECK (end_hour > start_hour)
     )
     """)
     op.execute("""
     CREATE UNIQUE INDEX uq_dispatch_campaign_request
     ON dispatch_campaigns(tenant_id,request_key) WHERE request_key IS NOT NULL
+    """)
+    op.execute("""
+    CREATE UNIQUE INDEX uq_dispatch_campaign_origin_proposal
+    ON dispatch_campaigns(tenant_id,origin_proposal_id) WHERE origin_proposal_id IS NOT NULL
     """)
     op.execute("""
     CREATE TABLE dispatch_approved_templates (
