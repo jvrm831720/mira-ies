@@ -71,7 +71,7 @@ async def get_catalog(
 async def update_toolkit_policy(
     toolkit_slug: str,
     body: ToolkitPolicyPayload,
-    auth: AuthContext = Depends(require_min_role("admin")),
+    auth: AuthContext = Depends(require_permission("settings.manage")),
     db: AsyncSession = Depends(get_db),
 ):
     slug = toolkit_slug.strip().lower()
@@ -130,7 +130,7 @@ async def update_toolkit_policy(
 @router.get("/catalog/{toolkit_slug}/tools")
 async def get_toolkit_tools(
     toolkit_slug: str,
-    auth: AuthContext = Depends(require_min_role("admin")),
+    auth: AuthContext = Depends(require_permission("settings.manage")),
 ):
     slug = toolkit_slug.strip().lower()
     if not slug or len(slug) > 80 or not slug.replace("_", "").replace("-", "").isalnum():
