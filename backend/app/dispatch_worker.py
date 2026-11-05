@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.services.dispatch_core import audit, bind_tenant
 from app.services.provider_guard import acquire_send_slot, record_provider_outcome
+from app.services.dispatch_receipts import reconcile_pending_receipts
 from app.services.dispatch_delivery import (
     DeliveryResult, allow_rate, eligibility, send_authorized, live_enabled,
 )
@@ -349,9 +350,12 @@ async def run_round(*, owner: str, max_batch: int = 10, parallel: int = 3) -> di
             claimed = await claim_batch(db, tenant_id, owner, limit=max_batch)
         await asyncio.gather(*(guarded(tenant_id, record) for record in claimed))
         async with AsyncSessionLocal() as db:
+            receipts = await reconcile_pending_receipts(db, tenant_id=tenant_id)
+            summary["receipts_reconciled"] = summary.get("receipts_reconciled", 0) + receipts
             summary["completed"] = summary.get("completed", 0) + await complete_drained_campaigns(db, tenant_id)
             await write_heartbeat(db, tenant_id=tenant_id, owner=owner,
-                                  counts={"claimed": len(claimed), "completed": summary.get("completed", 0)})
+                                  counts={"claimed": len(claimed), "completed": summary.get("completed", 0),
+                                          "receipts_reconciled": receipts})
     return summary
 
 
