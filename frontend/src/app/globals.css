@@ -737,6 +737,149 @@ textarea {
   }
 }
 
+
+/* Email OTP — compact Attio-inspired layout using MIRA's own identity.
+   A single native input provides paste/autofill and keyboard accessibility. */
+.auth-login-page .auth-login-form-panel--code {
+  padding-bottom: 40px;
+}
+
+.auth-code-email {
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+.auth-code-form {
+  padding-top: 3px;
+}
+
+.auth-code-field {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.auth-code-native-input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 16px;
+  letter-spacing: 0;
+  opacity: 0;
+  cursor: text;
+}
+
+.auth-login-page .auth-code-native-input:focus-visible {
+  outline: none;
+}
+
+.auth-code-digits {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 40px));
+  gap: 6px;
+  pointer-events: none;
+}
+
+.auth-code-digit {
+  display: flex;
+  height: 44px;
+  width: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #282b30;
+  border-radius: 10px;
+  background: #101112;
+  color: #f1f2f3;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.auth-code-field:focus-within .auth-code-digit[data-active="true"] {
+  border-color: #3577f1;
+  box-shadow: 0 0 0 3px rgb(53 119 241 / 17%);
+}
+
+.auth-code-field[data-invalid="true"] .auth-code-digit {
+  border-color: #864550;
+}
+
+.auth-code-field[data-invalid="true"]:focus-within .auth-code-digit[data-active="true"] {
+  border-color: #3577f1;
+}
+
+.auth-code-resend {
+  margin: 16px 0 0;
+  color: #a0a3aa;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.auth-code-countdown {
+  color: #858a93;
+}
+
+.auth-code-actions {
+  display: flex;
+  width: 100%;
+  max-width: 405px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: auto auto 0;
+  padding-top: 32px;
+}
+
+.auth-code-back {
+  border: 0;
+  background: transparent;
+  padding: 7px 0;
+  color: #a0a3aa;
+  font-size: 14px;
+  line-height: 20px;
+  transition: color 150ms ease;
+}
+
+.auth-code-back:hover:not(:disabled) {
+  color: #f1f2f3;
+}
+
+.auth-code-back:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.auth-login-page button.auth-code-confirm {
+  min-width: 76px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.auth-login-page button.auth-code-confirm:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 760px) {
+  .auth-login-page .auth-login-form-panel--code {
+    min-height: 520px;
+    padding-bottom: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-code-digit, .auth-code-back { transition: none; }
+}
+
 /* First-run onboarding: Attio-inspired dark frame, isolated from the product shell. */
 .mira-onboarding-page {
   --onboarding-bg: #101112;
