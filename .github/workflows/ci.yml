@@ -85,6 +85,8 @@ jobs:
           -- Legacy 002/004 bootstrap create_all uses the current ORM metadata.
           -- Remove later-wave tables/columns before replaying revisions 039..head.
           DROP TABLE IF EXISTS
+            mira_student_payment_order_events, mira_student_payment_orders,
+            mira_student_payment_connectors,
             mira_finance_review_events, mira_finance_review_cases,
             mira_finance_observations, mira_finance_ingestion_batches,
             mira_finance_student_links, mira_finance_source_profiles,
@@ -196,6 +198,28 @@ jobs:
                 )
             ) THEN
               RAISE EXCEPTION 'Wave 4C tenant RLS/FORCE RLS policy missing';
+            END IF;
+            IF EXISTS (
+              SELECT 1 FROM (VALUES
+                ('mira_student_payment_connectors'),
+                ('mira_student_payment_orders'),
+                ('mira_student_payment_order_events')
+              ) AS required(table_name)
+              LEFT JOIN pg_class cls ON cls.relname = required.table_name
+              LEFT JOIN pg_namespace ns ON ns.oid=cls.relnamespace AND ns.nspname='public'
+              WHERE cls.oid IS NULL OR ns.oid IS NULL
+                OR NOT cls.relrowsecurity OR NOT cls.relforcerowsecurity
+                OR NOT EXISTS (SELECT 1 FROM pg_policies pol
+                  WHERE pol.schemaname='public' AND pol.tablename=required.table_name
+                    AND pol.policyname=required.table_name || '_tenant_access')
+            ) THEN
+              RAISE EXCEPTION 'Wave 4D payment RLS/FORCE RLS missing';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_trigger
+              WHERE tgname='mira_student_payment_event_immutable' AND NOT tgisinternal
+            ) THEN
+              RAISE EXCEPTION 'Wave 4D approval audit immutability missing';
             END IF;
             IF (
               SELECT count(*) FROM pg_trigger
