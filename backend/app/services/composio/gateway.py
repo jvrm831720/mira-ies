@@ -18,6 +18,20 @@ def composio_is_configured(settings: Settings | None = None) -> bool:
     return bool(config.composio_enabled and config.composio_api_key)
 
 
+def composio_toolkit_allowed(toolkit_slug: str, settings: Settings | None = None) -> bool:
+    """Fail closed: only explicitly listed toolkit slugs are eligible."""
+    config = settings or get_settings()
+    slug = toolkit_slug.strip().lower()
+    if not slug:
+        return False
+    allowed = {
+        item.strip().lower()
+        for item in config.composio_allowed_toolkits.split(",")
+        if item.strip()
+    }
+    return slug in allowed
+
+
 def require_composio_configuration(settings: Settings | None = None) -> Settings:
     config = settings or get_settings()
     if not composio_is_configured(config):
