@@ -10,7 +10,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import (
-    Boolean, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index,
+    Date, DateTime, ForeignKey, ForeignKeyConstraint, Index,
     Numeric, String, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
