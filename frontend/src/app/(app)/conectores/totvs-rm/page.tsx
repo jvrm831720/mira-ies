@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle, ArrowLeft, Ban, CheckCircle2, Clock3, Database,
   History, LoaderCircle, Play, RefreshCw, RotateCcw, XCircle,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";

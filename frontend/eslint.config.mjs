@@ -15,4 +15,16 @@ export default defineConfig([
     "build/**",
     "coverage/**",
   ]),
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/components/ui/icons.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        paths: [
+          { name: "lucide-react", message: "Use @/components/ui/icons (Untitled UI)." },
+          { name: "@untitledui/icons", message: "Importe pelo adaptador @/components/ui/icons." },
+        ],
+      }],
+    },
+  },
 ]);

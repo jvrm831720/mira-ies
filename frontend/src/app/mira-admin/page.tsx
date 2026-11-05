@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Activity, Database, FileCheck2, History, Layers3, RefreshCw, ShieldCheck } from "lucide-react";
+import { Activity, Database, FileCheck2, History, Layers3, RefreshCw, ShieldCheck } from "@/components/ui/icons";
 
 type Row = Record<string, unknown>;
 type Section = "modalities" | "authorizations" | "datasets" | "runs" | "audit";

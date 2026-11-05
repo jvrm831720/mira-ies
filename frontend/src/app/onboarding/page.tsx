@@ -7,7 +7,7 @@ import {
   Activity, ArrowLeft, ArrowRight, BookOpen, Building2, Check, CheckCircle2,
   ChevronRight, CircleHelp, Database, GraduationCap, Layers3, Loader2,
   LockKeyhole, Mail, Plus, ShieldCheck, Sparkles, Users, X,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";

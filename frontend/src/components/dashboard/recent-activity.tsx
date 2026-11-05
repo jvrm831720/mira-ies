@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, ArrowRight, CircleAlert, Clock3, Mail, MessageCircle, Smartphone } from "lucide-react";
+import { Activity, ArrowRight, CircleAlert, Clock3, Mail, MessageCircle, Smartphone } from "@/components/ui/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { InterventionLog } from "@/types/api";

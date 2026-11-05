@@ -1,0 +1,107 @@
+/**
+ * Sistema de ícones da MIRA — Untitled UI Icons (MIT).
+ * Nomes legados preservados para tornar a troca de biblioteca independente das telas.
+ * Todas as importações devem usar este arquivo, não pacotes externos diretamente.
+ * Não altera o comportamento dos componentes, apenas sua representação visual.
+ */
+import type * as React from "react";
+
+/** Tipo compatível com ícones recebidos como propriedade por componentes da MIRA. */
+export type LucideIcon = React.FC<React.SVGProps<SVGSVGElement> & { size?: number; color?: string }>;
+
+export { Activity } from "@untitledui/icons";
+export { AlertCircle } from "@untitledui/icons";
+export { AlertTriangle } from "@untitledui/icons";
+export { ArrowDownRight } from "@untitledui/icons";
+export { ArrowLeft } from "@untitledui/icons";
+export { SwitchHorizontal01 as ArrowLeftRight } from "@untitledui/icons";
+export { ArrowRight } from "@untitledui/icons";
+export { ArrowUpRight } from "@untitledui/icons";
+export { SlashCircle01 as Ban } from "@untitledui/icons";
+export { BarChart03 as BarChart3 } from "@untitledui/icons";
+export { Bell01 as Bell } from "@untitledui/icons";
+export { BookOpen01 as BookOpen } from "@untitledui/icons";
+export { BookOpen02 as BookOpenCheck } from "@untitledui/icons";
+export { CpuChip01 as BrainCircuit } from "@untitledui/icons";
+export { Briefcase01 as BriefcaseBusiness } from "@untitledui/icons";
+export { Building02 as Building2 } from "@untitledui/icons";
+export { CalendarDate as CalendarClock } from "@untitledui/icons";
+export { Calendar as CalendarDays } from "@untitledui/icons";
+export { Check } from "@untitledui/icons";
+export { CheckCircle as CheckCircle2 } from "@untitledui/icons";
+export { ChevronDown } from "@untitledui/icons";
+export { ChevronRight } from "@untitledui/icons";
+export { ChevronSelectorVertical as ChevronsUpDown } from "@untitledui/icons";
+export { AlertCircle as CircleAlert } from "@untitledui/icons";
+export { HelpCircle as CircleHelp } from "@untitledui/icons";
+export { Clipboard as ClipboardList } from "@untitledui/icons";
+export { Clock as Clock3 } from "@untitledui/icons";
+export { Copy01 as Copy } from "@untitledui/icons";
+export { CreditCard01 as CreditCard } from "@untitledui/icons";
+export { Database01 as Database } from "@untitledui/icons";
+export { Download01 as Download } from "@untitledui/icons";
+export { LinkExternal01 as ExternalLink } from "@untitledui/icons";
+export { FileCheck01 as FileCheck2 } from "@untitledui/icons";
+export { ClockRewind as FileClock } from "@untitledui/icons";
+export { File05 as FileSpreadsheet } from "@untitledui/icons";
+export { File02 as FileText } from "@untitledui/icons";
+export { UploadCloud01 as FileUp } from "@untitledui/icons";
+export { File02 as Files } from "@untitledui/icons";
+export { FilterLines as Filter } from "@untitledui/icons";
+export { Fingerprint01 as Fingerprint } from "@untitledui/icons";
+export { GraduationHat01 as GraduationCap } from "@untitledui/icons";
+export { ClockRewind as History } from "@untitledui/icons";
+export { Home01 as House } from "@untitledui/icons";
+export { InfoCircle as Info } from "@untitledui/icons";
+export { Key01 as KeyRound } from "@untitledui/icons";
+export { LayersTwo01 as Layers } from "@untitledui/icons";
+export { LayersThree01 as Layers3 } from "@untitledui/icons";
+export { Loading01 as Loader2 } from "@untitledui/icons";
+export { Loading01 as LoaderCircle } from "@untitledui/icons";
+export { Lock01 as LockKeyhole } from "@untitledui/icons";
+export { LogOut01 as LogOut } from "@untitledui/icons";
+export { Mail01 as Mail } from "@untitledui/icons";
+export { Menu01 as Menu } from "@untitledui/icons";
+export { MessageCircle01 as MessageCircle } from "@untitledui/icons";
+export { MessageSquare01 as MessageSquare } from "@untitledui/icons";
+export { MessageHeartSquare as MessageSquareHeart } from "@untitledui/icons";
+export { MessageTextSquare01 as MessageSquareText } from "@untitledui/icons";
+export { Minus } from "@untitledui/icons";
+export { CursorClick01 as MousePointerClick } from "@untitledui/icons";
+export { LayoutLeft as PanelLeftClose } from "@untitledui/icons";
+export { LayoutLeft as PanelLeftOpen } from "@untitledui/icons";
+export { PauseCircle as Pause } from "@untitledui/icons";
+export { Phone } from "@untitledui/icons";
+export { Play } from "@untitledui/icons";
+export { PuzzlePiece01 as Plug } from "@untitledui/icons";
+export { Plus } from "@untitledui/icons";
+export { Receipt } from "@untitledui/icons";
+export { RefreshCw01 as RefreshCw } from "@untitledui/icons";
+export { RefreshCcw01 as RotateCcw } from "@untitledui/icons";
+export { Save01 as Save } from "@untitledui/icons";
+export { SearchLg as Search } from "@untitledui/icons";
+export { SearchMd as SearchX } from "@untitledui/icons";
+export { Send01 as Send } from "@untitledui/icons";
+export { Settings02 as Settings2 } from "@untitledui/icons";
+export { Shield01 as Shield } from "@untitledui/icons";
+export { Shield02 as ShieldAlert } from "@untitledui/icons";
+export { ShieldTick as ShieldCheck } from "@untitledui/icons";
+export { Phone01 as Smartphone } from "@untitledui/icons";
+export { Stars01 as Sparkles } from "@untitledui/icons";
+export { Trash02 as Trash2 } from "@untitledui/icons";
+export { TrendDown01 as TrendingDown } from "@untitledui/icons";
+export { TrendUp01 as TrendingUp } from "@untitledui/icons";
+export { AlertTriangle as TriangleAlert } from "@untitledui/icons";
+export { Upload01 as Upload } from "@untitledui/icons";
+export { UploadCloud01 as UploadCloud } from "@untitledui/icons";
+export { UserPlus01 as UserPlus } from "@untitledui/icons";
+export { User01 as UserRound } from "@untitledui/icons";
+export { UserX01 as UserRoundX } from "@untitledui/icons";
+export { Users01 as Users } from "@untitledui/icons";
+export { Wallet01 as Wallet } from "@untitledui/icons";
+export { Wifi } from "@untitledui/icons";
+export { WifiOff } from "@untitledui/icons";
+export { GitBranch01 as Workflow } from "@untitledui/icons";
+export { X } from "@untitledui/icons";
+export { XCircle } from "@untitledui/icons";
+export { Zap } from "@untitledui/icons";

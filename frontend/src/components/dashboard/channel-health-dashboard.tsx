@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AlertCircle, BarChart3, CheckCircle2, Mail, MessageCircle, MousePointerClick, RefreshCw, Smartphone, Users, Wallet } from "lucide-react";
+import { Activity, AlertCircle, BarChart3, CheckCircle2, Mail, MessageCircle, MousePointerClick, RefreshCw, Smartphone, Users, Wallet } from "@/components/ui/icons";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RetentionAnalytics } from "@/types/api";

@@ -14,7 +14,7 @@ import {
   Smartphone,
   UserRound,
   X,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import Link from "next/link";
 import { RiskBadge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";

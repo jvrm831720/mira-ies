@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { LoaderCircle, Mail, Shield, UserPlus, Users } from "lucide-react";
+import { LoaderCircle, Mail, Shield, UserPlus, Users } from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

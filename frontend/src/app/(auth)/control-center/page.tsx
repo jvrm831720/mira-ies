@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Building2, CheckCircle2, CircleAlert, ClipboardList, Fingerprint, LoaderCircle, LogOut, RefreshCw, ShieldCheck, Users, Wifi, WifiOff } from "lucide-react";
+import { Activity, Building2, CheckCircle2, CircleAlert, ClipboardList, Fingerprint, LoaderCircle, LogOut, RefreshCw, ShieldCheck, Users, Wifi, WifiOff } from "@/components/ui/icons";
 
 
 type Tab = "overview" | "organizations" | "members" | "channels" | "audit" | "billing";

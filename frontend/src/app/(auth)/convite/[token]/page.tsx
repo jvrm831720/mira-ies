@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { LoaderCircle, ShieldCheck } from "lucide-react";
+import { LoaderCircle, ShieldCheck } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

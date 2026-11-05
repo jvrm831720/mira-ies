@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, ArrowRight, CheckCircle2, FileSpreadsheet, Files, History,
   ShieldCheck, Trash2, UploadCloud,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

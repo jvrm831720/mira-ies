@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, CheckCircle2, Clock3, Filter, RefreshCw, SearchX, TriangleAlert } from "lucide-react";
+import { Activity, CheckCircle2, Clock3, Filter, RefreshCw, SearchX, TriangleAlert } from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";

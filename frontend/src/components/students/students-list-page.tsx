@@ -12,7 +12,7 @@ import {
   Upload,
   RefreshCw,
   Layers,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { StudentDrawer } from "@/components/students/student-drawer";
 import {

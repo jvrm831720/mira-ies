@@ -5,7 +5,7 @@ import {
   Building2,
   ChevronRight,
   CircleHelp,
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";

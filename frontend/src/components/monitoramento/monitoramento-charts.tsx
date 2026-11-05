@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/ui/icons";
 import type { RiskHistoryAssessment, RiskHistoryResponse, RiskMovement } from "@/types/api";
 import { cn } from "@/lib/utils";
 import { AssessmentModelLine } from "@/components/monitoramento/comparability";
