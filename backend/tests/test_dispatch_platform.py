@@ -336,6 +336,7 @@ async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
 
     org, key = tenant
     headers = {"X-API-Key": key}
+    secret = await source_test_secret(db_session,org.id,"test_erp","financial")
     ref = "invoice-001"
     body = {
         "external_ref": ref, "subject_type": "external",
@@ -345,9 +346,9 @@ async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
         "source_version": 1,
         "observed_at": datetime.now(timezone.utc).isoformat(),
     }
-    created = await client.post(
-        "/api/v1/dispatch/integrations/obligations",
-        headers=headers, json=body,
+    created = await signed_post(
+        client,key,"test_erp",secret,
+        "/api/v1/dispatch/integrations/obligations",body,
     )
     assert created.status_code == 200, created.text
     await core.bind_tenant(db_session, org.id)
@@ -363,21 +364,23 @@ async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
         "source_version": 2,
         "observed_at": (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat(),
     }
-    result = await client.post(
-        "/api/v1/dispatch/integrations/payments",
-        headers=headers, json=payment,
+    result = await signed_post(
+        client,key,"test_erp",secret,
+        "/api/v1/dispatch/integrations/payments",payment,
     )
     assert result.status_code == 200, result.text
     assert result.json() == {"accepted": True, "replayed": False, "status": "paid"}
-    replay = await client.post(
-        "/api/v1/dispatch/integrations/payments", headers=headers, json=payment,
+    replay = await signed_post(
+        client,key,"test_erp",secret,
+        "/api/v1/dispatch/integrations/payments",payment,
     )
     assert replay.status_code == 200, replay.text
     assert replay.json()["replayed"] is True
 
-    changed = await client.post(
-        "/api/v1/dispatch/integrations/payments", headers=headers,
-        json={**payment, "amount_paid": "250.00"},
+    changed = await signed_post(
+        client,key,"test_erp",secret,
+        "/api/v1/dispatch/integrations/payments",
+        {**payment,"amount_paid":"250.00"},
     )
     assert changed.status_code == 409
 
@@ -392,17 +395,19 @@ async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
     """), {"tenant": org.id, "ref": ref})).one()
     assert obligation.status == "paid" and obligation.balance == 0
 
-    stale = await client.post(
-        "/api/v1/dispatch/integrations/obligations",headers=headers,
-        json={**body,"source_version":1,"status":"open",
-              "observed_at": datetime.now(timezone.utc).isoformat()},
+    stale = await signed_post(
+        client,key,"test_erp",secret,
+        "/api/v1/dispatch/integrations/obligations",
+        {**body,"source_version":1,"status":"open",
+         "observed_at": datetime.now(timezone.utc).isoformat()},
     )
     assert stale.status_code in {200,409}
     assert stale.status_code == 409  # version 1 cannot roll back version 2
-    later = await client.post(
-        "/api/v1/dispatch/integrations/obligations",headers=headers,
-        json={**body,"source_version":3,
-              "observed_at":datetime.now(timezone.utc).isoformat()},
+    later = await signed_post(
+        client,key,"test_erp",secret,
+        "/api/v1/dispatch/integrations/obligations",
+        {**body,"source_version":3,
+         "observed_at":datetime.now(timezone.utc).isoformat()},
     )
     assert later.status_code == 409  # a settled obligation never reopens
 
@@ -417,17 +422,18 @@ async def test_connector_contacts_are_encrypted_and_api_keys_cannot_approve(
     import app.services.dispatch_delivery as delivery
 
     org, key = tenant
+    secret = await source_test_secret(db_session,org.id,"test_contacts","contacts")
     monkeypatch.setattr(delivery, "get_settings", lambda: SimpleNamespace(
         dispatch_contact_encryption_key=Fernet.generate_key().decode(),
     ))
     headers = {"X-API-Key": key}
-    created = await client.post(
-        "/api/v1/dispatch/integrations/contacts",
-        headers=headers,
-        json={
-            "subject_ref": "opaque-external-ref",
-            "channel": "email", "recipient": "person@example.test",
-            "consent_ref": "verified-basis-001", "opt_out": False,
+    created = await signed_post(
+        client,key,"test_contacts",secret,
+        "/api/v1/dispatch/integrations/contacts",{
+            "source":"test_contacts",
+            "subject_ref":"opaque-external-ref",
+            "channel":"email","recipient":"person@example.test",
+            "consent_ref":"verified-basis-001","opt_out":False,
         },
     )
     assert created.status_code == 200, created.text
