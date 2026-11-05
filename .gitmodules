@@ -1,0 +1,28 @@
+[submodule "vendor/frappe/framework"]
+	path = vendor/frappe/framework
+	url = https://github.com/frappe/frappe.git
+	branch = version-15
+[submodule "vendor/frappe/erpnext"]
+	path = vendor/frappe/erpnext
+	url = https://github.com/frappe/erpnext.git
+	branch = version-15
+[submodule "vendor/frappe/education"]
+	path = vendor/frappe/education
+	url = https://github.com/frappe/education.git
+	branch = version-15.1
+[submodule "vendor/frappe/frappe-ui"]
+	path = vendor/frappe/frappe-ui
+	url = https://github.com/frappe/frappe-ui.git
+	branch = main
+[submodule "vendor/frappe/frappe_docker"]
+	path = vendor/frappe/frappe_docker
+	url = https://github.com/frappe/frappe_docker.git
+	branch = main
+[submodule "vendor/frappe/payments"]
+	path = vendor/frappe/payments
+	url = https://github.com/frappe/payments.git
+	branch = develop
+[submodule "vendor/frappe/print_designer"]
+	path = vendor/frappe/print_designer
+	url = https://github.com/frappe/print_designer.git
+	branch = develop
