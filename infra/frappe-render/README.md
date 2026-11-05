@@ -47,3 +47,41 @@ Para uso comercial em várias IES: revisar capacidade, políticas LGPD, backup/r
 ## Gate de segurança financeiro
 
 O Blueprint só possui `pserv` e Key Value novos, não cria Postgres novo nem modifica `mira-api-testes`, a Vercel ou o Supabase. Segredos são gerados pelo Render e a conexão DB utiliza referências internas. O MariaDB é exclusivo da infraestrutura Frappe, separado do PostgreSQL existente da MIRA.
+
+
+## Sandbox local (sem cobrança Render)
+
+Antes de provisionar os recursos pagos, é possível testar a mesma imagem de
+Education em uma rede Docker **separada** da MIRA:
+
+```bash
+cd infra/frappe-render
+cp .env.local.example .env.local
+# Substitua ambas as senhas do exemplo por valores fortes e únicos.
+docker compose --env-file .env.local -f compose.local.yaml up --build -d
+docker compose --env-file .env.local -f compose.local.yaml logs -f education-engine
+```
+
+O motor local usa `http://127.0.0.1:10000` (acesso só do computador);
+`ies-sandbox.internal` é o site criado apenas para testes. A aplicação usa
+MariaDB, dois Redis e volumes **próprios**, não o PostgreSQL/Supabase da MIRA.
+
+Para testar o gateway FastAPI da PR #147 em desenvolvimento, configure
+`MIRA_EDUCATION_ENGINE_URL=http://127.0.0.1:10000` somente no backend local,
+`MIRA_EDUCATION_ENGINE_ALLOWED_SITES=ies-sandbox.internal`,
+`MIRA_EDUCATION_ENGINE_ENABLED=true` e uma conta **de serviço read-only** criada
+no site de teste; nunca use Administrator para requests do gateway.
+
+**Ainda não validado na execução real:** é necessário Docker/WSL2, recursos de
+CPU/RAM para o build e compatibilidade das versões pinadas. O compose é um
+plano local reproduzível, não evidência de inicialização ou compatibilidade.
+
+```bash
+# Finalizar (preserva bancos e arquivos locais):
+docker compose --env-file .env.local -f compose.local.yaml down
+# Não execute 'down -v' a menos que queira apagar os bancos e sites de sandbox.
+```
+
+É necessário aprovar explicitamente a contratação de infraestrutura antes
+de aplicar o Blueprint no Render. O sandbox local não tem endpoints para envio
+real de mensagens, negociação, Pix ou disparos.
