@@ -51,6 +51,7 @@ class StudentServiceEvent(Base):
 class StudentDocument(Base):
     __tablename__ = "mira_student_documents"
     __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_mira_student_document_tenant_id"),
         ForeignKeyConstraint(["tenant_id", "student_id"], ["students.tenant_id", "students.id"], name="fk_mira_document_student_tenant"),
         CheckConstraint("publication_status IN ('draft','published','revoked')", name="ck_mira_document_publication"),
         Index("ix_mira_document_student", "tenant_id", "student_id", "created_at"),

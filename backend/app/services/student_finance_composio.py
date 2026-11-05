@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -30,6 +31,18 @@ from app.services.dispatch_composio_imports import (
 )
 from app.services.dispatch_core import bind_tenant
 from app.services.dispatch_sources import require_source, source_tool_is_read_only
+
+_SENSITIVE_PATH = re.compile(
+    r"(?:password|token|secret|credential|api_?key|private_?key|authorization|bank_?account|iban|routing_?number)",
+    re.IGNORECASE,
+)
+
+
+def safe_mapping_path(path: str) -> None:
+    parts = _path_parts(path)
+    if any(_SENSITIVE_PATH.search(part) for part in parts):
+        raise FinancialReadDenied("Campos sensíveis não podem ser mapeados para o Portal do Aluno.")
+
 
 class FinancialReadDenied(ValueError):
     """Safe rejection; never include raw financial or authentication payloads."""
@@ -86,7 +99,7 @@ def normalize_financial(data: Any, *, rows_path: str, fields: dict[str, str]) ->
     if set(fields) not in (expected, expected | {"due_at"}):
         raise FinancialReadDenied("Mapeamento financeiro incompleto ou inesperado.")
     for path in (rows_path, *fields.values()):
-        _path_parts(path)
+        safe_mapping_path(path)
     rows = _records(data, rows_path)
     normalized = []
     seen = set()
@@ -158,7 +171,7 @@ async def sync_financial(
     schema = await run_in_threadpool(_tool_schema, account.toolkit_slug, tool)
     _validate_schema_value(arguments, schema)
     for value in (rows_path, *fields.values()):
-        _path_parts(value)
+        safe_mapping_path(value)
     request_hash = hashlib.sha256(json.dumps({
         "account": account_id, "tool": tool, "arguments": arguments,
         "rows_path": rows_path, "fields": fields,

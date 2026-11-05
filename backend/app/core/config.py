@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     native_academic_services_enabled: bool = False
     student_finance_composio_enabled: bool = False
     student_finance_composio_read_tools: str = ""
+    student_document_attestation_enabled: bool = False
+    student_document_signing_keys: str = ""
+    student_document_active_key_id: str = ""
 
     # Composio integration (fail-closed; no SDK calls until explicitly activated)
     composio_enabled: bool = False

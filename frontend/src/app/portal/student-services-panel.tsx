@@ -55,6 +55,8 @@ export function StudentServicesPanel() {
   const [description, setDescription] = useState("");
   const [documentText, setDocumentText] = useState<string | null>(null);
   const [documentTitle, setDocumentTitle] = useState("");
+  const [documentProof, setDocumentProof] = useState<string | null>(null);
+  const [documentProofValid, setDocumentProofValid] = useState<boolean | null>(null);
   const [history, setHistory] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,6 +65,7 @@ export function StudentServicesPanel() {
   useEffect(() => {
     let active = true;
     setLoading(true); setMessage(null); setDocumentText(null); setHistory(null);
+    setDocumentProof(null); setDocumentProofValid(null);
     const endpoint = view === "requests" ? "/requests" : view === "documents" ? "/documents" : "/financial";
     serviceFetch<{ items: ServiceRequest[] | Document[] | Financial[] }>(endpoint)
       .then((data) => {
@@ -96,6 +99,29 @@ export function StudentServicesPanel() {
       setDocumentTitle(item.title); setDocumentText(data.content_text);
     } catch (err) { setMessage(err instanceof Error ? err.message : "Documento indisponível."); }
   }
+  async function verifyDocument(item: Document) {
+    setDocumentProof(null);
+    setDocumentProofValid(null);
+    try {
+      const proof = await serviceFetch<{ verification_code: string }>(
+        "/documents/" + encodeURIComponent(item.id) + "/proof"
+      );
+      const result = await fetch("/api/v1/public/academic-documents/verify", {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: proof.verification_code }),
+      });
+      if (!result.ok) throw new Error("Não foi possível verificar a integridade.");
+      const status = await result.json() as { valid: boolean };
+      setDocumentProof(proof.verification_code);
+      setDocumentProofValid(status.valid);
+    } catch {
+      setMessage("Comprovante verificável indisponível para este documento.");
+    }
+  }
+
   async function openHistory(item: ServiceRequest) {
     try {
       const result = await serviceFetch<{ events: { status: string; note: string | null; occurred_at: string }[] }>(
@@ -159,9 +185,22 @@ export function StudentServicesPanel() {
           {documents.length === 0 && <p className="text-[12px] text-[#667085]">Nenhum documento liberado.</p>}
           <ul className="divide-y divide-[#EAECF0]">
             {documents.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-[12px]">
-              <span>{item.title}</span><button type="button" className="text-[#2563EB]" onClick={() => openDocument(item)}>Visualizar</button>
+              <span>{item.title}</span>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" className="text-[#2563EB]" onClick={() => openDocument(item)}>Visualizar</button>
+                <button type="button" className="text-[#2563EB]" onClick={() => verifyDocument(item)}>Verificar</button>
+              </div>
             </li>)}
           </ul>
+          {documentProof !== null && <div className="rounded-lg border border-[#EAECF0] bg-[#F9FAFB] p-4">
+            <p className="text-[12px] font-semibold text-[#344054]">
+              {documentProofValid ? "Integridade confirmada pela MIRA" : "Integridade não confirmada"}
+            </p>
+            <p className="mt-2 break-all font-mono text-[11px] text-[#667085]">{documentProof}</p>
+            <p className="mt-2 text-[11px] text-[#98A2B3]">
+              Código de verificação de conteúdo. Não substitui assinatura eletrônica qualificada.
+            </p>
+          </div>}
           {documentText !== null && <div className="rounded-lg border border-[#EAECF0] p-4">
             <h3 className="mb-3 text-[13px] font-semibold">{documentTitle}</h3>
             <p className="whitespace-pre-wrap text-[12px] leading-6 text-[#475467]">{documentText}</p>
