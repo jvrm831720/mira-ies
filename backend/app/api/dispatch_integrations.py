@@ -297,6 +297,16 @@ async def verified_gateway_webhook(
                 WHERE id=:id AND tenant_id=:tenant
             """), {"status": target, "id": item["id"], "tenant": event.tenant_id})
         if intent in {"opt_out", "wrong_recipient"}:
+            await db.execute(text("""
+                INSERT INTO dispatch_suppressions
+                    (id,tenant_id,subject_type,subject_ref,channel,reason)
+                VALUES (:id,:tenant,:kind,:ref,'all',:reason)
+                ON CONFLICT (tenant_id,subject_type,subject_ref,channel) DO NOTHING
+            """), {
+                "id": str(uuid4()), "tenant": event.tenant_id,
+                "kind": item["subject_type"], "ref": item["subject_ref"],
+                "reason": intent,
+            })
             if item["subject_type"] == "external":
                 await db.execute(text("""
                     UPDATE dispatch_external_contacts SET opt_out=TRUE
