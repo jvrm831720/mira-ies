@@ -25,6 +25,7 @@ TABLES = (
     "mira_academic_assessments",
     "mira_academic_grades",
     "mira_academic_calendar_events",
+    "mira_academic_catalog_audit",
 )
 
 
@@ -196,6 +197,16 @@ def upgrade():
                            "(scope = 'class' AND class_id IS NOT NULL)", name="ck_mira_calendar_scope"),
     )
     op.create_index("ix_mira_calendar_tenant_time", "mira_academic_calendar_events", ["tenant_id", "starts_at"])
+    op.create_table(
+        "mira_academic_catalog_audit",
+        pk(), tid(),
+        sa.Column("actor_user_id", U, sa.ForeignKey("mira_users.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column("action", sa.String(60), nullable=False),
+        sa.Column("counts", postgresql.JSONB, nullable=False),
+        sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    )
+    op.create_index("ix_mira_academic_catalog_audit_tenant", "mira_academic_catalog_audit",
+                    ["tenant_id", "occurred_at"])
     for name in TABLES:
         protect(name)
 
