@@ -233,6 +233,29 @@ async def change_campaign_state(
         raise _error(exc) from exc
 
 
+
+@router.get("/campaigns/{campaign_id}/replies")
+async def campaign_replies(
+    campaign_id: str,
+    auth: AuthContext = Depends(require_permission("campaigns.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import text
+    campaign = await core.get_campaign(db, tenant_id=auth.tenant_id, campaign_id=campaign_id)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="Campanha não encontrada.")
+    rows = await db.execute(text("""
+        SELECT inbound.event_kind, inbound.reply_intent,
+               inbound.recommended_action, inbound.occurred_at
+        FROM dispatch_inbound inbound
+        JOIN dispatch_items item ON inbound.item_id=item.id
+          AND inbound.tenant_id=item.tenant_id
+        WHERE inbound.tenant_id=:tenant AND item.campaign_id=:campaign
+        ORDER BY inbound.occurred_at DESC LIMIT 100
+    """), {"tenant": auth.tenant_id, "campaign": campaign_id})
+    return {"items": [dict(row) for row in rows.mappings().all()]}
+
+
 @router.get("/metrics")
 async def metrics(
     auth: AuthContext = Depends(require_permission("campaigns.view")),
