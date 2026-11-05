@@ -30,7 +30,7 @@ export default function DispatchProvidersPage() {
     finally{setBusy(false);}
   }
   async function configure(){
-    const credentials=provider==="resend"
+    const credentials: Record<string, string> = provider==="resend"
       ? {api_key:apiKey,from_email:fromEmail,webhook_secret:webhookSecret}
       : {account_sid:accountSid,auth_token:authToken,from_number:fromNumber};
     await run(async()=>{
