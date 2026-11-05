@@ -405,6 +405,158 @@ async def import_read_tool(
         ) from exc
 
 
+def _decrypt_values(ciphertext: str) -> dict[str, Any]:
+    from cryptography.fernet import InvalidToken
+    key = get_settings().dispatch_composio_data_key
+    if not key:
+        raise ComposioIngestDenied("Chave de criptografia indisponível.")
+    try:
+        value = json.loads(Fernet(key.encode()).decrypt(ciphertext.encode()).decode())
+    except (ValueError, TypeError, InvalidToken, json.JSONDecodeError) as exc:
+        raise ComposioIngestDenied("Observação de origem corrompida ou não autenticada.") from exc
+    if not isinstance(value, dict):
+        raise ComposioIngestDenied("Observação com estrutura inválida.")
+    return value
+
+
+async def stage_authorized_observations(
+    db: AsyncSession, *, tenant_id: str, actor_id: str,
+    campaign_id: str, source_record_ids: list[str],
+) -> dict[str, int]:
+    """Select imported Composio subjects into a DRAFT outbox, never grant consent.
+
+    Only existing MIRA authorizations, destinations, and debt facts can become
+    actionable dispatch items. Imported provider values never create them.
+    """
+    from app.services.dispatch_core import enqueue_recipients, get_campaign
+    await bind_tenant(db, tenant_id)
+    campaign = await get_campaign(
+        db, tenant_id=tenant_id, campaign_id=campaign_id, lock=True,
+    )
+    if campaign is None:
+        raise LookupError("Campanha não encontrada.")
+    if campaign["status"] != "draft" or campaign["source_kind"] != "composio":
+        raise ComposioIngestDenied("A campanha deve ser um rascunho vinculado ao Composio.")
+    account_id = campaign["source_ref"]
+    tool_slug = campaign["source_tool_slug"]
+    await _context(db, tenant_id=tenant_id, account_id=account_id, tool_slug=tool_slug)
+    if len(source_record_ids) > _MAX_ROWS or any(
+        not isinstance(item, str) or not 1 <= len(item) <= 160
+        for item in source_record_ids
+    ):
+        raise ComposioIngestDenied("Identificadores de registros fora dos limites.")
+    if len(set(source_record_ids)) != len(source_record_ids):
+        raise ComposioIngestDenied("Registros repetidos na seleção.")
+    sql = """
+        SELECT source_record_id,subject_type,subject_ref,record_type,payload_ciphertext
+        FROM dispatch_source_observations
+        WHERE tenant_id=:tenant AND connected_account_id=:account AND tool_slug=:tool
+    """
+    params: dict[str, Any] = {
+        "tenant": tenant_id, "account": account_id, "tool": tool_slug,
+    }
+    if source_record_ids:
+        sql += " AND source_record_id = ANY(CAST(:ids AS text[]))"
+        params["ids"] = source_record_ids
+    sql += " ORDER BY observed_at DESC LIMIT 100"
+    observations = (await db.execute(text(sql), params)).mappings().all()
+    if source_record_ids and len(observations) != len(source_record_ids):
+        raise ComposioIngestDenied("Um ou mais registros não existem nesta conexão.")
+
+    from app.core.config import get_settings
+    sources = [
+        item.strip() for item in get_settings().dispatch_trusted_authorization_sources.split(",")
+        if item.strip()
+    ]
+    if not sources or not observations:
+        return {"created": 0, "duplicates": 0, "filtered": len(observations)}
+
+    selected: list[dict[str, Any]] = []
+    filtered = 0
+    for observation in observations:
+        subject_type = observation["subject_type"]
+        subject_ref = observation["subject_ref"]
+        authorized = (await db.execute(text("""
+            SELECT evidence_ref FROM dispatch_authorizations
+            WHERE tenant_id=:tenant AND subject_type=:kind AND subject_ref=:ref
+              AND channel=:channel AND purpose=:purpose AND status='granted'
+              AND source=ANY(CAST(:sources AS text[]))
+              AND verified_at >= now()-interval '90 days' AND expires_at>now()
+        """), {
+            "tenant": tenant_id, "kind": subject_type,
+            "ref": subject_ref, "channel": campaign["channel"],
+            "purpose": campaign["purpose"], "sources": sources,
+        })).scalar_one_or_none()
+        if not authorized:
+            filtered += 1
+            continue
+        if campaign["purpose"] == "collections" and observation["record_type"] != "obligation":
+            filtered += 1
+            continue
+        values = _decrypt_values(observation["payload_ciphertext"])
+        obligation_ref = values.get("obligation_ref")
+        if campaign["purpose"] == "collections":
+            if not isinstance(obligation_ref, str) or not 1 <= len(obligation_ref) <= 160:
+                filtered += 1
+                continue
+            existing = (await db.execute(text("""
+                SELECT 1 FROM dispatch_obligations WHERE
+                tenant_id=:tenant AND external_ref=:obligation
+                AND subject_type=:kind AND subject_ref=:subject
+                AND status='open' AND balance>0
+            """), {
+                "tenant": tenant_id, "obligation": obligation_ref,
+                "kind": subject_type, "subject": subject_ref,
+            })).first()
+            if not existing:
+                filtered += 1
+                continue
+        else:
+            obligation_ref = None
+        # Do not trust the imported address itself. MIRA's independently
+        # verified destination/contact must already be in the workspace.
+        if subject_type == "student":
+            contact = (await db.execute(text("""
+                SELECT 1 FROM students
+                WHERE tenant_id=:tenant AND id::text=:id AND is_active IS TRUE
+                  AND communication_opt_out IS FALSE
+            """), {"tenant": tenant_id, "id": subject_ref})).first()
+        else:
+            contact = (await db.execute(text("""
+                SELECT 1 FROM dispatch_external_contacts
+                WHERE tenant_id=:tenant AND subject_ref=:ref AND channel=:channel
+                  AND consent_ref=:consent AND opt_out IS FALSE
+            """), {
+                "tenant": tenant_id, "ref": subject_ref,
+                "channel": campaign["channel"], "consent": authorized,
+            })).first()
+        if not contact:
+            filtered += 1
+            continue
+        suppressed = (await db.execute(text("""
+            SELECT 1 FROM dispatch_suppressions
+            WHERE tenant_id=:tenant AND subject_type=:kind AND subject_ref=:ref
+              AND channel IN ('all',:channel)
+        """), {
+            "tenant": tenant_id, "kind": subject_type,
+            "ref": subject_ref, "channel": campaign["channel"],
+        })).first()
+        if suppressed:
+            filtered += 1
+            continue
+        selected.append({
+            "subject_type": subject_type, "subject_ref": subject_ref,
+            "consent_ref": authorized, "obligation_ref": obligation_ref,
+        })
+    if not selected:
+        return {"created": 0, "duplicates": 0, "filtered": filtered}
+    result = await enqueue_recipients(
+        db, tenant_id=tenant_id, campaign_id=campaign_id,
+        targets=selected, actor=actor_id,
+    )
+    return {**result, "filtered": filtered}
+
+
 async def list_import_runs(
     db: AsyncSession, *, tenant_id: str, limit: int = 30,
 ) -> list[dict[str, Any]]:
