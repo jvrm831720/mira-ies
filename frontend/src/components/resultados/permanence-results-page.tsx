@@ -473,14 +473,14 @@ export function PermanenceResultsPage() {
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div role="tablist" aria-label="Tipo de resultados" className="inline-flex rounded-xl border border-[#e4e7ec] bg-white p-1">
+          <div role="tablist" aria-label="Tipo de resultados" className="inline-flex gap-6 border-b border-[#e4e7ec]">
             <button
               id="tab-educational"
               role="tab"
               aria-selected={tab === "educational"}
               aria-controls="panel-educational"
               onClick={() => setTab("educational")}
-              className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] font-semibold ${tab === "educational" ? "bg-[#1c1d1f] text-white" : "text-[#475467] hover:bg-[#f4f5f6]"}`}
+              className={`inline-flex h-10 items-center gap-2 border-b-2 px-0 text-[12px] font-medium transition ${tab === "educational" ? "border-[#1c1d1f] text-[#1c1d1f]" : "border-transparent text-[#6f7988] hover:text-[#1c1d1f]"}`}
             >
               <GraduationCap className="h-3.5 w-3.5" /> Resultados educacionais
             </button>
