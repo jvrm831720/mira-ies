@@ -57,6 +57,7 @@ class Organization(Base):
     tax_id_source: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # provider name or "manual"
     tax_id_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     address_snapshot: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    onboarding_profile: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
