@@ -58,6 +58,13 @@ PRODUCTIVITY_TOOLKITS: dict[str, dict[str, str]] = {
 }
 
 
+SCHEDULING_TOOLKITS: dict[str, dict[str, str]] = {
+    "googlecalendar": {"name": "Google Calendar", "kind": "calendar"},
+    "calendly": {"name": "Calendly", "kind": "appointment_booking"},
+    "cal": {"name": "Cal.com", "kind": "appointment_booking"},
+}
+
+
 def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
     """Attach MIRA category metadata using verified Composio toolkit slugs."""
     slug = str(item.get("slug") or "").strip().lower()
@@ -67,7 +74,8 @@ def annotate_toolkit(item: dict[str, Any]) -> dict[str, Any]:
         ("documents", "Documentos e arquivos", DOCUMENT_TOOLKITS),
         ("productivity", "Produtividade e tarefas", PRODUCTIVITY_TOOLKITS),
         ("data_analysis", "Dados, planilhas e análise", DATA_ANALYSIS_TOOLKITS),
-        ("support", "Atendimento e suporte", SUPPORT_TOOLKITS),\n        ("scheduling", "Agenda e agendamento", SCHEDULING_TOOLKITS),
+        ("support", "Atendimento e suporte", SUPPORT_TOOLKITS),
+        ("scheduling", "Agenda e agendamento", SCHEDULING_TOOLKITS),
     ):
         metadata = toolkits.get(slug)
         if metadata:
@@ -143,6 +151,23 @@ def support_category() -> dict[str, Any]:
         "composio_toolkits": [
             {"slug": slug, **metadata}
             for slug, metadata in SUPPORT_TOOLKITS.items()
+        ],
+        "native_channels": [],
+    }
+
+
+def scheduling_category() -> dict[str, Any]:
+    """Return scheduling toolkits without enabling any toolkit."""
+    return {
+        "slug": "scheduling",
+        "name": "Agenda e agendamento",
+        "description": (
+            "Consulta de disponibilidade, organização de calendários, "
+            "criação e gestão de compromissos e links de agendamento."
+        ),
+        "composio_toolkits": [
+            {"slug": slug, **metadata}
+            for slug, metadata in SCHEDULING_TOOLKITS.items()
         ],
         "native_channels": [],
     }
