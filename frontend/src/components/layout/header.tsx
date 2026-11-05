@@ -1,46 +1,22 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   Building2,
   ChevronRight,
   CircleHelp,
-  LogOut,
-  Menu,
-  Settings,
-  UserRound,
-  X,
 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { clearAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const mobileLinks = [
-  { href: "/", label: "Visão geral" },
-  { href: "/alunos", label: "Alunos" },
-  { href: "/alunos/grupos", label: "Grupos de alunos" },
-  { href: "/importar", label: "Importar" },
-  { href: "/conectores", label: "Conectores" },
-  { href: "/retencao", label: "Retenção" },
-  { href: "/retencao/logs", label: "Logs" },
-  { href: "/membros", label: "Membros" },
-  { href: "/fatura", label: "Fatura" },
-  { href: "/config", label: "Config" },
-];
-
-type Panel = "none" | "notifications" | "help" | "account";
+type Panel = "none" | "notifications" | "help";
 
 export function Header({ title, subtitle, compact = false }: { title: string; subtitle?: string; compact?: boolean }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>("none");
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -65,11 +41,6 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
 
   function toggle(next: Panel) {
     setPanel((current) => (current === next ? "none" : next));
-  }
-
-  function logout() {
-    clearAuth();
-    router.replace("/login");
   }
 
   async function submitHelp(e: FormEvent) {
@@ -118,7 +89,7 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
 
   return (
     <header className="sticky top-0 z-20 border-b border-black/[0.06] bg-[rgba(247,245,239,0.88)] backdrop-blur-xl">
-      <div className={cn("flex w-full items-center gap-4 px-4 md:px-8 xl:px-10", compact ? "min-h-[52px] justify-end py-2" : "min-h-[72px] justify-between py-3")}>
+      <div className={cn("flex w-full items-center gap-4 pl-14 pr-4 md:px-8 xl:px-10", compact ? "min-h-[52px] justify-end py-2" : "min-h-[72px] justify-between py-3")}>
         {!compact && <div className="min-w-0">
           <div className="mb-0.5 hidden items-center gap-1 text-[11px] font-medium text-neutral-400 sm:flex">
             <span className="inline-flex items-center gap-1.5 uppercase tracking-[0.14em]">
@@ -143,20 +114,6 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
           <IconButton label="Ajuda" active={panel === "help"} onClick={() => toggle("help")}>
             <CircleHelp className="h-[18px] w-[18px]" />
           </IconButton>
-          <IconButton label="Conta" active={panel === "account"} onClick={() => toggle("account")}>
-            <UserRound className="h-[18px] w-[18px]" />
-          </IconButton>
-
-          <button
-            type="button"
-            className="ml-1 rounded-full border border-neutral-200 bg-white p-2.5 text-neutral-700 transition hover:bg-neutral-50 md:hidden"
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </button>
-
           {panel === "notifications" && (
             <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
@@ -218,69 +175,9 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
             </div>
           )}
 
-          {panel === "account" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,280px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
-              <div className="border-b border-neutral-100 px-4 py-3">
-                <p className="truncate text-sm font-semibold text-neutral-900">
-                  {me.data?.display_name || me.data?.email || "Conta"}
-                </p>
-                <p className="mt-0.5 truncate text-[11px] text-neutral-500">
-                  {me.data?.tenant_name || "Instituição"}
-                  {me.data?.role ? ` · ${me.data.role}` : ""}
-                </p>
-              </div>
-              <div className="p-1.5">
-                <Link
-                  href="/config"
-                  onClick={() => setPanel("none")}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  <Settings className="h-4 w-4 text-neutral-400" />
-                  Configurações
-                </Link>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  <LogOut className="h-4 w-4 text-neutral-400" />
-                  Sair da conta
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {mobileOpen && (
-        <nav
-          aria-label="Navegação mobile"
-          className="border-t border-neutral-200 bg-white px-4 py-3 md:hidden"
-        >
-          <div className="mb-2 flex items-center gap-2 rounded-xl bg-neutral-50 px-2 py-2 text-xs text-neutral-500">
-            <Building2 className="h-3.5 w-3.5" />
-            <span className="truncate font-medium text-neutral-900">
-              {me.data?.tenant_name || "Instituição"}
-            </span>
-          </div>
-          {mobileLinks.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "block rounded-[11px] px-2.5 py-2 text-[13px]",
-                pathname === l.href ||
-                (l.href === "/alunos/grupos" && pathname.startsWith("/alunos/grupos/"))
-                  ? "bg-neutral-900 font-semibold text-white"
-                  : "text-neutral-600 hover:bg-neutral-50"
-              )}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-      )}
     </header>
   );
 }
