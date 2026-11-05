@@ -55,7 +55,7 @@ async def get_campaign(
     suffix = " FOR UPDATE" if lock else ""
     result = await db.execute(
         text("""
-            SELECT id, tenant_id, name, purpose, channel, template_ref,
+            SELECT id, tenant_id, name, purpose, channel, delivery_mode, request_key, template_ref,
                    status, authorization_ref, created_by, approved_by, approved_at,
                    scheduled_for, timezone, start_hour, end_hour,
                    per_minute_limit, daily_contact_limit, paused_reason,
@@ -74,12 +74,14 @@ async def create_campaign(
     purpose: str, channel: str, template_ref: str, template_body: str,
     per_minute_limit: int = 10, daily_contact_limit: int = 1,
     timezone_name: str = "America/Sao_Paulo",
-    start_hour: int = 9, end_hour: int = 18,
+    start_hour: int = 9, end_hour: int = 18, delivery_mode: str = "targeted",
 ) -> dict[str, Any]:
-    if purpose not in {"retention", "collections"} or channel not in {"email", "sms", "whatsapp"}:
+    if purpose not in {"retention", "academic", "service", "collections"} or channel not in {"email", "sms", "whatsapp"}:
         raise ValueError("Finalidade ou canal inválido.")
     if purpose == "collections" and channel == "whatsapp":
         raise ValueError("Cobrança via WhatsApp não está habilitada pelas políticas de canal.")
+    if delivery_mode not in {"targeted", "bulk"}:
+        raise ValueError("Intervenção individual deve usar /dispatch/interventions.")
     if not template_ref.strip() or not template_body.strip():
         raise ValueError("O modelo de mensagem é obrigatório.")
     if len(template_body) > 2000 or len(template_ref) > 160:
@@ -100,15 +102,16 @@ async def create_campaign(
     id_ = str(uuid4())
     await db.execute(text("""
         INSERT INTO dispatch_campaigns (
-            id, tenant_id, name, purpose, channel, template_ref, template_body,
+            id, tenant_id, name, purpose, channel, delivery_mode, template_ref, template_body,
             created_by, per_minute_limit, daily_contact_limit, timezone, start_hour, end_hour
         ) VALUES (
-            :id, :tenant, :name, :purpose, :channel, :template_ref, :body,
+            :id, :tenant, :name, :purpose, :channel, :mode, :template_ref, :body,
             :actor, :rpm, :daily, :timezone, :start, :end
         )
     """), {
         "id": id_, "tenant": tenant_id, "name": name.strip(), "purpose": purpose,
-        "channel": channel, "template_ref": template_ref.strip(), "body": template_body,
+        "channel": channel, "mode": delivery_mode,
+        "template_ref": template_ref.strip(), "body": template_body,
         "actor": created_by, "rpm": per_minute_limit, "daily": daily_contact_limit,
         "timezone": timezone_name, "start": start_hour, "end": end_hour,
     })
@@ -129,6 +132,8 @@ async def enqueue_recipients(
         raise LookupError("Campanha não encontrada.")
     if campaign["status"] != "draft":
         raise ValueError("Audiência só pode ser alterada em uma campanha rascunho.")
+    if campaign["delivery_mode"] == "individual":
+        raise ValueError("A audiência individual é imutável e criada na intervenção.")
     created = skipped = 0
     for item in targets:
         kind = item.get("subject_type")
@@ -262,7 +267,7 @@ async def transition_campaign(
 async def list_campaigns(db: AsyncSession, *, tenant_id: str, limit: int = 50) -> list[dict[str, Any]]:
     await bind_tenant(db, tenant_id)
     rows = await db.execute(text("""
-        SELECT c.id,c.name,c.purpose,c.channel,c.status,c.created_at,c.scheduled_for,
+        SELECT c.id,c.name,c.purpose,c.channel,c.delivery_mode,c.status,c.created_at,c.scheduled_for,
                c.paused_reason, c.template_ref,
                count(i.id) AS total,
                count(i.id) FILTER (WHERE i.status IN ('queued','retry_wait','leased','sending')) AS pending,
