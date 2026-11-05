@@ -357,7 +357,6 @@ async def request_tool_approval(
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Solicitação concorrente; repita com a mesma chave de idempotência.") from exc
-    await db.refresh(row)
     return _approval_response(row)
 
 
@@ -441,6 +440,11 @@ async def cancel_tool_approval(
         raise HTTPException(status_code=403, detail="Somente o solicitante pode cancelar esta solicitação.")
     if row.status != "pending_approval":
         raise HTTPException(status_code=409, detail="Somente solicitações pendentes podem ser canceladas.")
+    if row.expires_at <= datetime.now(timezone.utc):
+        row.status = "expired"
+        db.add(_approval_audit(tenant_id=auth.tenant_id, actor_user_id=auth.user_id, row=row, approval_status="expired"))
+        await db.commit()
+        raise HTTPException(status_code=410, detail="Solicitação expirada.")
     row.status = "cancelled"
     db.add(_approval_audit(tenant_id=auth.tenant_id, actor_user_id=auth.user_id, row=row, approval_status="cancelled"))
     await db.commit()
