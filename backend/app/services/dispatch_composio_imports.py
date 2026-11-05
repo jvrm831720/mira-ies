@@ -19,7 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
-from app.models.composio_connection import TenantComposioAccount, TenantComposioSession
+from app.models.composio_connection import (
+    TenantComposioAccount, TenantComposioSession, TenantComposioToolAudit,
+)
 from app.services.composio.client import get_composio_client
 from app.services.composio.connections import _verify_remote_account
 from app.services.composio.policy import _tool_schema, _validate_schema_value
@@ -310,6 +312,13 @@ async def import_read_tool(
         "toolkit": toolkit, "tool": tool_slug.upper(), "actor": actor_id,
         "key": idempotency_key, "hash": request_hash,
     })
+    db.add(TenantComposioToolAudit(
+        tenant_id=tenant_id, actor_user_id=actor_id,
+        connected_account_id=account_id, toolkit_slug=toolkit,
+        tool_slug=tool_slug.upper(), execution_id=run_id,
+        status="requested", approval_required=False,
+        request_fingerprint=request_hash,
+    ))
     await db.commit()
 
     try:
@@ -418,6 +427,13 @@ async def import_read_tool(
                     details={"toolkit": toolkit, "tool": tool_slug.upper(),
                              "total": len(rows), "created": created,
                              "updated": updated, "run_id": run_id})
+        db.add(TenantComposioToolAudit(
+            tenant_id=tenant_id, actor_user_id=actor_id,
+            connected_account_id=account_id, toolkit_slug=toolkit,
+            tool_slug=tool_slug.upper(), execution_id=run_id,
+            status="succeeded", approval_required=False,
+            request_fingerprint=request_hash,
+        ))
         await db.commit()
         return {
             "run_id": run_id, "status": "succeeded", "total": len(rows),
@@ -433,6 +449,14 @@ async def import_read_tool(
             SET status='failed',error_code=:code,finished_at=now()
             WHERE tenant_id=:tenant AND id=:id AND status='running'
         """), {"tenant": tenant_id, "id": run_id, "code": type(exc).__name__[:80]})
+        db.add(TenantComposioToolAudit(
+            tenant_id=tenant_id, actor_user_id=actor_id,
+            connected_account_id=account_id, toolkit_slug=toolkit,
+            tool_slug=tool_slug.upper(), execution_id=run_id,
+            status="failed", approval_required=False,
+            request_fingerprint=request_hash,
+            error_code=type(exc).__name__[:80],
+        ))
         await db.commit()
         if isinstance(exc, ComposioIngestDenied):
             raise
