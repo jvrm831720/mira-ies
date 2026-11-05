@@ -814,3 +814,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 };
+
+
+// Use the established MIRA session and Vercel /api/v1 proxy for academic engine
+// requests. Never introduce a direct browser URL or Frappe credentials here.
+export function educationEngineRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    throw new Error("Caminho do motor acadêmico inválido.");
+  }
+  return request<T>("/api/v1/education-engine" + path, init);
+}
