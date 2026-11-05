@@ -18,11 +18,28 @@ def test_governance_audit_route_is_registered_separately():
 
 
 def test_governance_console_exposes_read_only_inventory_routes():
-    paths = {route.path for route in mira_admin.router.routes}
-    assert paths == {
+    read_paths = {
+        route.path
+        for route in mira_admin.router.routes
+        if "GET" in getattr(route, "methods", set())
+    }
+    assert read_paths == {
         "/admin/mira-governance/modalities",
         "/admin/mira-governance/authorizations",
         "/admin/mira-governance/datasets",
         "/admin/mira-governance/runs",
         "/admin/mira-governance/audit",
+    }
+    # The console is read-only for auditors, but explicit governance:write
+    # endpoints may exist on the same router for administrators.
+    write_paths = {
+        route.path
+        for route in mira_admin.router.routes
+        if "POST" in getattr(route, "methods", set())
+    }
+    assert write_paths == {
+        "/admin/mira-governance/authorizations/shared",
+        "/admin/mira-governance/authorizations/shared/{policy_id}/revoke",
+        "/admin/mira-governance/authorizations/institutional",
+        "/admin/mira-governance/authorizations/institutional/{authorization_id}/revoke",
     }
