@@ -428,3 +428,63 @@ async def test_signed_gateway_never_counts_reply_as_payment(
     assert (await db_session.execute(text("""
         SELECT count(*) FROM dispatch_payment_events WHERE tenant_id=:tenant
     """), {"tenant": org.id})).scalar_one() == 0
+
+
+@pytest.mark.asyncio
+async def test_concurrent_workers_claim_disjoint_items(db_session, tenant):
+    """FOR UPDATE SKIP LOCKED must not hand one recipient to two workers."""
+    import asyncio
+    from app.db.session import AsyncSessionLocal
+    from app.models.student import Student, UploadBatch
+    from app.services import dispatch_core as core
+    from app.dispatch_worker import claim_batch
+
+    org, _ = tenant
+    batch = UploadBatch(
+        tenant_id=org.id, filename="load.csv",
+        original_filename="load.csv", status="processed",
+    )
+    db_session.add(batch)
+    await db_session.flush()
+    students = [
+        Student(
+            tenant_id=org.id, batch_id=batch.id,
+            matricula=f"LOAD-{index:04d}", nome=f"Pessoa {index}",
+            email=f"person{index}@example.test",
+            communication_preferences={"channels": {"email": True}},
+        ) for index in range(30)
+    ]
+    db_session.add_all(students)
+    await db_session.commit()
+
+    campaign = await core.create_campaign(
+        db_session, tenant_id=org.id, created_by="creator",
+        name="Teste de concorrência", purpose="retention", channel="email",
+        template_ref="Template de simulação", template_body="Olá {nome}.",
+    )
+    campaign_id = str(campaign["id"])
+    staged = await core.enqueue_recipients(
+        db_session, tenant_id=org.id, campaign_id=campaign_id,
+        targets=[{
+            "subject_type": "student", "subject_ref": person.id,
+            "consent_ref": "test-authorized-record",
+        } for person in students], actor="creator",
+    )
+    assert staged["created"] == 30
+    await core.transition_campaign(
+        db_session, tenant_id=org.id, campaign_id=campaign_id,
+        actor="approver", target="approved",
+        authorization_ref="institutional-evidence",
+    )
+    await core.transition_campaign(
+        db_session, tenant_id=org.id, campaign_id=campaign_id,
+        actor="approver", target="running",
+    )
+
+    async def claim(owner):
+        async with AsyncSessionLocal() as session:
+            return await claim_batch(session, org.id, owner, limit=15)
+
+    results = await asyncio.gather(claim("worker-a"), claim("worker-b"))
+    ids = [str(item["id"]) for subset in results for item in subset]
+    assert len(ids) == len(set(ids)) == 30
