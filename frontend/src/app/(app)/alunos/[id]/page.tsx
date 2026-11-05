@@ -333,12 +333,14 @@ export default function StudentDetailPage() {
                 <InfoCard label="Campus" value={displayValue(data.campus)} />
                 <InfoCard label="Semestre" value={data.semestre != null ? String(data.semestre) : "Não informado"} />
                 <InfoCard label="Situação acadêmica" value={displayValue(data.status_aluno)} />
+                <InfoCard label="Turma" value={displayValue(data.turma)} />
+                <InfoCard label="Forma de ingresso" value={displayValue(data.forma_ingresso)} />
                 <InfoCard label="Matrícula" value={displayValue(data.matricula)} />
                 <InfoCard label="Engajamento" value={data.engagement_score != null ? String(data.engagement_score) : "Não informado"} />
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Frequência e presença</p><p className="mt-2 text-[12px] text-[#667085]">Histórico por disciplina indisponível nesta integração. Não inferimos frequência a partir do score.</p></div>
-                <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Notas e avaliações</p><p className="mt-2 text-[12px] text-[#667085]">Histórico de avaliações ainda não conectado à ficha individual.</p></div>
+                <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Frequência e presença</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[#111827]">{data.presenca_percentual != null ? `${data.presenca_percentual}%` : "Não informado"}</p><p className="mt-1 text-[12px] text-[#667085]">Presença agregada informada pela instituição; histórico por disciplina ainda não disponível.</p></div>
+                <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Notas e avaliações</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[#111827]">{data.nota_media != null ? String(data.nota_media) : "Não informado"}</p><p className="mt-1 text-[12px] text-[#667085]">Média informada pela instituição · {data.reprovacoes != null ? `${data.reprovacoes} reprovações` : "reprovações não informadas"}. Histórico por disciplina ainda não disponível.</p></div>
               </div>
             </section>
 
@@ -488,7 +490,7 @@ export default function StudentDetailPage() {
                     <div>
                       <h2 className="text-[15px] font-semibold text-[#111827]">Comunicação</h2>
                       <p className="mt-1 text-[12px] leading-relaxed text-[#667085]">
-                        {data.communication_opt_out ? "Opt-out ativo — não contatar automaticamente." : "Contato autorizado, sujeito a regras de anti-spam."}
+                        {data.communication_opt_out ? "Opt-out ativo — não contatar automaticamente." : "Sem opt-out global registrado. A autorização por canal e finalidade deve ser verificada antes de qualquer contato."}
                       </p>
                     </div>
                   </div>
