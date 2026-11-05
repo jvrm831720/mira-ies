@@ -54,3 +54,56 @@ def test_schema_validation_fails_closed_on_unsupported_keywords():
             {"name": "Mira"},
             {"type": "object", "properties": {}, "patternProperties": {}},
         )
+
+
+def test_approval_api_rejects_api_keys_and_requires_human_aal2():
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+    from app.api.composio import _require_human_aal2
+
+    api_key = SimpleNamespace(user_id=None, session_id=None, aal=2)
+    with pytest.raises(HTTPException) as exc:
+        _require_human_aal2(api_key)
+    assert exc.value.status_code == 403
+
+    aal1 = SimpleNamespace(user_id="user-a", session_id="session-a", aal=1)
+    with pytest.raises(HTTPException):
+        _require_human_aal2(aal1)
+
+    human = SimpleNamespace(user_id="user-a", session_id="session-a", aal=2)
+    assert _require_human_aal2(human) is None
+
+
+def test_approval_response_only_returns_redacted_decrypted_preview(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+
+    from app.api.composio import _approval_response
+
+    class Settings:
+        secret_key = "s" * 48
+        composio_identity_secret = "i" * 48
+
+    monkeypatch.setattr(policy, "get_settings", lambda: Settings())
+    ciphertext = policy.encrypt_arguments(
+        tenant_id="tenant-a",
+        arguments={"recipient_email": "person@example.com", "subject": "Hello"},
+    )
+    now = datetime.now(timezone.utc)
+    row = SimpleNamespace(
+        id="approval-1", tenant_id="tenant-a",
+        connected_account_id="ca-1", toolkit_slug="gmail",
+        tool_slug="GMAIL_SEND_EMAIL", status="pending_approval",
+        arguments_ciphertext=ciphertext, request_fingerprint="f" * 64,
+        requested_by_user_id="user-a", reviewed_by_user_id=None,
+        requested_at=now, expires_at=now + timedelta(minutes=30),
+        reviewed_at=None,
+    )
+
+    result = _approval_response(row)
+    assert result["arguments_preview"] == {
+        "recipient_email": "[redacted]", "subject": "Hello"
+    }
+    assert "arguments_ciphertext" not in result
+    assert "arguments" not in result
