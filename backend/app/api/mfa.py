@@ -509,6 +509,82 @@ async def disable_mfa(
     )
 
 
+
+@router.get("/sessions")
+async def list_my_mfa_sessions(
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """List only active, non-expired sessions for this user in this workspace."""
+    user_id = _require_user(auth)
+    result = await db.execute(
+        select(UserSession)
+        .where(
+            UserSession.tenant_id == auth.tenant_id,
+            UserSession.user_id == user_id,
+            UserSession.revoked_at.is_(None),
+            UserSession.expires_at > _now(),
+        )
+        .order_by(UserSession.created_at.desc(), UserSession.id.desc())
+    )
+    return {
+        "sessions": [
+            {
+                "id": item.id,
+                "current": item.id == auth.session_id,
+                "device_label": item.device_label,
+                "created_at": item.created_at.isoformat(),
+                "expires_at": item.expires_at.isoformat(),
+                "aal": item.aal,
+            }
+            for item in result.scalars().all()
+        ]
+    }
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_my_mfa_session(
+    session_id: str,
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke one of the user's other sessions; no cross-user or cross-tenant action."""
+    user_id = _require_user(auth)
+    _require_recent_auth(auth, minimum_aal=2)
+    if session_id == auth.session_id:
+        raise HTTPException(status_code=409, detail="Não é possível encerrar a sessão atual nesta tela.")
+
+    # UUID route inputs must not propagate database conversion failures.
+    from uuid import UUID
+
+    try:
+        UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.") from None
+
+    result = await db.execute(
+        select(UserSession)
+        .where(
+            UserSession.id == session_id,
+            UserSession.tenant_id == auth.tenant_id,
+            UserSession.user_id == user_id,
+            UserSession.revoked_at.is_(None),
+            UserSession.expires_at > _now(),
+        )
+        .with_for_update()
+    )
+    target = result.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.")
+
+    target.revoked_at = _now()
+    target.revoked_by_user_id = user_id
+    target.revoke_reason = "user_revoked_session"
+    _audit(db, auth.tenant_id, user_id, "session_revoked")
+    await db.commit()
+    return {"revoked": True}
+
+
 @router.get("/policy")
 async def read_mfa_policy(
     auth: AuthContext = Depends(get_current_tenant),
