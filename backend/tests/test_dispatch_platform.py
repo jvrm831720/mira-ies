@@ -335,7 +335,6 @@ async def test_connector_reconciliation_blocks_paid_debt_and_deduplicates(
     from app.services import dispatch_core as core
 
     org, key = tenant
-    headers = {"X-API-Key": key}
     secret = await source_test_secret(db_session,org.id,"test_erp","financial")
     ref = "invoice-001"
     body = {
@@ -959,7 +958,6 @@ async def test_retention_proposal_bridge_denies_unapproved_or_cross_tenant(
 async def test_signed_authorization_ingress_denies_unsigned_and_replayed_payloads(
     client,db_session,tenant,
 ):
-    from app.services import dispatch_ingress_security as gate
     from app.services import dispatch_interventions as interventions
     from app.services import dispatch_core as core
     from app.services.dispatch_ingress_security import signature
