@@ -7,6 +7,7 @@ or establish that a payment was made. Provider credentials remain elsewhere.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from uuid import UUID
 
 from sqlalchemy import select
@@ -34,6 +35,19 @@ NATIVE_CONNECTORS = {
     "sponte": ("Sponte", TenantSponteConnection),
     "omie": ("Omie", TenantOmieConnection),
 }
+
+
+_READ_VERBS = re.compile(r"(?:^|_)(?:GET|LIST|SEARCH|FETCH|READ|RETRIEVE|QUERY|LOOKUP|FIND|DESCRIBE|VIEW)(?:_|$)")
+_MUTATING_VERBS = re.compile(r"(?:^|_)(?:SEND|POST|CREATE|UPDATE|EDIT|DELETE|REMOVE|WRITE|PATCH|PUT|PUBLISH|ARCHIVE|TRIGGER|EXECUTE|REPLY|TRANSFER|CHARGE|PAY)(?:_|$)")
+
+
+def source_tool_is_read_only(slug: str) -> bool:
+    """Conservative slug policy for context-only bindings, not a tool executor.
+
+    Tool schema/side-effects must be verified separately before any real call.
+    """
+    name = slug.strip().upper()
+    return bool(name and _READ_VERBS.search(name) and not _MUTATING_VERBS.search(name))
 
 
 @dataclass(frozen=True)
@@ -105,8 +119,12 @@ async def require_source(
             TenantComposioToolkitPolicy.tenant_id == tenant_id,
             TenantComposioToolkitPolicy.toolkit_slug == account.toolkit_slug,
         ))).scalar_one_or_none()
-        if policy is None or not policy.is_enabled or tool_slug not in (policy.tool_slugs or []):
-            return SourceState(False, "composio_tool_not_allowed_for_workspace")
+        if (
+            policy is None or not policy.is_enabled
+            or tool_slug not in (policy.tool_slugs or [])
+            or not source_tool_is_read_only(tool_slug)
+        ):
+            return SourceState(False, "composio_read_tool_not_allowed_for_workspace")
         return SourceState(True, "composio_connection_policy_verified_metadata_only")
 
     if kind == "retention_proposal":
@@ -166,7 +184,10 @@ async def list_sources(db: AsyncSession, *, tenant_id: str) -> dict:
     for account in accounts:
         policy = policies.get(account.toolkit_slug)
         connected = account.status == "active" and account.disconnected_at is None
-        selected_tools = list(policy.tool_slugs or []) if policy and policy.is_enabled else []
+        selected_tools = (
+            [slug for slug in (policy.tool_slugs or []) if isinstance(slug, str) and source_tool_is_read_only(slug)]
+            if policy and policy.is_enabled else []
+        )
         can_bind = bool(
             connected and composio_is_configured(settings)
             and composio_toolkit_allowed(account.toolkit_slug, settings)
