@@ -99,6 +99,7 @@ const groups: NavGroup[] = [
       { href: "/importar", label: "Importar dados", icon: FileUp, keywords: "upload csv xlsx base" },
       { href: "/importacoes", label: "Histórico de importações", icon: FileClock, keywords: "arquivos processamento" },
       { href: "/conectores", label: "Integrações", icon: Database, keywords: "sistemas conectores fontes" },
+      { href: "/conectores/financeiro", label: "Fontes financeiras", icon: CreditCard, keywords: "erp conciliação metadados com posio fontes importação" },
     ],
   },
   {

@@ -38,6 +38,11 @@ const categories = [
   { value: "academic_review", label: "Revisão acadêmica" },
   { value: "other", label: "Outro assunto" },
 ];
+const financeStates: Record<string, string> = {
+  open: "Em aberto", overdue: "Vencido", partially_paid: "Pagamento parcial informado",
+  reported_paid: "Pagamento informado (não confirmado)", cancelled: "Cancelado",
+  disputed: "Em disputa", unknown: "Situação não verificada",
+};
 function brazilMoney(raw: Financial) {
   const n = Number(raw.amount);
   return raw.currency === "BRL" && Number.isFinite(n)
