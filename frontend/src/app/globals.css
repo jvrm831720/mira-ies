@@ -4,52 +4,52 @@
 
 :root {
   /* ── Legacy HSL (shadcn compatibility) ── */
-  --background: 36 33% 97%;
-  --foreground: 222 25% 12%;
-  --card: 40 33% 99%;
-  --card-foreground: 222 25% 12%;
-  --primary: 233 56% 53%;
+  --background: 0 0% 100%;
+  --foreground: 220 10% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 10% 12%;
+  --primary: 216 87% 55%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 36 24% 92%;
+  --secondary: 220 14% 96%;
   --secondary-foreground: 222 25% 12%;
-  --muted: 36 20% 92%;
-  --muted-foreground: 220 10% 44%;
-  --accent: 233 56% 96%;
-  --accent-foreground: 233 56% 30%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 215 10% 47%;
+  --accent: 216 100% 96%;
+  --accent-foreground: 216 87% 45%;
   --destructive: 4 76% 58%;
   --destructive-foreground: 0 0% 100%;
   --success: 155 55% 34%;
   --success-foreground: 0 0% 100%;
   --warning: 35 92% 48%;
   --warning-foreground: 28 77% 15%;
-  --border: 34 18% 86%;
-  --input: 34 18% 86%;
-  --ring: 233 56% 53%;
+  --border: 220 14% 91%;
+  --input: 220 14% 91%;
+  --ring: 216 87% 55%;
 
   /* ── MIRA brand (preserved) ── */
-  --brand-indigo: #4050cd;
-  --brand-blue: #29399f;
+  --brand-indigo: #266df0;
+  --brand-blue: #266df0;
   --brand-coral: #f47769;
   --brand-midnight: #17191d;
   --brand-black: #101114;
-  --brand-paper: #f7f5ef;
+  --brand-paper: #f4f5f6;
 
   /* ── Attio-aligned neutrals (product light) ── */
   --color-black-0: #000000;
   --color-ink: #101112;
   --color-ink-900: #232529;
   --color-ink-850: #242629;
-  --color-slate-600: #505967;
-  --color-slate-500: #505155;
+  --color-slate-600: #6f7988;
+  --color-slate-500: #505967;
   --color-steel: #383E47;
-  --color-muted: #75777C;
+  --color-muted: #6f7988;
   --color-faint: #9FA1A7;
-  --color-divider: #CDCED2;
-  --color-line: #BABBBC;
-  --color-border: #E6E7EA;
-  --color-border-subtle: #EEEFF1;
-  --color-panel: #F8F9FA;
-  --color-surface-raised: #FBFBFB;
+  --color-divider: #e4e7ec;
+  --color-line: #d3d8df;
+  --color-border: #d3d8df;
+  --color-border-subtle: #e4e7ec;
+  --color-panel: #f4f5f6;
+  --color-surface-raised: #f4f5f6;
   --color-canvas: #FFFFFF;
 
   /* ── Attio interactive & semantic tags ── */
@@ -72,9 +72,9 @@
   --color-red-tint-border: #FEE7E7;
 
   /* ── Radius ── */
-  --radius: 1rem;
-  --radius-control: 0.75rem;
-  --radius-card: 1rem;
+  --radius: 0.625rem;
+  --radius-control: 0.625rem;
+  --radius-card: 0.75rem;
   --radius-pill: 999px;
   --radius-xs: 5px;
   --radius-sm: 7px;
@@ -102,15 +102,15 @@
   --spacing-2xl: 20px;
 
   /* ── Semantic surfaces (product) ── */
-  --surface-page: #f7f6f2;
+  --surface-page: #ffffff;
   --surface-card: #ffffff;
-  --surface-subtle: #f2f1ed;
-  --text-primary: #17191d;
-  --text-secondary: #667085;
-  --border-subtle: #e6e4df;
-  --border-strong: #d0cdc5;
-  --focus-ring: hsl(var(--ring));
-  --shadow-card: 0 1px 2px rgba(23, 25, 29, 0.03), 0 8px 24px rgba(23, 25, 29, 0.045);
+  --surface-subtle: #f4f5f6;
+  --text-primary: #1c1d1f;
+  --text-secondary: #6f7988;
+  --border-subtle: #e4e7ec;
+  --border-strong: #cad0d9;
+  --focus-ring: #266df0;
+  --shadow-card: 0 2px 3px -2px rgba(28, 40, 64, 0.10), 0 4px 6px -2px rgba(28, 40, 64, 0.04);
   --shadow-overlay: 0 16px 48px rgba(15, 23, 42, 0.16);
   --shadow-button-attio: rgba(255, 255, 255, 0.1) 0.2px 0.2px 2px 0px inset, rgba(0, 0, 0, 0.25) 0px 1.5px 1.5px 0px;
   --shadow-card-attio: rgba(0, 22, 62, 0.01) 0px 0px 1px 1px, rgba(0, 22, 62, 0.04) 0px 4px 12px -1px, rgba(0, 22, 62, 0.18) 0px 1px 3px -1px;
@@ -131,9 +131,7 @@ html {
 
 body {
   color: hsl(var(--foreground));
-  background:
-    radial-gradient(circle at 92% -12%, rgba(64, 80, 205, 0.055), transparent 28rem),
-    hsl(var(--background));
+  background: #ffffff;
   min-height: 100vh;
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
@@ -163,7 +161,7 @@ body {
 
 ::selection {
   color: #fff;
-  background: var(--brand-indigo);
+  background: #266df0;
 }
 
 :focus-visible {
@@ -948,4 +946,44 @@ textarea {
   .mira-onboarding-form {
     min-height: 680px;
   }
+}
+
+
+/* Attio product language — shared by all authenticated MIRA screens. */
+body { background: #fff; }
+.mira-page {
+  max-width: 1440px;
+  background: #fff;
+  color: #1c1d1f;
+  font-family: Inter, var(--font-geist-sans), sans-serif;
+}
+.mira-page h1, .mira-page h2, .mira-page h3 {
+  color: #1c1d1f;
+}
+.mira-page section.rounded-xl,
+.mira-page article.rounded-xl,
+.mira-page [data-mira-card="true"] {
+  border-radius: 12px;
+  border-color: #e4e7ec;
+  box-shadow: 0 2px 3px -2px rgba(28, 40, 64, 0.08), 0 4px 6px -2px rgba(28, 40, 64, 0.035);
+}
+.mira-page input:not([type="checkbox"]),
+.mira-page select,
+.mira-page textarea {
+  border-radius: 10px;
+  border-color: #e4e7ec;
+}
+.mira-page button:focus-visible,
+.mira-page a:focus-visible {
+  outline-color: #266df0;
+}
+.mira-page table thead {
+  background: #f4f5f6;
+}
+.mira-page table th {
+  color: #6f7988;
+  font-weight: 500;
+}
+.mira-page table tbody tr {
+  border-color: #e4e7ec;
 }
