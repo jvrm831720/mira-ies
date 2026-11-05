@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -218,7 +218,11 @@ async def apply_import(
         )
     except IntegrityError as exc:
         await db.rollback()
-        # Concorrência com a mesma chave: releitura segura depois do rollback.
+        # O rollback encerra a transação e limpa o contexto RLS; restaure o tenant autenticado.
+        await db.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": auth.tenant_id},
+        )
         current = await db.execute(
             select(UploadBatch).where(
                 UploadBatch.id == deterministic_batch_id,

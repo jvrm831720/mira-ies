@@ -97,6 +97,8 @@ async def update_custom_field(
     if body.label is not None:
         definition.label = body.label
     if body.options is not None:
+        if definition.data_type == "enum" and not body.options:
+            raise HTTPException(status_code=422, detail="Campo enum precisa ter opções.")
         definition.options = body.options
     if body.required is not None:
         definition.required = body.required

@@ -63,7 +63,7 @@ def coerce_value(raw: Any, data_type: str, options: Optional[list] = None):
             return True, text, None
         if data_type == "integer":
             number = _parse_number(text)
-            if not math.isfinite(number) or not number.is_integer():
+            if not math.isfinite(number) or not number.is_integer() or abs(number) > 2_147_483_647:
                 return False, None, f"Valor inteiro inválido: {text!r}"
             return True, int(number), None
         if data_type == "number":
