@@ -21,6 +21,7 @@ from app.models.education_engine import (
     TenantEducationEngineAudit, TenantEducationEngineConnection, TenantEducationEngineStudent,
 )
 from app.models.student import Student
+from app.models.organization import Organization
 from app.services.education_engine_client import (
     ALLOWED_COLLECTIONS, EducationEngineClient, EducationEngineError,
     checked_engine_url, checked_site, safe_remote_student_id,
@@ -98,6 +99,20 @@ def _connection_output(row: TenantEducationEngineConnection | None) -> dict:
     }
 
 
+async def _require_ies(auth: AuthContext, db: AsyncSession) -> None:
+    """Do not offer academic/fees services to a cobrança/other workspace."""
+    if auth.tenant.organization_id:
+        found = await db.execute(select(Organization.operation_profile).where(
+            Organization.id == auth.tenant.organization_id,
+        ))
+        if found.scalar_one_or_none() != "institution":
+            raise HTTPException(status_code=403, detail="Recurso exclusivo de instituição de ensino.")
+    elif (auth.tenant.segment or "").strip().lower() in (
+        "billing", "collections", "cobranca", "cobrança",
+    ):
+        raise HTTPException(status_code=403, detail="Recurso exclusivo de instituição de ensino.")
+
+
 async def _connection(db: AsyncSession, tenant_id: str) -> TenantEducationEngineConnection | None:
     result = await db.execute(
         select(TenantEducationEngineConnection).where(
@@ -124,6 +139,7 @@ def _error(exc: EducationEngineError) -> HTTPException:
 async def _client(
     db: AsyncSession, auth: AuthContext, *, allow_unverified: bool = False,
 ) -> tuple[TenantEducationEngineConnection, EducationEngineClient]:
+    await _require_ies(auth, db)
     base_url, allowed = _environment_ready()
     row = await _connection(db, auth.tenant_id)
     if row is None:
@@ -148,6 +164,7 @@ async def connection_status(
     auth: AuthContext = Depends(require_permission("settings.manage")),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_ies(auth, db)
     return {
         **_connection_output(await _connection(db, auth.tenant_id)),
         "environment_enabled": get_settings().mira_education_engine_enabled,
@@ -160,6 +177,7 @@ async def configure_connection(
     auth: AuthContext = Depends(require_permission("settings.manage")),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_ies(auth, db)
     _, allowed = _environment_ready()
     site = _site_allowed(body.site_name, allowed)
     row = await _connection(db, auth.tenant_id)
@@ -230,6 +248,7 @@ async def enable_connection(
     auth: AuthContext = Depends(require_permission("settings.manage")),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_ies(auth, db)
     _environment_ready()
     row = await _connection(db, auth.tenant_id)
     now = datetime.now(timezone.utc)
@@ -251,6 +270,7 @@ async def disable_connection(
     auth: AuthContext = Depends(require_permission("settings.manage")),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_ies(auth, db)
     row = await _connection(db, auth.tenant_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Conexão acadêmica inexistente.")
@@ -374,6 +394,7 @@ async def connection_audit(
     auth: AuthContext = Depends(require_permission("audit.view")),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_ies(auth, db)
     results = await db.execute(
         select(TenantEducationEngineAudit).where(
             TenantEducationEngineAudit.tenant_id == auth.tenant_id,
