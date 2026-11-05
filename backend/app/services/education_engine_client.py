@@ -70,6 +70,12 @@ def checked_engine_url(value: str, app_env: str) -> str:
         raise ValueError("URL do motor acadêmico inválida.")
     if parsed.username or parsed.password or parsed.path not in ("", "/") or parsed.query or parsed.fragment:
         raise ValueError("Use apenas a origem fixa do motor acadêmico.")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Porta inválida no motor acadêmico.") from exc
+    if port is not None and not (1 <= port <= 65535):
+        raise ValueError("Porta inválida no motor acadêmico.")
     host = parsed.hostname.lower()
     try:
         ip = ipaddress.ip_address(host)
@@ -88,6 +94,16 @@ def checked_engine_url(value: str, app_env: str) -> str:
     return value.rstrip("/")
 
 
+def safe_remote_student_id(value: str) -> bool:
+    # Frappe IDs are document names, never URLs or path segments under user control.
+    return bool(
+        isinstance(value, str) and 1 <= len(value) <= 180
+        and value == value.strip() and value not in (".", "..")
+        and not any(ch in value for ch in ("/", "\\\\", "?", "#", "%"))
+        and not any(ord(ch) < 32 or ord(ch) == 127 for ch in value)
+    )
+
+
 class EducationEngineClient:
     def __init__(
         self, *, base_url: str, site: str, api_key: str, api_secret: str,
@@ -96,7 +112,8 @@ class EducationEngineClient:
         checked_engine_url(base_url, app_env)
         if not api_key or not api_secret:
             raise ValueError("Credencial incompleta.")
-        self.site = site
+        # Header value must be a valid site name even for direct internal calls.
+        self.site = checked_site(site, site)
         self._client = httpx.AsyncClient(
             base_url=base_url,
             timeout=httpx.Timeout(15.0, connect=5.0),
@@ -105,8 +122,8 @@ class EducationEngineClient:
             transport=transport,
             headers={
                 "Authorization": f"token {api_key}:{api_secret}",
-                "Host": site,
-                "X-Frappe-Site-Name": site,
+                "Host": self.site,
+                "X-Frappe-Site-Name": self.site,
                 "Accept": "application/json",
             },
         )
@@ -153,7 +170,7 @@ class EducationEngineClient:
         return isinstance(payload.get("message"), str) and bool(payload["message"])
 
     async def student(self, remote_id: str) -> dict[str, Any]:
-        if not remote_id or len(remote_id) > 180 or any(ord(x) < 32 or ord(x) == 127 for x in remote_id):
+        if not safe_remote_student_id(remote_id):
             raise ValueError("Identificador acadêmico inválido.")
         response = await self._get("/api/resource/Student/" + quote(remote_id, safe=""))
         data = response.get("data")
@@ -166,7 +183,7 @@ class EducationEngineClient:
     ) -> dict[str, Any]:
         if kind not in ALLOWED_COLLECTIONS:
             raise ValueError("Recurso acadêmico não permitido.")
-        if not remote_student_id or len(remote_student_id) > 180:
+        if not safe_remote_student_id(remote_student_id):
             raise ValueError("Aluno remoto inválido.")
         if not 0 <= offset <= 10000 or not 1 <= limit <= 100:
             raise ValueError("Paginação inválida.")
