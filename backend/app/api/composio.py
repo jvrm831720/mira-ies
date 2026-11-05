@@ -125,7 +125,7 @@ async def update_toolkit_policy(
     result = await db.execute(select(TenantComposioToolkitPolicy).where(
         TenantComposioToolkitPolicy.tenant_id == auth.tenant_id,
         TenantComposioToolkitPolicy.toolkit_slug == slug,
-    ))
+    ).with_for_update())
     row = result.scalar_one_or_none()
     now = datetime.now(timezone.utc)
     if row is None:
