@@ -258,6 +258,7 @@ async def delete_connection(
             tenant_id=auth.tenant_id,
             connected_account_id=connected_account_id,
             revoke_remote=True,
+            actor_user_id=auth.user_id,
         )
     except Exception as exc:
         raise _catalog_error(exc) from exc
