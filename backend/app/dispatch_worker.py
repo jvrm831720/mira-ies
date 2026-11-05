@@ -198,6 +198,16 @@ async def process_item(
             await db.rollback()
             return "stale"
         camp, record = dict(campaign), dict(item)
+        # Serialize concurrent campaigns addressing the same recipient.
+        # The competing worker sees this item as 'sending' after commit,
+        # so the 24-hour contact limit cannot be bypassed by simultaneous claims.
+        await db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+            {"key": (
+                f"dispatch:contact:{tenant_id}:{record['subject_type']}:"
+                f"{record['subject_ref']}:{record['channel']}"
+            )},
+        )
         decision = await eligibility(db, tenant_id=tenant_id, campaign=camp, item=record)
         if not decision.allowed:
             if decision.reason in TRANSIENT_REASONS:
