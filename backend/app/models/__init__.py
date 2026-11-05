@@ -17,6 +17,7 @@ from app.models.connector_destination import TenantConnectorDestination, TenantC
 from app.models.composio_connection import (
     TenantComposioSession,
     TenantComposioAccount,
+    TenantComposioOAuthState,
     TenantComposioToolAudit,
     TenantComposioToolkitPolicy,
 )
@@ -33,6 +34,7 @@ __all__ = [
     "SophiaSyncJob", "SophiaSyncJobEvent", "SophiaStudentResource",
     "RmSyncScope", "RmSyncRun", "RmSyncPage", "RmSyncRecord",
     "RmSyncJob", "RmSyncJobEvent", "TenantConnectorDestination", "TenantConnectorDestinationAudit",
-    "TenantComposioSession", "TenantComposioAccount", "TenantComposioToolAudit", "TenantComposioToolkitPolicy",
+    "TenantComposioSession", "TenantComposioAccount", "TenantComposioOAuthState",
+    "TenantComposioToolAudit", "TenantComposioToolkitPolicy",
     "TenantIntegrationDataSource", "StudentFeatureObservation",
 ]
