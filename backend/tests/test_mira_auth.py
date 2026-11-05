@@ -309,10 +309,10 @@ async def test_email_otp_request_routes_verified_unknown_email_to_onboarding(
         json={"email": "new-user@example.test", "code": code_match.group(1)},
     )
     assert verified.status_code == 200, verified.text
-    assert verified.json() == {
-        "onboarding_required": True,
-        "email": "new-user@example.test",
-    }
+    assert verified.json()["onboarding_required"] is True
+    assert verified.json()["email"] == "new-user@example.test"
+    assert isinstance(verified.json()["onboarding_token"], str)
+    assert len(verified.json()["onboarding_token"]) >= 32
     assert "access_token" not in verified.json()
 
     replay = await client.post(
