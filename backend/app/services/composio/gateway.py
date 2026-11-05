@@ -15,7 +15,11 @@ class ComposioNotConfigured(RuntimeError):
 
 def composio_is_configured(settings: Settings | None = None) -> bool:
     config = settings or get_settings()
-    return bool(config.composio_enabled and config.composio_api_key)
+    return bool(
+        config.composio_enabled
+        and config.composio_api_key
+        and config.composio_identity_secret
+    )
 
 
 def composio_toolkit_allowed(toolkit_slug: str, settings: Settings | None = None) -> bool:
@@ -36,6 +40,6 @@ def require_composio_configuration(settings: Settings | None = None) -> Settings
     config = settings or get_settings()
     if not composio_is_configured(config):
         raise ComposioNotConfigured(
-            "Composio está desativado. Configure COMPOSIO_ENABLED e COMPOSIO_API_KEY."
+            "Composio está desativado. Configure COMPOSIO_ENABLED, COMPOSIO_API_KEY e COMPOSIO_IDENTITY_SECRET."
         )
     return config
