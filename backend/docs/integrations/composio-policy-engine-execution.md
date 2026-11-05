@@ -124,3 +124,17 @@ Referências:
 - https://docs.composio.dev/reference/api-reference/tools
 - https://docs.composio.dev/docs/tools-direct/executing-tools
 - https://pypi.org/project/composio/0.31.0/
+
+
+## Checkpoint Wave 3.0 — policy primitives
+
+A camada `backend/app/services/composio/policy.py` agora contém:
+- resolução fail-closed da policy global, policy do tenant, conta ativa tenant-scoped e ferramenta do catálogo atual;
+- validação conservadora de argumentos contra um subconjunto explícito de JSON Schema; palavras-chave desconhecidas ou schemas incompatíveis são negados;
+- fingerprint SHA-256 sobre tenant, conta, toolkit, tool, schema e argumentos canônicos;
+- envelope AES-256-GCM com nonce aleatório e AAD vinculada ao tenant;
+- preview com redação recursiva de campos sensíveis.
+
+Testes unitários iniciais cobrem round-trip criptográfico, vinculação ao tenant, redação e rejeição de schema incompleto/não suportado.
+
+**Ainda não entregue:** endpoints de solicitação/revisão/cancelamento, locks e idempotência transacional da API, auditoria dos eventos de approval, testes PostgreSQL/RLS e integração completa com o schema real de cada toolkit. A função de policy não executa tools. O executor permanece ausente e a feature flag continua false.
