@@ -8,7 +8,7 @@
   --foreground: 220 10% 12%;
   --card: 0 0% 100%;
   --card-foreground: 220 10% 12%;
-  --primary: 220 4% 14%;
+  --primary: 216 87% 55%;
   --primary-foreground: 0 0% 100%;
   --secondary: 220 14% 96%;
   --secondary-foreground: 222 25% 12%;
@@ -951,7 +951,8 @@ textarea {
 
 /* Attio product language — shared by all authenticated MIRA screens. */
 body { background: #fff; }
-.mira-page {
+ .mira-page {
+  --primary: 220 4% 14%;
   max-width: 1440px;
   background: #fff;
   color: #1c1d1f;
