@@ -146,6 +146,7 @@ class FinanceObservation(Base):
 class FinanceReviewCase(Base):
     __tablename__ = "mira_finance_review_cases"
     __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_mira_finance_case_tenant_id"),
         UniqueConstraint("tenant_id", "profile_id", "external_id", name="uq_mira_finance_case_source"),
         ForeignKeyConstraint(
             ["tenant_id", "profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"],
