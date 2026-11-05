@@ -322,6 +322,7 @@ export default function FinancialSourcesPage() {
         <Link href="/conectores" className="text-[12px] font-medium text-[#667085] hover:text-[#2563EB]">
           Integrações / Fontes financeiras
         </Link>
+        <div className="flex justify-end"><Link href="/conectores/financeiro/pagamentos" className="text-[12px] font-semibold text-[#2563EB] hover:underline">Pagamentos em homologação</Link></div>
         <div className="rounded-xl border border-[#EAECF0] bg-white px-5 py-4">
           <p className="text-[12px] font-semibold text-[#344054]">Homologação e proveniência</p>
           <p className="mt-1 text-[12px] leading-5 text-[#667085]">

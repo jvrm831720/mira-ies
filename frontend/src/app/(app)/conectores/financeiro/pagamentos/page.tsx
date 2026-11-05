@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { financeApi, type FinanceProfile, type FinanceConnection } from "@/lib/finance-reconciliation-api";
@@ -19,7 +19,7 @@ function failure(value: unknown) {
 }
 
 function Card({ title, explanation, children }: {
-  title: string; explanation?: string; children: React.ReactNode;
+  title: string; explanation?: string; children: ReactNode;
 }) {
   return <section className="rounded-2xl border border-[#E4E7EC] bg-white p-5">
     <h2 className="text-[15px] font-semibold text-[#101828]">{title}</h2>

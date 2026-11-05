@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
