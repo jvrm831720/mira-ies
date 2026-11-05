@@ -226,7 +226,7 @@ function MonitoramentoPageInner() {
             </button>
             <Link
               href="/alunos"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#266df0] px-3.5 text-[12px] font-semibold text-white hover:bg-[#407ff2]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-3.5 text-[12px] font-medium text-white hover:bg-[#101113]"
             >
               Lista de alunos
               <ArrowRight className="h-3.5 w-3.5" />
