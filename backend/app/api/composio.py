@@ -114,7 +114,8 @@ async def get_catalog_categories(
             documents_category(),
             productivity_category(),
             data_analysis_category(),
-            support_category(),\n            scheduling_category(),
+            support_category(),
+            scheduling_category(),
         ],
         "total": 7,
     }
