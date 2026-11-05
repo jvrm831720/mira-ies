@@ -166,6 +166,12 @@ async def complete_onboarding(
     db.add(tenant)
     await db.flush()
 
+    # Establish tenant context before writing tenant-scoped rows.
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant.id},
+    )
+
     display_name = f"{body.first_name.strip()} {body.last_name.strip()}".strip()[:120]
     # MIRA's first-run access is passwordless (verified email OTP). Store an
     # unguessable hash so no reusable password is created from onboarding data.
@@ -178,17 +184,12 @@ async def complete_onboarding(
         role="admin",
         is_active=True,
     )
-    db.add(user)
-    await db.flush()
-
     await db.execute(
         text("SELECT set_config('app.user_id', :user_id, true)"),
         {"user_id": user.id},
     )
-    await db.execute(
-        __import__("sqlalchemy").text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
-        {"tenant_id": tenant.id},
-    )
+    db.add(user)
+    await db.flush()
 
     db.add(Membership(
         id=str(uuid4()),
