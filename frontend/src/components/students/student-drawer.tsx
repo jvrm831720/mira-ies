@@ -112,7 +112,7 @@ export function StudentDrawer({
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-[#111827]/30 transition-opacity ${
+        className={`fixed inset-0 z-40 bg-[#1c1d1f]/30 transition-opacity ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={onClose}
@@ -122,64 +122,59 @@ export function StudentDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Detalhes do aluno"
-        className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-[440px] flex-col border-l border-[#E5E7EB] bg-white shadow-[-16px_0_40px_rgba(16,24,40,0.12)] transition-transform duration-300 ease-out ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-[440px] flex-col border-l border-[#e4e7ec] bg-white shadow-[-16px_0_40px_rgba(16,24,40,0.12)] transition-transform duration-300 ease-out ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-[#E5E7EB] px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-[#e4e7ec] px-5 py-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#2563EB]">
-              Ficha rápida
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#266df0]">
+              Ficha do aluno
             </p>
             {detail.isLoading ? (
               <Skeleton className="mt-2 h-6 w-48" />
             ) : (
-              <h2 className="mt-1 truncate text-[18px] font-semibold tracking-[-0.02em] text-[#111827]">
+              <h2 className="mt-1 truncate text-[18px] font-semibold tracking-[-0.02em] text-[#1c1d1f]">
                 {nome}
               </h2>
             )}
-            <p className="mt-0.5 text-xs text-[#667085]">
+            <p className="mt-0.5 text-xs text-[#6f7988]">
               Matrícula {matricula} · {curso}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#E5E7EB] text-[#667085] hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#e4e7ec] text-[#6f7988] hover:bg-[#f4f5f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
             aria-label="Fechar"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="border-b border-[#E5E7EB] px-4 py-3">
-          <div
-            role="tablist"
-            aria-label="Seções da ficha do aluno"
-            className="grid grid-cols-4 gap-1 rounded-xl bg-[#F8FAFC] p-1"
-          >
+        <div className="px-4">
+          <div role="tablist" aria-label="Seções da ficha do aluno" className="flex gap-5 overflow-x-auto border-b border-[#e4e7ec]">
             {(
               [
-                { id: "resumo", label: "Resumo", icon: UserRound },
-                { id: "comunicacao", label: "Contato", icon: ShieldCheck },
-                { id: "contexto", label: "Contexto", icon: BookOpen },
-                { id: "historico", label: "Histórico", icon: History },
+                { id: "resumo", label: "Visão geral" },
+                { id: "comunicacao", label: "Comunicação" },
+                { id: "contexto", label: "Contexto" },
+                { id: "historico", label: "Atividade" },
               ] as const
-            ).map(({ id, label, icon: Icon }) => (
+            ).map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={activeTab === id}
                 onClick={() => setActiveTab(id)}
-                className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] ${
+                className={`shrink-0 border-b-2 px-0 py-3 text-[12px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0] ${
                   activeTab === id
-                    ? "bg-white text-[#111827] shadow-sm"
-                    : "text-[#667085] hover:text-[#111827]"
+                    ? "border-[#1c1d1f] text-[#1c1d1f]"
+                    : "border-transparent text-[#6f7988] hover:text-[#1c1d1f]"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{label}</span>
+                {label}
               </button>
             ))}
           </div>
@@ -210,41 +205,41 @@ export function StudentDrawer({
 
           {!detail.isLoading && !detail.isError && s && activeTab === "resumo" && (
             <>
-              <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
+              <div className="rounded-xl border border-[#e4e7ec] bg-[#f4f5f6] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-medium text-[#667085]">Nível de risco</p>
+                    <p className="text-[11px] font-medium text-[#6f7988]">Nível de risco</p>
                     <div className="mt-1.5">
                       <RiskBadge level={riskLevel} />
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11px] font-medium text-[#667085]">Score</p>
-                    <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-[#111827]">
+                    <p className="text-[11px] font-medium text-[#6f7988]">Score</p>
+                    <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-[#1c1d1f]">
                       {Number.isFinite(score) ? formatScore(score) : "Sem score"}
                     </p>
                   </div>
                 </div>
                 {shap && !/\/api\/|GET\s+\/|SHAP sob demanda/i.test(String(shap)) ? (
-                  <p className="mt-3 text-xs leading-relaxed text-[#667085]">{String(shap)}</p>
+                  <p className="mt-3 text-xs leading-relaxed text-[#6f7988]">{String(shap)}</p>
                 ) : !Number.isFinite(score) ? (
-                  <p className="mt-3 text-xs leading-relaxed text-[#98A2B3]">
+                  <p className="mt-3 text-xs leading-relaxed text-[#9fa1a7]">
                     Ausência de score não significa baixo risco.
                   </p>
                 ) : null}
               </div>
 
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9fa1a7]">
                   Contato
                 </p>
-                <div className="space-y-2 rounded-xl border border-[#E5E7EB] p-3">
-                  <div className="flex items-center gap-2 text-sm text-[#344054]">
-                    <Phone className="h-4 w-4 text-[#667085]" />
+                <div className="space-y-2 rounded-xl border border-[#e4e7ec] p-3">
+                  <div className="flex items-center gap-2 text-sm text-[#2e3238]">
+                    <Phone className="h-4 w-4 text-[#6f7988]" />
                     <span>{phone ? String(phone) : "Telefone não informado"}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-[#344054]">
-                    <Mail className="h-4 w-4 text-[#667085]" />
+                  <div className="flex items-center gap-2 text-sm text-[#2e3238]">
+                    <Mail className="h-4 w-4 text-[#6f7988]" />
                     <span className="truncate">{email ? String(email) : "E-mail não informado"}</span>
                   </div>
                 </div>
@@ -252,7 +247,7 @@ export function StudentDrawer({
 
               {factors.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9fa1a7]">
                     Principais fatores
                   </p>
                   <ul className="space-y-2">
@@ -264,7 +259,7 @@ export function StudentDrawer({
                       return (
                         <li
                           key={index}
-                          className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#111827]"
+                          className="rounded-xl border border-[#e4e7ec] bg-white px-3 py-2 text-sm text-[#1c1d1f]"
                         >
                           <span className="font-medium">{label}</span>
                         </li>
@@ -279,18 +274,18 @@ export function StudentDrawer({
           {!detail.isLoading && !detail.isError && s && activeTab === "comunicacao" && (
             <section className="space-y-4">
               <div>
-                <h3 className="text-sm font-semibold text-[#111827]">Contato e permissões</h3>
-                <p className="mt-1 text-xs leading-relaxed text-[#667085]">
+                <h3 className="text-sm font-semibold text-[#1c1d1f]">Contato e permissões</h3>
+                <p className="mt-1 text-xs leading-relaxed text-[#6f7988]">
                   Confira os dados cadastrados e respeite as preferências de comunicação.
                 </p>
               </div>
-              <div className="space-y-2 rounded-xl border border-[#E5E7EB] p-3">
+              <div className="space-y-2 rounded-xl border border-[#e4e7ec] p-3">
                 <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-[#667085]" />
+                  <Phone className="h-4 w-4 text-[#6f7988]" />
                   <span className="break-all">{phone ? String(phone) : "Telefone não informado"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-[#667085]" />
+                  <Mail className="h-4 w-4 text-[#6f7988]" />
                   <span className="break-all">{email ? String(email) : "E-mail não informado"}</span>
                 </div>
               </div>
@@ -306,8 +301,8 @@ export function StudentDrawer({
           {!detail.isLoading && !detail.isError && s && activeTab === "contexto" && (
             <section className="space-y-4">
               <div>
-                <h3 className="text-sm font-semibold text-[#111827]">Contexto do aluno</h3>
-                <p className="mt-1 text-xs leading-relaxed text-[#667085]">
+                <h3 className="text-sm font-semibold text-[#1c1d1f]">Contexto do aluno</h3>
+                <p className="mt-1 text-xs leading-relaxed text-[#6f7988]">
                   Abra a ficha completa para editar propriedades comportamentais.
                 </p>
               </div>
@@ -326,7 +321,7 @@ export function StudentDrawer({
           )}
         </div>
 
-        <div className="border-t border-[#E5E7EB] p-4">
+        <div className="border-t border-[#e4e7ec] p-4">
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
               href={studentId ? `/alunos/${studentId}` : "#"}
@@ -340,7 +335,7 @@ export function StudentDrawer({
               aria-disabled={!studentId}
               tabIndex={studentId ? undefined : -1}
               className={buttonVariants({
-                className: `flex-1 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] ${!studentId ? "pointer-events-none opacity-50" : ""}`,
+                className: `flex-1 rounded-lg bg-[#266df0] hover:bg-[#407ff2] ${!studentId ? "pointer-events-none opacity-50" : ""}`,
               })}
             >
               <ExternalLink className="h-4 w-4" /> Abrir ficha completa
@@ -358,7 +353,7 @@ export function StudentDrawer({
               tabIndex={studentId ? undefined : -1}
               className={buttonVariants({
                 variant: "outline",
-                className: `flex-1 rounded-lg border-[#E5E7EB] ${!studentId ? "pointer-events-none opacity-50" : ""}`,
+                className: `flex-1 rounded-lg border-[#e4e7ec] ${!studentId ? "pointer-events-none opacity-50" : ""}`,
               })}
             >
               <MessageCircle className="h-4 w-4" /> Retenção
@@ -411,14 +406,14 @@ function ConsentPreferencesPanel({
   });
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[#E5E7EB]">
-      <div className="flex items-start gap-3 border-b border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3.5">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#2563EB]">
+    <section className="overflow-hidden rounded-xl border border-[#e4e7ec]">
+      <div className="flex items-start gap-3 border-b border-[#e4e7ec] bg-[#f4f5f6] px-4 py-3.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#266df0]">
           <ShieldCheck className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-[#111827]">Preferências de comunicação</h3>
-          <p className="mt-1 text-[11px] leading-relaxed text-[#667085]">
+          <h3 className="text-sm font-semibold text-[#1c1d1f]">Preferências de comunicação</h3>
+          <p className="mt-1 text-[11px] leading-relaxed text-[#6f7988]">
             Defina quais canais e finalidades são permitidos para este aluno.
           </p>
         </div>
@@ -427,7 +422,7 @@ function ConsentPreferencesPanel({
         {!me.isLoading && !canEdit && (
           <p
             role="status"
-            className="rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 text-[10px] leading-relaxed text-[#667085]"
+            className="rounded-lg border border-[#e4e7ec] bg-[#f4f5f6] px-3 py-2 text-[10px] leading-relaxed text-[#6f7988]"
           >
             Perfil somente leitura: é possível consultar preferências, mas não alterá-las.
           </p>
@@ -451,13 +446,13 @@ function ConsentPreferencesPanel({
           </span>
         </label>
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9fa1a7]">
             Canais
           </p>
           {CHANNEL_OPTIONS.map(({ key, label, detail, icon: Icon }) => (
             <label
               key={key}
-              className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#E5E7EB] p-3"
+              className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#e4e7ec] p-3"
             >
               <input
                 type="checkbox"
@@ -466,26 +461,26 @@ function ConsentPreferencesPanel({
                 onChange={(event) =>
                   update.mutate({ channels: { [key]: event.target.checked } })
                 }
-                className="mt-0.5 h-4 w-4 accent-[#2563EB]"
+                className="mt-0.5 h-4 w-4 accent-[#266df0]"
               />
               <span className="flex min-w-0 items-start gap-2">
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#667085]" />
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#6f7988]" />
                 <span>
-                  <span className="block text-xs font-semibold text-[#111827]">{label}</span>
-                  <span className="mt-0.5 block text-[10px] text-[#667085]">{detail}</span>
+                  <span className="block text-xs font-semibold text-[#1c1d1f]">{label}</span>
+                  <span className="mt-0.5 block text-[10px] text-[#6f7988]">{detail}</span>
                 </span>
               </span>
             </label>
           ))}
         </div>
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9fa1a7]">
             Finalidades
           </p>
           {TOPIC_OPTIONS.map(({ key, label, detail }) => (
             <label
               key={key}
-              className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#E5E7EB] p-3"
+              className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#e4e7ec] p-3"
             >
               <input
                 type="checkbox"
@@ -494,23 +489,23 @@ function ConsentPreferencesPanel({
                 onChange={(event) =>
                   update.mutate({ topics: { [key]: event.target.checked } })
                 }
-                className="mt-0.5 h-4 w-4 accent-[#2563EB]"
+                className="mt-0.5 h-4 w-4 accent-[#266df0]"
               />
               <span>
-                <span className="block text-xs font-semibold text-[#111827]">{label}</span>
-                <span className="mt-0.5 block text-[10px] text-[#667085]">{detail}</span>
+                <span className="block text-xs font-semibold text-[#1c1d1f]">{label}</span>
+                <span className="mt-0.5 block text-[10px] text-[#6f7988]">{detail}</span>
               </span>
             </label>
           ))}
         </div>
         {audit.isLoading && <Skeleton className="h-16 w-full rounded-lg" />}
         {audit.data && audit.data.events.length > 0 && (
-          <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3">
-            <p className="text-[11px] font-semibold text-[#344054]">Auditoria recente</p>
+          <div className="rounded-xl border border-[#e4e7ec] bg-[#f4f5f6] p-3">
+            <p className="text-[11px] font-semibold text-[#2e3238]">Auditoria recente</p>
             <ul className="mt-2 space-y-1.5">
               {audit.data.events.slice(0, 4).map((ev) => (
-                <li key={ev.id} className="text-[10px] leading-relaxed text-[#667085]">
-                  <span className="font-medium text-[#344054]">
+                <li key={ev.id} className="text-[10px] leading-relaxed text-[#6f7988]">
+                  <span className="font-medium text-[#2e3238]">
                     {formatAuditDate(ev.occurred_at)}
                   </span>
                   {" — "}
