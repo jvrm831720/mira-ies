@@ -111,6 +111,7 @@ export default function FinancialSourcesPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [showCreator, setShowCreator] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await Promise.allSettled([
@@ -157,12 +158,30 @@ export default function FinancialSourcesPage() {
   }, [accountToolkit]);
 
   function resetCreate() {
+    setEditingId(null);
     setName(""); setSourceKind("import"); setAccountId(""); setToolSlug("");
     setRowsPath("items"); setMapping(REQUIRED_DEFAULT);
     setStatusText("ABERTO=open\nVENCIDO=overdue\nPAGO=reported_paid");
     setWorkflowText(JSON.stringify(DEFAULT_WORKFLOW, null, 2)); setStudentLookup("mira_id");
     setStep(1); setShowCreator(true); setError(null); setMessage(null);
     setMappingFile(null); setHeaderSuggestions({});
+  }
+
+  function startEdit(profile: FinanceProfile) {
+    setEditingId(profile.id);
+    setName(profile.name);
+    setSourceKind(profile.source_kind);
+    setAccountId(profile.connected_account_id || "");
+    setToolSlug(profile.tool_slug || "");
+    setRowsPath(profile.rows_path || "items");
+    setStudentLookup(profile.student_lookup);
+    setMapping({ ...profile.field_map });
+    setStatusText(Object.entries(profile.status_map).map(([raw, state]) => `${raw}=${state}`).join("\n"));
+    setWorkflowText(JSON.stringify(profile.review_workflow, null, 2));
+    setStep(1);
+    setShowCreator(true);
+    setError(null); setMessage(null);
+    setHeaderSuggestions({});
   }
 
   async function inspectHeaders() {
@@ -213,10 +232,14 @@ export default function FinancialSourcesPage() {
         student_lookup: studentLookup,
       };
       setBusy(true);
-      const added = await financeApi.create(payload);
+      const previous = editingId ? profiles.find((p) => p.id === editingId) : null;
+      if (editingId && !previous) throw new Error("Origem não encontrada. Atualize os dados.");
+      const saved = previous ? await financeApi.configure(previous, payload) : await financeApi.create(payload);
       await refresh();
-      setSelectedId(added.id); setShowCreator(false);
-      setMessage("Origem criada desabilitada. Revise os vínculos e habilite somente em homologação.");
+      setSelectedId(saved.id); setShowCreator(false); setEditingId(null);
+      setMessage(previous
+        ? "Metadados atualizados com nova versão. Revise o mapeamento antes da próxima importação."
+        : "Origem criada desabilitada. Revise os vínculos e habilite somente em homologação.");
     } catch (reason) { setError(safeError(reason)); }
     finally { setBusy(false); }
   }
@@ -349,7 +372,7 @@ export default function FinancialSourcesPage() {
           </Panel>
 
           {showCreator ? (
-            <Panel title="Criar origem configurável" subtitle="Os campos e o workflow são metadados do workspace. Nenhum código por cliente.">
+            <Panel title={editingId ? "Editar origem e metadados" : "Criar origem configurável"} subtitle="Os campos e o workflow são metadados do workspace. Nenhum código por cliente.">
               <div className="mb-5 flex items-center gap-2">
                 {["Origem", "Mapeamento", "Revisar"].map((label,i) => (
                   <span key={label} className={"rounded-md px-3 py-1.5 text-[11px] font-medium " +
@@ -365,14 +388,14 @@ export default function FinancialSourcesPage() {
                       <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} className={fieldClass} placeholder="Ex.: ERP do Campus Norte" />
                     </label>
                     <label className="space-y-1 text-[12px] font-medium text-[#344054]">Tipo
-                      <select className={fieldClass} value={sourceKind} onChange={(e) => setSourceKind(e.target.value as SourceKind)}>
+                      <select className={fieldClass} disabled={Boolean(editingId)} value={sourceKind} onChange={(e) => setSourceKind(e.target.value as SourceKind)}>
                         <option value="import">Arquivo CSV</option><option value="composio">Composio</option>
                       </select>
                     </label>
                   </div>
                   {sourceKind === "composio" && <>
                     <label className="block space-y-1 text-[12px] font-medium text-[#344054]">Conexão financeira existente
-                      <select className={fieldClass} value={accountId} onChange={(e) => { setAccountId(e.target.value); setToolSlug(""); }}>
+                      <select className={fieldClass} disabled={Boolean(editingId)} value={accountId} onChange={(e) => { setAccountId(e.target.value); setToolSlug(""); }}>
                         <option value="">Selecione uma conta conectada</option>
                         {eligibleAccounts.map((a) => (
                           <option key={a.connected_account_id} value={a.connected_account_id}>
@@ -382,7 +405,7 @@ export default function FinancialSourcesPage() {
                       </select>
                     </label>
                     <label className="block space-y-1 text-[12px] font-medium text-[#344054]">Ferramenta de leitura autorizada
-                      <select className={fieldClass} value={toolSlug} onChange={(e) => setToolSlug(e.target.value)}>
+                      <select className={fieldClass} disabled={Boolean(editingId)} value={toolSlug} onChange={(e) => setToolSlug(e.target.value)}>
                         <option value="">Selecione uma ferramenta</option>
                         {tools.map((t) => <option key={t.slug} value={t.slug}>{t.slug}</option>)}
                       </select>
@@ -472,7 +495,7 @@ export default function FinancialSourcesPage() {
                   {step < 3 ? (
                     <button type="button" className={primary} disabled={step === 1 && (!name.trim() || (sourceKind === "composio" && (!accountId || !toolSlug)))}
                       onClick={() => setStep(step + 1)}>Continuar</button>
-                  ) : <button type="submit" disabled={busy} className={primary}>Criar perfil desabilitado</button>}
+                  ) : <button type="submit" disabled={busy} className={primary}>{editingId ? "Salvar nova versão" : "Criar perfil desabilitado"}</button>}
                 </div>
               </form>
             </Panel>
@@ -484,9 +507,14 @@ export default function FinancialSourcesPage() {
                     <p>{selected.source_kind === "composio" ? "Conta Composio" : "CSV / importação manual"} · versão {selected.mapping_version}</p>
                     <p className="mt-1">Vínculo: {selected.student_lookup === "mira_id" ? "UUID MIRA" : "Identificador externo verificado"}</p>
                   </div>
-                  <button className={secondary} type="button" disabled={busy} onClick={() => void switchEnabled(selected)}>
-                    {selected.enabled ? "Desabilitar origem" : "Habilitar origem"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button className={secondary} type="button" disabled={busy} onClick={() => startEdit(selected)}>
+                      Editar metadados
+                    </button>
+                    <button className={secondary} type="button" disabled={busy} onClick={() => void switchEnabled(selected)}>
+                      {selected.enabled ? "Desabilitar origem" : "Habilitar origem"}
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-4 grid gap-2 border-t border-[#EAECF0] pt-4 sm:grid-cols-2">
                   {Object.entries(selected.field_map).map(([field,path]) => (
