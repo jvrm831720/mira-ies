@@ -317,7 +317,38 @@ async def ingest_verified_event(
             "message": event.provider_message_id,
         })).mappings().first()
         if not found:
-            return {"accepted": False, "reason": "unmatched"}
+            # Provider may call back before the sender transaction commits.
+            # Persist only a normalized event, not message content or addresses.
+            incoming_hash=hashlib.sha256(raw).hexdigest()
+            prior=(await db.execute(text("""
+                SELECT event_hash FROM dispatch_inbound
+                WHERE tenant_id=:tenant AND provider=:provider AND external_event_id=:event
+            """), {"tenant":event.tenant_id,"provider":provider,
+                    "event":event.external_event_id})).scalar_one_or_none()
+            if prior and prior!=incoming_hash:
+                raise HTTPException(status_code=409,detail="Evento duplicado com conteúdo divergente.")
+            if prior:
+                return {"accepted":True,"replayed":True,"pending":True}
+            kind_intent, kind_action = (
+                classify_reply(event.message or "") if event.kind=="reply"
+                else ("hard_bounce","suppress_email")
+                if (provider=="resend" and event.kind=="failed" and
+                    event.message in {"email.bounced","email.complained","email.suppressed"})
+                else (None,None)
+            )
+            await db.execute(text("""
+                INSERT INTO dispatch_inbound
+                    (id,tenant_id,item_id,provider,provider_message_id,
+                     external_event_id,event_hash,event_kind,reply_intent,recommended_action)
+                VALUES (:id,:tenant,NULL,:provider,:message,:event,:hash,:kind,:intent,:action)
+            """), {
+                "id":str(uuid4()),"tenant":event.tenant_id,"provider":provider,
+                "message":event.provider_message_id,"event":event.external_event_id,
+                "hash":incoming_hash,"kind":event.kind,
+                "intent":kind_intent,"action":kind_action,
+            })
+            await db.commit()
+            return {"accepted":True,"pending":True}
         item = dict(found)
         existing = (await db.execute(text("""
             SELECT event_hash FROM dispatch_inbound
@@ -331,16 +362,23 @@ async def ingest_verified_event(
             if existing != payload_hash:
                 raise HTTPException(status_code=409, detail="Evento de gateway reutilizado com payload diferente.")
             return {"accepted": True, "replayed": True}
-        intent, action = (classify_reply(event.message or "")
-                          if event.kind == "reply" else (None, None))
+        intent, action = (
+            classify_reply(event.message or "")
+            if event.kind == "reply"
+            else ("hard_bounce", "suppress_email")
+            if (provider=="resend" and event.kind=="failed" and
+                event.message in {"email.bounced","email.complained","email.suppressed"})
+            else (None,None)
+        )
         await db.execute(text("""
             INSERT INTO dispatch_inbound
-                (id,tenant_id,item_id,provider,external_event_id,event_hash,
+                (id,tenant_id,item_id,provider,provider_message_id,external_event_id,event_hash,
                  event_kind,reply_intent,recommended_action)
-            VALUES (:id,:tenant,:item,:provider,:event,:hash,:kind,:intent,:action)
+            VALUES (:id,:tenant,:item,:provider,:message,:event,:hash,:kind,:intent,:action)
         """), {
             "id": str(uuid4()), "tenant": event.tenant_id, "item": item["id"],
-            "provider": provider, "event": event.external_event_id,
+            "provider": provider, "message": event.provider_message_id,
+            "event": event.external_event_id,
             "hash": payload_hash, "kind": event.kind,
             "intent": intent, "action": action,
         })
@@ -358,6 +396,21 @@ async def ingest_verified_event(
                 UPDATE dispatch_items SET status=:status,updated_at=now()
                 WHERE id=:id AND tenant_id=:tenant
             """), {"status": target, "id": item["id"], "tenant": event.tenant_id})
+        if intent == "hard_bounce":
+            await db.execute(text("""
+                INSERT INTO dispatch_suppressions
+                    (id,tenant_id,subject_type,subject_ref,channel,reason)
+                VALUES (:id,:tenant,:kind,:ref,'email','hard_bounce')
+                ON CONFLICT (tenant_id,subject_type,subject_ref,channel) DO NOTHING
+            """), {"id":str(uuid4()),"tenant":event.tenant_id,
+                    "kind":item["subject_type"],"ref":item["subject_ref"]})
+            await db.execute(text("""
+                UPDATE dispatch_items SET status='blocked',last_error='email_undeliverable',
+                    updated_at=now()
+                WHERE tenant_id=:tenant AND subject_type=:kind AND subject_ref=:ref
+                  AND channel='email' AND status IN ('queued','retry_wait','leased')
+            """), {"tenant":event.tenant_id,
+                    "kind":item["subject_type"],"ref":item["subject_ref"]})
         if intent in {"opt_out", "wrong_recipient"}:
             await db.execute(text("""
                 INSERT INTO dispatch_suppressions
