@@ -4,7 +4,7 @@
 
 Wave 3 iniciada em `feat/composio-policy-engine-approval-gate`, baseada na `main` em `19517f9698149cea842607cb0cda0a1007568a5a`.
 
-**Checkpoint 3.0 (fundação):** a migration `049_composio_tool_approvals`, o modelo ORM de aprovações, a FK composta tenant+conta e a flag `COMPOSIO_TOOL_EXECUTION_ENABLED=false` foram adicionados. Ainda não há endpoint de execução nem chamada ao SDK nesta entrega. A migration não foi aplicada a nenhum banco.
+**Checkpoint 3.0:** migration `049_composio_tool_approvals`, modelo ORM, policy engine, criptografia de argumentos e API de solicitações/revisões foram implementados. Ainda não há endpoint de execução nem chamada ao SDK. A migration não foi aplicada a nenhum banco de produção.
 
 Esta primeira entrega define o contrato de segurança antes de habilitar qualquer chamada externa. **A execução permanece desabilitada por padrão.** A existência de uma conta OAuth ou a seleção de uma ferramenta no catálogo não concede, isoladamente, autorização para executá-la.
 
@@ -34,7 +34,7 @@ Se qualquer fonte estiver ausente, inconsistente ou indisponível, negar a chama
 - A carga de argumentos não deve aparecer em logs nem na tabela append-only de auditoria. Se for necessário persistir argumentos para execução posterior, usar envelope criptografado com chave derivada de segredo do servidor; nunca armazenar payload em texto puro.
 - A aprovação exige sessão humana ativa, MFA AAL2 e permissão explícita `settings.manage`. API keys de integração não aprovam solicitações.
 - O aprovador não pode ser o mesmo usuário que solicitou a execução (four-eyes).
-- Aprovação é transacional e de uso único. Rejeição, expiração e revogação da conta invalidam a solicitação.
+- A decisão de aprovação/rejeição é transacional. O consumo atômico da aprovação por uma execução pertence à Wave 3.1. Rejeição, expiração, revogação da conta ou remoção da ferramenta na policy cancelam a pendência.
 - A aprovação deve mostrar toolkit, ferramenta, conta, resumo dos argumentos com redação de campos sensíveis, efeitos esperados e prazo.
 - Alterar argumentos, conta, ferramenta ou versão invalida a aprovação anterior e exige nova solicitação.
 
