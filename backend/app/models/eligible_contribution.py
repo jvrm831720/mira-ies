@@ -43,6 +43,7 @@ class EligibleContribution(Base):
             "tenant_id",
             "contribution_key",
             "sanitized_content_hash",
+            "eligibility_status",  # append-only revoke rows share the same content hash
             name="uq_eligible_contributions_idempotent",
         ),
         Index("ix_eligible_contributions_tenant_status", "tenant_id", "eligibility_status"),

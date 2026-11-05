@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.eligible_contribution import EligibleContribution
 from app.services.contribution_sanitizer import (
@@ -139,6 +140,19 @@ async def assess_contribution(
         )
         await session.commit()
         raise ContributionBlockedError(sanitization.rejection_reason or "Sanitization failed.")
+
+    # A revoked contribution must never become eligible again through an old
+    # idempotency key. The audit trail is immutable and keeps the original row.
+    revoked = await session.execute(
+        select(EligibleContribution.id).where(
+            EligibleContribution.tenant_id == tenant_id,
+            EligibleContribution.contribution_key == contribution_key,
+            EligibleContribution.sanitized_content_hash == sanitization.content_hash,
+            EligibleContribution.eligibility_status == "revoked",
+        ).limit(1)
+    )
+    if revoked.scalar_one_or_none() is not None:
+        raise ContributionBlockedError("Revoked contribution cannot be reused.")
 
     # 3) Idempotency — same tenant + key + hash already eligible
     existing = await session.execute(
@@ -271,12 +285,21 @@ async def list_eligible_contribution_hashes(
     """Return active eligible content hashes per tenant (for shared dataset assembly)."""
     if not tenant_ids:
         return {}
+    revoked = aliased(EligibleContribution)
     result = await session.execute(
         select(EligibleContribution).where(
             EligibleContribution.tenant_id.in_(tenant_ids),
             EligibleContribution.eligibility_status == "eligible",
             EligibleContribution.revoked_at.is_(None),
             EligibleContribution.modality == "shared_training",
+            # Revocations are immutable new rows, so excluding a revoked_at
+            # value on the original eligible row is insufficient.
+            ~select(revoked.id).where(
+                revoked.tenant_id == EligibleContribution.tenant_id,
+                revoked.contribution_key == EligibleContribution.contribution_key,
+                revoked.sanitized_content_hash == EligibleContribution.sanitized_content_hash,
+                revoked.eligibility_status == "revoked",
+            ).exists(),
         )
     )
     out: dict[str, list[str]] = {tid: [] for tid in tenant_ids}

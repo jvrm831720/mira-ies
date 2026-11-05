@@ -102,12 +102,46 @@ jobs:
           ALTER TABLE mira_org_invites DROP COLUMN IF EXISTS custom_role_id CASCADE;
           SQL
           PYTHONPATH=. alembic upgrade head
+      - name: Verify migrated security controls
+        run: |
+          psql "$MIRA_TEST_PSQL_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $mira$
+          BEGIN
+            IF EXISTS (
+              SELECT 1 FROM pg_roles
+              WHERE rolname = current_user AND (rolsuper OR rolbypassrls)
+            ) THEN
+              RAISE EXCEPTION 'CI migration runner must not be superuser or BYPASSRLS';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies
+              WHERE schemaname = 'public'
+                AND tablename = 'mira_organizations'
+                AND policyname = 'mira_organizations_tenant_isolation'
+            ) THEN
+              RAISE EXCEPTION 'Expected tenant RLS policy is missing on migrated schema';
+            END IF;
+          END
+          $mira$;
+          SQL
+      - name: Create separate disposable database for ORM tests
+        env:
+          ADMIN_DATABASE_URL: postgresql://beacon:beacon_secret@localhost:5432/postgres
+        run: |
+          # Keep the migrated, RLS-protected beacon_test intact. The general
+          # ORM tests use a separate empty DB, as their fixtures require
+          # drop_all/create_all and must not alter production-style policies.
+          psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -c             "CREATE DATABASE beacon_pytest_test OWNER mira_test_runner;"
+          echo "DATABASE_URL=postgresql+asyncpg://mira_test_runner:mira_test_runner_secret@localhost:5432/beacon_pytest_test" >> "$GITHUB_ENV"
+          echo "DATABASE_URL_SYNC=postgresql://mira_test_runner:mira_test_runner_secret@localhost:5432/beacon_pytest_test" >> "$GITHUB_ENV"
+          echo "MIRA_TEST_PSQL_URL=postgresql://mira_test_runner:mira_test_runner_secret@localhost:5432/beacon_pytest_test" >> "$GITHUB_ENV"
+          echo "MIRA_TEST_PRESERVE_MIGRATED_SCHEMA=false" >> "$GITHUB_ENV"
       - name: Lint (ruff)
         working-directory: backend
         run: ruff check app
       - name: Run tests (pytest)
         working-directory: backend
-        run: PYTHONPATH=. pytest -v
+        run: PYTHONPATH=. pytest -v --maxfail=1
 
   frontend-check:
     runs-on: ubuntu-latest

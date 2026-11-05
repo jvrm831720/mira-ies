@@ -88,6 +88,8 @@ async def _prepare_test_database():
     import app.models.retention_campaign  # noqa: F401
     import app.models.composio_connection  # noqa: F401
     import app.models.composio_approval  # noqa: F401
+    import app.models.training_run  # noqa: F401
+    import app.models.mira_base_lifecycle  # noqa: F401
 
     async with db_session_module.engine.begin() as sa_conn:
         # Dispatch tables are SQL-only and intentionally not in ORM metadata.
