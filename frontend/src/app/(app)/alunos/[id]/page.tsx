@@ -438,7 +438,7 @@ export default function StudentDetailPage() {
                     onClick={() => preferenceMutation.mutate(!data.communication_opt_out)}
                     className={cn(
                       "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0] disabled:opacity-60",
-                      data.communication_opt_out ? "bg-[#266df0] text-white hover:bg-[#407ff2]" : "border border-[#e4e7ec] bg-white text-[#1c1d1f] hover:bg-[#f4f5f6]"
+                      data.communication_opt_out ? "bg-[#232529] text-white hover:bg-[#101113]" : "border border-[#e4e7ec] bg-white text-[#1c1d1f] hover:bg-[#f4f5f6]"
                     )}
                   >
                     {preferenceMutation.isPending ? "Salvando…" : data.communication_opt_out ? "Revogar opt-out" : "Registrar opt-out"}
@@ -459,7 +459,7 @@ export default function StudentDetailPage() {
                     type="button"
                     onClick={() => void loadPreview()}
                     disabled={loadingPreview}
-                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#266df0] text-[13px] font-semibold text-white transition hover:bg-[#407ff2] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
+                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#232529] text-[13px] font-medium text-white transition hover:bg-[#101113] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266df0]"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {loadingPreview ? "Preparando…" : "Gerar prévia da mensagem"}
