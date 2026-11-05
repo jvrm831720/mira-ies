@@ -146,7 +146,7 @@ async def test_two_providers_and_two_person_approval_without_payment(db_session,
                                                expected_status="awaiting_approval",
                                                note="Revisão manual em sandbox")
     assert approved.approved_by == reviewer
-    assert payment.order_json(approved)["payment_execution_enabled"] is False if "payment_execution_enabled" in payment.order_json(approved) else not payment.order_json(approved)["provider_execution_enabled"]
+    assert payment.order_json(approved)["provider_execution_enabled"] is False
     assert payment.order_json(approved)["checkout_url"] is None
     assert payment.order_json(approved)["settlement_confirmed"] is False
     history = (await db_session.execute(select(StudentPaymentOrderEvent).where(
