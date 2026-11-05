@@ -6,7 +6,7 @@ FROM frappe/erpnext:v15.124.3
 
 USER root
 RUN apt-get update \
-  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends supervisor \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends supervisor util-linux \
   && rm -rf /var/lib/apt/lists/*
 RUN install -d -o frappe -g 0 /opt/mira
 
