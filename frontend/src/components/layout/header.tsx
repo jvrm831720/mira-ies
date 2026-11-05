@@ -1,29 +1,22 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Bell,
   Building2,
   ChevronRight,
   CircleHelp,
-  LogOut,
-  Settings,
-  UserRound,
 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { clearAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Panel = "none" | "notifications" | "help" | "account";
+type Panel = "none" | "notifications" | "help";
 
 export function Header({ title, subtitle, compact = false }: { title: string; subtitle?: string; compact?: boolean }) {
-  const router = useRouter();
   const [panel, setPanel] = useState<Panel>("none");
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -48,11 +41,6 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
 
   function toggle(next: Panel) {
     setPanel((current) => (current === next ? "none" : next));
-  }
-
-  function logout() {
-    clearAuth();
-    router.replace("/login");
   }
 
   async function submitHelp(e: FormEvent) {
@@ -126,10 +114,6 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
           <IconButton label="Ajuda" active={panel === "help"} onClick={() => toggle("help")}>
             <CircleHelp className="h-[18px] w-[18px]" />
           </IconButton>
-          <IconButton label="Conta" active={panel === "account"} onClick={() => toggle("account")}>
-            <UserRound className="h-[18px] w-[18px]" />
-          </IconButton>
-
           {panel === "notifications" && (
             <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,340px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
@@ -191,37 +175,6 @@ export function Header({ title, subtitle, compact = false }: { title: string; su
             </div>
           )}
 
-          {panel === "account" && (
-            <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(100vw-2rem,280px)] overflow-hidden rounded-[20px] border border-neutral-200 bg-white shadow-xl">
-              <div className="border-b border-neutral-100 px-4 py-3">
-                <p className="truncate text-sm font-semibold text-neutral-900">
-                  {me.data?.display_name || me.data?.email || "Conta"}
-                </p>
-                <p className="mt-0.5 truncate text-[11px] text-neutral-500">
-                  {me.data?.tenant_name || "Instituição"}
-                  {me.data?.role ? ` · ${me.data.role}` : ""}
-                </p>
-              </div>
-              <div className="p-1.5">
-                <Link
-                  href="/config"
-                  onClick={() => setPanel("none")}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  <Settings className="h-4 w-4 text-neutral-400" />
-                  Configurações
-                </Link>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] text-neutral-700 transition hover:bg-neutral-50"
-                >
-                  <LogOut className="h-4 w-4 text-neutral-400" />
-                  Sair da conta
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

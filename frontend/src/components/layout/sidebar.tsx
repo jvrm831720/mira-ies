@@ -29,7 +29,6 @@ import {
   ShieldCheck,
   Users,
   Workflow,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -120,8 +119,9 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [navQuery, setNavQuery] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
+  const commandRef = useRef<HTMLInputElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
@@ -155,26 +155,30 @@ export function Sidebar() {
   const role = me.data?.role;
   const email = me.data?.email;
 
-  const filteredGroups = useMemo(() => {
-    const q = navQuery.trim().toLocaleLowerCase("pt-BR");
-    if (!q) return groups;
+  const commandGroups = useMemo(() => {
+    const q = commandQuery.trim().toLocaleLowerCase("pt-BR");
     return groups.map((group) => ({
       ...group,
-      links: group.links.filter((link) =>
+      links: q ? group.links.filter((link) =>
         [link.label, link.keywords || "", group.label].some((value) => value.toLocaleLowerCase("pt-BR").includes(q))
-      ),
+      ) : group.links,
     })).filter((group) => group.links.length > 0);
-  }, [navQuery]);
+  }, [commandQuery]);
+
+  const commandResults = useMemo(() => commandGroups.flatMap((group) => group.links.map((link) => ({
+    ...link,
+    groupLabel: group.label,
+  }))), [commandGroups]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setCollapsed(false);
-        setMobileOpen(true);
-        window.setTimeout(() => searchRef.current?.focus(), 0);
+        setCommandOpen(true);
+        window.setTimeout(() => commandRef.current?.focus(), 0);
       }
       if (event.key === "Escape") {
+        setCommandOpen(false);
         setWorkspaceOpen(false);
         setAccountOpen(false);
         setMobileOpen(false);
@@ -194,6 +198,9 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => setMobileOpen(false), [pathname]);
+  useEffect(() => {
+    if (commandOpen) window.setTimeout(() => commandRef.current?.focus(), 0);
+  }, [commandOpen]);
 
   function logout() {
     clearAuth();
@@ -201,6 +208,10 @@ export function Sidebar() {
   }
 
   const workspaceItems = workspaces.data?.workspaces || [];
+  const openCommand = () => {
+    setCommandQuery("");
+    setCommandOpen(true);
+  };
 
   return (
     <>
@@ -220,6 +231,50 @@ export function Sidebar() {
           onClick={() => setMobileOpen(false)}
           className="fixed inset-0 z-40 bg-[#101828]/35 md:hidden"
         />
+      )}
+
+      {commandOpen && (
+        <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[#101828]/35 px-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label="Busca global">
+          <button type="button" aria-label="Fechar busca global" onClick={() => setCommandOpen(false)} className="absolute inset-0 cursor-default" />
+          <div className="relative z-10 w-full max-w-[560px] overflow-hidden rounded-2xl border border-[#E7E7E9] bg-white shadow-[0_24px_80px_rgba(16,24,40,0.22)]">
+            <div className="flex items-center gap-3 border-b border-[#EEEEF0] px-4">
+              <Search className="h-4 w-4 shrink-0 text-[#85858B]" />
+              <input
+                ref={commandRef}
+                value={commandQuery}
+                onChange={(event) => setCommandQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && commandResults[0]) {
+                    router.push(commandResults[0].href);
+                    setCommandOpen(false);
+                  }
+                }}
+                placeholder="Buscar páginas, módulos e ações…"
+                aria-label="Buscar páginas, módulos e ações"
+                className="h-14 min-w-0 flex-1 bg-transparent text-sm text-[#29292D] outline-none placeholder:text-[#929299]"
+              />
+              <kbd className="rounded border border-[#E7E7E9] bg-[#FAFAFA] px-1.5 py-0.5 text-[10px] text-[#929299]">Esc</kbd>
+            </div>
+            <div className="max-h-[min(60vh,420px)] overflow-y-auto p-2">
+              {commandResults.length ? commandGroups.map((group) => (
+                <section key={group.id} className="mb-3 last:mb-0">
+                  <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.11em] text-[#929299]">{group.label}</p>
+                  {group.links.map((link) => {
+                    const Icon = link.icon;
+                    return (
+                      <button key={link.href} type="button" onClick={() => { router.push(link.href); setCommandOpen(false); }} className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left text-[13px] text-[#55555C] transition hover:bg-[#F5F5F6] hover:text-[#202124]">
+                        <Icon className="h-4 w-4 shrink-0 text-[#85858B]" />
+                        <span className="min-w-0 flex-1 truncate">{link.label}</span>
+                        <span className="text-[10px] text-[#A0A0A5]">{group.label}</span>
+                      </button>
+                    );
+                  })}
+                </section>
+              )) : <p className="px-3 py-10 text-center text-sm text-[#85858B]">Nenhum resultado encontrado.</p>}
+            </div>
+            <div className="flex items-center justify-between border-t border-[#EEEEF0] px-3 py-2 text-[10px] text-[#929299]"><span>Enter abre o primeiro resultado</span><span>Busca global da MIRA</span></div>
+          </div>
+        </div>
       )}
 
       <aside
@@ -299,34 +354,17 @@ export function Sidebar() {
           </div>
 
           {!collapsed ? (
-            <div className="relative mt-3 pb-3">
-              <Search className="pointer-events-none absolute left-3 top-[13px] h-3.5 w-3.5 text-[#929299]" />
-              <input
-                ref={searchRef}
-                type="search"
-                value={navQuery}
-                onChange={(event) => setNavQuery(event.target.value)}
-                placeholder="Buscar"
-                aria-label="Buscar na navegação"
-                className="h-9 w-full rounded-lg border border-[#E7E7E9] bg-[#FAFAFA] pl-9 pr-14 text-[12px] text-[#29292D] outline-none placeholder:text-[#929299] focus:border-[#B8B8BE] focus:bg-white"
-              />
-              <kbd className="absolute right-2.5 top-[9px] rounded border border-[#E7E7E9] bg-white px-1.5 py-0.5 text-[9px] text-[#929299]">⌘ K</kbd>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => { setCollapsed(false); setMobileOpen(true); window.setTimeout(() => searchRef.current?.focus(), 0); }}
-              aria-label="Buscar"
-              className="mx-auto mt-3 mb-3 grid h-9 w-9 place-items-center rounded-lg text-[#77777D] hover:bg-[#F5F5F6]"
-            >
-              <Search className="h-4 w-4" />
+            <button type="button" onClick={openCommand} aria-label="Abrir busca global" className="mt-3 mb-3 flex h-9 w-full items-center gap-2 rounded-lg border border-[#E7E7E9] bg-[#FAFAFA] px-3 text-left text-[12px] text-[#929299] transition hover:border-[#B8B8BE] hover:bg-white">
+              <Search className="h-3.5 w-3.5" /><span className="flex-1">Buscar</span><kbd className="rounded border border-[#E7E7E9] bg-white px-1.5 py-0.5 text-[9px]">⌘ K</kbd>
             </button>
+          ) : (
+            <button type="button" onClick={openCommand} aria-label="Abrir busca global" className="mx-auto mt-3 mb-3 grid h-9 w-9 place-items-center rounded-lg text-[#77777D] hover:bg-[#F5F5F6]"><Search className="h-4 w-4" /></button>
           )}
         </div>
 
         <nav aria-label="Navegação principal" className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3", collapsed ? "px-2" : "px-3")}>
           <div className="flex flex-col gap-4">
-            {filteredGroups.map((group) => (
+            {groups.map((group) => (
               <section key={group.id}>
                 {!collapsed && (
                   <h2 className="mb-1 px-2.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-[#929299]">
@@ -359,9 +397,6 @@ export function Sidebar() {
                 </div>
               </section>
             ))}
-            {!collapsed && filteredGroups.length === 0 && (
-              <p className="px-2.5 py-4 text-center text-[12px] text-[#85858B]">Nenhum item encontrado.</p>
-            )}
           </div>
         </nav>
 
