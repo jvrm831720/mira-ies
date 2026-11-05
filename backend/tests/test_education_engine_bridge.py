@@ -195,3 +195,25 @@ async def test_billing_workspace_cannot_use_academic_engine(tenant, db_session):
     with pytest.raises(HTTPException) as error:
         await _require_ies(auth, db_session)
     assert error.value.status_code == 403
+
+
+async def test_unknown_workspace_is_not_an_academic_institution(tenant, db_session):
+    workspace, _ = tenant
+    workspace.segment = None
+    await db_session.commit()
+    auth = AuthContext(
+        tenant=workspace, tenant_id=workspace.id, tenant_slug=workspace.slug,
+    )
+    with pytest.raises(HTTPException) as error:
+        await _require_ies(auth, db_session)
+    assert error.value.status_code == 403
+
+
+async def test_legacy_ies_workspace_is_allowed(tenant, db_session):
+    workspace, _ = tenant
+    workspace.segment = "higher_education"
+    await db_session.commit()
+    auth = AuthContext(
+        tenant=workspace, tenant_id=workspace.id, tenant_slug=workspace.slug,
+    )
+    await _require_ies(auth, db_session)
