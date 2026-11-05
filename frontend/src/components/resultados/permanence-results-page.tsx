@@ -420,7 +420,7 @@ export function PermanenceResultsPage() {
 
   return (
     <>
-      <Header title="Resultados de permanência" subtitle="Desfechos acadêmicos confirmados, separados dos indicadores operacionais." />
+      <Header title="Resultados de permanência" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
         <section className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
