@@ -15,7 +15,7 @@ from app.db.session import get_db
 from app.models.composio_connection import TenantComposioToolAudit, TenantComposioToolkitPolicy
 from app.models.composio_approval import TenantComposioToolApproval
 from app.services.composio.policy import ComposioPolicyDenied, authorize_tool_request, decrypt_arguments, redact_arguments
-from app.services.composio.categories import annotate_communication_toolkit, communication_category
+from app.services.composio.categories import annotate_toolkit, communication_category, crm_category
 from app.services.composio.client import (
     ComposioSDKUnavailable,
     list_toolkits,
@@ -82,7 +82,7 @@ async def get_catalog(
     return {
         "source": "composio_live_catalog",
         "items": [{
-            **annotate_communication_toolkit(item),
+            **annotate_toolkit(item),
             "enabled": bool(policies.get(item["slug"]) and policies[item["slug"]].is_enabled),
             "selected_tool_slugs": (
                 policies[item["slug"]].tool_slugs
@@ -98,7 +98,7 @@ async def get_catalog_categories(
     auth: AuthContext = Depends(require_permission("settings.manage")),
 ):
     """Return MIRA's curated integration categories and native channel providers."""
-    return {"items": [communication_category()], "total": 1}
+    return {"items": [communication_category(), crm_category()], "total": 2}
 
 
 @router.put("/catalog/{toolkit_slug}/policy")
