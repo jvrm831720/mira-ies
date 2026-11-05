@@ -2,7 +2,6 @@
 
 Database-backed isolation tests must use the PostgreSQL CI role without BYPASSRLS.
 """
-from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -11,7 +10,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.api.student_services import (
-    NewDocument, NewRequest, ReviewRequest, TRANSITIONS, _enabled,
+    NewDocument, NewRequest, ReviewRequest, TRANSITIONS, _enabled, my_requests,
 )
 from app.core.config import get_settings
 
@@ -53,13 +52,13 @@ def test_services_disabled_by_default(monkeypatch):
 async def test_student_request_visibility_is_tenant_and_student_scoped(
     tenant_factory, db_session, monkeypatch,
 ):
-    from sqlalchemy import select, text
+    from sqlalchemy import text
     from app.models.student_services import StudentServiceRequest
     from app.models.student import Student, UploadBatch
 
     a, _ = await tenant_factory(slug="services-tenant-a")
     b, _ = await tenant_factory(slug="services-tenant-b")
-    ids = []
+    records = []
     for tenant in (a, b):
         await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant.id})
         batch = UploadBatch(tenant_id=tenant.id, filename="wave3.csv", original_filename="wave3.csv")
@@ -74,8 +73,11 @@ async def test_student_request_visibility_is_tenant_and_student_scoped(
                                     description="Documento de vínculo acadêmico")
         db_session.add(row)
         await db_session.commit()
-        ids.append(row.id)
+        records.append((tenant, student, row))
     await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": a.id})
-    seen = (await db_session.execute(select(StudentServiceRequest.id))).scalars().all()
-    assert ids[0] in seen
-    assert ids[1] not in seen
+    identity_a = SimpleNamespace(tenant_id=a.id, student=records[0][1])
+    result_a = await my_requests(identity_a, db_session)
+    assert [item["id"] for item in result_a["items"]] == [records[0][2].id]
+    identity_b = SimpleNamespace(tenant_id=b.id, student=records[1][1])
+    result_b = await my_requests(identity_b, db_session)
+    assert [item["id"] for item in result_b["items"]] == [records[1][2].id]
