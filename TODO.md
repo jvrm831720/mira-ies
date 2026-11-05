@@ -13,6 +13,10 @@
 - [x] Reorganizar ações rápidas e bloco de prioridade para reduzir tempo até importar, ver alunos e executar retenção.
 - [x] Refinar KPIs, distribuição de risco, lista crítica e estados vazios sem alterar os contratos da API.
 
+## Login
+
+- [x] Aplicar à tela Login todo o design do HTML de referência, inclusive composição, superfícies, tipografia e cores; manter a copy atual e o logo MIRA; preservar os fluxos de autenticação existentes e adaptar a composição para telas estreitas.
+
 ## Qualidade
 
 - [x] Preservar autenticação, rotas, integrações e textos essenciais do produto.
