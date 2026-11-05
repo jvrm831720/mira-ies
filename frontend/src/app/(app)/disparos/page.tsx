@@ -97,18 +97,27 @@ export default function DispatchConsolePage() {
 
   async function addTargets() {
     if (!current) return;
-    const rows = audience.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    if (rows.length > 1000) { setError("Limite de 1.000 destinatários por lote."); return; }
-    const targets = rows.map((row) => {
-      const [kind, ref, obligation] = row.split("|").map((value) => value.trim());
-      if (!["student", "external"].includes(kind) || !ref) throw new Error("Formato: student|ID ou external|referência|obrigação");
-      return {
-        subject_type: kind as "student" | "external", subject_ref: ref,
-        consent_ref: consentRef, obligation_ref: obligation || undefined,
-      };
-    });
-    await execute(() => dispatchApi.stage(current.id, targets), "Audiência adicionada ao outbox.");
-    setAudience("");
+    try {
+      const rows = audience.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      if (rows.length > 1000) throw new Error("Limite de 1.000 destinatários por lote.");
+      const targets = rows.map((row) => {
+        const [kind, ref, obligation] = row.split("|").map((value) => value.trim());
+        if (!["student", "external"].includes(kind) || !ref) {
+          throw new Error("Formato: student|UUID ou external|referência|obrigação");
+        }
+        if (current.purpose === "collections" && !obligation) {
+          throw new Error("Cobrança exige obrigação: tipo|destinatário|obrigação.");
+        }
+        return {
+          subject_type: kind as "student" | "external", subject_ref: ref,
+          consent_ref: consentRef, obligation_ref: obligation || undefined,
+        };
+      });
+      await execute(() => dispatchApi.stage(current.id, targets), "Audiência adicionada ao outbox.");
+      setAudience("");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Formato de audiência inválido.");
+    }
   }
 
   return <>
@@ -135,6 +144,10 @@ export default function DispatchConsolePage() {
         </div>
       </div>
 
+      {metrics && <p className="text-xs text-[#85858B]">
+        Worker: {metrics.worker_online ? "conectado recentemente" : "sem heartbeat recente"} ·
+        Custo estimado dos envios aceitos: {Number(metrics.estimated_cost_brl ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+      </p>}
       {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -221,7 +234,7 @@ export default function DispatchConsolePage() {
                   className="mt-1 w-full rounded-lg border border-[#DADADD] p-2" placeholder="Registro institucional ou contratual" />
               </label>
               <button disabled={busy || !audience.trim() || consentRef.length < 8}
-                onClick={() => { try { void addTargets(); } catch (e) { setError(String(e)); } }}
+                onClick={() => void addTargets()}
                 className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
                 Adicionar ao outbox
               </button>
