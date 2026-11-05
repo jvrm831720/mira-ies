@@ -1,7 +1,6 @@
 """Regressions for the MIRA transactional OTP email presentation."""
 
 import asyncio
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -20,6 +19,7 @@ def test_access_email_contains_same_code_and_expiry_in_both_formats():
     assert "#ffffff" in html
     assert "#101112" in html
     assert "#f8f9fa" in html
+    assert "#3577f1" in html
 
 
 @pytest.mark.parametrize("invalid", ["12345", "1234567", "12a456", "１２３４５６", "<b>123"])
