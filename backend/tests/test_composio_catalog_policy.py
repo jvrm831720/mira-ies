@@ -71,3 +71,36 @@ def test_composio_endpoints_require_settings_manage_for_custom_roles():
         "scheme": "http",
     })
     assert _permission_for_request(request) == "settings.manage"
+
+
+
+def test_composio_catalog_fetches_all_pages(monkeypatch):
+    from app.services.composio import client
+
+    class ToolkitClient:
+        def __init__(self):
+            self.calls = []
+
+        def list(self, **kwargs):
+            self.calls.append(kwargs)
+            if kwargs["cursor"] is None:
+                return {
+                    "items": [{"slug": "gmail", "name": "Gmail"}],
+                    "next_cursor": "page-2",
+                }
+            return {
+                "items": [{"slug": "slack", "name": "Slack"}],
+                "next_cursor": None,
+            }
+
+    class FakeClient:
+        def __init__(self):
+            self.toolkits = ToolkitClient()
+
+    fake = FakeClient()
+    monkeypatch.setattr(client, "get_composio_client", lambda: fake)
+
+    catalog = client.list_toolkits()
+    assert [item["slug"] for item in catalog] == ["gmail", "slack"]
+    assert len(fake.toolkits.calls) == 2
+    assert fake.toolkits.calls[1]["cursor"] == "page-2"
