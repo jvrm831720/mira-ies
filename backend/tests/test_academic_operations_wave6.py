@@ -147,6 +147,10 @@ async def test_wave6_full_enrollment_grade_attendance_transcript_and_prerequisit
         max_classes_per_term=6,
     ), auth=auth, db=db_session)
     await publish_policy(UUID(policy["id"]), auth=auth, db=db_session)
+    await set_class_offering(UUID(cls_a.id), OfferInput(capacity=1, enrollment_open=True),
+                             auth=auth, db=db_session)
+    await set_class_offering(UUID(cls_b.id), OfferInput(capacity=3, enrollment_open=True),
+                             auth=auth, db=db_session)
     curr = await create_curriculum(CurriculumInput(
         program_id=UUID(program.id), code="M1", label="Matriz 1",
         items=[

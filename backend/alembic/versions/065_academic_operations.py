@@ -51,6 +51,7 @@ def protect(table):
 def upgrade():
     op.add_column("mira_academic_classes", sa.Column("capacity", sa.Integer()))
     op.add_column("mira_academic_classes", sa.Column("enrollment_open", sa.Boolean(), nullable=False, server_default=sa.false()))
+    op.add_column("mira_academic_classes", sa.Column("policy_version", sa.Integer()))
     op.create_check_constraint("ck_mira_academic_class_capacity", "mira_academic_classes",
                                "capacity IS NULL OR capacity BETWEEN 1 AND 10000")
     op.create_table(
@@ -73,6 +74,10 @@ def upgrade():
         sa.CheckConstraint("min_attendance_percent BETWEEN 0 AND 100", name="ck_mira_academic_policy_attendance"),
         sa.CheckConstraint("max_classes_per_term BETWEEN 1 AND 30", name="ck_mira_academic_policy_class_limit"),
         sa.CheckConstraint("enrollment_closes_on IS NULL OR enrollment_opens_on IS NULL OR enrollment_closes_on >= enrollment_opens_on", name="ck_mira_academic_policy_window"),
+    )
+    op.create_foreign_key(
+        "fk_mira_class_policy_version_tenant", "mira_academic_classes",
+        "mira_academic_policies", ["tenant_id", "policy_version"], ["tenant_id", "version"],
     )
     op.create_table(
         "mira_academic_curricula",
@@ -234,8 +239,10 @@ def downgrade():
                   "mira_academic_class_outcomes", "mira_academic_operation_events"):
         op.execute(f"DROP TRIGGER IF EXISTS {table}_guard ON {table}")
     op.execute("DROP FUNCTION IF EXISTS mira_academic_wave6_guard()")
+    op.drop_constraint("fk_mira_class_policy_version_tenant", "mira_academic_classes", type_="foreignkey")
     for table in reversed(TABLES):
         op.drop_table(table)
     op.drop_constraint("ck_mira_academic_class_capacity", "mira_academic_classes", type_="check")
     op.drop_column("mira_academic_classes", "enrollment_open")
+    op.drop_column("mira_academic_classes", "policy_version")
     op.drop_column("mira_academic_classes", "capacity")

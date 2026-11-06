@@ -462,6 +462,11 @@ async def set_class_offering(
     ))).scalar_one()
     if body.capacity is not None and body.capacity < existing:
         _conflict("A nova capacidade não pode ser inferior às matrículas existentes.")
+    if body.enrollment_open:
+        active_policy = await _policy(db, auth.tenant_id)
+        if row.policy_version is not None and row.policy_version != active_policy.version:
+            _conflict("A oferta já está vinculada a outra versão de regras acadêmicas.")
+        row.policy_version = active_policy.version
     row.capacity = body.capacity
     row.enrollment_open = body.enrollment_open
     if body.enrollment_open:
@@ -570,6 +575,8 @@ async def _validate_classes(
         subjects.add(cls.subject_id)
         if cls.status != "active" or not cls.enrollment_open:
             _conflict("Oferta encerrada ou não publicada para matrícula.")
+        if cls.policy_version != policy.version:
+            _conflict("A oferta utiliza outra versão de regras. É necessária nova oferta institucional.")
     # Prerequisites require an immutable passed outcome for the exact student.
     required_subjects = {requirements[s] for s in subjects if requirements[s]}
     if required_subjects:
@@ -961,6 +968,7 @@ async def _class_roster(db: AsyncSession, tenant_id: str, class_id: UUID | str):
     return {
         "class": {"id": cls.id, "code": cls.code, "status": cls.status, "capacity": cls.capacity,
                   "enrollment_open": cls.enrollment_open, "term_id": cls.term_id,
+                  "policy_version": cls.policy_version,
                   "subject_id": cls.subject_id},
         "students": [{"student_id": row.student_id, "name": name, "registration": registration,
                       "status": row.status} for row, name, registration in roster],
@@ -989,7 +997,14 @@ async def class_roster(
 
 async def _evaluate_class(db: AsyncSession, tenant_id: str, class_id: UUID | str):
     content = await _class_roster(db, tenant_id, class_id)
-    current = await _policy(db, tenant_id)
+    version = content["class"]["policy_version"]
+    current = (await db.execute(select(AcademicPolicy).where(
+        AcademicPolicy.tenant_id == tenant_id,
+        AcademicPolicy.version == version,
+        AcademicPolicy.status == "published",
+    ))).scalar_one_or_none()
+    if current is None:
+        _conflict("A turma não tem uma política acadêmica publicada vinculada à oferta.")
     students = content["students"]
     assessments = content["assessments"]
     lessons = content["lessons"]
