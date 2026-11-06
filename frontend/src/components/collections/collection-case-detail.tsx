@@ -2,6 +2,11 @@
 
 import type { CollectionCaseDetail } from "@/lib/collections-api";
 
+const labels: Record<string, string> = {
+  open: "Aberta", agreement: "Em acordo", paid: "Paga (origem)",
+  disputed: "Contestada", cancelled: "Cancelada", unknown: "Desconhecida",
+};
+
 export function Currency({ value }: { value: string | null }) {
   if (value === null) return <span className="text-[#9299A4]">Não informado</span>;
   const amount = Number(value);
