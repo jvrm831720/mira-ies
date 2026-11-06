@@ -1,5 +1,6 @@
 "use client";
 
+import { AcademicCatalogSelector } from "@/components/academic/academic-catalog-selector";
 import { AcademicNavigation } from "@/components/academic/academic-navigation";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
@@ -40,6 +41,10 @@ type Preview = {ready:boolean;reason?:string;items:{student_id:string;name:strin
 type Transcript = {subject_name:string;term_label:string;grade_percent:string;attendance_percent:string;result:string;policy_version:number};
 type Tab = "matriculas"|"curriculos"|"ofertas"|"diario"|"regras"|"historico";
 type CurriculumItem = {subject_id:string;period_number:string;prerequisite_subject_id:string;required:boolean};
+
+async function catalog<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return call<T>("/../catalog" + path, init);
+}
 
 async function call<T>(path:string,init:RequestInit={}):Promise<T>{
   const token=getAccessToken();if(!token)throw new Error("Faça login na instituição.");
@@ -137,6 +142,7 @@ export default function JourneysPage(){
   }
   async function chooseStudent(s:Student){
     setStudent(s);setResults([]);setStudentPrograms([]);setTranscript([]);
+    offerRequest.current?.abort(); setOffers([]); setPicked([]); setStudentProgram(""); setAdmitCurriculum("");
     try{const [programs,history]=await Promise.all([
       call<{items:ProgramLink[]}>("/students/"+s.id+"/programs"),
       call<{items:Transcript[]}>("/students/"+s.id+"/transcript")]);
@@ -144,10 +150,15 @@ export default function JourneysPage(){
       setTranscript(history.items);
     }catch(e){setError((e as Error).message);}
   }
+  const offerRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => offerRequest.current?.abort(), []);
   async function loadOffers(programId:string,termId:string){
+    offerRequest.current?.abort();
+    const controller = new AbortController();
+    offerRequest.current = controller;
     setPicked([]);setOffers([]);if(!programId||!termId)return;
-    try{const r=await call<{items:Offer[]}>("/programs/"+programId+"/offers?term_id="+termId);setOffers(r.items);}
-    catch(e){setError((e as Error).message);}
+    try{const r=await call<{items:Offer[]}>("/programs/"+programId+"/offers?term_id="+termId, { signal: controller.signal });if (!controller.signal.aborted) setOffers(r.items);}
+    catch(e){if (!controller.signal.aborted) setError((e as Error).message);}
   }
   const rosterRequest = useRef<AbortController | null>(null);
   const loadRoster = useCallback(async (id: string) => {
@@ -393,10 +404,9 @@ export default function JourneysPage(){
           {student&&canEdit&&<form onSubmit={async e=>{e.preventDefault();const r=await act("/programs/enroll",{
             student_id:student.id,program_id:admitProgram,curriculum_id:admitCurriculum});if(r)await chooseStudent(student);
           }} className="mt-3 space-y-3">
-            <select required value={admitProgram} onChange={e=>{setAdmitProgram(e.target.value);setAdmitCurriculum("");}} className={field}>
-              <option value="">Selecionar curso</option>
-              {overview?.programs.filter(p=>p.status==="active").map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <AcademicCatalogSelector id="enrollment-program" label="Curso" resource="programs"
+              required value={admitProgram} tenant={me.data?.tenant_id} user={me.data?.user_id}
+              load={catalog} onChange={value => { setAdmitProgram(value); setAdmitCurriculum(""); }} />
             <select required value={admitCurriculum} onChange={e=>setAdmitCurriculum(e.target.value)} className={field}>
               <option value="">Selecionar currículo publicado</option>
               {currentCurricula.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
@@ -410,9 +420,9 @@ export default function JourneysPage(){
             <select value={studentProgram} onChange={e=>{setStudentProgram(e.target.value);void loadOffers(e.target.value,term);}} className={field}>
               <option value="">Selecionar vínculo</option>{studentPrograms.filter(p=>p.status==="active").map(p=><option key={p.id} value={p.id}>{p.program_name}</option>)}
             </select>
-            <select value={term} onChange={e=>{setTerm(e.target.value);void loadOffers(studentProgram,e.target.value);}} className={field}>
-              <option value="">Selecionar período</option>{overview?.terms.filter(t=>["planned","active"].includes(t.status)).map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
+            <AcademicCatalogSelector id="enrollment-term" label="Período" resource="terms"
+              value={term} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+              onChange={value => { setTerm(value); void loadOffers(studentProgram, value); }} />
             {offers.map(o=><label key={o.id} className="flex gap-3 rounded-lg border border-[#EAECF0] p-3 text-[11px]">
               <input type="checkbox" disabled={!o.available} checked={picked.includes(o.id)} onChange={e=>setPicked(v=>e.target.checked?[...v,o.id]:v.filter(x=>x!==o.id))}/>
               <span className="flex-1">{o.subject_name} · {o.code}</span>
