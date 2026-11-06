@@ -16,14 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.asaas_live import (
-    AsaasCharge, AsaasCustomerBinding, AsaasWebhookEvent, AsaasWebhookApplication,
+    AsaasCharge, AsaasCustomerBinding,
 )
 from app.models.finance_reconciliation import FinanceObservation
 from app.models.student import Student
 from app.models.student_payments import AsaasWorkspaceDestination
 from app.services import asaas_gateway as gateway
 from app.services.dispatch_core import bind_tenant
-from app.services.student_payments import draft_amount, asaas_split_rule
+from app.services.student_payments import draft_amount
 
 
 class AsaasFlowDenied(ValueError):
