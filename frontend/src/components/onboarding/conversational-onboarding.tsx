@@ -12,6 +12,7 @@ import { getAccessToken, setAccessToken } from "@/lib/auth";
 import { OnboardingIntegrationSetup } from "./onboarding-integration-setup";
 import { OnboardingProOverview } from "./onboarding-pro-overview";
 import { OnboardingSecuritySetup } from "./onboarding-security-setup";
+import { OnboardingRecoveryCodes } from "./onboarding-recovery-codes";
 import { completeOrganizationOnboarding, enrichOnboarding, type OnboardingEnrichment } from "@/lib/onboarding-api";
 import { corporateDomain, isValidCnpj, maskCnpj, publicCompanyDescription, plausiblePublicWebsite } from "@/lib/onboarding-flow.mjs";
 
@@ -372,14 +373,16 @@ export function ConversationalOnboarding() {
             {securityStep ? (
               <div className="mira-flow-security-flow" key="security">
                 {recoveryCodes ? (
-                  <>
-                    <CheckCircle2 size={28} />
-                    <h1>Códigos de recuperação</h1>
-                    <p>Guarde esses códigos em um local seguro. Eles serão mostrados apenas uma vez.</p>
-                    <div className="mira-flow-recovery">{recoveryCodes.map((item) => <code key={item}>{item}</code>)}</div>
-                    <button type="button" className="mira-flow-secondary" onClick={() => void navigator.clipboard.writeText(recoveryCodes.join("\n"))}>Copiar códigos</button>
-                    <button type="button" className="mira-flow-primary" onClick={() => { setRecoveryCodes(null); setSecurityStep(null); setStep("integrations"); }}>Já guardei — continuar</button>
-                  </>
+                  <OnboardingRecoveryCodes
+                    codes={recoveryCodes}
+                    onContinue={() => {
+                      setRecoveryCodes(null);
+                      setEnrollment(null);
+                      setMfaCode("");
+                      setSecurityStep(null);
+                      setStep("integrations");
+                    }}
+                  />
                 ) : (
                   <OnboardingSecuritySetup
                     mode={securityStep}

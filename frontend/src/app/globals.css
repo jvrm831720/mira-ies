@@ -2015,8 +2015,112 @@ textarea {
   .mira-flow-otp-slots { gap: 4px; }
   .mira-flow-otp-slot { height: 41px; }
 }
-.mira-flow-recovery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.mira-flow-recovery code { padding: 10px; border: 1px solid var(--color-legacy-34373e); border-radius: 8px; text-align: center; color: var(--auth-text); font-size: var(--type-caption); }
+/* Recovery codes: one clear copy action inside the data card, one primary navigation footer. */
+.mira-flow-recovery-guide { display: grid; gap: 20px; min-width: 0; }
+.mira-flow-recovery-intro { display: grid; justify-items: start; gap: 9px; }
+.mira-flow-recovery-intro .mira-flow-eyebrow { margin: 0 0 4px; }
+.mira-flow-recovery-success-icon {
+  display: grid; place-items: center; width: 46px; height: 46px;
+  color: var(--color-legacy-86c9a2);
+  background: var(--color-legacy-15171b);
+  border: 1px solid var(--color-legacy-355d9a); border-radius: 14px;
+}
+.mira-flow-recovery-intro h1 { margin: 0; }
+.mira-flow-recovery-intro > p:last-child {
+  margin: 0; color: var(--color-legacy-92969f);
+  font-size: var(--type-body-compact); line-height: 1.6;
+}
+.mira-flow-recovery-panel {
+  display: grid; gap: 14px; min-width: 0;
+  padding: 15px; border-radius: 12px;
+  border: 1px solid var(--color-legacy-353a44);
+  background: var(--color-legacy-15171b);
+}
+.mira-flow-recovery-panel-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  flex-wrap: wrap; gap: 12px;
+}
+.mira-flow-recovery-panel-heading { min-width: 0; display: grid; gap: 4px; }
+.mira-flow-recovery-panel-heading h2 {
+  margin: 0; color: var(--auth-text); font-size: var(--type-body-compact);
+  font-weight: 600; line-height: 1.45;
+}
+.mira-flow-recovery-panel-heading p {
+  margin: 0; color: var(--color-legacy-92969f);
+  font-size: var(--type-overline); line-height: 1.45;
+}
+.mira-flow-recovery-copy {
+  display: inline-flex; justify-content: center; align-items: center;
+  gap: 6px; white-space: nowrap; width: fit-content;
+  min-height: 31px; border-radius: 7px; padding: 6px 9px;
+  border: 1px solid var(--color-legacy-353a44);
+  background: var(--color-legacy-20242a); color: var(--auth-text);
+  font-size: var(--type-body-xs); font-weight: 500;
+  cursor: pointer;
+}
+.mira-flow-recovery-copy:hover { border-color: var(--color-legacy-355d9a); }
+.mira-flow-recovery-codes {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px; list-style: none; margin: 0; padding: 0;
+}
+.mira-flow-recovery-code {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  min-height: 43px; padding: 8px 9px;
+  border: 1px solid var(--color-legacy-34373e);
+  border-radius: 8px; background: var(--color-ink);
+}
+.mira-flow-recovery-code-index {
+  display: grid; place-items: center; flex: 0 0 23px;
+  border-radius: 5px; height: 23px;
+  background: var(--color-legacy-20242a);
+  color: var(--color-legacy-878d98);
+  font-size: var(--type-overline); font-variant-numeric: tabular-nums;
+}
+.mira-flow-recovery-code code {
+  display: block; min-width: 0; overflow-wrap: anywhere;
+  user-select: text;
+  color: var(--color-legacy-e7e9ed); font-size: var(--type-body-xs);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  letter-spacing: .025em; font-variant-numeric: tabular-nums;
+}
+.mira-flow-recovery-copy-feedback {
+  margin: 0; color: var(--color-legacy-92969f);
+  font-size: var(--type-overline); line-height: 1.6;
+}
+.mira-flow-recovery-footer {
+  display: grid; gap: 16px; min-width: 0; margin-top: 4px;
+  padding-top: 18px; border-top: 1px solid var(--color-legacy-30343b);
+}
+.mira-flow-recovery-alert {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--color-legacy-34373e);
+  background: var(--color-legacy-15171b); border-radius: 8px;
+}
+.mira-flow-recovery-alert svg {
+  flex-shrink: 0; margin-top: 1px; color: var(--color-legacy-b4d0ff);
+}
+.mira-flow-recovery-alert p {
+  margin: 0; color: var(--color-legacy-b9bfcb);
+  font-size: var(--type-body-xs); line-height: 1.6;
+}
+.mira-flow-recovery-acknowledge {
+  display: flex; align-items: flex-start; gap: 10px;
+  color: var(--color-legacy-e7e9ed);
+  font-size: var(--type-body-xs); line-height: 1.5; cursor: pointer;
+}
+.mira-flow-recovery-acknowledge input[type="checkbox"] {
+  flex: 0 0 auto; width: 16px; height: 16px; padding: 0;
+  margin: 1px 0 0; accent-color: var(--auth-blue); cursor: pointer;
+}
+.mira-flow-security-flow .mira-flow-recovery-continue {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 42px; font-weight: 600;
+}
+@media (max-width: 420px) {
+  .mira-flow-recovery-panel { padding: 11px; }
+  .mira-flow-recovery-codes { grid-template-columns: minmax(0, 1fr); }
+}
 .mira-flow-preview {
   display: flex; flex-direction: column; min-width: 0; min-height: 0;
   padding: 33px clamp(25px, 4vw, 58px);
