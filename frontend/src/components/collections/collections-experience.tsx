@@ -37,13 +37,29 @@ const DEFAULT_VIEWS = [
   { id: "pagos", title: "Pagos na origem", filterKey: "status:paid" },
 ];
 function serverStatus(state: ObjectIndexState): string[] {
-  const filtered = state.filters.filter(item => item.key === "status" && ["eq", "in"].includes(item.op));
-  const selected = filtered.length
-    ? filtered.flatMap(item => Array.isArray(item.value) ? item.value.map(String) : [String(item.value ?? "")])
-    : [];
+  // Remote ObjectIndex filters must be evaluated over the full tenant dataset,
+  // never just the current page. Every supported choice operator is mapped here.
+  let allowed = STATUS.map(item => item.value);
+  for (const filter of state.filters.filter(item => item.key === "status")) {
+    const values = (Array.isArray(filter.value) ? filter.value : [filter.value])
+      .filter(value => value != null).map(String);
+    switch (filter.op) {
+      case "eq": case "in":
+        allowed = allowed.filter(status => values.includes(status));
+        break;
+      case "neq":
+        allowed = allowed.filter(status => !values.includes(status));
+        break;
+      case "empty":
+        allowed = [];
+        break;
+      default:
+        // No free-form operators are accepted for a status choice.
+        allowed = [];
+    }
+  }
   const viewStatus = DEFAULT_VIEWS.find(view => view.id === state.view)?.filterKey?.split(":")[1];
-  return (viewStatus ? selected.filter(value => value === viewStatus).length || !filtered.length ? [viewStatus] : ["__none__"] : selected)
-    .filter(value => STATUS.some(item => item.value === value) || value === "__none__");
+  return viewStatus ? allowed.filter(status => status === viewStatus) : allowed;
 }
 
 export function CollectionsExperience() {
@@ -60,9 +76,12 @@ export function CollectionsExperience() {
   const statusSignature = statuses.join(",");
   const cases = useQuery({
     queryKey: ["collections", "cases", tenant, user, state.query, statusSignature, state.sort, state.pageIndex, state.pageSize],
-    queryFn: () => collectionsApi.cases({
+    queryFn: () => statuses.length === 0 ? Promise.resolve({
+      items: [], total: 0, limit: state.pageSize,
+      offset: state.pageIndex * state.pageSize, has_more: false,
+    }) : collectionsApi.cases({
       q: state.query,
-      statuses: statuses.includes("__none__") ? ["__none__"] : statuses,
+      statuses,
       limit: state.pageSize, offset: state.pageIndex * state.pageSize,
       sort: state.sort?.key, desc: state.sort?.desc,
     }),
