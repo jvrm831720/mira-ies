@@ -800,3 +800,314 @@ async def decide_enrollment(
         await db.rollback()
         raise HTTPException(status_code=409, detail="Conflito de vagas ou matrícula. Reavalie o pedido.") from exc
     return _request_json(req)
+
+
+async def _editable_class(db: AsyncSession, tenant_id: str, class_id: UUID):
+    cls = await _row(db, AcademicClass, tenant_id, class_id, lock=True)
+    if cls.status != "active":
+        _conflict("Somente turmas ativas aceitam lançamento ou encerramento.")
+    return cls
+
+
+async def _check_enrollment(db: AsyncSession, tenant_id: str, class_id: str, student_ids: list[str]):
+    if len(student_ids) != len(set(student_ids)):
+        raise HTTPException(status_code=422, detail="Aluno duplicado no lote.")
+    rows = (await db.execute(select(AcademicClassEnrollment).where(
+        AcademicClassEnrollment.tenant_id == tenant_id,
+        AcademicClassEnrollment.class_id == class_id,
+        AcademicClassEnrollment.student_id.in_(student_ids),
+        AcademicClassEnrollment.status == "enrolled",
+    ))).scalars().all()
+    if len(rows) != len(student_ids):
+        _conflict("Um dos alunos não possui matrícula ativa nesta turma.")
+
+
+@institution_router.post("/classes/{class_id}/grades")
+async def record_grades(
+    class_id: UUID, body: GradeBatch,
+    auth: AuthContext = Depends(require_permission("students.edit")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    cls = await _editable_class(db, auth.tenant_id, class_id)
+    assessment = await _row(db, AcademicAssessment, auth.tenant_id, body.assessment_id)
+    if assessment.class_id != cls.id or assessment.publication_status != "published":
+        _conflict("Publique a avaliação da turma antes de lançar notas.")
+    students = [str(item.student_id) for item in body.entries]
+    await _check_enrollment(db, auth.tenant_id, cls.id, students)
+    existing = (await db.execute(select(AcademicGrade).where(
+        AcademicGrade.tenant_id == auth.tenant_id,
+        AcademicGrade.class_id == cls.id,
+        AcademicGrade.assessment_id == assessment.id,
+        AcademicGrade.student_id.in_(students),
+    ).with_for_update())).scalars().all()
+    mapped = {x.student_id: x for x in existing}
+    for item in body.entries:
+        if item.score > assessment.max_score:
+            raise HTTPException(status_code=422, detail="Nota maior que a pontuação máxima.")
+        prior = mapped.get(str(item.student_id))
+        if prior:
+            if prior.publication_status != "draft":
+                _conflict("Nota já publicada. Correções exigem procedimento institucional de revisão.")
+            prior.score = item.score
+            prior.graded_at = _now()
+        else:
+            db.add(AcademicGrade(
+                tenant_id=auth.tenant_id, class_id=cls.id,
+                assessment_id=assessment.id, student_id=str(item.student_id),
+                score=item.score, publication_status="draft", graded_at=_now(),
+            ))
+    _event(db, auth.tenant_id, "staff", auth.user_id, "grades_recorded", "class", cls.id,
+           {"assessment_id": assessment.id, "count": len(body.entries), "status": "draft"})
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Conflito de lançamento de notas.") from exc
+    return {"class_id": cls.id, "assessment_id": assessment.id,
+            "records": len(body.entries), "published": False}
+
+
+@institution_router.post("/classes/{class_id}/attendance")
+async def record_attendance(
+    class_id: UUID, body: AttendanceBatch,
+    auth: AuthContext = Depends(require_permission("students.edit")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    cls = await _editable_class(db, auth.tenant_id, class_id)
+    lesson = await _row(db, AcademicLesson, auth.tenant_id, body.lesson_id)
+    if lesson.class_id != cls.id or lesson.publication_status != "published":
+        _conflict("A aula precisa estar publicada antes da chamada.")
+    students = [str(item.student_id) for item in body.entries]
+    await _check_enrollment(db, auth.tenant_id, cls.id, students)
+    existing = (await db.execute(select(AcademicAttendance).where(
+        AcademicAttendance.tenant_id == auth.tenant_id,
+        AcademicAttendance.class_id == cls.id,
+        AcademicAttendance.lesson_id == lesson.id,
+        AcademicAttendance.student_id.in_(students),
+    ).with_for_update())).scalars().all()
+    mapped = {x.student_id: x for x in existing}
+    for item in body.entries:
+        prior = mapped.get(str(item.student_id))
+        if prior:
+            prior.status = item.status
+            prior.recorded_at = _now()
+        else:
+            db.add(AcademicAttendance(
+                tenant_id=auth.tenant_id, class_id=cls.id,
+                lesson_id=lesson.id, student_id=str(item.student_id),
+                status=item.status, recorded_at=_now(),
+            ))
+    _event(db, auth.tenant_id, "staff", auth.user_id, "attendance_recorded", "class", cls.id,
+           {"lesson_id": lesson.id, "count": len(body.entries)})
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Conflito no registro de chamada.") from exc
+    return {"class_id": cls.id, "lesson_id": lesson.id, "records": len(body.entries)}
+
+
+async def _class_roster(db: AsyncSession, tenant_id: str, class_id: UUID | str):
+    cls = await _row(db, AcademicClass, tenant_id, class_id)
+    roster = (await db.execute(select(AcademicClassEnrollment, Student.nome, Student.matricula)
+        .join(Student, and_(
+            Student.tenant_id == AcademicClassEnrollment.tenant_id,
+            Student.id == AcademicClassEnrollment.student_id,
+        ))
+        .where(AcademicClassEnrollment.tenant_id == tenant_id,
+               AcademicClassEnrollment.class_id == cls.id,
+               AcademicClassEnrollment.status.in_(("enrolled", "completed")))
+        .order_by(Student.nome).limit(300))).all()
+    assessments = (await db.execute(select(AcademicAssessment).where(
+        AcademicAssessment.tenant_id == tenant_id,
+        AcademicAssessment.class_id == cls.id,
+    ).order_by(AcademicAssessment.code).limit(100))).scalars().all()
+    lessons = (await db.execute(select(AcademicLesson).where(
+        AcademicLesson.tenant_id == tenant_id,
+        AcademicLesson.class_id == cls.id,
+    ).order_by(AcademicLesson.starts_at).limit(150))).scalars().all()
+    grades = (await db.execute(select(AcademicGrade).where(
+        AcademicGrade.tenant_id == tenant_id, AcademicGrade.class_id == cls.id,
+    ))).scalars().all()
+    attendance = (await db.execute(select(AcademicAttendance).where(
+        AcademicAttendance.tenant_id == tenant_id, AcademicAttendance.class_id == cls.id,
+    ))).scalars().all()
+    return {
+        "class": {"id": cls.id, "code": cls.code, "status": cls.status, "capacity": cls.capacity,
+                  "enrollment_open": cls.enrollment_open, "term_id": cls.term_id,
+                  "subject_id": cls.subject_id},
+        "students": [{"student_id": row.student_id, "name": name, "registration": registration,
+                      "status": row.status} for row, name, registration in roster],
+        "assessments": [{"id": a.id, "title": a.title, "code": a.code,
+                         "max_score": str(a.max_score), "publication_status": a.publication_status}
+                        for a in assessments],
+        "lessons": [{"id": l.id, "topic": l.topic, "starts_at": l.starts_at.isoformat(),
+                     "publication_status": l.publication_status} for l in lessons],
+        "grades": [{"assessment_id": g.assessment_id, "student_id": g.student_id,
+                    "score": str(g.score), "publication_status": g.publication_status}
+                   for g in grades],
+        "attendance": [{"lesson_id": a.lesson_id, "student_id": a.student_id,
+                        "status": a.status} for a in attendance],
+    }
+
+
+@institution_router.get("/classes/{class_id}/roster")
+async def class_roster(
+    class_id: UUID,
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    return await _class_roster(db, auth.tenant_id, class_id)
+
+
+async def _evaluate_class(db: AsyncSession, tenant_id: str, class_id: UUID | str):
+    content = await _class_roster(db, tenant_id, class_id)
+    current = await _policy(db, tenant_id)
+    students = content["students"]
+    assessments = content["assessments"]
+    lessons = content["lessons"]
+    if not students:
+        return {"ready": False, "reason": "Turma sem alunos matriculados.", "items": []}
+    if not assessments or any(a["publication_status"] != "published" for a in assessments):
+        return {"ready": False, "reason": "Publique todas as avaliações antes do fechamento.", "items": []}
+    if not lessons or any(l["publication_status"] != "published" for l in lessons):
+        return {"ready": False, "reason": "Publique todas as aulas antes do fechamento.", "items": []}
+    grades = {(g["assessment_id"], g["student_id"]): g for g in content["grades"]}
+    presence = {(a["lesson_id"], a["student_id"]): a["status"] for a in content["attendance"]}
+    results = []
+    for student in students:
+        sid = student["student_id"]
+        grade_data = []
+        for item in assessments:
+            grade = grades.get((item["id"], sid))
+            grade_data.append((
+                Decimal(grade["score"]) if grade else Decimal("0"),
+                Decimal(item["max_score"]),
+                bool(grade and grade["publication_status"] == "published"),
+            ))
+        attendance_data = [presence.get((lesson["id"], sid)) for lesson in lessons]
+        result = calculate_result(
+            grade_data, attendance_data,
+            passing_percent=current.passing_percent,
+            min_attendance_percent=current.min_attendance_percent,
+            excused_excluded=current.excused_excluded,
+        )
+        results.append({"student_id": sid, "name": student["name"], **result})
+    return {
+        "ready": all(item["ready"] for item in results),
+        "policy": policy_snapshot(current),
+        "items": results,
+        "reason": None if all(item["ready"] for item in results) else
+        "Existem registros pendentes; nenhum resultado final foi produzido.",
+    }
+
+
+@institution_router.get("/classes/{class_id}/closing-preview")
+async def closing_preview(
+    class_id: UUID,
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    await _row(db, AcademicClass, auth.tenant_id, class_id)
+    return await _evaluate_class(db, auth.tenant_id, class_id)
+
+
+@institution_router.post("/classes/{class_id}/close")
+async def close_class(
+    class_id: UUID,
+    auth: AuthContext = Depends(require_permission("critical.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    cls = await _editable_class(db, auth.tenant_id, class_id)
+    result = await _evaluate_class(db, auth.tenant_id, class_id)
+    if not result["ready"]:
+        _conflict(result["reason"] or "Diário incompleto.")
+    now = _now()
+    for item in result["items"]:
+        db.add(AcademicClassOutcome(
+            tenant_id=auth.tenant_id, class_id=cls.id,
+            student_id=item["student_id"],
+            score_percent=Decimal(item["score_percent"]),
+            attendance_percent=Decimal(item["attendance_percent"]),
+            result=item["result"], policy_snapshot=result["policy"],
+            closed_by_user_id=auth.user_id, closed_at=now,
+        ))
+    linked = (await db.execute(select(AcademicClassEnrollment).where(
+        AcademicClassEnrollment.tenant_id == auth.tenant_id,
+        AcademicClassEnrollment.class_id == cls.id,
+        AcademicClassEnrollment.status == "enrolled",
+    ))).scalars().all()
+    for enrollment in linked:
+        enrollment.status = "completed"
+    cls.status = "completed"
+    cls.enrollment_open = False
+    _event(db, auth.tenant_id, "staff", auth.user_id, "class_closed", "class", cls.id,
+           {"outcomes": len(result["items"]), "policy_version": result["policy"]["version"]})
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Já existem resultados finais para esta turma.") from exc
+    return {"class_id": cls.id, "status": "completed", "outcomes": len(result["items"])}
+
+
+async def _transcript(db: AsyncSession, tenant_id: str, student_id: str):
+    rows = (await db.execute(
+        select(AcademicClassOutcome, AcademicClass.code, AcademicSubject.name,
+               AcademicSubject.code, AcademicTerm.code, AcademicTerm.label,
+               AcademicSubject.credit_hours)
+        .join(AcademicClass, and_(
+            AcademicClass.tenant_id == AcademicClassOutcome.tenant_id,
+            AcademicClass.id == AcademicClassOutcome.class_id,
+        ))
+        .join(AcademicSubject, and_(
+            AcademicSubject.tenant_id == AcademicClass.tenant_id,
+            AcademicSubject.id == AcademicClass.subject_id,
+        ))
+        .join(AcademicTerm, and_(
+            AcademicTerm.tenant_id == AcademicClass.tenant_id,
+            AcademicTerm.id == AcademicClass.term_id,
+        ))
+        .where(AcademicClassOutcome.tenant_id == tenant_id,
+               AcademicClassOutcome.student_id == student_id)
+        .order_by(AcademicClassOutcome.closed_at, AcademicClassOutcome.id).limit(500)
+    )).all()
+    return {
+        "items": [{
+            "class_id": r.class_id, "class_code": class_code,
+            "subject_name": subject, "subject_code": subject_code,
+            "term_code": term_code, "term_label": term_label, "credit_hours": hours,
+            "grade_percent": str(r.score_percent),
+            "attendance_percent": str(r.attendance_percent),
+            "result": r.result, "closed_at": r.closed_at.isoformat(),
+            "policy_version": r.policy_snapshot.get("version"),
+        } for r, class_code, subject, subject_code, term_code, term_label, hours in rows],
+        "limit": 500, "status": "finalized_records_only",
+        "official_document": False,
+        "note": "Histórico operacional calculado apenas após fechamento. Documento oficial e assinatura são etapas separadas.",
+    }
+
+
+@institution_router.get("/students/{student_id}/transcript")
+async def staff_transcript(
+    student_id: UUID,
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    await _student(db, auth.tenant_id, str(student_id))
+    return await _transcript(db, auth.tenant_id, str(student_id))
+
+
+@portal_router.get("/transcript")
+async def portal_transcript(
+    identity: PortalIdentity = Depends(_portal_identity),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    return await _transcript(db, identity.tenant_id, identity.student.id)
