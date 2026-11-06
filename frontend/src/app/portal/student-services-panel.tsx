@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { serviceStatusLabel, serviceStatusTone } from "./lib/service-status";
 
 type ServiceRequest = {
   id: string; category: string; subject: string; description: string;
@@ -316,7 +317,7 @@ export function StudentServicesPanel({ initialView = "requests", standalone = fa
           </div>}
           <ul className="divide-y divide-[#EAECF0]">
             {requests.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-[12px]">
-              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="text-[#667085]">{item.status} · {item.due_at ? "Prazo: "+new Date(item.due_at).toLocaleDateString("pt-BR") : "Prazo a definir"}</p></div>
+              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="mt-1 text-[#667085]">{item.due_at ? "Prazo: "+new Date(item.due_at).toLocaleDateString("pt-BR") : "Prazo ainda não informado"}</p><span className={"mt-1 inline-flex rounded-md border px-2 py-0.5 text-[10px] " + serviceStatusTone(item.status)}>{serviceStatusLabel(item.status)}</span></div>
               <div className="flex shrink-0 gap-3">
                 <button type="button" onClick={() => void openRequest(item)} className="text-[#2563EB]">Acompanhar</button>
                 <button type="button" onClick={() => void openHistory(item)} className="text-[#667085]">Histórico</button>
@@ -367,7 +368,7 @@ export function StudentServicesPanel({ initialView = "requests", standalone = fa
               : <ol className="mt-4 space-y-0 border-l border-[#E6E7EA] pl-4">
                 {history.events.map((item, index) => <li key={item.occurred_at + "-" + index} className="relative pb-5 last:pb-0">
                   <span aria-hidden="true" className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#266DF0]" />
-                  <p className="text-[12px] font-medium text-[#101112]">{item.status.replaceAll("_", " ")}</p>
+                  <p className="text-[12px] font-medium text-[#101112]">{serviceStatusLabel(item.status)}</p>
                   <time dateTime={item.occurred_at} className="mt-0.5 block text-[11px] text-[#75777C]">{new Date(item.occurred_at).toLocaleString("pt-BR")}</time>
                 </li>)}
               </ol>}
