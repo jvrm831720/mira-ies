@@ -1859,3 +1859,59 @@ textarea {
   --mira-onboarding-type-11: 11px;
   --mira-onboarding-type-10: 10px;
 }
+
+/* MIRA Apps & Integrações: dark catalog approved visual palette. */
+:root {
+  --mira-apps-palette-101112: #101112;
+  --mira-apps-palette-141517: #141517;
+  --mira-apps-palette-151618: #151618;
+  --mira-apps-palette-292a2d: #292a2d;
+  --mira-apps-palette-202124: #202124;
+  --mira-apps-palette-f1f2f3: #f1f2f3;
+  --mira-apps-palette-a4a7ae: #a4a7ae;
+  --mira-apps-palette-777b84: #777b84;
+  --mira-apps-palette-266df0: #266df0;
+  --mira-apps-palette-1b56c8: #1b56c8;
+  --mira-apps-palette-94dcb2: #94dcb2;
+  --mira-apps-palette-18271f: #18271f;
+  --mira-apps-palette-31513c: #31513c;
+  --mira-apps-palette-4e8cfc: #4e8cfc;
+  --mira-apps-palette-ddc3ac: #ddc3ac;
+  --mira-apps-palette-26201d: #26201d;
+  --mira-apps-palette-a9caff: #a9caff;
+  --mira-apps-palette-172338: #172338;
+  --mira-apps-palette-464951: #464951;
+  --mira-apps-palette-303137: #303137;
+  --mira-apps-palette-27292c: #27292c;
+  --mira-apps-palette-17181b: #17181b;
+  --mira-apps-palette-eff2f6: #eff2f6;
+  --mira-apps-palette-196cd3: #196cd3;
+  --mira-apps-palette-10254b: #10254b;
+  --mira-apps-palette-ecf6ff: #ecf6ff;
+  --mira-apps-palette-26b95b: #26b95b;
+  --mira-apps-palette-10482a: #10482a;
+  --mira-apps-palette-e8ffef: #e8ffef;
+  --mira-apps-palette-28b8a7: #28b8a7;
+  --mira-apps-palette-4178f4: #4178f4;
+  --mira-apps-palette-e04b4b: #e04b4b;
+  --mira-apps-palette-e9aa37: #e9aa37;
+  --mira-apps-palette-db8a22: #db8a22;
+  --mira-apps-palette-673518: #673518;
+  --mira-apps-palette-c84653: #c84653;
+  --mira-apps-palette-571b25: #571b25;
+  --mira-apps-palette-12b5c5: #12b5c5;
+  --mira-apps-palette-16566d: #16566d;
+  --mira-apps-palette-8662c9: #8662c9;
+  --mira-apps-palette-3b225d: #3b225d;
+  --mira-apps-palette-36383e: #36383e;
+  --mira-apps-palette-242629: #242629;
+  --mira-apps-palette-c8cbd2: #c8cbd2;
+  --mira-apps-palette-30517b: #30517b;
+  --mira-apps-palette-192a42: #192a42;
+  --mira-apps-palette-a8caff: #a8caff;
+  --mira-apps-palette-494039: #494039;
+  --mira-apps-palette-8cb5ff: #8cb5ff;
+  --mira-apps-palette-564b36: #564b36;
+  --mira-apps-palette-e8cea1: #e8cea1;
+  --mira-apps-palette-0009: #0009;
+}
