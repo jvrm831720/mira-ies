@@ -38,6 +38,7 @@ const allGroups: NavigationGroup[] = [
   { id: "operations", label: "Operação", items: [
     { href: "/trabalho", label: "Central de trabalho", icon: BriefcaseBusiness, permission: "access.operator", module: "workspace", keywords: "tarefas fila atividades aprovações" },
     { href: "/retencao", label: "Intervenções", icon: Workflow, profile: "education", permission: "campaigns.view", module: "operations", keywords: "retenção jornadas" },
+    { href: "/workflows", label: "Workflows", icon: Workflow, permission: "campaigns.view", module: "operations", keywords: "automações processos fluxos histórico execução" },
     { href: "/campanhas", label: "Campanhas", icon: FileClock, permission: "campaigns.view", module: "operations", keywords: "revisão aprovação mensagens" },
     { href: "/disparos", label: "Disparos", icon: MessageCircle, permission: "campaigns.view", module: "operations", keywords: "envios canais execução" },
     { href: "/retencao/logs", label: "Histórico de contatos", icon: Activity, profile: "education", permission: "campaigns.view", module: "operations", keywords: "logs atividades" },
