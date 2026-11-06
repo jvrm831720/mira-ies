@@ -39,6 +39,9 @@ test("native connector discovery never means tenant connection is active",()=>{
  const configured=mergeAppCatalog(undefined,[],undefined,{jacad:true,sponte:false});
  assert.equal(configured.find(x=>x.id==="jacad").status,"configured");
  assert.equal(configured.find(x=>x.id==="sponte").status,"request");
+ const verifiedNative=mergeAppCatalog(undefined,[],undefined,{jacad:"connected"});
+ assert.equal(verifiedNative.find(x=>x.id==="jacad").status,"connected");
+ assert.equal(filterApps(configured,"jacad","Todos","connected").length,0);
 });
 test("filtering works across all, category, connected and search",()=>{
  const rows=mergeAppCatalog([{slug:"gmail",name:"Gmail",enabled:true}],[],
