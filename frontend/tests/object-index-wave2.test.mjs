@@ -13,12 +13,12 @@ const compile = (path) => {
     reportDiagnostics: true,
   });
   assert.deepEqual((result.diagnostics ?? []).filter(d => d.category === ts.DiagnosticCategory.Error), []);
-  const module = { exports: {} };
+  const sandboxModule = { exports: {} };
   vm.runInNewContext(result.outputText, {
-    module, exports: module.exports, URL, URLSearchParams, Intl,
+    module: sandboxModule, exports: sandboxModule.exports, URL, URLSearchParams, Intl,
     require: name => { throw new Error("Unexpected import: " + name); },
   });
-  return module.exports;
+  return sandboxModule.exports;
 };
 
 const { activeSorts, encodeSorts, sortObjectRows, pageSelection, verifiedCount } =
