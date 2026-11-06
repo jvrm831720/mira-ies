@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { corporateDomain, maskCnpj, isValidCnpj, publicCompanyDescription } from "../src/lib/onboarding-flow.mjs";
+import { corporateDomain, maskCnpj, isValidCnpj, publicCompanyDescription, plausiblePublicWebsite } from "../src/lib/onboarding-flow.mjs";
 
 test("corporate domain discovery excludes personal email providers", () => {
   assert.equal(corporateDomain("person@gmail.com"), null);
@@ -22,3 +22,14 @@ test("company description is only derived from retrieved public data", () => {
   assert.equal(publicCompanyDescription({company:{primary_activity:"Educação"}}), "Educação");
   assert.equal(publicCompanyDescription({website:{description:"Serviços de cobrança"}}), "Serviços de cobrança");
 });
+
+test("website discovery starts only after a plausible public address is entered", () => {
+  assert.equal(plausiblePublicWebsite(""), false);
+  assert.equal(plausiblePublicWebsite("https://"), false);
+  assert.equal(plausiblePublicWebsite("cruzeirodosul.edu.br"), true);
+  assert.equal(plausiblePublicWebsite("https://www.cruzeirodosul.edu.br/"), true);
+  assert.equal(plausiblePublicWebsite("http://localhost"), false);
+  assert.equal(plausiblePublicWebsite("example.test"), false);
+  assert.equal(plausiblePublicWebsite("https://example.com@127.0.0.1"), false);
+});
+
