@@ -3,6 +3,63 @@
 @tailwind utilities;
 
 :root {
+  --color-legacy-d0d5dd: #d0d5dd;
+  --color-legacy-2563eb: #2563eb;
+  --color-legacy-202124: #202124;
+  --color-legacy-667085: #667085;
+  --color-legacy-fcfcfd: #fcfcfd;
+  --color-legacy-85858b: #85858b;
+  --color-legacy-eaecf0: #eaecf0;
+  --color-legacy-fed4d2: #fed4d2;
+  --color-legacy-fff5f5: #fff5f5;
+  --color-legacy-b42318: #b42318;
+  --color-legacy-d5ede3: #d5ede3;
+  --color-legacy-f2fcf7: #f2fcf7;
+  --color-legacy-fafbfc: #fafbfc;
+  --color-legacy-475467: #475467;
+  --color-legacy-f8fafc: #f8fafc;
+  --color-legacy-98a2b3: #98a2b3;
+  --color-legacy-101828: #101828;
+  --color-legacy-dce8ff: #dce8ff;
+  --color-legacy-f5f8ff: #f5f8ff;
+  --color-legacy-d1fadf: #d1fadf;
+  --color-legacy-067647: #067647;
+  --color-legacy-fecdca: #fecdca;
+  --color-legacy-344054: #344054;
+  --color-legacy-9cc0ff: #9cc0ff;
+  --color-legacy-d9dee7: #d9dee7;
+  --color-legacy-f7f9fc: #f7f9fc;
+  --color-legacy-34353a: #34353a;
+  --color-legacy-f1f5ff: #f1f5ff;
+  --color-legacy-d6eadf: #d6eadf;
+  --color-legacy-f3fcf7: #f3fcf7;
+  --color-legacy-167047: #167047;
+  --color-legacy-f5d8d8: #f5d8d8;
+  --color-legacy-fff7f7: #fff7f7;
+  --color-legacy-c4d3ef: #c4d3ef;
+  --color-legacy-e6e8eb: #e6e8eb;
+  --color-legacy-eef0f2: #eef0f2;
+  --color-legacy-f0f1f2: #f0f1f2;
+  --color-legacy-175cd3: #175cd3;
+  --color-legacy-d92d20: #d92d20;
+  --color-legacy-eff0f2: #eff0f2;
+  --color-legacy-f2e5c9: #f2e5c9;
+  --color-legacy-fffcf5: #fffcf5;
+  --color-legacy-e7e9ed: #e7e9ed;
+  --color-legacy-f8fbff: #f8fbff;
+  --color-legacy-f2f4f7: #f2f4f7;
+  --color-legacy-fda29b: #fda29b;
+  --color-legacy-fffbfa: #fffbfa;
+  --type-caption: 11px;
+  --type-display-compact: 27px;
+  --type-body-compact: 13px;
+  --type-size-23: 23px;
+  --type-body-comfort: 15px;
+  --type-size-29: 29px;
+  --type-overline: 10px;
+  --type-display-small: 26px;
+  --type-heading-compact: 17px;
+  --type-heading-medium: 22px;
   /* Product primitives are resolved directly from the semantic palette. */
 
   /* ── MIRA brand (preserved) ── */

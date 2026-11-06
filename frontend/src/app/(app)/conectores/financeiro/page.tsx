@@ -67,17 +67,17 @@ function Panel({ title, subtitle, children }: {
   title: string; subtitle?: string; children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-[#E4E7EC] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
-      <h2 className="text-[15px] font-semibold text-[#101828]">{title}</h2>
-      {subtitle ? <p className="mt-1 text-[12px] leading-5 text-[#667085]">{subtitle}</p> : null}
+    <section className="rounded-2xl border border-[var(--color-line)] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
+      <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-legacy-101828)]">{title}</h2>
+      {subtitle ? <p className="mt-1 text-xs leading-5 text-[var(--color-legacy-667085)]">{subtitle}</p> : null}
       <div className="mt-5">{children}</div>
     </section>
   );
 }
 
-const fieldClass = "w-full rounded-lg border border-[#D0D5DD] bg-white px-3 py-2.5 text-[12px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10";
-const primary = "rounded-lg bg-[#101828] px-4 py-2.5 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40";
-const secondary = "rounded-lg border border-[#D0D5DD] bg-white px-4 py-2.5 text-[12px] font-semibold text-[#344054] hover:bg-[#F9FAFB] disabled:opacity-40";
+const fieldClass = "w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white px-3 py-2.5 text-xs text-[var(--color-legacy-344054)] outline-none focus:border-[var(--color-legacy-2563eb)] focus:ring-2 focus:ring-[var(--color-legacy-2563eb)]/10";
+const primary = "rounded-lg bg-[var(--color-legacy-101828)] px-4 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40";
+const secondary = "rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white px-4 py-2.5 text-xs font-semibold text-[var(--color-legacy-344054)] hover:bg-[var(--color-source-f9fafb)] disabled:opacity-40";
 
 export default function FinancialSourcesPage() {
   const [profiles, setProfiles] = useState<FinanceProfile[]>([]);
@@ -316,22 +316,22 @@ export default function FinancialSourcesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB]">
+    <div className="min-h-screen bg-[var(--color-source-f9fafb)]">
       <Header title="Fontes financeiras" subtitle="Várias integrações, mapeamentos por workspace e conciliação orientada por metadados" />
       <main className="mx-auto max-w-[1230px] space-y-5 px-5 py-7 md:px-8 xl:px-10">
-        <Link href="/conectores" className="text-[12px] font-medium text-[#667085] hover:text-[#2563EB]">
+        <Link href="/conectores" className="text-xs font-medium text-[var(--color-legacy-667085)] hover:text-[var(--color-legacy-2563eb)]">
           Integrações / Fontes financeiras
         </Link>
-        <div className="flex justify-end"><Link href="/conectores/financeiro/pagamentos" className="text-[12px] font-semibold text-[#2563EB] hover:underline">Pagamentos em homologação</Link></div>
-        <div className="rounded-xl border border-[#EAECF0] bg-white px-5 py-4">
-          <p className="text-[12px] font-semibold text-[#344054]">Homologação e proveniência</p>
-          <p className="mt-1 text-[12px] leading-5 text-[#667085]">
+        <div className="flex justify-end"><Link href="/conectores/financeiro/pagamentos" className="text-xs font-semibold text-[var(--color-legacy-2563eb)] hover:underline">Pagamentos em homologação</Link></div>
+        <div className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white px-5 py-4">
+          <p className="text-xs font-semibold text-[var(--color-legacy-344054)]">Homologação e proveniência</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--color-legacy-667085)]">
             As informações refletem o que cada sistema declara. Uma situação “paga” é apenas informada pela fonte:
             não há conciliação bancária, iniciação de Pix, boleto ou quitação automática nesta etapa.
           </p>
         </div>
-        {error && <div role="alert" className="rounded-xl border border-[#FDA29B] bg-[#FFFBFA] p-4 text-[12px] text-[#B42318]">{error}</div>}
-        {message && <div role="status" className="rounded-xl border border-[#D0D5DD] bg-white p-4 text-[12px] text-[#344054]">{message}</div>}
+        {error && <div role="alert" className="rounded-xl border border-[var(--color-legacy-fda29b)] bg-[var(--color-legacy-fffbfa)] p-4 text-xs text-[var(--color-legacy-b42318)]">{error}</div>}
+        {message && <div role="status" className="rounded-xl border border-[var(--color-legacy-d0d5dd)] bg-white p-4 text-xs text-[var(--color-legacy-344054)]">{message}</div>}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {[
@@ -340,9 +340,9 @@ export default function FinancialSourcesPage() {
             ["Fontes ativas", profiles.filter((item) => item.enabled).length],
             ["Divergências", discrepancies.filter((item) => item.result === "conflict").length],
           ].map(([label,value]) => (
-            <div key={label} className="rounded-xl border border-[#E4E7EC] bg-white p-4">
-              <p className="text-[11px] text-[#667085]">{label}</p>
-              <p className="mt-2 text-[24px] font-semibold tabular-nums tracking-[-0.04em] text-[#101828]">{value}</p>
+            <div key={label} className="rounded-xl border border-[var(--color-line)] bg-white p-4">
+              <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{label}</p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums tracking-[-0.04em] text-[var(--color-legacy-101828)]">{value}</p>
             </div>
           ))}
         </div>
@@ -353,21 +353,21 @@ export default function FinancialSourcesPage() {
               {profiles.map((item) => (
                 <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); setShowCreator(false); setConfirmed(false); }}
                   className={"w-full rounded-xl border p-3 text-left transition-colors " +
-                    (selectedId === item.id && !showCreator ? "border-[#2563EB] bg-[#EFF4FF]" : "border-[#EAECF0] hover:border-[#D0D5DD]")}>
+                    (selectedId === item.id && !showCreator ? "border-[var(--color-legacy-2563eb)] bg-[var(--color-source-eff4ff)]" : "border-[var(--color-legacy-eaecf0)] hover:border-[var(--color-legacy-d0d5dd)]")}>
                   <p className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[13px] font-semibold text-[#344054]">{item.name}</span>
-                    <span className={"rounded-full px-2 py-0.5 text-[10px] " +
-                      (item.enabled ? "bg-[#ECFDF3] text-[#027A48]" : "bg-[#F2F4F7] text-[#667085]")}>
+                    <span className="truncate text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-344054)]">{item.name}</span>
+                    <span className={"rounded-full px-2 py-0.5 text-[length:var(--type-overline)] " +
+                      (item.enabled ? "bg-[var(--color-source-ecfdf3)] text-[var(--color-source-027a48)]" : "bg-[var(--color-legacy-f2f4f7)] text-[var(--color-legacy-667085)]")}>
                       {item.enabled ? "Ativa" : "Desabilitada"}
                     </span>
                   </p>
-                  <p className="mt-1 text-[11px] text-[#667085]">
+                  <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
                     {item.source_kind === "composio" ? "Composio" : "CSV / Importação"} · mapeamento v{item.mapping_version}
                   </p>
                 </button>
               ))}
-              {loading && <p className="text-[12px] text-[#667085]">Carregando origens…</p>}
-              {!loading && profiles.length === 0 && <p className="py-3 text-[12px] text-[#667085]">Nenhuma origem configurada.</p>}
+              {loading && <p className="text-xs text-[var(--color-legacy-667085)]">Carregando origens…</p>}
+              {!loading && profiles.length === 0 && <p className="py-3 text-xs text-[var(--color-legacy-667085)]">Nenhuma origem configurada.</p>}
               <button type="button" className={"mt-2 w-full " + secondary} onClick={resetCreate}>+ Nova origem</button>
             </div>
           </Panel>
@@ -376,8 +376,8 @@ export default function FinancialSourcesPage() {
             <Panel title={editingId ? "Editar origem e metadados" : "Criar origem configurável"} subtitle="Os campos e o workflow são metadados do workspace. Nenhum código por cliente.">
               <div className="mb-5 flex items-center gap-2">
                 {["Origem", "Mapeamento", "Revisar"].map((label,i) => (
-                  <span key={label} className={"rounded-md px-3 py-1.5 text-[11px] font-medium " +
-                    (step === i + 1 ? "bg-[#101828] text-white" : "bg-[#F2F4F7] text-[#667085]")}>
+                  <span key={label} className={"rounded-md px-3 py-1.5 text-[length:var(--type-caption)] font-medium " +
+                    (step === i + 1 ? "bg-[var(--color-legacy-101828)] text-white" : "bg-[var(--color-legacy-f2f4f7)] text-[var(--color-legacy-667085)]")}>
                     {i + 1}. {label}
                   </span>
                 ))}
@@ -385,17 +385,17 @@ export default function FinancialSourcesPage() {
               <form onSubmit={saveProfile} className="space-y-4">
                 {step === 1 && <>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="space-y-1 text-[12px] font-medium text-[#344054]">Nome da origem
+                    <label className="space-y-1 text-xs font-medium text-[var(--color-legacy-344054)]">Nome da origem
                       <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} className={fieldClass} placeholder="Ex.: ERP do Campus Norte" />
                     </label>
-                    <label className="space-y-1 text-[12px] font-medium text-[#344054]">Tipo
+                    <label className="space-y-1 text-xs font-medium text-[var(--color-legacy-344054)]">Tipo
                       <select className={fieldClass} disabled={Boolean(editingId)} value={sourceKind} onChange={(e) => setSourceKind(e.target.value as SourceKind)}>
                         <option value="import">Arquivo CSV</option><option value="composio">Composio</option>
                       </select>
                     </label>
                   </div>
                   {sourceKind === "composio" && <>
-                    <label className="block space-y-1 text-[12px] font-medium text-[#344054]">Conexão financeira existente
+                    <label className="block space-y-1 text-xs font-medium text-[var(--color-legacy-344054)]">Conexão financeira existente
                       <select className={fieldClass} disabled={Boolean(editingId)} value={accountId} onChange={(e) => { setAccountId(e.target.value); setToolSlug(""); }}>
                         <option value="">Selecione uma conta conectada</option>
                         {eligibleAccounts.map((a) => (
@@ -405,41 +405,41 @@ export default function FinancialSourcesPage() {
                         ))}
                       </select>
                     </label>
-                    <label className="block space-y-1 text-[12px] font-medium text-[#344054]">Ferramenta de leitura autorizada
+                    <label className="block space-y-1 text-xs font-medium text-[var(--color-legacy-344054)]">Ferramenta de leitura autorizada
                       <select className={fieldClass} disabled={Boolean(editingId)} value={toolSlug} onChange={(e) => setToolSlug(e.target.value)}>
                         <option value="">Selecione uma ferramenta</option>
                         {tools.map((t) => <option key={t.slug} value={t.slug}>{t.slug}</option>)}
                       </select>
                     </label>
-                    <label className="block space-y-1 text-[12px] font-medium text-[#344054]">Caminho da lista de registros (JSON)
+                    <label className="block space-y-1 text-xs font-medium text-[var(--color-legacy-344054)]">Caminho da lista de registros (JSON)
                       <input className={fieldClass} value={rowsPath} onChange={(e) => setRowsPath(e.target.value)} placeholder="items" />
                     </label>
-                    {eligibleAccounts.length === 0 && <p className="text-[11px] text-[#667085]">Conecte primeiro um sistema financeiro em Integrações → Composio.</p>}
+                    {eligibleAccounts.length === 0 && <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Conecte primeiro um sistema financeiro em Integrações → Composio.</p>}
                   </>}
-                  <label className="block space-y-1 text-[12px] font-medium text-[#344054]">Como vincular cada registro ao aluno?
+                  <label className="block space-y-1 text-xs font-medium text-[var(--color-legacy-344054)]">Como vincular cada registro ao aluno?
                     <select className={fieldClass} value={studentLookup} onChange={(e) => setStudentLookup(e.target.value as "mira_id" | "verified_external")}>
                       <option value="mira_id">UUID MIRA informado na origem</option>
                       <option value="verified_external">Identificador externo com vínculo humano verificado</option>
                     </select>
                   </label>
-                  <p className="text-[11px] text-[#667085]">Não usamos nome, CPF aproximado ou semelhança textual para vincular obrigações a alunos.</p>
+                  <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Não usamos nome, CPF aproximado ou semelhança textual para vincular obrigações a alunos.</p>
                 </>}
                 {step === 2 && <>
-                  <p className="text-[12px] text-[#667085]">Indique a coluna de CSV ou o caminho JSON de cada campo. Campos com * são obrigatórios.</p>
-                  {sourceKind === "import" && <div className="rounded-xl border border-[#EAECF0] bg-[#F9FAFB] p-3">
-                    <p className="text-[12px] font-semibold text-[#344054]">Sugerir mapeamento a partir de um CSV</p>
-                    <p className="mt-1 text-[11px] text-[#667085]">As sugestões não são aplicadas automaticamente. Confirme antes de salvar.</p>
+                  <p className="text-xs text-[var(--color-legacy-667085)]">Indique a coluna de CSV ou o caminho JSON de cada campo. Campos com * são obrigatórios.</p>
+                  {sourceKind === "import" && <div className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-[var(--color-source-f9fafb)] p-3">
+                    <p className="text-xs font-semibold text-[var(--color-legacy-344054)]">Sugerir mapeamento a partir de um CSV</p>
+                    <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">As sugestões não são aplicadas automaticamente. Confirme antes de salvar.</p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <input aria-label="Arquivo CSV para analisar cabeçalhos" type="file" accept=".csv,text/csv"
                         onChange={(e) => setMappingFile(e.target.files?.[0] || null)}
-                        className="max-w-full text-[11px]" />
+                        className="max-w-full text-[length:var(--type-caption)]" />
                       <button type="button" className={secondary} disabled={!mappingFile || busy}
                         onClick={() => void inspectHeaders()}>Analisar cabeçalhos</button>
                     </div>
                     {Object.keys(headerSuggestions).length > 0 && <div className="mt-3">
                       <div className="flex flex-wrap gap-2">
                         {Object.entries(headerSuggestions).map(([key,value]) => (
-                          <span key={key} className="rounded-md bg-white px-2 py-1 text-[11px] text-[#475467]">
+                          <span key={key} className="rounded-md bg-white px-2 py-1 text-[length:var(--type-caption)] text-[var(--color-legacy-475467)]">
                             {value.suggested_header} → {key} ({Math.round(value.confidence * 100)}%)
                           </span>
                         ))}
@@ -451,7 +451,7 @@ export default function FinancialSourcesPage() {
                   </div>}
                   <div className="grid gap-3 md:grid-cols-2">
                     {COLUMNS.map((field) => (
-                      <label key={field.key} className="space-y-1 text-[12px] font-medium text-[#344054]">
+                      <label key={field.key} className="space-y-1 text-xs font-medium text-[var(--color-legacy-344054)]">
                         {field.name}{field.mandatory ? " *" : ""}
                         <input className={fieldClass} value={mapping[field.key] ?? ""}
                           onChange={(e) => setMapping((old) => ({ ...old, [field.key]: e.target.value }))}
@@ -460,36 +460,36 @@ export default function FinancialSourcesPage() {
                     ))}
                   </div>
                   <div>
-                    <p className="mb-1 text-[12px] font-medium text-[#344054]">Situações da origem → estados MIRA</p>
+                    <p className="mb-1 text-xs font-medium text-[var(--color-legacy-344054)]">Situações da origem → estados MIRA</p>
                     <textarea className={fieldClass} rows={4} spellCheck={false} value={statusText}
                       onChange={(e) => setStatusText(e.target.value)} />
-                    <p className="mt-1 text-[11px] text-[#667085]">Não reconhecido → desconhecido. “PAGO” → pagamento informado, nunca comprovado.</p>
+                    <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Não reconhecido → desconhecido. “PAGO” → pagamento informado, nunca comprovado.</p>
                   </div>
                 </>}
                 {step === 3 && <>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg bg-[#F9FAFB] p-4 text-[12px]">
-                      <p className="font-semibold text-[#101828]">Origem</p>
-                      <p className="mt-1 text-[#667085]">{name || "Sem nome"} · {sourceKind === "composio" ? "Composio" : "Importação"}</p>
+                    <div className="rounded-lg bg-[var(--color-source-f9fafb)] p-4 text-xs">
+                      <p className="font-semibold text-[var(--color-legacy-101828)]">Origem</p>
+                      <p className="mt-1 text-[var(--color-legacy-667085)]">{name || "Sem nome"} · {sourceKind === "composio" ? "Composio" : "Importação"}</p>
                     </div>
-                    <div className="rounded-lg bg-[#F9FAFB] p-4 text-[12px]">
-                      <p className="font-semibold text-[#101828]">Mapeamento</p>
-                      <p className="mt-1 text-[#667085]">{Object.values(mapping).filter((value) => value.trim()).length} campos · vínculo {studentLookup === "mira_id" ? "UUID" : "externo verificado"}</p>
+                    <div className="rounded-lg bg-[var(--color-source-f9fafb)] p-4 text-xs">
+                      <p className="font-semibold text-[var(--color-legacy-101828)]">Mapeamento</p>
+                      <p className="mt-1 text-[var(--color-legacy-667085)]">{Object.values(mapping).filter((value) => value.trim()).length} campos · vínculo {studentLookup === "mira_id" ? "UUID" : "externo verificado"}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setShowWorkflow((value) => !value)} className="text-[12px] font-medium text-[#2563EB]">
+                  <button type="button" onClick={() => setShowWorkflow((value) => !value)} className="text-xs font-medium text-[var(--color-legacy-2563eb)]">
                     {showWorkflow ? "Ocultar" : "Personalizar"} workflow de revisão
                   </button>
                   {showWorkflow && <>
                     <textarea className={fieldClass} rows={12} spellCheck={false} value={workflowText}
                       onChange={(e) => setWorkflowText(e.target.value)} aria-label="Metadados do workflow de revisão" />
-                    <p className="text-[11px] text-[#667085]">Estados e transições de revisão. Esse workflow nunca altera um pagamento.</p>
+                    <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Estados e transições de revisão. Esse workflow nunca altera um pagamento.</p>
                   </>}
-                  <div className="rounded-lg border border-[#EAECF0] p-3 text-[12px] text-[#667085]">
+                  <div className="rounded-lg border border-[var(--color-legacy-eaecf0)] p-3 text-xs text-[var(--color-legacy-667085)]">
                     Este perfil será salvo desabilitado. Sua ativação exige uma ação posterior explícita.
                   </div>
                 </>}
-                <div className="flex items-center justify-between gap-2 border-t border-[#EAECF0] pt-4">
+                <div className="flex items-center justify-between gap-2 border-t border-[var(--color-legacy-eaecf0)] pt-4">
                   <button type="button" className={secondary} onClick={() => step === 1 ? setShowCreator(false) : setStep(step - 1)}>
                     {step === 1 ? "Cancelar" : "Voltar"}
                   </button>
@@ -504,7 +504,7 @@ export default function FinancialSourcesPage() {
             <div className="space-y-5">
               <Panel title={selected.name} subtitle="Configuração independente e versionada — sem sobrescrever outras fontes.">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="text-[12px] text-[#667085]">
+                  <div className="text-xs text-[var(--color-legacy-667085)]">
                     <p>{selected.source_kind === "composio" ? "Conta Composio" : "CSV / importação manual"} · versão {selected.mapping_version}</p>
                     <p className="mt-1">Vínculo: {selected.student_lookup === "mira_id" ? "UUID MIRA" : "Identificador externo verificado"}</p>
                   </div>
@@ -517,10 +517,10 @@ export default function FinancialSourcesPage() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-4 grid gap-2 border-t border-[#EAECF0] pt-4 sm:grid-cols-2">
+                <div className="mt-4 grid gap-2 border-t border-[var(--color-legacy-eaecf0)] pt-4 sm:grid-cols-2">
                   {Object.entries(selected.field_map).map(([field,path]) => (
-                    <div key={field} className="flex justify-between gap-3 text-[11px]">
-                      <span className="text-[#667085]">{field}</span><strong className="truncate text-[#344054]">{path}</strong>
+                    <div key={field} className="flex justify-between gap-3 text-[length:var(--type-caption)]">
+                      <span className="text-[var(--color-legacy-667085)]">{field}</span><strong className="truncate text-[var(--color-legacy-344054)]">{path}</strong>
                     </div>
                   ))}
                 </div>
@@ -529,24 +529,24 @@ export default function FinancialSourcesPage() {
                 subtitle="Até 100 registros por lote, importação idempotente e histórico de observações.">
                 {selected.source_kind === "import" ? <>
                   <input type="file" accept=".csv,text/csv" className={fieldClass} onChange={(e) => setCsvFile(e.target.files?.[0] || null)} />
-                  <p className="mt-2 text-[11px] text-[#667085]">CSV UTF-8 de até 512 KB. Cabeçalhos devem coincidir com o mapeamento aprovado.</p>
+                  <p className="mt-2 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">CSV UTF-8 de até 512 KB. Cabeçalhos devem coincidir com o mapeamento aprovado.</p>
                   <button className={"mt-3 " + secondary} disabled={busy || !csvFile}
                     onClick={() => void previewCsvFile()}>Pré-visualizar CSV sem gravar</button>
-                  <details className="mt-3 rounded-lg border border-[#EAECF0] px-3 py-2">
-                    <summary className="cursor-pointer text-[12px] font-medium text-[#344054]">Testar dados de exemplo (sem gravar)</summary>
+                  <details className="mt-3 rounded-lg border border-[var(--color-legacy-eaecf0)] px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-medium text-[var(--color-legacy-344054)]">Testar dados de exemplo (sem gravar)</summary>
                     <textarea className={"mt-3 " + fieldClass} rows={4} spellCheck={false}
                       value={previewText} onChange={(e) => setPreviewText(e.target.value)}
                       aria-label="Amostra JSON para pré-visualização" />
                     <button className={"mt-2 " + secondary} disabled={busy} onClick={() => void runPreview()}>Pré-visualizar</button>
                   </details>
                 </> : <>
-                  <p className="text-[12px] text-[#667085]">{selected.tool_slug || "Ferramenta não definida"}</p>
-                  <label className="mt-3 block text-[12px] font-medium text-[#344054]">Argumentos de consulta (JSON)
+                  <p className="text-xs text-[var(--color-legacy-667085)]">{selected.tool_slug || "Ferramenta não definida"}</p>
+                  <label className="mt-3 block text-xs font-medium text-[var(--color-legacy-344054)]">Argumentos de consulta (JSON)
                     <textarea className={"mt-1 " + fieldClass} rows={4} spellCheck={false}
                       value={sourceArgs} onChange={(e) => setSourceArgs(e.target.value)} />
                   </label>
                 </>}
-                <label className="mt-4 flex cursor-pointer items-start gap-2 text-[12px] text-[#475467]">
+                <label className="mt-4 flex cursor-pointer items-start gap-2 text-xs text-[var(--color-legacy-475467)]">
                   <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5" />
                   Confirmo a origem e o mapeamento. Os estados são informativos e não autorizam pagamentos.
                 </label>
@@ -576,24 +576,24 @@ export default function FinancialSourcesPage() {
 
         <Panel title="Conciliação entre fontes" subtitle="Só agrupamos registros vinculados ao mesmo aluno e com chave de correlação explicitamente fornecida.">
           {discrepancies.length === 0 ? (
-            <p className="py-4 text-[12px] text-[#667085]">Ainda não existem observações correlacionadas em fontes homologadas.</p>
-          ) : <div className="divide-y divide-[#EAECF0]">
+            <p className="py-4 text-xs text-[var(--color-legacy-667085)]">Ainda não existem observações correlacionadas em fontes homologadas.</p>
+          ) : <div className="divide-y divide-[var(--color-legacy-eaecf0)]">
             {discrepancies.map((item) => (
               <div key={item.student_id + ":" + item.correlation_key} className="flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
-                  <p className="text-[13px] font-semibold text-[#344054]">{item.correlation_key}</p>
-                  <p className="mt-1 text-[11px] text-[#667085]">{item.sources} fonte(s) · aluno {item.student_id.slice(0, 8)}…</p>
+                  <p className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-344054)]">{item.correlation_key}</p>
+                  <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{item.sources} fonte(s) · aluno {item.student_id.slice(0, 8)}…</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {item.items.map((source) => (
-                      <span key={source.profile_id + source.external_id} className="rounded-lg bg-[#F2F4F7] px-2 py-1 text-[11px] text-[#475467]">
+                      <span key={source.profile_id + source.external_id} className="rounded-lg bg-[var(--color-legacy-f2f4f7)] px-2 py-1 text-[length:var(--type-caption)] text-[var(--color-legacy-475467)]">
                         {formatState(source.state)} · {source.amount} BRL
                       </span>
                     ))}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={"rounded-full px-2.5 py-1 text-[11px] font-medium " +
-                    (item.result === "conflict" ? "bg-[#FEF3F2] text-[#B42318]" : "bg-[#F2F4F7] text-[#475467]")}>
+                  <span className={"rounded-full px-2.5 py-1 text-[length:var(--type-caption)] font-medium " +
+                    (item.result === "conflict" ? "bg-[var(--color-red-tint)] text-[var(--color-legacy-b42318)]" : "bg-[var(--color-legacy-f2f4f7)] text-[var(--color-legacy-475467)]")}>
                     {item.result === "conflict" ? "Divergência" :
                       item.result === "multi_source_consistent" ? "Fontes consistentes" : "Fonte única"}
                   </span>
@@ -603,12 +603,12 @@ export default function FinancialSourcesPage() {
               </div>
             ))}
           </div>}
-          <label className="mt-4 block text-[11px] text-[#667085]">
+          <label className="mt-4 block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
             Nota para abrir revisão
             <input className={"mt-1 " + fieldClass} value={reviewNote} maxLength={500}
               onChange={(e) => setReviewNote(e.target.value)} />
           </label>
-          <p className="mt-3 text-[11px] text-[#98A2B3]">Consistência entre fontes não confirma liquidação. A análise usa as observações recentes disponíveis.</p>
+          <p className="mt-3 text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">Consistência entre fontes não confirma liquidação. A análise usa as observações recentes disponíveis.</p>
         </Panel>
       </main>
     </div>

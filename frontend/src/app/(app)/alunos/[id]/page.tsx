@@ -77,8 +77,8 @@ function displayValue(
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <article className="rounded-[10px] border border-[var(--color-border)] bg-white p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</p>
-      <p className="mt-2 text-[14px] font-semibold text-[var(--color-ink)]">{value}</p>
+      <p className="text-[length:var(--type-caption)] font-medium uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-[var(--color-ink)]">{value}</p>
     </article>
   );
 }
@@ -182,8 +182,8 @@ export default function StudentDetailPage() {
     <>
       <Header title="Ficha do aluno" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        {me.isLoading && <p role="status" className="px-5 py-8 text-[12px] text-[var(--color-slate-600)]">Verificando acesso…</p>}
-        {me.isError || (!me.isLoading && !canRead) ? <p role="alert" className="px-5 py-8 text-[12px] text-[var(--color-red)]">O registro não está disponível para este perfil e workspace.</p> : null}
+        {me.isLoading && <p role="status" className="px-5 py-8 text-xs text-[var(--color-slate-600)]">Verificando acesso…</p>}
+        {me.isError || (!me.isLoading && !canRead) ? <p role="alert" className="px-5 py-8 text-xs text-[var(--color-red)]">O registro não está disponível para este perfil e workspace.</p> : null}
         {canRead && isLoading && (
           <div className="space-y-4">
             <Skeleton className="h-36 w-full rounded-xl" />
@@ -201,11 +201,11 @@ export default function StudentDetailPage() {
             <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-white text-[var(--color-red)]">
               <CircleAlert className="h-5 w-5" />
             </span>
-            <p className="mt-4 text-[15px] font-semibold text-[var(--color-ink)]">Não foi possível abrir esta ficha.</p>
-            <p className="mt-1 text-[13px] text-[var(--color-slate-600)]">
+            <p className="mt-4 text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Não foi possível abrir esta ficha.</p>
+            <p className="mt-1 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">
               A consulta de risco falhou ou o aluno não está acessível nesta instituição.
             </p>
-            <button type="button" onClick={() => void refetch()} className="mt-4 text-[13px] font-semibold text-[var(--color-red)] underline underline-offset-4">
+            <button type="button" onClick={() => void refetch()} className="mt-4 text-[length:var(--type-body-compact)] font-semibold text-[var(--color-red)] underline underline-offset-4">
               Tentar novamente
             </button>
           </div>
@@ -240,7 +240,7 @@ export default function StudentDetailPage() {
                   type="button"
                   aria-current={activeSection === section ? "page" : undefined}
                   onClick={() => navigateToSection(section, id)}
-                  className={`inline-flex h-10 items-center border-b-2 text-[12px] font-medium transition ${activeSection === section ? "border-[var(--color-ink)] text-[var(--color-ink)]" : "border-transparent text-[var(--color-slate-600)] hover:border-[var(--color-border)] hover:text-[var(--color-ink)]"}`}
+                  className={`inline-flex h-10 items-center border-b-2 text-xs font-medium transition ${activeSection === section ? "border-[var(--color-ink)] text-[var(--color-ink)]" : "border-transparent text-[var(--color-slate-600)] hover:border-[var(--color-border)] hover:text-[var(--color-ink)]"}`}
                 >
                   {label}
                 </button>
@@ -248,7 +248,7 @@ export default function StudentDetailPage() {
             </nav>
 
             <section id="student-overview" className="scroll-mt-24" aria-label="Resumo acadêmico e financeiro">
-              <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[var(--color-ink)]">Situação acadêmica e financeira</h2>
+              <h2 className="mb-3 text-[length:var(--type-body-comfort)] font-semibold tracking-[-0.02em] text-[var(--color-ink)]">Situação acadêmica e financeira</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <InfoCard label="Curso" value={displayValue(data.curso)} />
                 <InfoCard label="Semestre" value={data.semestre != null ? `Semestre ${data.semestre}` : "Não informado"} />
@@ -258,8 +258,8 @@ export default function StudentDetailPage() {
             </section>
 
             <section id="student-academic" className="scroll-mt-24 rounded-[10px] border border-[var(--color-border)] bg-white p-5" aria-label="Dados acadêmicos">
-              <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Acadêmico</h2></div>
-              <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Dados recebidos da instituição. Informações não integradas permanecem indisponíveis.</p>
+              <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Acadêmico</h2></div>
+              <p className="mt-1 text-xs text-[var(--color-slate-600)]">Dados recebidos da instituição. Informações não integradas permanecem indisponíveis.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoCard label="Programa / curso" value={displayValue(data.curso)} />
                 <InfoCard label="Campus" value={displayValue(data.campus)} />
@@ -271,37 +271,37 @@ export default function StudentDetailPage() {
                 {canSensitive && <InfoCard label="Engajamento" value={data.engagement_score != null ? String(data.engagement_score) : "Não informado"} />}
               </div>
               {canSensitive && <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-[var(--color-border)] p-4"><p className="text-[13px] font-semibold">Frequência e presença</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[var(--color-ink)]">{data.presenca_percentual != null ? `${data.presenca_percentual}%` : "Não informado"}</p><p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Presença agregada informada pela instituição; histórico por disciplina ainda não disponível.</p></div>
-                <div className="rounded-lg border border-[var(--color-border)] p-4"><p className="text-[13px] font-semibold">Notas e avaliações</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[var(--color-ink)]">{data.nota_media != null ? String(data.nota_media) : "Não informado"}</p><p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Média informada pela instituição · {data.reprovacoes != null ? `${data.reprovacoes} reprovações` : "reprovações não informadas"}. Histórico por disciplina ainda não disponível.</p></div>
+                <div className="rounded-lg border border-[var(--color-border)] p-4"><p className="text-[length:var(--type-body-compact)] font-semibold">Frequência e presença</p><p className="mt-2 text-xl font-semibold tabular-nums text-[var(--color-ink)]">{data.presenca_percentual != null ? `${data.presenca_percentual}%` : "Não informado"}</p><p className="mt-1 text-xs text-[var(--color-slate-600)]">Presença agregada informada pela instituição; histórico por disciplina ainda não disponível.</p></div>
+                <div className="rounded-lg border border-[var(--color-border)] p-4"><p className="text-[length:var(--type-body-compact)] font-semibold">Notas e avaliações</p><p className="mt-2 text-xl font-semibold tabular-nums text-[var(--color-ink)]">{data.nota_media != null ? String(data.nota_media) : "Não informado"}</p><p className="mt-1 text-xs text-[var(--color-slate-600)]">Média informada pela instituição · {data.reprovacoes != null ? `${data.reprovacoes} reprovações` : "reprovações não informadas"}. Histórico por disciplina ainda não disponível.</p></div>
               </div>}
             </section>
 
             {canSensitive && me.data?.available_features?.academic_catalog === true && <NativeAcademicPanel studentId={id} />}
 
             {canSensitive && <section id="student-finance" className="scroll-mt-24 rounded-[10px] border border-[var(--color-border)] bg-white p-5" aria-label="Dados financeiros">
-              <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Financeiro</h2></div>
-              <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Resumo financeiro informado pela fonte de dados, não um extrato transacional ou confirmação de pagamento.</p>
+              <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Financeiro</h2></div>
+              <p className="mt-1 text-xs text-[var(--color-slate-600)]">Resumo financeiro informado pela fonte de dados, não um extrato transacional ou confirmação de pagamento.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <InfoCard label="Saldo informado" value={data.saldo_devedor != null && Number.isFinite(data.saldo_devedor) ? new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"}).format(data.saldo_devedor) : "Não informado"} />
                 <InfoCard label="Dias em atraso" value={data.dias_atraso_boleto != null ? String(data.dias_atraso_boleto) : "Não informado"} />
                 <InfoCard label="Status financeiro" value={displayValue(data.status_financeiro)} />
               </div>
               <div className="mt-4 overflow-hidden rounded-lg border border-[var(--color-border)]">
-                <div className="grid grid-cols-3 border-b border-[var(--color-border)] bg-[var(--color-blue-tint)] px-4 py-3 text-[11px] font-medium text-[var(--color-slate-600)]"><span>Obrigação / parcela</span><span>Vencimento</span><span>Pagamento</span></div>
-                <p className="px-4 py-6 text-center text-[12px] text-[var(--color-slate-600)]">Faturas, parcelas e pagamentos ainda não estão disponíveis como registros verificados nesta ficha.</p>
+                <div className="grid grid-cols-3 border-b border-[var(--color-border)] bg-[var(--color-blue-tint)] px-4 py-3 text-[length:var(--type-caption)] font-medium text-[var(--color-slate-600)]"><span>Obrigação / parcela</span><span>Vencimento</span><span>Pagamento</span></div>
+                <p className="px-4 py-6 text-center text-xs text-[var(--color-slate-600)]">Faturas, parcelas e pagamentos ainda não estão disponíveis como registros verificados nesta ficha.</p>
               </div>
-              <div className="mt-3 rounded-lg border border-[var(--color-border)] px-4 py-4"><p className="text-[13px] font-semibold text-[var(--color-ink)]">Acordos e negociações</p><p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Sem integração homologada para consultar acordos vinculados a este aluno.</p></div>
+              <div className="mt-3 rounded-lg border border-[var(--color-border)] px-4 py-4"><p className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">Acordos e negociações</p><p className="mt-1 text-xs text-[var(--color-slate-600)]">Sem integração homologada para consultar acordos vinculados a este aluno.</p></div>
             </section>}
 
             {canSensitive && <section className="rounded-[10px] border border-[var(--color-border)] bg-white p-5" aria-label="Atributos adicionais">
-              <div className="flex items-center gap-2"><UserRound className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Campos personalizados</h2></div>
+              <div className="flex items-center gap-2"><UserRound className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Campos personalizados</h2></div>
               {Object.entries(data.behavior_properties?.custom_properties ?? {}).length > 0 ? (
                 <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                   {Object.entries(data.behavior_properties?.custom_properties ?? {}).map(([key, value]) => (
-                    <div key={key} className="rounded-lg border border-[var(--color-border)] px-3 py-2"><dt className="text-[11px] text-[var(--color-slate-600)]">{key.replaceAll("_", " ")}</dt><dd className="mt-1 break-words text-[13px] font-medium text-[var(--color-ink)]">{value == null ? "Não informado" : String(value)}</dd></div>
+                    <div key={key} className="rounded-lg border border-[var(--color-border)] px-3 py-2"><dt className="text-[length:var(--type-caption)] text-[var(--color-slate-600)]">{key.replaceAll("_", " ")}</dt><dd className="mt-1 break-words text-[length:var(--type-body-compact)] font-medium text-[var(--color-ink)]">{value == null ? "Não informado" : String(value)}</dd></div>
                   ))}
                 </dl>
-              ) : <p className="mt-3 text-[12px] text-[var(--color-slate-600)]">Nenhum campo personalizado disponível na fonte atual.</p>}
+              ) : <p className="mt-3 text-xs text-[var(--color-slate-600)]">Nenhum campo personalizado disponível na fonte atual.</p>}
             </section>}
 
             {canSensitive && <section id="student-activity" className="scroll-mt-24" aria-label="Atividade do aluno">
@@ -311,38 +311,38 @@ export default function StudentDetailPage() {
             {canSensitive && <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
               <div className="space-y-4">
                 <section id="risk-analysis" className="scroll-mt-24 rounded-xl border border-[var(--color-border)] bg-white p-5">
-                  <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Análise de risco</h2>
-                  <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
+                  <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Análise de risco</h2>
+                  <p className="mt-1 text-xs text-[var(--color-slate-600)]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
                   {explanationMetadata?.available && (
-                    <p className="mt-2 text-[11px] text-[var(--color-muted)]">
+                    <p className="mt-2 text-[length:var(--type-caption)] text-[var(--color-muted)]">
                       SHAP · modelo {explanationMetadata.model_scope || "não informado"} · versão {explanationMetadata.model_version || "não informada"}
                     </p>
                   )}
                   {summaryText ? (
-                    <p className="mt-4 text-[13px] leading-relaxed text-[var(--color-blue)]">{summaryText}</p>
+                    <p className="mt-4 text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-blue)]">{summaryText}</p>
                   ) : (
-                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">Explicação detalhada indisponível para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">Explicação detalhada indisponível para este aluno.</p>
                   )}
                   {factors.length > 0 ? (
                     <ul className="mt-4 space-y-2">
                       {factors.map((factor, index) => (
                         <li key={`${factor}-${index}`} className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-3.5 py-3">
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[var(--color-blue-tint)] text-[11px] font-semibold text-[var(--color-blue)]">
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[var(--color-blue-tint)] text-[length:var(--type-caption)] font-semibold text-[var(--color-blue)]">
                             {String(index + 1).padStart(2, "0")}
                           </span>
-                          <span className="text-[13px] font-medium text-[var(--color-ink)]">{factor}</span>
+                          <span className="text-[length:var(--type-body-compact)] font-medium text-[var(--color-ink)]">{factor}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    !summaryText && <p className="mt-3 text-[12px] text-[var(--color-muted)]">Nenhum fator de negócio disponível nesta avaliação.</p>
+                    !summaryText && <p className="mt-3 text-xs text-[var(--color-muted)]">Nenhum fator de negócio disponível nesta avaliação.</p>
                   )}
                 </section>
 
                 {scoreBreakdown && (
                   <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
-                    <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Composição do score</h2>
-                    <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+                    <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Composição do score</h2>
+                    <p className="mt-1 text-xs text-[var(--color-slate-600)]">
                       Componentes apresentados separadamente. Os pontos das regras e os ajustes dinâmicos não são contribuições SHAP.
                     </p>
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -356,8 +356,8 @@ export default function StudentDetailPage() {
 
                 {ruleAdjustments.length > 0 && (
                   <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
-                    <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Regras acionadas</h2>
-                    <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+                    <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Regras acionadas</h2>
+                    <p className="mt-1 text-xs text-[var(--color-slate-600)]">
                       Cada item mostra a condição observada e o ajuste solicitado pela regra.
                     </p>
                     <ul className="mt-4 space-y-2">
@@ -372,18 +372,18 @@ export default function StudentDetailPage() {
                         return (
                           <li key={String(rule.flag || index)} className="rounded-lg border border-[var(--color-border)] px-3.5 py-3">
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <p className="text-[13px] font-semibold text-[var(--color-ink)]">{businessText(String(rule.description || rule.flag || "Regra aplicada"))}</p>
-                              <span className="shrink-0 rounded-md bg-[var(--color-peach-tint)] px-2 py-1 text-[11px] font-semibold tabular-nums text-[var(--color-red)]">
+                              <p className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">{businessText(String(rule.description || rule.flag || "Regra aplicada"))}</p>
+                              <span className="shrink-0 rounded-md bg-[var(--color-peach-tint)] px-2 py-1 text-[length:var(--type-caption)] font-semibold tabular-nums text-[var(--color-red)]">
                                 +{displayValue(typeof rule.delta_points === "number" ? rule.delta_points : null)} pts
                               </span>
                             </div>
                             {field && observed != null && (
-                              <p className="mt-1.5 text-[12px] text-[var(--color-slate-600)]">
+                              <p className="mt-1.5 text-xs text-[var(--color-slate-600)]">
                                 Evidência: {field} = {String(observed)}
                                 {threshold != null ? ` · limite ${String(evidence.operator || "")} ${String(threshold)}` : ""}
                               </p>
                             )}
-                            {recommendation && <p className="mt-2 text-[12px] leading-relaxed text-[var(--color-blue)]">Próxima ação sugerida: {recommendation}</p>}
+                            {recommendation && <p className="mt-2 text-xs leading-relaxed text-[var(--color-blue)]">Próxima ação sugerida: {recommendation}</p>}
                           </li>
                         );
                       })}
@@ -392,21 +392,21 @@ export default function StudentDetailPage() {
                 )}
 
                 {explanationMetadata?.status === "unavailable" && (
-                  <p className="rounded-lg border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-[12px] text-[var(--color-peach-tint-border)]">
+                  <p className="rounded-lg border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-xs text-[var(--color-peach-tint-border)]">
                     O score foi calculado, mas a explicação SHAP não ficou disponível nesta avaliação.
                   </p>
                 )}
 
                 <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
-                  <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Sugestões operacionais</h2>
-                  <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Sugestões retornadas pelo sistema — não são decisões automáticas nem comprovação de resultado.</p>
+                  <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Sugestões operacionais</h2>
+                  <p className="mt-1 text-xs text-[var(--color-slate-600)]">Sugestões retornadas pelo sistema — não são decisões automáticas nem comprovação de resultado.</p>
                   {actions.length === 0 ? (
-                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">Nenhuma sugestão operacional disponível para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">Nenhuma sugestão operacional disponível para este aluno.</p>
                   ) : (
                     <ol className="mt-4 space-y-2">
                       {actions.map((action, index) => (
-                        <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-3 text-[13px] leading-relaxed text-[var(--color-blue)]">
-                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[var(--color-blue)] ring-1 ring-[var(--color-border)]">{index + 1}</span>
+                        <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-3 text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-blue)]">
+                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[length:var(--type-overline)] font-semibold text-[var(--color-blue)] ring-1 ring-[var(--color-border)]">{index + 1}</span>
                           {action}
                         </li>
                       ))}
@@ -422,8 +422,8 @@ export default function StudentDetailPage() {
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Comunicação</h2>
-                      <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-slate-600)]">
+                      <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Comunicação</h2>
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--color-slate-600)]">
                         {data.communication_opt_out ? "Opt-out ativo — não contatar automaticamente." : "Sem opt-out global registrado. A autorização por canal e finalidade deve ser verificada antes de qualquer contato."}
                       </p>
                     </div>
@@ -433,7 +433,7 @@ export default function StudentDetailPage() {
                     disabled={preferenceMutation.isPending || !canEdit || typeof data.communication_opt_out !== "boolean"}
                     onClick={() => preferenceMutation.mutate(!data.communication_opt_out)}
                     className={cn(
-                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] disabled:opacity-60",
+                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[length:var(--type-body-compact)] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] disabled:opacity-60",
                       data.communication_opt_out ? "bg-[var(--color-blue)] text-white hover:bg-[var(--color-blue)]" : "border border-[var(--color-border)] bg-white text-[var(--color-ink)] hover:bg-[var(--color-panel)]"
                     )}
                   >
@@ -447,23 +447,23 @@ export default function StudentDetailPage() {
                       <MessageSquareText className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Preparar contato</h2>
-                      <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Gera a prévia da mensagem sem enviar.</p>
+                      <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Preparar contato</h2>
+                      <p className="mt-1 text-xs text-[var(--color-slate-600)]">Gera a prévia da mensagem sem enviar.</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => void loadPreview()}
                     disabled={loadingPreview}
-                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-blue)] text-[13px] font-semibold text-white transition hover:bg-[var(--color-blue)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
+                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-blue)] text-[length:var(--type-body-compact)] font-semibold text-white transition hover:bg-[var(--color-blue)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {loadingPreview ? "Preparando…" : "Gerar prévia da mensagem"}
                   </button>
                   {preview && (
                     <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">Prévia</p>
-                      <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-[var(--color-blue)]">{preview}</p>
+                      <p className="mb-2 text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">Prévia</p>
+                      <p className="whitespace-pre-wrap text-xs leading-relaxed text-[var(--color-blue)]">{preview}</p>
                     </div>
                   )}
                 </section>
@@ -474,8 +474,8 @@ export default function StudentDetailPage() {
                       <History className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Contatos (retenção)</h2>
-                      <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Logs de retenção. Status de envio não confirma permanência.</p>
+                      <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Contatos (retenção)</h2>
+                      <p className="mt-1 text-xs text-[var(--color-slate-600)]">Logs de retenção. Status de envio não confirma permanência.</p>
                     </div>
                   </div>
                   {logs.isLoading && (
@@ -484,9 +484,9 @@ export default function StudentDetailPage() {
                       <Skeleton className="h-14 w-full rounded-lg" />
                     </div>
                   )}
-                  {logs.isError && <p className="mt-4 text-[12px] text-[var(--color-slate-600)]">Histórico de contatos indisponível no momento.</p>}
+                  {logs.isError && <p className="mt-4 text-xs text-[var(--color-slate-600)]">Histórico de contatos indisponível no momento.</p>}
                   {!logs.isLoading && !logs.isError && (logs.data?.logs?.length ?? 0) === 0 && (
-                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">Nenhum contato de retenção registrado para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">Nenhum contato de retenção registrado para este aluno.</p>
                   )}
                   {!logs.isLoading && !logs.isError && (logs.data?.logs?.length ?? 0) > 0 && (
                     <ul className="mt-4 space-y-2">
@@ -496,10 +496,10 @@ export default function StudentDetailPage() {
                         return (
                           <li key={log.id} className="rounded-lg border border-[var(--color-border)] px-3 py-2.5">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[12px] font-semibold capitalize text-[var(--color-ink)]">{log.channel || "Canal não informado"}</span>
-                              <span className="rounded-full bg-[var(--color-panel)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-slate-600)]">{label}</span>
+                              <span className="text-xs font-semibold capitalize text-[var(--color-ink)]">{log.channel || "Canal não informado"}</span>
+                              <span className="rounded-full bg-[var(--color-panel)] px-2 py-0.5 text-[length:var(--type-overline)] font-medium text-[var(--color-slate-600)]">{label}</span>
                             </div>
-                            <p className="mt-1 text-[11px] text-[var(--color-muted)]">
+                            <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">
                               {formatDateTime(log.created_at) || "Data indisponível"}
                               {log.campaign_id ? ` · Campanha ${log.campaign_id}` : ""}
                             </p>

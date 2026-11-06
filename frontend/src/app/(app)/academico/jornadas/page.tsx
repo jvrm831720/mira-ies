@@ -14,9 +14,9 @@ import { api } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 
 const ROOT = "/api/v1/native-academic/operations";
-const field = "h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] outline-none focus:border-[#2563EB]";
-const btn = "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#D0D5DD] px-3 text-[12px] font-medium hover:bg-[#F9FAFB] disabled:opacity-40";
-const primary = "inline-flex h-10 items-center justify-center rounded-lg bg-[#202124] px-4 text-[12px] font-semibold text-white disabled:opacity-40";
+const field = "h-10 w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white px-3 text-xs outline-none focus:border-[var(--color-legacy-2563eb)]";
+const btn = "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[var(--color-legacy-d0d5dd)] px-3 text-xs font-medium hover:bg-[var(--color-source-f9fafb)] disabled:opacity-40";
+const primary = "inline-flex h-10 items-center justify-center rounded-lg bg-[var(--color-legacy-202124)] px-4 text-xs font-semibold text-white disabled:opacity-40";
 const labels: Record<string,string> = {submitted:"Recebida",approved:"Aprovada",rejected:"Rejeitada",passed:"Aprovado",failed:"Reprovado"};
 type Item = {id:string;code:string;name:string;status:string;program_id?:string};
 type Curriculum = {id:string;program_id:string;code:string;label:string;status:string};
@@ -226,14 +226,14 @@ export default function JourneysPage(){
     const v=await act("/classes/"+classId+"/attendance",{lesson_id:lessonId,entries});
     if(v)await loadRoster(classId);
   }
-  if(me.isLoading)return <main className="p-10 text-[12px] text-[#667085]">Verificando acesso…</main>;
-  if(!canView)return <main className="p-10 text-[12px] text-[#667085]">Acesso exclusivo à equipe institucional autorizada.</main>;
-  return <main className="min-h-screen bg-[#FCFCFD] p-5 text-[#202124] md:p-9">
+  if(me.isLoading)return <main className="p-10 text-xs text-[var(--color-legacy-667085)]">Verificando acesso…</main>;
+  if(!canView)return <main className="p-10 text-xs text-[var(--color-legacy-667085)]">Acesso exclusivo à equipe institucional autorizada.</main>;
+  return <main className="min-h-screen bg-[var(--color-legacy-fcfcfd)] p-5 text-[var(--color-legacy-202124)] md:p-9">
     <AcademicNavigation features={me.data?.available_features} />
     <header className="mb-7 flex flex-wrap items-start justify-between gap-3">
-      <div><p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#85858B]">Acadêmico / Operação</p>
-        <h1 className="mt-2 text-[27px] font-semibold tracking-[-0.04em]">Jornadas acadêmicas</h1>
-        <p className="mt-1 text-[13px] text-[#667085]">Matrícula, currículo, ofertas, diários e resultados sob regras institucionais.</p>
+      <div><p className="text-[length:var(--type-caption)] font-medium uppercase tracking-[0.1em] text-[var(--color-legacy-85858b)]">Acadêmico / Operação</p>
+        <h1 className="mt-2 text-[length:var(--type-display-compact)] font-semibold tracking-[-0.04em]">Jornadas acadêmicas</h1>
+        <p className="mt-1 text-[length:var(--type-body-compact)] text-[var(--color-legacy-667085)]">Matrícula, currículo, ofertas, diários e resultados sob regras institucionais.</p>
       </div>
       <button type="button" onClick={()=>void refresh()} className={btn}><RefreshCw className="h-4 w-4"/>Atualizar</button>
     </header>
@@ -241,57 +241,57 @@ export default function JourneysPage(){
       {([["Solicitações para análise",overview?.counts.enrollment_requests,Clock3],
         ["Vínculos acadêmicos ativos",overview?.counts.active_students,Users],
         ["Resultados finalizados",overview?.counts.outcomes,CheckCircle2]] as const).map(([label,count,Icon])=>
-        <div key={label} className="rounded-xl border border-[#EAECF0] bg-white p-4">
-          <Icon className="h-4 w-4 text-[#85858B]"/><p className="mt-3 text-[11px] text-[#667085]">{label}</p>
-          <p className="mt-1 text-[23px] font-semibold">{count??"—"}</p>
+        <div key={label} className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-4">
+          <Icon className="h-4 w-4 text-[var(--color-legacy-85858b)]"/><p className="mt-3 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{label}</p>
+          <p className="mt-1 text-[length:var(--type-size-23)] font-semibold">{count??"—"}</p>
         </div>)}
     </div>
-    <nav aria-label="Jornadas acadêmicas" className="mb-5 flex flex-wrap gap-1 rounded-xl border border-[#EAECF0] bg-white p-1.5">
+    <nav aria-label="Jornadas acadêmicas" className="mb-5 flex flex-wrap gap-1 rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-1.5">
       {([["matriculas","Matrículas",GraduationCap],["curriculos","Grade curricular",BookOpenCheck],
         ["ofertas","Ofertas",CalendarDays],["diario","Diário de classe",FileText],
         ["regras","Regras",ShieldCheck],["historico","Históricos",CheckCircle2]] as const).map(([key,label,Icon])=>
         <button key={key} type="button" onClick={()=>setTab(key)} aria-current={tab===key?"page":undefined}
-          className={"inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium "+
-            (tab===key?"bg-[#EFF4FF] text-[#2563EB]":"text-[#667085] hover:bg-[#F9FAFB]")}>
+          className={"inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium "+
+            (tab===key?"bg-[var(--color-source-eff4ff)] text-[var(--color-legacy-2563eb)]":"text-[var(--color-legacy-667085)] hover:bg-[var(--color-source-f9fafb)]")}>
           <Icon className="h-4 w-4"/>{label}</button>)}
     </nav>
-    {loading&&!overview&&<p className="mb-4 text-[12px] text-[#667085]"><Loader2 className="mr-2 inline h-4 w-4 animate-spin"/>Carregando…</p>}
-    {error&&<p role="alert" className="mb-4 rounded-lg border border-[#FED4D2] bg-[#FFF5F5] p-3 text-[12px] text-[#B42318]">{error}</p>}
-    {message&&<p role="status" className="mb-4 rounded-lg border border-[#D5EDE3] bg-[#F2FCF7] p-3 text-[12px] text-[#027A48]">{message}</p>}
+    {loading&&!overview&&<p className="mb-4 text-xs text-[var(--color-legacy-667085)]"><Loader2 className="mr-2 inline h-4 w-4 animate-spin"/>Carregando…</p>}
+    {error&&<p role="alert" className="mb-4 rounded-lg border border-[var(--color-legacy-fed4d2)] bg-[var(--color-legacy-fff5f5)] p-3 text-xs text-[var(--color-legacy-b42318)]">{error}</p>}
+    {message&&<p role="status" className="mb-4 rounded-lg border border-[var(--color-legacy-d5ede3)] bg-[var(--color-legacy-f2fcf7)] p-3 text-xs text-[var(--color-source-027a48)]">{message}</p>}
 
     {tab==="regras"&&<div className="grid gap-5 xl:grid-cols-2">
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[15px] font-semibold">Regras da instituição</h2>
-        <p className="mt-1 text-[12px] text-[#667085]">Versões publicadas são imutáveis. A versão nova depende de aprovação.</p>
-        <div className="mt-4 space-y-2">{overview?.policies.map(p=><article key={p.id} className="flex items-center justify-between gap-2 rounded-lg border border-[#EAECF0] p-3">
-          <div><strong className="text-[12px]">Versão {p.version} · {p.status}</strong>
-            <p className="mt-1 text-[11px] text-[#667085]">Nota ≥ {p.passing_percent}% · Frequência ≥ {p.min_attendance_percent}% · Limite {p.max_classes_per_term} disciplinas</p>
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Regras da instituição</h2>
+        <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">Versões publicadas são imutáveis. A versão nova depende de aprovação.</p>
+        <div className="mt-4 space-y-2">{overview?.policies.map(p=><article key={p.id} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-legacy-eaecf0)] p-3">
+          <div><strong className="text-xs">Versão {p.version} · {p.status}</strong>
+            <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Nota ≥ {p.passing_percent}% · Frequência ≥ {p.min_attendance_percent}% · Limite {p.max_classes_per_term} disciplinas</p>
           </div>
           {canApprove&&p.status==="draft"&&<button type="button" disabled={busy} className={btn} onClick={()=>void act("/policies/"+p.id+"/publish")}>Publicar</button>}
         </article>)}</div>
-        {!overview?.policies.length&&<p className="mt-4 text-[12px] text-[#667085]">Não há regras cadastradas. Novas matrículas ficam bloqueadas.</p>}
+        {!overview?.policies.length&&<p className="mt-4 text-xs text-[var(--color-legacy-667085)]">Não há regras cadastradas. Novas matrículas ficam bloqueadas.</p>}
       </section>
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[15px] font-semibold">Criar versão de regras</h2>
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Criar versão de regras</h2>
         {canManage?<form onSubmit={e=>void createPolicy(e)} className="mt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-3">
-            <label className="text-[11px] text-[#667085]">Nota mínima (%)
+            <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Nota mínima (%)
               <input className={field+" mt-1"} type="number" min="0" max="100" step="0.01" required value={passing} onChange={e=>setPassing(e.target.value)}/></label>
-            <label className="text-[11px] text-[#667085]">Frequência (%)
+            <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Frequência (%)
               <input className={field+" mt-1"} type="number" min="0" max="100" step="0.01" required value={minAttendance} onChange={e=>setMinAttendance(e.target.value)}/></label>
-            <label className="text-[11px] text-[#667085]">Máx. disciplinas
+            <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Máx. disciplinas
               <input className={field+" mt-1"} type="number" min="1" max="30" required value={maxClasses} onChange={e=>setMaxClasses(e.target.value)}/></label>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="text-[11px] text-[#667085]">Início da janela
+            <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Início da janela
               <input className={field+" mt-1"} type="date" value={opens} onChange={e=>setOpens(e.target.value)}/></label>
-            <label className="text-[11px] text-[#667085]">Fim da janela
+            <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Fim da janela
               <input className={field+" mt-1"} type="date" value={closes} onChange={e=>setCloses(e.target.value)}/></label>
           </div>
-          <label className="flex items-center gap-2 text-[11px] text-[#667085]"><input type="checkbox" checked={allowReenroll} onChange={e=>setAllowReenroll(e.target.checked)}/>Permitir rematrícula</label>
-          <label className="flex items-center gap-2 text-[11px] text-[#667085]"><input type="checkbox" checked={excusedExcluded} onChange={e=>setExcusedExcluded(e.target.checked)}/>Excluir faltas justificadas do denominador</label>
+          <label className="flex items-center gap-2 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]"><input type="checkbox" checked={allowReenroll} onChange={e=>setAllowReenroll(e.target.checked)}/>Permitir rematrícula</label>
+          <label className="flex items-center gap-2 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]"><input type="checkbox" checked={excusedExcluded} onChange={e=>setExcusedExcluded(e.target.checked)}/>Excluir faltas justificadas do denominador</label>
           <button type="submit" className={primary} disabled={busy}>Criar rascunho</button>
-        </form>:<p className="mt-4 text-[12px] text-[#85858B]">Sua conta não gerencia regras.</p>}
+        </form>:<p className="mt-4 text-xs text-[var(--color-legacy-85858b)]">Sua conta não gerencia regras.</p>}
       </section>
     </div>}
 
@@ -306,10 +306,10 @@ export default function JourneysPage(){
           const prerequisite = overview?.subjects.find(row => row.id === item.prerequisite_subject_id);
           return <li key={item.subject_id} className="py-3 text-sm">
             <p className="font-medium">{subject?.name ?? "Disciplina fora da prévia do catálogo"}</p>
-            <p className="text-xs text-[#505967]">
+            <p className="text-xs text-[var(--color-slate-600)]">
               Período {item.period_number} · {item.required ? "Obrigatória" : "Optativa"}
             </p>
-            {item.prerequisite_subject_id && <p className="text-xs text-[#505967]">
+            {item.prerequisite_subject_id && <p className="text-xs text-[var(--color-slate-600)]">
               Pré-requisito · {prerequisite?.name ?? "Disciplina fora da prévia do catálogo"}
             </p>}
           </li>;
@@ -318,58 +318,58 @@ export default function JourneysPage(){
     </Dialog>}
 
     {tab==="curriculos"&&<div className="grid gap-5 xl:grid-cols-2">
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[15px] font-semibold">Matrizes curriculares</h2>
-        <p className="mt-1 text-[12px] text-[#667085]">Cada curso pode ter várias matrizes; os vínculos existentes preservam sua versão.</p>
-        <div className="mt-4 space-y-2">{overview?.curricula.map(c=><article key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-[#EAECF0] p-3">
-          <div><button type="button" className="text-left text-[12px] font-semibold hover:underline" onClick={() => setCurriculumId(c.id)}>{c.label}</button><p className="mt-1 text-[11px] text-[#667085]">{c.code} · {overview.programs.find(p=>p.id===c.program_id)?.name} · {c.status}</p></div>
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Matrizes curriculares</h2>
+        <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">Cada curso pode ter várias matrizes; os vínculos existentes preservam sua versão.</p>
+        <div className="mt-4 space-y-2">{overview?.curricula.map(c=><article key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-legacy-eaecf0)] p-3">
+          <div><button type="button" className="text-left text-xs font-semibold hover:underline" onClick={() => setCurriculumId(c.id)}>{c.label}</button><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{c.code} · {overview.programs.find(p=>p.id===c.program_id)?.name} · {c.status}</p></div>
           {canApprove&&c.status==="draft"&&<button className={btn} disabled={busy} onClick={()=>void act("/curricula/"+c.id+"/publish")}>Publicar</button>}
         </article>)}</div>
       </section>
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[15px] font-semibold">Montar grade curricular</h2>
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Montar grade curricular</h2>
         {canManage?<form onSubmit={e=>void createCurriculum(e)} className="mt-4 space-y-3">
-          <label className="block text-[11px] text-[#667085]">Curso
+          <label className="block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Curso
 <AcademicCatalogSelector id="curriculum-program" label="Curso" resource="programs"
 required status="active" value={curriculumProgram} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
 onChange={value => {setCurriculumProgram(value);setCurriculumItems([{...blank}]);}} /></label>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="text-[11px] text-[#667085]">Código / versão
+            <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Código / versão
               <input className={field+" mt-1"} required minLength={2} maxLength={40} value={curriculumCode} onChange={e=>setCurriculumCode(e.target.value)}/></label>
-            <label className="text-[11px] text-[#667085]">Nome
+            <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Nome
               <input className={field+" mt-1"} required minLength={3} maxLength={160} value={curriculumName} onChange={e=>setCurriculumName(e.target.value)}/></label>
           </div>
-          <div className="space-y-2">{curriculumItems.map((item,index)=><div key={index} className="rounded-lg border border-[#EAECF0] bg-[#FAFBFC] p-3">
-            <div className="flex justify-between text-[11px] font-medium"><span>Disciplina {index+1}</span>
-              {curriculumItems.length>1&&<button type="button" className="text-[#B42318]" onClick={()=>setCurriculumItems(v=>v.filter((_,i)=>i!==index))}>Remover</button>}</div>
+          <div className="space-y-2">{curriculumItems.map((item,index)=><div key={index} className="rounded-lg border border-[var(--color-legacy-eaecf0)] bg-[var(--color-legacy-fafbfc)] p-3">
+            <div className="flex justify-between text-[length:var(--type-caption)] font-medium"><span>Disciplina {index+1}</span>
+              {curriculumItems.length>1&&<button type="button" className="text-[var(--color-legacy-b42318)]" onClick={()=>setCurriculumItems(v=>v.filter((_,i)=>i!==index))}>Remover</button>}</div>
 <AcademicCatalogSelector key={curriculumProgram + index} id={`curriculum-subject-${index}`} label="Disciplina" resource="subjects"
 required programId={curriculumProgram} status="active" value={item.subject_id}
 tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
 onChange={value => setCurriculumItems(previous => previous.map((entry, i) => i === index ? {...entry, subject_id: value} : entry))} />
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <label className="text-[11px] text-[#667085]">Período
+              <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Período
                 <input type="number" required min="1" max="30" className={field+" mt-1"} value={item.period_number}
                   onChange={e=>setCurriculumItems(v=>v.map((it,i)=>i===index?{...it,period_number:e.target.value}:it))}/></label>
-              <label className="text-[11px] text-[#667085]">Pré-requisito
+              <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Pré-requisito
                 <select className={field+" mt-1"} value={item.prerequisite_subject_id}
                   onChange={e=>setCurriculumItems(v=>v.map((it,i)=>i===index?{...it,prerequisite_subject_id:e.target.value}:it))}>
                   <option value="">Nenhum</option>{curriculumItems.slice(0,index).filter(x=>x.subject_id).map(x=><option key={x.subject_id} value={x.subject_id}>
                     {eligibleSubjects.find(s=>s.id===x.subject_id)?.name||x.subject_id}</option>)}</select></label>
             </div>
-            <label className="mt-2 flex items-center gap-2 text-[11px] text-[#667085]"><input type="checkbox" checked={item.required}
+            <label className="mt-2 flex items-center gap-2 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]"><input type="checkbox" checked={item.required}
               onChange={e=>setCurriculumItems(v=>v.map((it,i)=>i===index?{...it,required:e.target.checked}:it))}/>Obrigatória</label>
           </div>)}</div>
           <div className="flex flex-wrap gap-2"><button className={btn} type="button" onClick={()=>setCurriculumItems(v=>[...v,{...blank}])}><Plus className="h-3 w-3"/>Adicionar disciplina</button>
             <button className={primary} disabled={busy} type="submit">Salvar grade curricular</button></div>
-        </form>:<p className="mt-4 text-[12px] text-[#85858B]">Permissão de gestão necessária.</p>}
+        </form>:<p className="mt-4 text-xs text-[var(--color-legacy-85858b)]">Permissão de gestão necessária.</p>}
       </section>
     </div>}
 
-    {tab==="ofertas"&&<section className="max-w-3xl rounded-xl border border-[#EAECF0] bg-white p-5">
-      <h2 className="text-[15px] font-semibold">Ofertar disciplinas</h2>
-      <p className="mt-1 text-[12px] text-[#667085]">As turmas são cadastradas em Gestão acadêmica; a abertura de vagas é controlada separadamente.</p>
+    {tab==="ofertas"&&<section className="max-w-3xl rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+      <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Ofertar disciplinas</h2>
+      <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">As turmas são cadastradas em Gestão acadêmica; a abertura de vagas é controlada separadamente.</p>
       <div className="mt-5 space-y-4">
-        <label className="block text-[11px] text-[#667085]">Turma
+        <label className="block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Turma
           <AcademicCatalogSelector id="offer-class" label="Turma" resource="classes"
             value={offerId} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
             onChange={value => {setOfferId(value);setOfferLoadedId("");setOfferCapacity("");setOfferOpen(false);}} />
@@ -379,24 +379,24 @@ onChange={value => setCurriculumItems(previous => previous.map((entry, i) => i =
           Não foi possível carregar a oferta.
           <button type="button" className="ml-2 underline" onClick={() => void offerDetails.refetch()}>Tentar novamente</button>
         </p>}
-        <label className="block text-[11px] text-[#667085]">Capacidade da turma (opcional)
+        <label className="block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Capacidade da turma (opcional)
           <input type="number" min="1" max="10000" className={field+" mt-1"} value={offerCapacity} onChange={e=>setOfferCapacity(e.target.value)}/></label>
-        <label className="flex items-center gap-2 text-[12px] text-[#475467]"><input type="checkbox" checked={offerOpen} onChange={e=>setOfferOpen(e.target.checked)}/>Aceitar novas solicitações de matrícula</label>
+        <label className="flex items-center gap-2 text-xs text-[var(--color-legacy-475467)]"><input type="checkbox" checked={offerOpen} onChange={e=>setOfferOpen(e.target.checked)}/>Aceitar novas solicitações de matrícula</label>
         {canApprove&&<button type="button" className={primary} disabled={busy||!offerId||offerLoadedId!==offerId||offerDetails.isFetching||offerDetails.isError}
           onClick={()=>void act("/classes/"+offerId+"/offer",{capacity:offerCapacity?Number(offerCapacity):null,enrollment_open:offerOpen})}>Salvar oferta</button>}
       </div>
     </section>}
 
     {tab==="matriculas"&&<div className="grid gap-5 xl:grid-cols-2">
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[15px] font-semibold">Solicitações pendentes</h2>
-        <p className="mt-1 text-[12px] text-[#667085]">Aprovação exige permissões, vagas e pré-requisitos verificados.</p>
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Solicitações pendentes</h2>
+        <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">Aprovação exige permissões, vagas e pré-requisitos verificados.</p>
         <textarea className={field+" mt-4 h-auto py-2"} rows={2} placeholder="Justificativa da decisão…" maxLength={500}
           value={note} onChange={e=>setNote(e.target.value)}/>
-        <div className="mt-4 space-y-2">{requests.map(r=><article key={r.id} className="rounded-lg border border-[#EAECF0] p-3">
-          <p className="text-[12px] font-semibold">{r.student_name}</p>
-          <p className="mt-1 text-[11px] text-[#667085]">{r.student_registration} · {r.program_name} · {r.term_label}</p>
-          <p className="mt-1 text-[11px] text-[#667085]">{r.class_codes.join(", ")||"Turmas solicitadas"}</p>
+        <div className="mt-4 space-y-2">{requests.map(r=><article key={r.id} className="rounded-lg border border-[var(--color-legacy-eaecf0)] p-3">
+          <p className="text-xs font-semibold">{r.student_name}</p>
+          <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{r.student_registration} · {r.program_name} · {r.term_label}</p>
+          <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{r.class_codes.join(", ")||"Turmas solicitadas"}</p>
           {canApprove&&<div className="mt-3 flex gap-2">
             <button type="button" className={primary} disabled={busy||note.trim().length<3}
               onClick={()=>void act("/enrollment-requests/"+r.id+"/decide",{approve:true,note})}>Aprovar</button>
@@ -404,20 +404,20 @@ onChange={value => setCurriculumItems(previous => previous.map((entry, i) => i =
               onClick={()=>void act("/enrollment-requests/"+r.id+"/decide",{approve:false,note})}>Rejeitar</button>
           </div>}
         </article>)}</div>
-        {!requests.length&&<p className="mt-4 rounded-lg bg-[#F8FAFC] p-4 text-[12px] text-[#667085]">Nenhum pedido aguardando decisão.</p>}
+        {!requests.length&&<p className="mt-4 rounded-lg bg-[var(--color-legacy-f8fafc)] p-4 text-xs text-[var(--color-legacy-667085)]">Nenhum pedido aguardando decisão.</p>}
       </section>
       <section className="space-y-4">
-        <div className="rounded-xl border border-[#EAECF0] bg-white p-5">
-          <h2 className="text-[15px] font-semibold">Vincular aluno ao curso</h2>
+        <div className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+          <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Vincular aluno ao curso</h2>
           <div className="mt-4 flex gap-2">
             <input className={field} placeholder="Buscar nome ou matrícula" value={studentQuery} onChange={e=>setStudentQuery(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();void search();}}}/>
             <button className={btn} type="button" onClick={()=>void search()} disabled={studentQuery.trim().length<2}>Buscar</button>
           </div>
           {results.map(s=><button key={s.id} type="button" onClick={()=>void chooseStudent(s)}
-            className="mt-2 block w-full rounded-lg border border-[#EAECF0] p-3 text-left text-[11px] hover:bg-[#F9FAFB]">
+            className="mt-2 block w-full rounded-lg border border-[var(--color-legacy-eaecf0)] p-3 text-left text-[length:var(--type-caption)] hover:bg-[var(--color-source-f9fafb)]">
             {s.name} · {s.registration}</button>)}
-          {student&&<p className="mt-3 text-[12px] font-semibold">{student.name} · {student.registration}</p>}
+          {student&&<p className="mt-3 text-xs font-semibold">{student.name} · {student.registration}</p>}
           {student&&canEdit&&<form onSubmit={async e=>{e.preventDefault();const r=await act("/programs/enroll",{
             student_id:student.id,program_id:admitProgram,curriculum_id:admitCurriculum});if(r)await chooseStudent(student);
           }} className="mt-3 space-y-3">
@@ -430,8 +430,8 @@ tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog} onChange={set
             <button type="submit" className={primary} disabled={busy||!admitCurriculum}>Vincular ao curso</button>
           </form>}
         </div>
-        {!!studentPrograms.length&&<div className="rounded-xl border border-[#EAECF0] bg-white p-5">
-          <h2 className="text-[15px] font-semibold">Solicitar oferta pela secretaria</h2>
+        {!!studentPrograms.length&&<div className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+          <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Solicitar oferta pela secretaria</h2>
           <div className="mt-4 space-y-3">
             <select value={studentProgram} onChange={e=>{setStudentProgram(e.target.value);void loadOffers(e.target.value,term);}} className={field}>
               <option value="">Selecionar vínculo</option>{studentPrograms.filter(p=>p.status==="active").map(p=><option key={p.id} value={p.id}>{p.program_name}</option>)}
@@ -439,10 +439,10 @@ tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog} onChange={set
             <AcademicCatalogSelector id="enrollment-term" label="Período" resource="terms"
               value={term} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
               onChange={value => { setTerm(value); void loadOffers(studentProgram, value); }} />
-            {offers.map(o=><label key={o.id} className="flex gap-3 rounded-lg border border-[#EAECF0] p-3 text-[11px]">
+            {offers.map(o=><label key={o.id} className="flex gap-3 rounded-lg border border-[var(--color-legacy-eaecf0)] p-3 text-[length:var(--type-caption)]">
               <input type="checkbox" disabled={!o.available} checked={picked.includes(o.id)} onChange={e=>setPicked(v=>e.target.checked?[...v,o.id]:v.filter(x=>x!==o.id))}/>
               <span className="flex-1">{o.subject_name} · {o.code}</span>
-              <span className="text-[#85858B]">{o.available?"Disponível":"Lotada"}</span>
+              <span className="text-[var(--color-legacy-85858b)]">{o.available?"Disponível":"Lotada"}</span>
             </label>)}
             {canEdit&&<button className={primary} type="button" disabled={busy||!picked.length}
               onClick={async()=>{const v=await act("/enrollment-requests",{
@@ -453,22 +453,22 @@ tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog} onChange={set
       </section>
     </div>}
 
-    {tab==="diario"&&<section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-      <h2 className="text-[15px] font-semibold">Diário de classe</h2>
-      <p className="mt-1 text-[12px] text-[#667085]">Notas, frequência e fechamento com rastreabilidade. Registros ausentes bloqueiam resultados.</p>
-      <label className="mt-4 block max-w-xl text-[11px] text-[#667085]">Turma ativa
+    {tab==="diario"&&<section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+      <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Diário de classe</h2>
+      <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">Notas, frequência e fechamento com rastreabilidade. Registros ausentes bloqueiam resultados.</p>
+      <label className="mt-4 block max-w-xl text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Turma ativa
 <AcademicCatalogSelector id="gradebook-class" label="Turma" resource="classes" status="active"
 value={classId} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
 onChange={value => {setClassId(value);void loadRoster(value);}} /></label>
       {roster&&<div className="mt-5 grid gap-5 xl:grid-cols-2">
-        <div className="rounded-lg border border-[#EAECF0] p-4">
-          <h3 className="text-[13px] font-semibold">Notas por avaliação</h3>
+        <div className="rounded-lg border border-[var(--color-legacy-eaecf0)] p-4">
+          <h3 className="text-[length:var(--type-body-compact)] font-semibold">Notas por avaliação</h3>
           <select value={assessmentId} onChange={e=>{setAssessmentId(e.target.value);setGrades({});}} className={field+" mt-3"}>
             <option value="">Selecionar avaliação</option>{roster.assessments.map(a=><option key={a.id} value={a.id}>{a.title} · {a.max_score} pontos · {a.publication_status}</option>)}
           </select>
-          <div className="mt-3 max-h-[350px] divide-y overflow-y-auto rounded-lg border border-[#EAECF0]">
+          <div className="mt-3 max-h-[350px] divide-y overflow-y-auto rounded-lg border border-[var(--color-legacy-eaecf0)]">
             {roster.students.map(s=>{const original=roster.grades.find(g=>g.student_id===s.student_id&&g.assessment_id===assessmentId);
-              return <label key={s.student_id} className="flex items-center justify-between gap-3 p-2.5 text-[11px]">
+              return <label key={s.student_id} className="flex items-center justify-between gap-3 p-2.5 text-[length:var(--type-caption)]">
                 <span className="min-w-0 flex-1 truncate">{s.name}{original?.publication_status==="published"?" · publicada":""}</span>
                 <input aria-label={"Nota de "+s.name} type="number" min="0" step="0.01" max={assessment?.max_score||"100"}
                   placeholder={original?.score||"—"} disabled={!canEdit||original?.publication_status==="published"}
@@ -482,14 +482,14 @@ onChange={value => {setClassId(value);void loadRoster(value);}} /></label>
             }}>Publicar todas as notas</button>}
           </div>
         </div>
-        <div className="rounded-lg border border-[#EAECF0] p-4">
-          <h3 className="text-[13px] font-semibold">Chamada de aula</h3>
+        <div className="rounded-lg border border-[var(--color-legacy-eaecf0)] p-4">
+          <h3 className="text-[length:var(--type-body-compact)] font-semibold">Chamada de aula</h3>
           <select value={lessonId} onChange={e=>{setLessonId(e.target.value);setPresence({});}} className={field+" mt-3"}>
             <option value="">Selecionar aula</option>{roster.lessons.map(l=><option key={l.id} value={l.id}>{l.topic||"Aula"} · {new Date(l.starts_at).toLocaleDateString("pt-BR")} · {l.publication_status}</option>)}
           </select>
-          <div className="mt-3 max-h-[350px] divide-y overflow-y-auto rounded-lg border border-[#EAECF0]">
+          <div className="mt-3 max-h-[350px] divide-y overflow-y-auto rounded-lg border border-[var(--color-legacy-eaecf0)]">
             {roster.students.map(s=>{const prior=roster.attendance.find(a=>a.student_id===s.student_id&&a.lesson_id===lessonId);
-              return <label key={s.student_id} className="flex items-center justify-between gap-3 p-2.5 text-[11px]">
+              return <label key={s.student_id} className="flex items-center justify-between gap-3 p-2.5 text-[length:var(--type-caption)]">
                 <span className="min-w-0 flex-1 truncate">{s.name}</span>
                 <select className={field+" w-[142px]"} aria-label={"Frequência de "+s.name} disabled={!canEdit} value={presence[s.student_id]??""}
                   onChange={e=>setPresence(v=>({...v,[s.student_id]:e.target.value}))}>
@@ -499,10 +499,10 @@ onChange={value => {setClassId(value);void loadRoster(value);}} /></label>
           </div>
           {canEdit&&<button className={btn+" mt-3"} type="button" disabled={busy||lesson?.publication_status!=="published"} onClick={()=>void saveAttendance()}>Salvar chamada</button>}
         </div>
-        <div className="xl:col-span-2 rounded-lg border border-[#EAECF0] bg-[#FAFBFC] p-4">
+        <div className="xl:col-span-2 rounded-lg border border-[var(--color-legacy-eaecf0)] bg-[var(--color-legacy-fafbfc)] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h3 className="text-[13px] font-semibold">Verificação e fechamento</h3>
-              <p className="mt-1 text-[11px] text-[#667085]">Sem fechamento enquanto houver notas, aulas ou chamadas pendentes.</p></div>
+            <div><h3 className="text-[length:var(--type-body-compact)] font-semibold">Verificação e fechamento</h3>
+              <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Sem fechamento enquanto houver notas, aulas ou chamadas pendentes.</p></div>
             <div className="flex gap-2">
               <button className={btn} type="button" onClick={async()=>{try{
                 setPreview(await call<Preview>("/classes/"+classId+"/closing-preview"));setError("");
@@ -512,28 +512,28 @@ onChange={value => {setClassId(value);void loadRoster(value);}} /></label>
                   const v=await act("/classes/"+classId+"/close");if(v){setPreview(null);await loadRoster(classId);}}}>Concluir turma</button>}
             </div>
           </div>
-          {preview&&<div className="mt-3 text-[11px]">
-            <p className={preview.ready?"font-semibold text-[#027A48]":"font-semibold text-[#B42318]"}>{preview.ready?"Registros conferidos":preview.reason}</p>
-            {preview.items.map(i=><p key={i.student_id} className="mt-1 text-[#667085]">{i.name}: {i.ready?
+          {preview&&<div className="mt-3 text-[length:var(--type-caption)]">
+            <p className={preview.ready?"font-semibold text-[var(--color-source-027a48)]":"font-semibold text-[var(--color-legacy-b42318)]"}>{preview.ready?"Registros conferidos":preview.reason}</p>
+            {preview.items.map(i=><p key={i.student_id} className="mt-1 text-[var(--color-legacy-667085)]">{i.name}: {i.ready?
               i.score_percent+"% nota · "+i.attendance_percent+"% presença · "+labels[i.result||""]:i.reason}</p>)}
           </div>}
         </div>
       </div>}
     </section>}
 
-    {tab==="historico"&&<section className="max-w-4xl rounded-xl border border-[#EAECF0] bg-white p-5">
-      <h2 className="text-[15px] font-semibold">Histórico acadêmico operacional</h2>
-      <p className="mt-1 text-[12px] text-[#667085]">Selecione um estudante na aba Matrículas para consultar resultados finalizados.</p>
-      {student&&<p className="mt-4 text-[12px] font-semibold">{student.name} · {student.registration}</p>}
-      <div className="mt-3 divide-y overflow-hidden rounded-lg border border-[#EAECF0]">
-        {transcript.map((t,i)=><div key={i} className="flex flex-wrap justify-between gap-3 p-3 text-[12px]">
-          <div><p className="font-semibold">{t.subject_name}</p><p className="mt-1 text-[11px] text-[#667085]">
+    {tab==="historico"&&<section className="max-w-4xl rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+      <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Histórico acadêmico operacional</h2>
+      <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">Selecione um estudante na aba Matrículas para consultar resultados finalizados.</p>
+      {student&&<p className="mt-4 text-xs font-semibold">{student.name} · {student.registration}</p>}
+      <div className="mt-3 divide-y overflow-hidden rounded-lg border border-[var(--color-legacy-eaecf0)]">
+        {transcript.map((t,i)=><div key={i} className="flex flex-wrap justify-between gap-3 p-3 text-xs">
+          <div><p className="font-semibold">{t.subject_name}</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
             {t.term_label} · Nota {t.grade_percent}% · Frequência {t.attendance_percent}% · Política v{t.policy_version}</p></div>
-          <span className={t.result==="passed"?"text-[#027A48]":"text-[#B42318]"}>{labels[t.result]||t.result}</span>
+          <span className={t.result==="passed"?"text-[var(--color-source-027a48)]":"text-[var(--color-legacy-b42318)]"}>{labels[t.result]||t.result}</span>
         </div>)}
       </div>
-      {!transcript.length&&<p className="mt-4 text-[12px] text-[#85858B]">Nenhum registro final disponível.</p>}
-      <p className="mt-4 text-[11px] text-[#98A2B3]">A emissão de histórico oficial e os requerimentos ficam na Central de Serviços Acadêmicos. Esta consulta não é documento assinado.</p>
+      {!transcript.length&&<p className="mt-4 text-xs text-[var(--color-legacy-85858b)]">Nenhum registro final disponível.</p>}
+      <p className="mt-4 text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">A emissão de histórico oficial e os requerimentos ficam na Central de Serviços Acadêmicos. Esta consulta não é documento assinado.</p>
     </section>}
   </main>;
 }

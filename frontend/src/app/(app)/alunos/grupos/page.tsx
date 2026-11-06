@@ -81,22 +81,22 @@ function GroupCard({
       </div>
 
       <div className="mt-4">
-        <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[var(--color-ink)]">
+        <h2 className="text-base font-semibold tracking-[-0.02em] text-[var(--color-ink)]">
           {group.name}
         </h2>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-slate-600)]">
+        <p className="mt-1.5 text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-slate-600)]">
           {group.description}
         </p>
       </div>
 
       <div className="mt-5 rounded-lg bg-[var(--color-panel)] p-3.5">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+        <p className="text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
           Alunos no grupo
         </p>
-        <p className="mt-1 text-[26px] font-semibold tracking-[-0.04em] tabular-nums text-[var(--color-ink)]">
+        <p className="mt-1 text-[length:var(--type-display-small)] font-semibold tracking-[-0.04em] tabular-nums text-[var(--color-ink)]">
           {count}
         </p>
-        <p className="mt-0.5 text-[11px] text-[var(--color-slate-600)]">
+        <p className="mt-0.5 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">
           {summary
             ? summary.indeterminate_count.toLocaleString("pt-BR") +
               " com dados insuficientes para confirmar"
@@ -108,24 +108,24 @@ function GroupCard({
 
       <div className="mt-4 flex-1 space-y-2.5">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+          <p className="text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
             Critério de inclusão
           </p>
-          <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-blue)]">
+          <p className="mt-1 text-xs leading-relaxed text-[var(--color-blue)]">
             {group.inclusion_rule}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+          <p className="text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
             Interpretação da cobertura
           </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-slate-600)]">
+          <p className="mt-1 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-slate-600)]">
             {group.coverage_semantics}
           </p>
         </div>
         {summary ? (
           <div className="border-t border-[var(--color-blue-tint)] pt-3">
-            <div className="flex items-center justify-between gap-2 text-[11px]">
+            <div className="flex items-center justify-between gap-2 text-[length:var(--type-caption)]">
               <span className="text-[var(--color-slate-600)]">Cobertura avaliada</span>
               <span className="font-semibold tabular-nums text-[var(--color-blue)]">
                 {summary.coverage.percentage == null
@@ -133,7 +133,7 @@ function GroupCard({
                   : summary.coverage.percentage.toLocaleString("pt-BR") + "%"}
               </span>
             </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-muted)]">
+            <p className="mt-1 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-muted)]">
               {summary.coverage.evaluated.toLocaleString("pt-BR")} de{" "}
               {summary.coverage.eligible.toLocaleString("pt-BR")} alunos elegíveis
               {" · "}
@@ -142,18 +142,18 @@ function GroupCard({
           </div>
         ) : null}
         {group.id === "missing_score" ? (
-          <p className="rounded-lg border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-peach-tint-border)]">
+          <p className="rounded-lg border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-peach-tint-border)]">
             Lacuna de cobertura de score. Não representa baixo risco.
           </p>
         ) : null}
         {group.limitations.length > 0 ? (
-          <p className="text-[11px] leading-relaxed text-[var(--color-muted)]">
+          <p className="text-[length:var(--type-caption)] leading-relaxed text-[var(--color-muted)]">
             {group.limitations[0]}
           </p>
         ) : null}
       </div>
 
-      <span className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[var(--color-blue)]">
+      <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-blue)]">
         Ver integrantes e explicações
         <ArrowRight className="h-3.5 w-3.5" />
       </span>
@@ -190,16 +190,16 @@ export default function StudentGroupsPage() {
         <section className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[var(--color-ink)] sm:text-[24px]">
+              <h1 className="text-[length:var(--type-heading-medium)] font-semibold tracking-[-0.03em] text-[var(--color-ink)] sm:text-2xl">
                 Grupos de alunos
               </h1>
               {catalog.data ? (
-                <span className="rounded-full bg-[var(--color-blue-tint)] px-2 py-1 text-[10px] font-semibold text-[var(--color-slate-600)]">
+                <span className="rounded-full bg-[var(--color-blue-tint)] px-2 py-1 text-[length:var(--type-overline)] font-semibold text-[var(--color-slate-600)]">
                   {catalog.data.count} grupos
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--color-slate-600)]">
+            <p className="mt-1 max-w-2xl text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-slate-600)]">
               Explore segmentos calculados a partir dos sinais disponíveis e entenda os
               critérios usados em cada avaliação.
             </p>
@@ -207,7 +207,7 @@ export default function StudentGroupsPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/alunos"
-              className="inline-flex h-10 items-center rounded-lg border border-[var(--color-border)] bg-white px-3.5 text-[13px] font-medium text-[var(--color-blue)] transition hover:bg-[var(--color-panel)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
+              className="inline-flex h-10 items-center rounded-lg border border-[var(--color-border)] bg-white px-3.5 text-[length:var(--type-body-compact)] font-medium text-[var(--color-blue)] transition hover:bg-[var(--color-panel)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
             >
               Voltar para alunos
             </Link>
@@ -215,7 +215,7 @@ export default function StudentGroupsPage() {
               type="button"
               onClick={() => void refresh()}
               disabled={catalog.isFetching || summary.isFetching}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-blue)] px-3.5 text-[13px] font-semibold text-white transition hover:bg-[var(--color-blue)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-blue)] px-3.5 text-[length:var(--type-body-compact)] font-semibold text-white transition hover:bg-[var(--color-blue)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
             >
               <RefreshCw
                 className={
@@ -234,12 +234,12 @@ export default function StudentGroupsPage() {
             className="flex flex-col gap-2 rounded-xl border border-[var(--color-red-tint)] bg-[var(--color-red-tint)] p-4 sm:flex-row sm:items-center sm:justify-between"
           >
             <div>
-              <p className="text-[13px] font-semibold text-[var(--color-red)]">
+              <p className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-red)]">
                 {summary.data
                   ? "Não foi possível atualizar as contagens."
                   : "As contagens não estão disponíveis."}
               </p>
-              <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+              <p className="mt-1 text-xs text-[var(--color-slate-600)]">
                 {summary.data
                   ? "Exibindo o último resumo carregado em " + formatDateTime(summary.data.evaluated_at) + "."
                   : "A consulta falhou. Os grupos continuam sem números até que a API responda."}
@@ -248,7 +248,7 @@ export default function StudentGroupsPage() {
             <button
               type="button"
               onClick={() => void summary.refetch()}
-              className="self-start text-[12px] font-semibold text-[var(--color-red)] underline underline-offset-4 sm:self-auto"
+              className="self-start text-xs font-semibold text-[var(--color-red)] underline underline-offset-4 sm:self-auto"
             >
               Tentar novamente
             </button>
@@ -259,8 +259,8 @@ export default function StudentGroupsPage() {
           <div className="flex items-start gap-2.5 rounded-xl border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] p-4 text-[var(--color-peach-tint-border)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
-              <p className="text-[12px] font-semibold">Avaliação parcial da base</p>
-              <p className="mt-1 text-[12px] leading-relaxed">
+              <p className="text-xs font-semibold">Avaliação parcial da base</p>
+              <p className="mt-1 text-xs leading-relaxed">
                 A API sinalizou truncagem. As contagens refletem somente os alunos
                 efetivamente avaliados nesta resposta.
               </p>
@@ -282,10 +282,10 @@ export default function StudentGroupsPage() {
               role="alert"
               className="rounded-xl border border-[var(--color-red-tint)] bg-[var(--color-red-tint)] p-6"
             >
-              <p className="text-[14px] font-semibold text-[var(--color-red)]">
+              <p className="text-sm font-semibold text-[var(--color-red)]">
                 Não foi possível carregar os grupos.
               </p>
-              <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+              <p className="mt-1 text-xs text-[var(--color-slate-600)]">
                 {catalog.error instanceof Error
                   ? catalog.error.message
                   : "Verifique sua sessão e tente novamente."}
@@ -293,7 +293,7 @@ export default function StudentGroupsPage() {
               <button
                 type="button"
                 onClick={() => void catalog.refetch()}
-                className="mt-3 text-[12px] font-semibold text-[var(--color-red)] underline underline-offset-4"
+                className="mt-3 text-xs font-semibold text-[var(--color-red)] underline underline-offset-4"
               >
                 Tentar novamente
               </button>
@@ -303,7 +303,7 @@ export default function StudentGroupsPage() {
           {catalog.isError && catalog.data ? (
             <div
               role="status"
-              className="rounded-xl border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] p-3 text-[11px] leading-relaxed text-[var(--color-peach-tint-border)]"
+              className="rounded-xl border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] p-3 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-peach-tint-border)]"
             >
               Não foi possível atualizar o catálogo. A lista continua mostrando a última
               versão carregada ({catalog.data.catalog_version}).
@@ -313,10 +313,10 @@ export default function StudentGroupsPage() {
           {!catalog.isLoading && catalog.data?.groups.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[var(--color-blue-tint-border)] bg-white px-5 py-12 text-center">
               <CircleHelp className="mx-auto h-7 w-7 text-[var(--color-muted)]" />
-              <p className="mt-3 text-[14px] font-semibold text-[var(--color-ink)]">
+              <p className="mt-3 text-sm font-semibold text-[var(--color-ink)]">
                 Nenhum grupo disponível
               </p>
-              <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+              <p className="mt-1 text-xs text-[var(--color-slate-600)]">
                 O catálogo não retornou grupos nesta consulta.
               </p>
             </div>
@@ -341,16 +341,16 @@ export default function StudentGroupsPage() {
           <div className="flex items-start gap-2.5">
             <CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-slate-600)]" />
             <div>
-              <h2 className="text-[13px] font-semibold text-[var(--color-ink)]">
+              <h2 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">
                 Como interpretar os grupos
               </h2>
-              <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-slate-600)]">
+              <p className="mt-1 text-xs leading-relaxed text-[var(--color-slate-600)]">
                 Um aluno pode pertencer a mais de um grupo. Portanto, as contagens não
                 devem ser somadas para estimar alunos únicos. Resultados indeterminados
                 representam dados insuficientes e não são tratados como ausência de risco.
               </p>
               {summary.data?.evaluated_at ? (
-                <p className="mt-2 text-[11px] text-[var(--color-muted)]">
+                <p className="mt-2 text-[length:var(--type-caption)] text-[var(--color-muted)]">
                   Avaliação do resumo: {formatDateTime(summary.data.evaluated_at)}
                 </p>
               ) : null}
