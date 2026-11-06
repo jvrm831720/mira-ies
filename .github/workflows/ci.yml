@@ -230,6 +230,32 @@ jobs:
             ) THEN
               RAISE EXCEPTION 'Wave 4D payments tenant RLS/FORCE RLS policy missing';
             END IF;
+            IF EXISTS (
+              SELECT 1 FROM (VALUES
+                ('mira_asaas_customer_bindings'),
+                ('mira_asaas_charges'),
+                ('mira_asaas_webhook_events'),
+                ('mira_asaas_webhook_applications')
+              ) AS required(table_name)
+              LEFT JOIN pg_class cls ON cls.relname=required.table_name
+              LEFT JOIN pg_namespace ns ON ns.oid=cls.relnamespace AND ns.nspname='public'
+              WHERE cls.oid IS NULL OR ns.oid IS NULL
+                OR NOT cls.relrowsecurity OR NOT cls.relforcerowsecurity
+                OR NOT EXISTS (SELECT 1 FROM pg_policies p
+                  WHERE p.schemaname='public' AND p.tablename=required.table_name
+                    AND p.policyname=required.table_name || '_tenant_access')
+            ) THEN
+              RAISE EXCEPTION 'Wave 4D-B Asaas tenant RLS/FORCE RLS is missing';
+            END IF;
+            IF (SELECT count(*) FROM pg_trigger WHERE tgname IN (
+              'mira_asaas_webhook_events_immutable',
+              'mira_asaas_webhook_applications_immutable'
+            ) AND NOT tgisinternal) <> 2 THEN
+              RAISE EXCEPTION 'Wave 4D-B Asaas immutable event log trigger missing';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='mira_asaas_resolve_payment') THEN
+              RAISE EXCEPTION 'Wave 4D-B authenticated global webhook resolver missing';
+            END IF;
             IF (
               SELECT count(*) FROM pg_trigger
               WHERE tgname IN (
