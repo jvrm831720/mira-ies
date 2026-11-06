@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -11,6 +12,11 @@ import { filterAppsCatalog, unifyAppsCatalog, type AppsCategory, type CatalogApp
 
 type Tab = "Mais usados" | "Conectados" | "Descobrir";
 const categories: Array<"Todos" | AppsCategory> = ["Todos", "Comunicação", "Acadêmico", "Financeiro", "Produtividade", "IA", "Outros"];
+const brandLogos:Record<string,string> = {
+ whatsapp:"/apps/whatsapp.svg",gmail:"/apps/gmail.svg",googlecalendar:"/apps/googlecalendar.svg",
+ googledrive:"/apps/googledrive.svg",moodle:"/apps/moodle.svg",canvas:"/apps/canvas.svg",
+ googlesheets:"/apps/googlesheets.svg",zapier:"/apps/zapier.svg",
+};
 const tone:Record<string,string> = {
  green:"bg-[var(--mira-apps-green)] text-[var(--mira-apps-white)]",
  red:"bg-[var(--mira-apps-red)] text-[var(--mira-apps-white)]",
@@ -142,7 +148,7 @@ export function AppsCatalogExperience() {
        aria-label={"Abrir detalhes de "+item.name}
        className="group flex min-h-[142px] flex-col justify-between rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)] p-4 text-left transition-[border-color,background-color,transform] duration-150 hover:-translate-y-0.5 hover:border-[var(--mira-apps-blue)] hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)] motion-reduce:transform-none">
        <span className="flex min-w-0 items-center gap-3">
-        <span className={"grid h-12 w-12 shrink-0 place-items-center rounded-[11px] text-base font-semibold shadow-sm "+(tone[item.color]||tone.gray)} aria-hidden="true">{item.initials}</span>
+        <span className={"grid h-12 w-12 shrink-0 place-items-center rounded-[11px] text-base font-semibold shadow-sm "+(tone[item.color]||tone.gray)} aria-hidden="true">{brandLogos[item.id] ? <Image src={brandLogos[item.id]} alt="" width={27} height={27} unoptimized /> : item.initials}</span>
         <span className="min-w-0"><span className="block truncate text-sm font-semibold">{item.name}</span>
          <span className="mt-1 block truncate text-xs text-[var(--mira-apps-muted)]">{item.description}</span>
         </span>
@@ -164,7 +170,7 @@ export function AppsCatalogExperience() {
       <button type="button" onClick={()=>setSelected(null)} aria-label="Fechar detalhes" className="rounded-lg p-2 hover:bg-[var(--mira-apps-hover)]"><X size={18}/></button>
      </div>
      <div className="mt-8 flex items-center gap-4">
-      <span className={"grid h-16 w-16 shrink-0 place-items-center rounded-xl text-xl font-bold "+(tone[selected.color]||tone.gray)} aria-hidden="true">{selected.initials}</span>
+      <span className={"grid h-16 w-16 shrink-0 place-items-center rounded-xl text-xl font-bold "+(tone[selected.color]||tone.gray)} aria-hidden="true">{brandLogos[selected.id] ? <Image src={brandLogos[selected.id]} alt="" width={36} height={36} unoptimized /> : selected.initials}</span>
       <div><h2 className="text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-[var(--mira-apps-muted)]">{selected.category}</p></div>
      </div>
      <p className="mt-6 text-sm leading-6 text-[var(--mira-apps-muted)]">{selected.description}</p>
