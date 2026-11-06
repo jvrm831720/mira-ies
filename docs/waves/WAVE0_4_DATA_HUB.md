@@ -16,6 +16,7 @@ Capturas fornecidas da Attio: densidade reduzida, navegação hierárquica, divi
 - Visão geral: contagem do **catálogo de conectores**; **somente** conexões nativas JACAD/Sponte configuradas; erros verificados nessas conexões; amostra dos últimos 30 uploads. Valores indisponíveis não são apresentados como zero.
 - Conexões: estados separados `não configurado`, `desativado`, `configurado`, `autenticado`, `sincronizando`, `sincronizado`, `erro` e `desconectado`, conforme campos reais das duas APIs de conexão. Erros de consulta são diferentes de ausência de configuração.
 - Catálogo: dados de `GET /api/v1/connectors`, busca por nome/categoria/descrição, categorias descritivas. Estar no catálogo **não** equivale a estar conectado.
+- Composio: quando o usuário possui `settings.manage`, consulta **somente leitura** de `GET /api/v1/integrations/composio/catalog` e `GET /api/v1/integrations/composio/connections`; exibe política habilitada/seleção de tools e contas locais por identidade, sem confundir status local com verificação de OAuth remoto.
 - Importações: histórico `GET /api/v1/upload/history`; quando autorizado por `campaigns.view`, histórico `GET /dispatch/composio/imports`. Fontes não relacionadas não são ligadas artificialmente. Detalhe mostra identificador, estado bruto normalizado apenas para UI, horários, contagens e falha conhecida.
 - Qualidade: somente falhas de upload, processamento parcial em lotes concluídos e falhas de sincronização explicitamente registradas. Não inventa um score de qualidade ou uma leitura de completude institucional.
 - Acesso direto aos fluxos existentes: configurar conexão, importação inteligente e histórico detalhado.
@@ -31,6 +32,7 @@ Capturas fornecidas da Attio: densidade reduzida, navegação hierárquica, divi
 | Sponte | `GET /api/v1/integrations/sponte` | autorização backend | leitura |
 | Uploads | `GET /api/v1/upload/history` | `data.view` | leitura |
 | Importações Composio | `GET /dispatch/composio/imports` | `campaigns.view` | leitura condicional |
+| Catálogo e contas Composio | `GET /api/v1/integrations/composio/catalog` e `/connections` | `settings.manage` | leitura condicional, sem sync remoto |
 | Smart Import | `/importar` e APIs atuais | `data.import` + confirmação | reutilizado, não duplicado |
 | Configuração nativa | `/conectores` | RBAC, autenticação própria | reutilizada |
 | Financeiro | `/conectores/financeiro` | controles atuais | permanece no módulo |
@@ -41,7 +43,7 @@ Capturas fornecidas da Attio: densidade reduzida, navegação hierárquica, divi
 
 ## Limitações honestas
 
-- Os contratos atuais não oferecem um índice universal de todas as conexões, sincronizações ou proveniência de dados do workspace. A amostra JACAD/Sponte não representa todos os conectores.
+- Os contratos atuais não oferecem um índice universal de todas as fontes de dados, sincronizações ou proveniência do workspace. A amostra JACAD/Sponte e as contas locais Composio não representam todas as integrações nativas/externas.
 - O histórico de upload é paginado e a visão usa os 30 registros mais recentes. A ausência de falhas nessa amostra não comprova qualidade de dados integral.
 - No histórico Composio não é possível inferir integração com campanhas específicas nem execução de ferramenta externa. Erros potencialmente sensíveis não são renderizados literalmente.
 - Não há operação para selecionar/editar ferramentas Composio, configurar mapeamentos globais ou repetir uma importação neste hub.
