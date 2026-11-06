@@ -52,6 +52,11 @@ export function OnboardingIntegrationSetup({ onComplete }: Props) {
   const activeAccounts = (accounts.data?.items ?? []).filter(item => item.status === "active");
   const activeNative = catalog.filter(item => item.native && item.status === "connected");
   const count = activeAccounts.length + activeNative.length;
+  const refreshConnections = () => {
+    void accounts.refetch();
+    void jacad.refetch();
+    void sponte.refetch();
+  };
 
   async function start(item: CatalogApp, option: AuthOption) {
     if (connecting) return;
@@ -84,6 +89,7 @@ export function OnboardingIntegrationSetup({ onComplete }: Props) {
     <div className="mira-flow-connect-overview" role="status">
       <span><Check size={15} aria-hidden="true" /> Workspace protegido</span>
       <strong>{count} {count === 1 ? "conexão reconhecida" : "conexões reconhecidas"}</strong>
+      <button type="button" onClick={refreshConnections} className="mira-flow-connect-refresh">Atualizar conexões</button>
     </div>
     <label className="mira-flow-connect-search">
       <Search size={15} aria-hidden="true" />
@@ -111,11 +117,11 @@ export function OnboardingIntegrationSetup({ onComplete }: Props) {
               {verified.length > 0 ? <small>{verified.length} {verified.length === 1 ? "conta autorizada" : "contas autorizadas"}</small> : null}
             </div>
             <div className="mira-flow-connect-action">
-              {verified.length > 0 || nativeConnected ? <span className="mira-flow-connected"><Check size={13} /> Conectado</span> : null}
+              {verified.length > 0 || nativeConnected ? <span className="mira-flow-connected"><Check size={13} /> Conectado</span> : item.status === "configured" ? <span className="mira-flow-connect-unavailable">Configurado</span> : null}
               {canConnect ? <button type="button" disabled={!!connecting} onClick={() => void start(item, option)}
                 aria-label={verified.length > 0 ? "Conectar outra conta de " + item.name : "Conectar " + item.name}>
                 {connecting === item.id ? "Abrindo…" : verified.length > 0 ? "Adicionar conta" : "Conectar"}
-              </button> : item.native ? <Link href="/conectores" target="_blank" rel="noopener noreferrer">Configurar</Link>
+              </button> : item.native ? <Link href={item.id === "jacad" || item.id === "sponte" ? "/dados/conexoes/" + item.id : "/conectores"} target="_blank" rel="noopener noreferrer">Configurar</Link>
                 : !verified.length ? <span className="mira-flow-connect-unavailable">Indisponível</span> : null}
             </div>
           </div>;

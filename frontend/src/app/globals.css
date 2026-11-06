@@ -1909,3 +1909,6 @@ textarea {
 .mira-flow-connect-unavailable { color: var(--color-legacy-878d98); font-size: var(--type-overline); }
 .mira-flow-connect-footer { border-top: 1px solid var(--color-legacy-34373e); padding-top: 12px; display: grid; gap: 12px; }
 .mira-flow-connect-footer .mira-flow-primary { width: 100%; }
+
+.mira-flow-connect-refresh { border: 1px solid var(--color-legacy-34373e); border-radius: 6px; padding: 5px 7px; font-size: var(--type-overline); color: var(--auth-text); }
+.mira-flow-connect-refresh:hover { border-color: var(--auth-blue); }

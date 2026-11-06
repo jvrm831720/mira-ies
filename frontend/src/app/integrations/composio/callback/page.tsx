@@ -15,7 +15,7 @@ function CompleteOAuth() {
   useEffect(() => {
     const state = params.get("state") || "";
     const account = params.get("connected_account_id") || params.get("connectedAccountId") || "";
-    if (params.has("error")) {
+    if (params.has("error") || params.get("status") === "failed") {
       setMessage("A autorização foi cancelada ou recusada pelo provedor.");
       setDone(true);
       return;

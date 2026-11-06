@@ -250,13 +250,13 @@ def list_onboarding_auth_configs() -> list[dict[str, str]]:
             slug = (toolkit_data.get("slug") or row.get("toolkit_slug")
                     or (toolkit if isinstance(toolkit, str) else ""))
             config_id = row.get("id") or getattr(item, "id", None)
-            status = str(row.get("status") or getattr(item, "status", "ENABLED")).upper()
+            status = str(row.get("status") or getattr(item, "status", "ENABLED")).upper().split(".")[-1]
             if not isinstance(slug, str) or not isinstance(config_id, str) or status not in {"ENABLED", "ACTIVE"}:
                 continue
             result[(slug.lower(), config_id)] = {
                 "toolkit_slug": slug.lower(),
                 "auth_config_id": config_id,
-                "auth_scheme": str(row.get("auth_scheme") or getattr(item, "auth_scheme", "OAUTH2")).upper(),
+                "auth_scheme": str(row.get("auth_scheme") or getattr(item, "auth_scheme", "OAUTH2")).upper().split(".")[-1],
             }
         nxt = data.get("next_cursor") or getattr(page, "next_cursor", None)
         if not isinstance(nxt, str) or not nxt or nxt in seen:
