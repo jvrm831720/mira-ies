@@ -2,12 +2,13 @@
 
 import { AcademicNavigation } from "@/components/academic/academic-navigation";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   BookOpenCheck, CalendarDays, CheckCircle2, Clock3, FileText,
   GraduationCap, Loader2, Plus, RefreshCw, ShieldCheck, Users,
 } from "@/components/ui/icons";
+import { Dialog } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 
@@ -18,6 +19,9 @@ const primary = "inline-flex h-10 items-center justify-center rounded-lg bg-[#20
 const labels: Record<string,string> = {submitted:"Recebida",approved:"Aprovada",rejected:"Rejeitada",passed:"Aprovado",failed:"Reprovado"};
 type Item = {id:string;code:string;name:string;status:string;program_id?:string};
 type Curriculum = {id:string;program_id:string;code:string;label:string;status:string};
+type CurriculumDetail = Curriculum & {
+  items: {subject_id:string;period_number:number;required:boolean;prerequisite_subject_id:string|null}[];
+};
 type Class = {id:string;code:string;subject_id:string;term_id:string;status:string;capacity:number|null;enrollment_open:boolean};
 type Policy = {id:string;version:number;status:string;passing_percent:string;min_attendance_percent:string;max_classes_per_term:number};
 type Overview = {counts:{active_students:number;enrollment_requests:number;outcomes:number};policies:Policy[];curricula:Curriculum[];
@@ -58,6 +62,16 @@ export default function JourneysPage(){
     me.data.permissions.includes("critical.manage"):me.data?.role==="admin");
   const canManage=!!canView&&(me.data?.permissions?
     me.data.permissions.includes("settings.manage"):me.data?.role==="admin");
+  const [curriculumId, setCurriculumId] = useState<string | null>(null);
+  const closeCurriculum = useCallback((open: boolean) => {
+    if (!open) setCurriculumId(null);
+  }, []);
+  const curriculum = useQuery({
+    queryKey: ["academic-curriculum", me.data?.tenant_id, me.data?.user_id, curriculumId],
+    queryFn: ({ signal }) => call<CurriculumDetail>(`/curricula/${curriculumId}`, { signal }),
+    enabled: Boolean(canView && curriculumId && me.data?.tenant_id && me.data.user_id),
+    retry: false,
+  });
   const [tab,setTab]=useState<Tab>("matriculas");
   const [overview,setOverview]=useState<Overview|null>(null);
   const [requests,setRequests]=useState<Request[]>([]);
@@ -135,13 +149,28 @@ export default function JourneysPage(){
     try{const r=await call<{items:Offer[]}>("/programs/"+programId+"/offers?term_id="+termId);setOffers(r.items);}
     catch(e){setError((e as Error).message);}
   }
-  async function loadRoster(id:string){
+  const rosterRequest = useRef<AbortController | null>(null);
+  const loadRoster = useCallback(async (id: string) => {
+    rosterRequest.current?.abort();
     setRoster(null);setPreview(null);setGrades({});setPresence({});
     if(!id)return;
-    try{const r=await call<Roster>("/classes/"+id+"/roster");
+    const request = new AbortController();
+    rosterRequest.current = request;
+    try{const r=await call<Roster>("/classes/"+id+"/roster", { signal: request.signal });
+      if (request.signal.aborted) return;
       setRoster(r);setAssessmentId(r.assessments[0]?.id||"");setLessonId(r.lessons[0]?.id||"");
-    }catch(e){setError((e as Error).message);}
-  }
+    }catch(e){if (!request.signal.aborted) setError((e as Error).message);}
+  }, []);
+  useEffect(() => {
+    if (!canView) return;
+    const id = new URLSearchParams(window.location.search).get("turma");
+    if (id && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)) {
+      setTab("diario");
+      setClassId(id);
+      void loadRoster(id);
+    }
+    return () => rosterRequest.current?.abort();
+  }, [canView, loadRoster, me.data?.tenant_id, me.data?.user_id]);
   async function createCurriculum(e:FormEvent){
     e.preventDefault();
     const v=await act("/curricula",{program_id:curriculumProgram,code:curriculumCode,label:curriculumName,
@@ -242,12 +271,34 @@ export default function JourneysPage(){
       </section>
     </div>}
 
+    {canView && curriculumId && <Dialog open onOpenChange={closeCurriculum}
+      title={curriculum.data?.label ?? "Matriz curricular"}
+      description={curriculum.data ? `${curriculum.data.code} · ${curriculum.data.status}` : undefined}>
+      {curriculum.isPending && <p role="status">Carregando matriz…</p>}
+      {curriculum.isError && <p role="alert">Não foi possível carregar a matriz curricular.</p>}
+      {curriculum.data && <ul className="max-h-[50vh] divide-y overflow-y-auto">
+        {curriculum.data.items.map(item => {
+          const subject = overview?.subjects.find(row => row.id === item.subject_id);
+          const prerequisite = overview?.subjects.find(row => row.id === item.prerequisite_subject_id);
+          return <li key={item.subject_id} className="py-3 text-sm">
+            <p className="font-medium">{subject?.name ?? "Disciplina fora da prévia do catálogo"}</p>
+            <p className="text-xs text-[#505967]">
+              Período {item.period_number} · {item.required ? "Obrigatória" : "Optativa"}
+            </p>
+            {item.prerequisite_subject_id && <p className="text-xs text-[#505967]">
+              Pré-requisito · {prerequisite?.name ?? "Disciplina fora da prévia do catálogo"}
+            </p>}
+          </li>;
+        })}
+      </ul>}
+    </Dialog>}
+
     {tab==="curriculos"&&<div className="grid gap-5 xl:grid-cols-2">
       <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
         <h2 className="text-[15px] font-semibold">Matrizes curriculares</h2>
         <p className="mt-1 text-[12px] text-[#667085]">Cada curso pode ter várias matrizes; os vínculos existentes preservam sua versão.</p>
         <div className="mt-4 space-y-2">{overview?.curricula.map(c=><article key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-[#EAECF0] p-3">
-          <div><p className="text-[12px] font-semibold">{c.label}</p><p className="mt-1 text-[11px] text-[#667085]">{c.code} · {overview.programs.find(p=>p.id===c.program_id)?.name} · {c.status}</p></div>
+          <div><button type="button" className="text-left text-[12px] font-semibold hover:underline" onClick={() => setCurriculumId(c.id)}>{c.label}</button><p className="mt-1 text-[11px] text-[#667085]">{c.code} · {overview.programs.find(p=>p.id===c.program_id)?.name} · {c.status}</p></div>
           {canApprove&&c.status==="draft"&&<button className={btn} disabled={busy} onClick={()=>void act("/curricula/"+c.id+"/publish")}>Publicar</button>}
         </article>)}</div>
       </section>
@@ -381,7 +432,10 @@ export default function JourneysPage(){
       <p className="mt-1 text-[12px] text-[#667085]">Notas, frequência e fechamento com rastreabilidade. Registros ausentes bloqueiam resultados.</p>
       <label className="mt-4 block max-w-xl text-[11px] text-[#667085]">Turma ativa
         <select value={classId} onChange={e=>{setClassId(e.target.value);void loadRoster(e.target.value);}} className={field+" mt-1"}>
-          <option value="">Selecionar turma</option>{overview?.classes.filter(x=>x.status==="active").map(c=><option key={c.id} value={c.id}>{c.code} · {overview.subjects.find(s=>s.id===c.subject_id)?.name}</option>)}
+          <option value="">Selecionar turma</option>
+          {classId && !overview?.classes.some(row => row.id === classId && row.status === "active") &&
+            <option value={classId}>{roster?.class.code ?? "Turma selecionada"}</option>}
+          {overview?.classes.filter(x=>x.status==="active").map(c=><option key={c.id} value={c.id}>{c.code} · {overview.subjects.find(s=>s.id===c.subject_id)?.name}</option>)}
         </select></label>
       {roster&&<div className="mt-5 grid gap-5 xl:grid-cols-2">
         <div className="rounded-lg border border-[#EAECF0] p-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AcademicCatalogTable } from "@/components/academic/academic-catalog-table";
 import { AcademicNavigation } from "@/components/academic/academic-navigation";
 
@@ -308,6 +309,11 @@ export default function AcademicManagementPage() {
             <dd className="mt-1 text-sm font-medium">{selectedClass.status}</dd>
           </div>
         </dl>
+        {selectedClass.status === "active" && me.data?.available_features?.academic_operations && <Link
+          href={`/academico/jornadas?turma=${encodeURIComponent(selectedClass.id)}`}
+          className="mt-5 inline-flex rounded-md bg-[#101112] px-4 py-2 text-sm text-white">
+          Abrir diário da turma
+        </Link>}
       </Dialog>}
 
       <div className="grid gap-5 lg:grid-cols-[1fr_370px]">
