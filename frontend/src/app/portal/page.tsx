@@ -5,7 +5,7 @@ import { StudentServicesPanel } from "./student-services-panel";
 import { AcademicOperationsPanel } from "./academic-operations-panel";
 import { PortalShell, type PortalSection } from "./components/portal-shell";
 import {
-  ArrowRight, BookOpen, CheckCircle2, GraduationCap, LockKeyhole,
+  ArrowRight, BookOpen, GraduationCap, LockKeyhole,
   LogOut, ShieldCheck, Wallet, CalendarDays, AlertCircle, Loader2,
 } from "@/components/ui/icons";
 
@@ -314,7 +314,7 @@ export default function StudentPortalPage() {
     if (next === "calendar") setExtraTab("calendar");
     if (next === "financial") setTab("fee");
     // Changing sections never changes the student identity or authorizations.
-    window.scrollTo({ top: 0, behavior: "instant" });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }
 
   const field = (label: string, item: string | number | null | undefined) => (
@@ -413,10 +413,12 @@ export default function StudentPortalPage() {
           {field("Matrícula", student.registration)}
           {field("Situação acadêmica", student.academic_status)}
           {field("Semestre", student.semester != null ? student.semester + "º" : null)}
+          {field("Frequência geral", student.attendance_percentage != null ? student.attendance_percentage + "%" : null)}
+          {field("Média informada", student.grade_average)}
         </dl>
       </section>
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
-        <div>{academicPanel("Próximas aulas registradas", "Informações publicadas pela instituição, quando disponíveis.")}</div>
+        <div>{academicPanel("Aulas registradas", "Informações publicadas pela instituição, quando disponíveis.")}</div>
         <section aria-label="Acesso rápido" className="self-start rounded-xl border border-[#E6E7EA] bg-[#F8F9FA] p-5">
           <h2 className="text-[14px] font-semibold">O que você precisa fazer?</h2>
           <p className="mt-2 text-[12px] leading-5 text-[#505967]">Acesse seu histórico ou acompanhe um pedido sem procurar por diferentes portais.</p>
