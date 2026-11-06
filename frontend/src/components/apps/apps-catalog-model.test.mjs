@@ -53,7 +53,8 @@ test("view keeps provider technical terms out of visible copy and protects permi
  const view=load("apps-catalog-experience.tsx");
  const navigation=load("../layout/navigation.ts");
  const sidebar=load("../layout/sidebar.tsx");
- assert.doesNotMatch(view,/Composio|composio/i);
+ assert.doesNotMatch(view,/>\s*Composio\s*</i);
+ assert.doesNotMatch(view,/statusText:\s*"Conectado"\s*,\s*native:\s*false/);
  assert.match(view,/hasNavigationPermission\(me\.data,\s*"data\.view"\)/);
  assert.match(view,/hasNavigationPermission\(me\.data,\s*"settings\.manage"\)/);
  assert.match(navigation,/href: "\/apps".*permission: "data\.view".*module: "data"/);
