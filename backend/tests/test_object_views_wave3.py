@@ -188,7 +188,7 @@ async def test_sensitive_shared_view_not_visible_to_basic_viewer(db_session, ten
     rows = (await db_session.execute(select(ObjectView).where(
         ObjectView.id == created["id"]))).scalars().all()
     assert rows == [], "RLS bloqueia configuração sensível de view compartilhada."
-    metadata = await object_metadata("students", auth=viewer)
+    metadata = await object_metadata("students", auth=viewer, db=db_session)
     assert "risk_score" not in [field["key"] for field in metadata["fields"]]
     with pytest.raises(HTTPException) as exc:
         await create_view(personal_view(name="Tentativa", columns=["nome", "risk_score"]),
