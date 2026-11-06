@@ -94,6 +94,7 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
     assert created["revision"] == 1 and created["version"] == 1
     assert created["can_share"]
     assert created["schema_status"] in ("current", "upgraded")
+    await identity(db_session, tenant_a.id, owner)
     assert len((await list_revisions(uuid4_from(view_id), auth=owner_auth, db=db_session))["revisions"]) == 1
 
     await identity(db_session, tenant_a.id, peer)
@@ -113,15 +114,18 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
     assert [v["id"] for v in peer_views] == [view_id]
     assert not peer_views[0]["can_edit"] and not peer_views[0]["can_share"]
     await favorite_view(uuid4_from(view_id), auth=peer_auth, db=db_session)
+    await identity(db_session, tenant_a.id, peer)
     own = (await list_views("students", auth=peer_auth, db=db_session))["views"]
     assert own[0]["favorite"]
     await unfavorite_view(uuid4_from(view_id), auth=peer_auth, db=db_session)
+    await identity(db_session, tenant_a.id, peer)
     assert not (await list_views("students", auth=peer_auth, db=db_session))["views"][0]["favorite"]
 
     copy = await duplicate_view(uuid4_from(view_id), DuplicateView(name="Versão da equipe"),
                                 auth=peer_auth, db=db_session)
     assert copy["scope"] == "personal" and copy["owner_user_id"] == peer
     assert copy["id"] != view_id and copy["revision"] == 1
+    await identity(db_session, tenant_a.id, peer)
     with pytest.raises(HTTPException) as exc:
         await update_view(uuid4_from(view_id),
                           UpdateView(name="Editar colega", expected_revision=2,
@@ -143,6 +147,7 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
         ), expected_revision=2), auth=owner_auth, db=db_session)
     assert changed["revision"] == 3
     assert changed["config"]["property_labels"]["curso"] == "Programa"
+    await identity(db_session, tenant_a.id, owner)
     with pytest.raises(HTTPException) as exc:
         await update_view(uuid4_from(view_id), UpdateView(
             name="Dados obsoletos", config=ViewSpec(columns=["nome"]), expected_revision=2),
@@ -159,6 +164,7 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
     assert restored["revision"] == 4 and restored["name"] == "Risco zero"
     assert restored["scope"] == "personal"
     assert restored["config"]["property_labels"] == {}
+    await identity(db_session, tenant_a.id, owner)
     history = (await db_session.execute(select(ObjectViewRevision).where(
         ObjectViewRevision.view_id == view_id))).scalars().all()
     assert len(history) == 4
@@ -180,6 +186,7 @@ async def test_sensitive_shared_view_not_visible_to_basic_viewer(db_session, ten
     created = await create_view(personal_view(name="Risco sensível", columns=["nome", "risk_score"]),
                                 auth=author, db=db_session)
     assert created["config"]["columns"] == ["nome", "risk_score"]
+    await identity(db_session, tenant.id, owner.id)
     await share_view(uuid4_from(created["id"]), ShareView(scope="workspace", expected_revision=1),
                      auth=author, db=db_session)
 
