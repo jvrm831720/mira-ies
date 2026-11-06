@@ -13,7 +13,7 @@ import { OnboardingIntegrationSetup } from "./onboarding-integration-setup";
 import { completeOrganizationOnboarding, enrichOnboarding, type OnboardingEnrichment } from "@/lib/onboarding-api";
 import { corporateDomain, isValidCnpj, maskCnpj, publicCompanyDescription, plausiblePublicWebsite } from "@/lib/onboarding-flow.mjs";
 
-type Step = "workspace" | "description" | "name" | "integrations" | "trial";
+type Step = "workspace" | "description" | "name" | "provision" | "integrations";
 type SecurityStep = "enroll" | "verify" | null;
 type FormData = {
   organizationName: string;
@@ -29,7 +29,7 @@ const EMPTY: FormData = {
   organizationName: "", tradeName: "", cnpj: "", website: "",
   description: "", firstName: "", lastName: "", dataSources: [],
 };
-const STEPS: Step[] = ["workspace", "description", "name", "trial", "integrations"];
+const STEPS: Step[] = ["workspace", "description", "name", "provision", "integrations"];
 
 
 function InputField({ id, label, children, note }: {
@@ -103,6 +103,17 @@ export function ConversationalOnboarding() {
 
   useEffect(() => {
     if (!email) { setInitialized(true); return; }
+    // Restore the workspace preview even when MFA enrollment is resumed after a refresh.
+    const saved = window.sessionStorage.getItem("mira_onboarding_draft_v3:" + email);
+    if (saved) {
+      try {
+        const draft = JSON.parse(saved) as { step?: Step | "trial"; form?: Partial<FormData>; siteRevealed?: boolean };
+        if (draft.form) setForm({ ...EMPTY, ...draft.form });
+        const recoveredStep = draft.step === "provision" ? "provision" : draft.step;
+        if (recoveredStep && STEPS.includes(recoveredStep)) setStep(recoveredStep);
+        if (draft.siteRevealed) { setSiteRevealed(true); setSiteStatus("manual"); }
+      } catch { window.sessionStorage.removeItem("mira_onboarding_draft_v3:" + email); }
+    }
     const pendingMfa = window.sessionStorage.getItem("mira_onboarding_pending_mfa:" + email);
     if (pendingMfa) {
       try {
@@ -121,15 +132,6 @@ export function ConversationalOnboarding() {
     if (!verifiedToken && !resumedConnections) { setInitialized(true); return; }
     if (resumedConnections) setConnectedPhase(true);
     setToken(verifiedToken);
-    const saved = window.sessionStorage.getItem("mira_onboarding_draft_v3:" + email);
-    if (saved) {
-      try {
-        const draft = JSON.parse(saved) as { step?: Step; form?: Partial<FormData>; siteRevealed?: boolean };
-        if (draft.form) setForm({ ...EMPTY, ...draft.form });
-        if (draft.step && STEPS.includes(draft.step)) setStep(draft.step);
-        if (draft.siteRevealed) { setSiteRevealed(true); setSiteStatus("manual"); }
-      } catch { window.sessionStorage.removeItem("mira_onboarding_draft_v3:" + email); }
-    }
     if (resumedConnections) setStep("integrations");
     setInitialized(true);
   }, [email]);
@@ -531,7 +533,7 @@ export function ConversationalOnboarding() {
                     }} />
                   )}
 
-                  {step === "trial" && (
+                  {step === "provision" && (
                     <>
                       <p className="mira-flow-card-label">Tudo pronto para começar</p>
                       <div className="mira-flow-finish-summary">
@@ -549,7 +551,7 @@ export function ConversationalOnboarding() {
                   {error && <p className="mira-flow-error" role="alert">{error}</p>}
                   {step !== "integrations" && <div className="mira-flow-card-actions">
                     <button type="button" className="mira-flow-back" onClick={back} disabled={busy || siteStatus === "searching"}><ArrowLeft size={14} /> Voltar</button>
-                    {step === "trial" ? (
+                    {step === "provision" ? (
                       <button type="button" className="mira-flow-primary" disabled={busy} onClick={() => void finish()}>
                         {busy ? "Criando…" : "Criar e proteger workspace"} <ArrowRight size={14} />
                       </button>
