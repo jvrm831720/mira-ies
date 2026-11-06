@@ -4,8 +4,15 @@ import { useEffect, useState, type FormEvent } from "react";
 
 type ServiceRequest = {
   id: string; category: string; subject: string; description: string;
-  status: string; created_at: string;
+  status: string; created_at: string; due_at?: string | null; priority?: string;
 };
+type PortalRequestDetail = {
+  request: ServiceRequest;
+  comments: {id:string; actor_type:string; body:string; created_at:string}[];
+  attachments: {id:string;filename:string;byte_count:number;created_at:string}[];
+  events: {id:string;status:string;note:string|null;occurred_at:string}[];
+};
+type PortalNotification = {id:string;request_id:string;title:string;read_at:string|null;created_at:string};
 type Document = { id: string; title: string; kind: string; published_at: string | null };
 type Financial = { id: string; label: string; amount: string; currency: string; status: string; observed_at: string };
 type StudentAsaasCharge = {
@@ -25,7 +32,7 @@ async function serviceFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch("/api/v1/student-portal/services" + path, {
     ...init, credentials: "same-origin", cache: "no-store",
     headers: {
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(typeof init?.body === "string" ? { "Content-Type": "application/json" } : {}),
       ...(init?.method && init.method !== "GET" ? { "X-Mira-Portal-Action": "1" } : {}),
     },
   });
@@ -76,6 +83,12 @@ export function StudentServicesPanel() {
   const [documentProof, setDocumentProof] = useState<string | null>(null);
   const [documentProofValid, setDocumentProofValid] = useState<boolean | null>(null);
   const [history, setHistory] = useState<string | null>(null);
+  const [detail, setDetail] = useState<PortalRequestDetail | null>(null);
+  const [notifications, setNotifications] = useState<PortalNotification[]>([]);
+  const [reply, setReply] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [replySending, setReplySending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -84,6 +97,12 @@ export function StudentServicesPanel() {
     let active = true;
     setLoading(true); setMessage(null); setDocumentText(null); setHistory(null);
     setDocumentProof(null); setDocumentProofValid(null);
+    setDetail(null);
+    if (view === "requests") {
+      void serviceFetch<{items:PortalNotification[]}>("/notifications")
+        .then(data => { if (active) setNotifications(data.items); })
+        .catch(() => { if (active) setNotifications([]); });
+    }
     const endpoint = view === "requests" ? "/requests" : view === "documents" ? "/documents" : "/financial";
     serviceFetch<{ items: ServiceRequest[] | Document[] | Financial[] }>(endpoint)
       .then((data) => {
@@ -166,6 +185,75 @@ export function StudentServicesPanel() {
     }
   }
 
+  async function openRequest(item: ServiceRequest) {
+    try {
+      const result = await serviceFetch<PortalRequestDetail>("/requests/" + encodeURIComponent(item.id) + "/detail");
+      setDetail(result);
+      setMessage(null);
+    } catch(err) {
+      setMessage(err instanceof Error ? err.message : "Não foi possível abrir a solicitação.");
+    }
+  }
+
+  async function sendReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!detail || !reply.trim()) return;
+    setReplySending(true);
+    try {
+      await serviceFetch("/requests/" + encodeURIComponent(detail.request.id) + "/comments", {
+        method: "POST", body: JSON.stringify({body:reply.trim(),visibility:"student"}),
+      });
+      setReply("");
+      await openRequest(detail.request);
+      setMessage("Resposta enviada à equipe.");
+    } catch(err) {
+      setMessage(err instanceof Error ? err.message : "Não foi possível responder.");
+    } finally { setReplySending(false); }
+  }
+
+  async function uploadAttachment() {
+    if (!detail || !attachment) return;
+    if (attachment.size > 262144) { setMessage("O arquivo deve ter no máximo 256 KiB."); return; }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.set("file", attachment);
+      await serviceFetch("/requests/" + encodeURIComponent(detail.request.id) + "/attachments", {
+        method: "POST", body: formData,
+      });
+      setAttachment(null);
+      await openRequest(detail.request);
+      setMessage("Anexo recebido pela instituição.");
+    } catch(err) {
+      setMessage(err instanceof Error ? err.message : "Não foi possível enviar o arquivo.");
+    } finally { setUploading(false); }
+  }
+
+  async function downloadAttachment(id: string, filename: string) {
+    if (!detail) return;
+    try {
+      const response = await fetch("/api/v1/student-portal/services/requests/" +
+        encodeURIComponent(detail.request.id) + "/attachments/" + encodeURIComponent(id), {
+        cache: "no-store", credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error("Anexo indisponível.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url; link.download = filename;
+      document.body.append(link); link.click(); link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch(err) { setMessage(err instanceof Error ? err.message : "Download indisponível."); }
+  }
+
+  async function openNotification(n: PortalNotification) {
+    try {
+      if (!n.read_at) await serviceFetch("/notifications/"+encodeURIComponent(n.id)+"/read",{method:"POST"});
+      setNotifications(v=>v.map(item=>item.id===n.id?{...item,read_at:new Date().toISOString()}:item));
+      const request = requests.find(r=>r.id===n.request_id);
+      if(request) await openRequest(request);
+    } catch(err) { setMessage(err instanceof Error ? err.message : "Notificação indisponível."); }
+  }
+
   async function openHistory(item: ServiceRequest) {
     try {
       const result = await serviceFetch<{ events: { status: string; note: string | null; occurred_at: string }[] }>(
@@ -216,12 +304,57 @@ export function StudentServicesPanel() {
               {sending ? "Enviando…" : "Enviar solicitação"}
             </button>
           </form>
+          {notifications.some(n=>!n.read_at) && <div className="rounded-lg border border-[#D6E4FF] bg-[#F5F8FF] p-3">
+            <p className="text-[12px] font-semibold text-[#175CD3]">Novas atualizações das suas solicitações</p>
+            {notifications.filter(n=>!n.read_at).slice(0,5).map(n=><button key={n.id} type="button"
+              onClick={()=>void openNotification(n)} className="mt-2 block text-left text-[11px] text-[#2563EB] underline">{n.title}</button>)}
+          </div>}
           <ul className="divide-y divide-[#EAECF0]">
             {requests.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-[12px]">
-              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="text-[#667085]">{item.status}</p></div>
-              <button type="button" onClick={() => openHistory(item)} className="text-[#2563EB]">Histórico</button>
+              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="text-[#667085]">{item.status} · {item.due_at ? "Prazo: "+new Date(item.due_at).toLocaleDateString("pt-BR") : "Prazo a definir"}</p></div>
+              <div className="flex shrink-0 gap-3">
+                <button type="button" onClick={() => void openRequest(item)} className="text-[#2563EB]">Acompanhar</button>
+                <button type="button" onClick={() => void openHistory(item)} className="text-[#667085]">Histórico</button>
+              </div>
             </li>)}
           </ul>
+          {detail && <section aria-label="Acompanhamento da solicitação" className="space-y-4 rounded-xl border border-[#DDE5F0] bg-[#FCFDFF] p-4">
+            <div><h3 className="text-[13px] font-semibold">{detail.request.subject}</h3>
+              <p className="mt-1 text-[11px] text-[#667085]">Acompanhe as respostas e os arquivos liberados pela instituição.</p>
+            </div>
+            {detail.comments.length > 0 && <div className="space-y-2">
+              {detail.comments.map(c=><div key={c.id} className="rounded-lg border border-[#EAECF0] bg-white p-3">
+                <p className="text-[11px] font-semibold text-[#475467]">{c.actor_type==="student"?"Você":"Equipe institucional"} · {new Date(c.created_at).toLocaleDateString("pt-BR")}</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-[12px] text-[#475467]">{c.body}</p>
+              </div>)}
+            </div>}
+            {detail.attachments.length > 0 && <div className="space-y-2">
+              <p className="text-[11px] font-semibold">Anexos disponíveis</p>
+              {detail.attachments.map(a=><button type="button" key={a.id}
+                onClick={()=>void downloadAttachment(a.id,a.filename)} className="block text-left text-[12px] text-[#2563EB] underline">{a.filename} · {(a.byte_count/1024).toFixed(0)} KB</button>)}
+            </div>}
+            {!["completed","rejected","cancelled"].includes(detail.request.status) && <>
+              <form onSubmit={sendReply} className="space-y-2">
+                <label htmlFor="portal-service-reply" className="block text-[11px] font-semibold">Responder à instituição</label>
+                <textarea id="portal-service-reply" rows={3} minLength={1} maxLength={2000} required
+                  value={reply} onChange={e=>setReply(e.target.value)}
+                  className="w-full rounded-lg border border-[#D0D5DD] p-3 text-[12px]" placeholder="Escreva sua mensagem…" />
+                <button type="submit" disabled={replySending || !reply.trim()} className="rounded-lg bg-[#202124] px-4 py-2 text-[12px] text-white disabled:opacity-50">
+                  {replySending?"Enviando…":"Enviar resposta"}
+                </button>
+              </form>
+              <div className="space-y-2 border-t border-[#EAECF0] pt-3">
+                <p className="text-[11px] font-semibold">Enviar documento ou imagem</p>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png" aria-label="Selecionar anexo da solicitação"
+                  onChange={e=>setAttachment(e.target.files?.[0]||null)} className="block text-[11px]" />
+                <p className="text-[10px] text-[#85858B]">PDF, PNG ou JPG; até 256 KiB. A instituição poderá consultar o arquivo.</p>
+                <button type="button" disabled={!attachment || uploading}
+                  onClick={()=>void uploadAttachment()} className="rounded-lg border border-[#D0D5DD] px-4 py-2 text-[12px] disabled:opacity-50">
+                  {uploading?"Enviando…":"Anexar arquivo"}
+                </button>
+              </div>
+            </>}
+          </section>}
           {history && <pre className="whitespace-pre-wrap rounded-lg bg-[#F9FAFB] p-3 text-[12px] text-[#475467]">{history}</pre>}
           {requests.length === 0 && <p className="text-[12px] text-[#667085]">Nenhuma solicitação registrada.</p>}
         </>}

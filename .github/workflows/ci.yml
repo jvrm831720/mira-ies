@@ -87,6 +87,8 @@ jobs:
           DROP TABLE IF EXISTS
             mira_asaas_destination_reviews, mira_asaas_webhook_applications, mira_asaas_webhook_events,
             mira_asaas_charges, mira_asaas_customer_bindings,
+            mira_student_service_notifications, mira_student_service_attachments,
+            mira_student_service_comments, mira_student_document_templates,
             mira_student_payment_evidence, mira_student_payment_intents,
             mira_payment_provider_profiles, mira_asaas_workspace_destinations,
             mira_finance_review_events, mira_finance_review_cases,
