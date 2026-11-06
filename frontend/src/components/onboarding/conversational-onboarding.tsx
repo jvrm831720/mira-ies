@@ -9,10 +9,10 @@ import {
 } from "@/components/ui/icons";
 import { api } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
-import { completeOrganizationOnboarding, enrichOnboarding, type CompanyEnrichment, type OnboardingEnrichment } from "@/lib/onboarding-api";
-import { corporateDomain, isValidCnpj, maskCnpj, publicCompanyDescription } from "@/lib/onboarding-flow.mjs";
+import { completeOrganizationOnboarding, enrichOnboarding, type OnboardingEnrichment } from "@/lib/onboarding-api";
+import { corporateDomain, isValidCnpj, maskCnpj, publicCompanyDescription, plausiblePublicWebsite } from "@/lib/onboarding-flow.mjs";
 
-type Step = "search" | "workspace" | "description" | "name" | "integrations" | "trial";
+type Step = "workspace" | "description" | "name" | "integrations" | "trial";
 type SecurityStep = "enroll" | "verify" | null;
 type FormData = {
   organizationName: string;
@@ -51,11 +51,28 @@ function InputField({ id, label, children, note }: {
 }
 
 function SearchingOrb() {
-  return (
-    <div className="mira-flow-orb" aria-hidden="true">
-      <span /><span /><span />
-    </div>
-  );
+  const dots = Array.from({ length: 32 }, (_, index) => {
+    const y = 1 - 2 * ((index + 0.5) / 32);
+    const r = Math.sqrt(1 - y * y);
+    const angle = index * Math.PI * (3 - Math.sqrt(5));
+    return { x: 18 + r * Math.cos(angle) * 14, y: 18 + y * 14, opacity: 0.3 + 0.7 * ((r * Math.sin(angle) + 1) / 2) };
+  });
+  return <svg className="mira-flow-thinking-orb" viewBox="0 0 36 36" width="36" height="36" aria-hidden="true">
+    <g>{dots.map((dot, i) => <circle key={i} cx={dot.x} cy={dot.y} r={0.7} fill="currentColor" opacity={dot.opacity} />)}</g>
+  </svg>;
+}
+function TypingText({ text }: { text: string }) {
+  const [visible, setVisible] = useState("");
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setVisible(text); return;
+    }
+    setVisible("");
+    let at = 0;
+    const timer = window.setInterval(() => { at += 1; setVisible(text.slice(0, at)); if (at >= text.length) window.clearInterval(timer); }, 34);
+    return () => window.clearInterval(timer);
+  }, [text]);
+  return <><span aria-hidden="true">{visible}<span className="mira-flow-type-caret" /></span><span className="sr-only">{text}</span></>;
 }
 
 export function ConversationalOnboarding() {
@@ -68,8 +85,11 @@ export function ConversationalOnboarding() {
   const [step, setStep] = useState<Step>("workspace");
   const [form, setForm] = useState<FormData>(EMPTY);
   const [enrichment, setEnrichment] = useState<OnboardingEnrichment | null>(null);
-  const [suggestion, setSuggestion] = useState<CompanyEnrichment | null>(null);
-  const [lookupBusy, setLookupBusy] = useState(false);
+  const [siteRevealed, setSiteRevealed] = useState(false);
+  const [siteStatus, setSiteStatus] = useState<"idle" | "searching" | "done" | "error" | "manual">("idle");
+  const [logoDataUrl, setLogoDataUrl] = useState("");
+  const lookupSequence = useRef(0);
+  const lastCnpjLookup = useRef("");
   const [searchWarning, setSearchWarning] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -83,7 +103,7 @@ export function ConversationalOnboarding() {
   const domain = corporateDomain(email);
   const previewName = form.tradeName.trim() || form.organizationName.trim() || "Seu workspace";
   const currentIndex = Math.max(0, STEPS.indexOf(step));
-  const draftKey = "mira_onboarding_draft_v2:" + email;
+  const draftKey = "mira_onboarding_draft_v3:" + email;
 
   useEffect(() => {
     if (!email) { setInitialized(true); return; }
@@ -103,56 +123,72 @@ export function ConversationalOnboarding() {
     const verifiedToken = window.sessionStorage.getItem("mira_onboarding_token") || "";
     if (!verifiedToken) { setInitialized(true); return; }
     setToken(verifiedToken);
-    let cancelled = false;
-    const saved = window.sessionStorage.getItem("mira_onboarding_draft_v2:" + email);
+    const saved = window.sessionStorage.getItem("mira_onboarding_draft_v3:" + email);
     if (saved) {
       try {
-        const draft = JSON.parse(saved) as { step?: Step; form?: Partial<FormData> };
+        const draft = JSON.parse(saved) as { step?: Step; form?: Partial<FormData>; siteRevealed?: boolean };
         if (draft.form) setForm({ ...EMPTY, ...draft.form });
         if (draft.step && STEPS.includes(draft.step)) setStep(draft.step);
-      } catch { window.sessionStorage.removeItem("mira_onboarding_draft_v2:" + email); }
-      setInitialized(true);
-      return;
+        if (draft.siteRevealed) { setSiteRevealed(true); setSiteStatus("manual"); }
+      } catch { window.sessionStorage.removeItem("mira_onboarding_draft_v3:" + email); }
     }
-    if (!domain) { setStep("workspace"); setInitialized(true); return; }
-    // The searching state is shown only while this real, authenticated
-    // server-side enrichment request is outstanding.
-    setStep("search");
-    setForm((v) => ({ ...v, website: "https://" + domain }));
     setInitialized(true);
-    enrichOnboarding({
-      onboarding_token: verifiedToken,
-      email,
-      cnpj: "",
-      website: "https://" + domain,
-    }).then((result) => {
-      if (cancelled) return;
-      setEnrichment(result);
-      const name = result.company?.trade_name || result.company?.legal_name ||
-        (result.website?.title || "").split(" | ")[0].trim();
-      const description = publicCompanyDescription(result);
-      setForm((prev) => ({
-        ...prev,
-        organizationName: name || prev.organizationName,
-        description: description || prev.description,
-      }));
-      if (result.warnings.length) setSearchWarning(result.warnings.join(" "));
-    }).catch(() => {
-      if (!cancelled) setSearchWarning("Não foi possível consultar o site. Você pode preencher os dados manualmente.");
-    }).finally(() => {
-      if (!cancelled) setStep("workspace");
-    });
-    return () => { cancelled = true; };
-  }, [domain, email]);
+  }, [email]);
 
   useEffect(() => {
-    if (!initialized || !token || step === "search" || securityStep) return;
-    window.sessionStorage.setItem(draftKey, JSON.stringify({ step, form }));
-  }, [initialized, token, draftKey, form, step, securityStep]);
+    if (!initialized || !token || securityStep || step !== "workspace" || siteRevealed) return;
+    const website = form.website.trim();
+    if (!plausiblePublicWebsite(website)) return;
+    const id = ++lookupSequence.current;
+    const timer = window.setTimeout(() => {
+      setSiteStatus("searching"); setSearchWarning("");
+      void enrichOnboarding({ onboarding_token: token, email, website, cnpj: "" }).then(result => {
+        if (lookupSequence.current !== id) return;
+        const company = result.company;
+        const suggestedName = company?.legal_name || (result.website?.title || "").split(" | ")[0].trim();
+        setEnrichment(result);
+        setForm(prev => ({
+          ...prev,
+          organizationName: prev.organizationName || suggestedName,
+          tradeName: prev.tradeName || company?.trade_name || "",
+          cnpj: prev.cnpj || company?.cnpj || result.website?.detected_cnpj || "",
+          description: prev.description || publicCompanyDescription(result),
+        }));
+        if (result.website?.logo_url && !logoDataUrl) setLogoPreview(result.website.logo_url);
+        setSearchWarning(result.warnings.join(" "));
+        setSiteStatus(result.website ? "done" : "error");
+        setSiteRevealed(true);
+      }).catch(error => {
+        if (lookupSequence.current !== id) return;
+        setSearchWarning(error instanceof Error ? error.message : "Não foi possível consultar o site. Continue manualmente.");
+        setSiteStatus("error"); setSiteRevealed(true);
+      });
+    }, 800);
+    return () => { window.clearTimeout(timer); lookupSequence.current += 1; };
+  }, [initialized, token, email, step, securityStep, siteRevealed, form.website, logoDataUrl]);
 
   useEffect(() => {
-    if (initialized && !securityStep && step !== "search") headingRef.current?.focus();
-  }, [initialized, securityStep, step]);
+    if (!initialized || !siteRevealed || !token || securityStep || step !== "workspace") return;
+    const digits = form.cnpj.replace(/\D/g, "");
+    if (digits.length !== 14 || !isValidCnpj(digits)) return;
+    if (enrichment?.company?.cnpj === digits || lastCnpjLookup.current === digits) return;
+    const timer = window.setTimeout(() => {
+      lastCnpjLookup.current = digits;
+      void enrichOnboarding({ onboarding_token: token, email, cnpj: digits, website: "" }).then(result => {
+        if (!result.company) return;
+        setEnrichment(prev => ({ company: result.company, website: prev?.website || null, warnings: result.warnings }));
+        setForm(prev => ({ ...prev, organizationName: prev.organizationName || result.company?.legal_name || "",
+          tradeName: prev.tradeName || result.company?.trade_name || "" }));
+      }).catch(() => { /* A pesquisa cadastral não bloqueia o formulário. */ });
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [initialized, token, email, step, securityStep, siteRevealed, form.cnpj, enrichment?.company?.cnpj]);
+
+  useEffect(() => {
+    if (!initialized || !token || securityStep) return;
+    window.sessionStorage.setItem(draftKey, JSON.stringify({ step, form, siteRevealed }));
+  }, [initialized, token, draftKey, form, step, securityStep, siteRevealed]);
+  useEffect(() => { if (initialized && !securityStep) headingRef.current?.focus(); }, [initialized, securityStep, step]);
 
   function update<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -165,13 +201,14 @@ export function ConversationalOnboarding() {
   }
 
   function back() {
-    if (busy || lookupBusy) return;
+    if (busy || siteStatus === "searching") return;
     if (currentIndex === 0) { router.replace("/login"); return; }
     navigate(STEPS[currentIndex - 1]);
   }
 
   function next() {
     if (step === "workspace") {
+      if (!siteRevealed || siteStatus === "searching") return;
       if (form.organizationName.trim().length < 2) {
         setError("Informe o nome da organização para continuar.");
         return;
@@ -192,86 +229,27 @@ export function ConversationalOnboarding() {
     navigate(STEPS[currentIndex + 1]);
   }
 
-  async function consultCnpj() {
-    if (!token) return;
-    if (!isValidCnpj(form.cnpj)) {
-      setError("Informe um CNPJ válido para consultar os dados cadastrais.");
-      return;
-    }
-    setError("");
-    setLookupBusy(true);
-    try {
-      const result = await enrichOnboarding({
-        onboarding_token: token,
-        email,
-        cnpj: form.cnpj.replace(/\D/g, ""),
-        website: "",
-      });
-      setSuggestion(result.company);
-      setEnrichment((prev) => ({
-        company: result.company || prev?.company || null,
-        website: prev?.website || null,
-        warnings: result.warnings,
-      }));
-      if (!result.company) setError(result.warnings.join(" ") || "Nenhuma informação cadastral encontrada. Continue manualmente.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível consultar o CNPJ. Continue manualmente.");
-    } finally {
-      setLookupBusy(false);
-    }
+  function updateWebsite(value: string) {
+    lookupSequence.current += 1;
+    setSiteRevealed(false); setSiteStatus("idle");
+    setSearchWarning(""); setEnrichment(null);
+    update("website", value);
   }
-
-  async function consultWebsite() {
-    if (!token || !form.website.trim()) return;
-    setLookupBusy(true);
-    setError("");
-    try {
-      const result = await enrichOnboarding({
-        onboarding_token: token, email,
-        cnpj: "", website: form.website.trim(),
-      });
-      setEnrichment((prev) => ({
-        website: result.website,
-        company: prev?.company || null,
-        warnings: result.warnings,
-      }));
-      const suggestedDescription = publicCompanyDescription(result);
-      setForm((prev) => ({
-        ...prev,
-        description: prev.description || suggestedDescription,
-        organizationName: prev.organizationName ||
-          (result.website?.title || "").split(" | ")[0].trim(),
-      }));
-      if (!result.website) {
-        setError(result.warnings.join(" ") || "Não foi possível encontrar informações públicas do site. Continue manualmente.");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível consultar o site. Continue manualmente.");
-    } finally {
-      setLookupBusy(false);
-    }
-  }
-
-  function acceptSuggestion() {
-    if (!suggestion) return;
-    setForm((prev) => ({
-      ...prev,
-      organizationName: suggestion.legal_name || prev.organizationName,
-      tradeName: suggestion.trade_name || prev.tradeName,
-      cnpj: suggestion.cnpj || prev.cnpj,
-      description: prev.description || suggestion.primary_activity || "",
-    }));
-    setSuggestion(null);
+  function skipWebsite() {
+    lookupSequence.current += 1;
+    setSiteRevealed(true); setSiteStatus("manual");
+    setSearchWarning("Sem site? Tudo bem. Preencha os dados da organização manualmente.");
   }
 
   function chooseLogo(file?: File) {
     if (!file) return;
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2_000_000) {
-      setError("Selecione uma imagem PNG, JPG ou WebP de até 2 MB.");
-      return;
+      setError("Selecione uma imagem PNG, JPG ou WebP de até 2 MB."); return;
     }
     const reader = new FileReader();
-    reader.onload = () => setLogoPreview(typeof reader.result === "string" ? reader.result : "");
+    reader.onload = () => {
+      if (typeof reader.result === "string") { setLogoPreview(reader.result); setLogoDataUrl(reader.result); }
+    };
     reader.readAsDataURL(file);
     setError("");
   }
@@ -294,6 +272,8 @@ export function ConversationalOnboarding() {
         student_range: "", campuses: "",
         description: form.description.trim(),
         data_sources: form.dataSources,
+        logo_data_url: logoDataUrl,
+        auto_logo: !logoDataUrl && siteStatus === "done" && !!form.website,
       });
       window.sessionStorage.removeItem("mira_onboarding_token");
       window.sessionStorage.removeItem(draftKey);
@@ -348,7 +328,6 @@ export function ConversationalOnboarding() {
   }
 
   const Icon = () => logoPreview ? (
-    // User-provided local preview only; no upload to the server.
     // eslint-disable-next-line @next/next/no-img-element
     <img src={logoPreview} alt="" className="mira-flow-logo-preview" />
   ) : (
@@ -420,12 +399,6 @@ export function ConversationalOnboarding() {
                   </>
                 )}
                 {error && <p className="mira-flow-error" role="alert">{error}</p>}
-              </div>
-            ) : step === "search" ? (
-              <div className="mira-flow-searching" role="status" aria-live="polite">
-                <h1>Olá, estamos buscando sua empresa...</h1>
-                <p>Estamos verificando as informações públicas do domínio {domain}.</p>
-                <SearchingOrb />
               </div>
             ) : (
               <>
