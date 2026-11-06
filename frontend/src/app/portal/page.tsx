@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { StudentServicesPanel } from "./student-services-panel";
 import { AcademicOperationsPanel } from "./academic-operations-panel";
 import { PortalShell, type PortalSection } from "./components/portal-shell";
+import { serviceStatusLabel, serviceStatusTone } from "./lib/service-status";
 import {
   ArrowRight, BookOpen, GraduationCap, LockKeyhole,
   LogOut, ShieldCheck, Wallet, CalendarDays, AlertCircle, Loader2,
@@ -458,7 +459,7 @@ export default function StudentPortalPage() {
                 : <ul className="mt-2 divide-y divide-[#E6E7EA]">
                   {recentRequests.map(request => <li key={request.id} className="py-2">
                     <p className="truncate text-[11px] font-medium" title={request.subject}>{request.subject}</p>
-                    <p className="mt-0.5 text-[10px] text-[#75777C]">{request.status.replaceAll("_", " ")}</p>
+                    <span className={"mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-[10px] " + serviceStatusTone(request.status)}>{serviceStatusLabel(request.status)}</span>
                   </li>)}
                 </ul>}
             <button type="button" onClick={() => navigate("requests")}
