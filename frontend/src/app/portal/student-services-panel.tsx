@@ -276,172 +276,172 @@ export function StudentServicesPanel({ initialView = "requests", standalone = fa
   }
 
   return (
-    <section aria-label="Serviços do Aluno" className="overflow-hidden rounded-xl border border-[#E4E7EC] bg-white">
-      <div className="border-b border-[#EAECF0] px-6 py-5">
-        <h2 className="text-[17px] font-semibold text-[#101112]">{view === "requests" ? "Solicitações" : view === "documents" ? "Documentos" : "Financeiro"}</h2>
-        <p className="mt-1 text-[12px] text-[#505967]">{view === "requests" ? "Abra e acompanhe seus requerimentos junto à instituição." : view === "documents" ? "Consulte documentos disponibilizados pela sua instituição." : "Consulte seus registros e cobranças confirmadas pelas fontes oficiais."}</p>
+    <section aria-label="Serviços do Aluno" className="overflow-hidden rounded-xl border border-[var(--color-line)] bg-white">
+      <div className="border-b border-[var(--color-legacy-eaecf0)] px-6 py-5">
+        <h2 className="text-[length:var(--type-heading-compact)] font-semibold text-[var(--color-ink)]">{view === "requests" ? "Solicitações" : view === "documents" ? "Documentos" : "Financeiro"}</h2>
+        <p className="mt-1 text-xs text-[var(--color-slate-600)]">{view === "requests" ? "Abra e acompanhe seus requerimentos junto à instituição." : view === "documents" ? "Consulte documentos disponibilizados pela sua instituição." : "Consulte seus registros e cobranças confirmadas pelas fontes oficiais."}</p>
       </div>
-      {!standalone && <div className="flex flex-wrap gap-2 border-b border-[#EAECF0] px-6 py-3" role="tablist" aria-label="Tipos de serviço">
+      {!standalone && <div className="flex flex-wrap gap-2 border-b border-[var(--color-legacy-eaecf0)] px-6 py-3" role="tablist" aria-label="Tipos de serviço">
         {choices.map((choice) => (
           <button key={choice.id} type="button" role="tab" aria-selected={view === choice.id}
-            className={"rounded-lg px-4 py-2 text-[12px] font-medium " +
-              (view === choice.id ? "bg-[#EFF4FF] text-[#2563EB]" : "text-[#667085] hover:bg-[#F9FAFB]")}
+            className={"rounded-lg px-4 py-2 text-xs font-medium " +
+              (view === choice.id ? "bg-[var(--color-source-eff4ff)] text-[var(--color-legacy-2563eb)]" : "text-[var(--color-legacy-667085)] hover:bg-[var(--color-source-f9fafb)]")}
             onClick={() => setView(choice.id)}>{choice.label}</button>
         ))}
       </div>}
       <div className="space-y-5 p-4 sm:p-6">
-        {loadError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#FEE7E7] bg-[#FFF7F7] px-4 py-3 text-[12px] text-[#772322]"><span>{loadError}</span><button type="button" className="underline" onClick={() => setReloadIndex(n => n + 1)}>Tentar novamente</button></div>}
-        {message && <p role="status" className="rounded-lg bg-[#F9FAFB] p-3 text-[12px] text-[#475467]">{message}</p>}
-        {loading && <p className="text-[12px] text-[#667085]">Consultando registros…</p>}
+        {loadError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-red-tint-border)] bg-[var(--color-legacy-fff7f7)] px-4 py-3 text-xs text-[var(--color-red)]"><span>{loadError}</span><button type="button" className="underline" onClick={() => setReloadIndex(n => n + 1)}>Tentar novamente</button></div>}
+        {message && <p role="status" className="rounded-lg bg-[var(--color-source-f9fafb)] p-3 text-xs text-[var(--color-legacy-475467)]">{message}</p>}
+        {loading && <p className="text-xs text-[var(--color-legacy-667085)]">Consultando registros…</p>}
         {!loading && !loadError && view === "requests" && <>
-          <div className="flex items-center justify-between gap-3"><p className="text-[12px] text-[#505967]">{requests.length} solicitação(ões) nesta consulta</p><button type="button" aria-expanded={composeOpen} onClick={() => setComposeOpen(v => !v)} className="rounded-lg bg-[#101112] px-3.5 py-2.5 text-[12px] font-semibold text-white hover:bg-[#232529] focus-visible:ring-2 focus-visible:ring-[#266DF0]">{composeOpen ? "Fechar formulário" : "+ Nova solicitação"}</button></div>
-          {composeOpen && <form onSubmit={submit} className="grid gap-3 rounded-xl border border-[#EAECF0] p-4">
-            <h3 className="text-[13px] font-semibold">Nova solicitação</h3>
-            <label className="text-[12px] text-[#475467]">Tipo de pedido
+          <div className="flex items-center justify-between gap-3"><p className="text-xs text-[var(--color-slate-600)]">{requests.length} solicitação(ões) nesta consulta</p><button type="button" aria-expanded={composeOpen} onClick={() => setComposeOpen(v => !v)} className="rounded-lg bg-[var(--color-ink)] px-3.5 py-2.5 text-xs font-semibold text-white hover:bg-[var(--color-ink-900)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">{composeOpen ? "Fechar formulário" : "+ Nova solicitação"}</button></div>
+          {composeOpen && <form onSubmit={submit} className="grid gap-3 rounded-xl border border-[var(--color-legacy-eaecf0)] p-4">
+            <h3 className="text-[length:var(--type-body-compact)] font-semibold">Nova solicitação</h3>
+            <label className="text-xs text-[var(--color-legacy-475467)]">Tipo de pedido
               <select value={category} onChange={(e) => setCategory(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#D0D5DD] bg-white p-2">
+                className="mt-1 w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white p-2">
                 {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
               </select>
             </label>
-            <label className="text-[12px] text-[#475467]">Assunto
+            <label className="text-xs text-[var(--color-legacy-475467)]">Assunto
               <input required minLength={3} maxLength={180} value={subject} onChange={(e) => setSubject(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#D0D5DD] p-2" />
+                className="mt-1 w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] p-2" />
             </label>
-            <label className="text-[12px] text-[#475467]">Descrição
+            <label className="text-xs text-[var(--color-legacy-475467)]">Descrição
               <textarea required minLength={5} maxLength={2000} rows={3}
                 value={description} onChange={(e) => setDescription(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#D0D5DD] p-2" />
+                className="mt-1 w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] p-2" />
             </label>
-            <button disabled={sending} type="submit" className="rounded-lg bg-[#101828] px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-60">
+            <button disabled={sending} type="submit" className="rounded-lg bg-[var(--color-legacy-101828)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">
               {sending ? "Enviando…" : "Enviar solicitação"}
             </button>
           </form>}
-          {notifications.some(n=>!n.read_at) && <div className="rounded-lg border border-[#D6E4FF] bg-[#F5F8FF] p-3">
-            <p className="text-[12px] font-semibold text-[#175CD3]">Novas atualizações das suas solicitações</p>
+          {notifications.some(n=>!n.read_at) && <div className="rounded-lg border border-[var(--color-legacy-d6e4ff)] bg-[var(--color-legacy-f5f8ff)] p-3">
+            <p className="text-xs font-semibold text-[var(--color-legacy-175cd3)]">Novas atualizações das suas solicitações</p>
             {notifications.filter(n=>!n.read_at).slice(0,5).map(n=><button key={n.id} type="button"
-              onClick={()=>void openNotification(n)} className="mt-2 block text-left text-[11px] text-[#2563EB] underline">{n.title}</button>)}
+              onClick={()=>void openNotification(n)} className="mt-2 block text-left text-[length:var(--type-caption)] text-[var(--color-legacy-2563eb)] underline">{n.title}</button>)}
           </div>}
-          <ul className="divide-y divide-[#EAECF0]">
-            {requests.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-[12px]">
-              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="mt-1 text-[#667085]">{item.due_at ? "Prazo: "+new Date(item.due_at).toLocaleDateString("pt-BR") : "Prazo ainda não informado"}</p><span className={"mt-1 inline-flex rounded-md border px-2 py-0.5 text-[10px] " + serviceStatusTone(item.status)}>{serviceStatusLabel(item.status)}</span></div>
+          <ul className="divide-y divide-[var(--color-legacy-eaecf0)]">
+            {requests.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-xs">
+              <div><p className="font-semibold text-[var(--color-legacy-344054)]">{item.subject}</p><p className="mt-1 text-[var(--color-legacy-667085)]">{item.due_at ? "Prazo: "+new Date(item.due_at).toLocaleDateString("pt-BR") : "Prazo ainda não informado"}</p><span className={"mt-1 inline-flex rounded-md border px-2 py-0.5 text-[length:var(--type-overline)] " + serviceStatusTone(item.status)}>{serviceStatusLabel(item.status)}</span></div>
               <div className="flex shrink-0 gap-3">
-                <button type="button" onClick={() => void openRequest(item)} className="text-[#2563EB]">Acompanhar</button>
-                <button type="button" onClick={() => void openHistory(item)} className="text-[#667085]">Histórico</button>
+                <button type="button" onClick={() => void openRequest(item)} className="text-[var(--color-legacy-2563eb)]">Acompanhar</button>
+                <button type="button" onClick={() => void openHistory(item)} className="text-[var(--color-legacy-667085)]">Histórico</button>
               </div>
             </li>)}
           </ul>
-          {detail && <section aria-label="Acompanhamento da solicitação" className="space-y-4 rounded-xl border border-[#DDE5F0] bg-[#FCFDFF] p-4">
-            <div className="flex justify-end"><button type="button" className="text-[12px] font-semibold text-[#505967] hover:text-[#101112]" onClick={() => setDetail(null)}>Fechar detalhes</button></div>
-            <div><h3 className="text-[13px] font-semibold">{detail.request.subject}</h3>
-              <p className="mt-1 text-[11px] text-[#667085]">Acompanhe as respostas e os arquivos liberados pela instituição.</p>
+          {detail && <section aria-label="Acompanhamento da solicitação" className="space-y-4 rounded-xl border border-[var(--color-legacy-dde5f0)] bg-[var(--color-legacy-fcfdff)] p-4">
+            <div className="flex justify-end"><button type="button" className="text-xs font-semibold text-[var(--color-slate-600)] hover:text-[var(--color-ink)]" onClick={() => setDetail(null)}>Fechar detalhes</button></div>
+            <div><h3 className="text-[length:var(--type-body-compact)] font-semibold">{detail.request.subject}</h3>
+              <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Acompanhe as respostas e os arquivos liberados pela instituição.</p>
             </div>
             {detail.comments.length > 0 && <div className="space-y-2">
-              {detail.comments.map(c=><div key={c.id} className="rounded-lg border border-[#EAECF0] bg-white p-3">
-                <p className="text-[11px] font-semibold text-[#475467]">{c.actor_type==="student"?"Você":"Equipe institucional"} · {new Date(c.created_at).toLocaleDateString("pt-BR")}</p>
-                <p className="mt-1 whitespace-pre-wrap break-words text-[12px] text-[#475467]">{c.body}</p>
+              {detail.comments.map(c=><div key={c.id} className="rounded-lg border border-[var(--color-legacy-eaecf0)] bg-white p-3">
+                <p className="text-[length:var(--type-caption)] font-semibold text-[var(--color-legacy-475467)]">{c.actor_type==="student"?"Você":"Equipe institucional"} · {new Date(c.created_at).toLocaleDateString("pt-BR")}</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-xs text-[var(--color-legacy-475467)]">{c.body}</p>
               </div>)}
             </div>}
             {detail.attachments.length > 0 && <div className="space-y-2">
-              <p className="text-[11px] font-semibold">Anexos disponíveis</p>
+              <p className="text-[length:var(--type-caption)] font-semibold">Anexos disponíveis</p>
               {detail.attachments.map(a=><button type="button" key={a.id}
-                onClick={()=>void downloadAttachment(a.id,a.filename)} className="block text-left text-[12px] text-[#2563EB] underline">{a.filename} · {(a.byte_count/1024).toFixed(0)} KB</button>)}
+                onClick={()=>void downloadAttachment(a.id,a.filename)} className="block text-left text-xs text-[var(--color-legacy-2563eb)] underline">{a.filename} · {(a.byte_count/1024).toFixed(0)} KB</button>)}
             </div>}
             {!["completed","rejected","cancelled"].includes(detail.request.status) && <>
               <form onSubmit={sendReply} className="space-y-2">
-                <label htmlFor="portal-service-reply" className="block text-[11px] font-semibold">Responder à instituição</label>
+                <label htmlFor="portal-service-reply" className="block text-[length:var(--type-caption)] font-semibold">Responder à instituição</label>
                 <textarea id="portal-service-reply" rows={3} minLength={1} maxLength={2000} required
                   value={reply} onChange={e=>setReply(e.target.value)}
-                  className="w-full rounded-lg border border-[#D0D5DD] p-3 text-[12px]" placeholder="Escreva sua mensagem…" />
-                <button type="submit" disabled={replySending || !reply.trim()} className="rounded-lg bg-[#202124] px-4 py-2 text-[12px] text-white disabled:opacity-50">
+                  className="w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] p-3 text-xs" placeholder="Escreva sua mensagem…" />
+                <button type="submit" disabled={replySending || !reply.trim()} className="rounded-lg bg-[var(--color-legacy-202124)] px-4 py-2 text-xs text-white disabled:opacity-50">
                   {replySending?"Enviando…":"Enviar resposta"}
                 </button>
               </form>
-              <div className="space-y-2 border-t border-[#EAECF0] pt-3">
-                <p className="text-[11px] font-semibold">Enviar documento ou imagem</p>
+              <div className="space-y-2 border-t border-[var(--color-legacy-eaecf0)] pt-3">
+                <p className="text-[length:var(--type-caption)] font-semibold">Enviar documento ou imagem</p>
                 <input type="file" accept=".pdf,.jpg,.jpeg,.png" aria-label="Selecionar anexo da solicitação"
-                  onChange={e=>setAttachment(e.target.files?.[0]||null)} className="block text-[11px]" />
-                <p className="text-[10px] text-[#85858B]">PDF, PNG ou JPG; até 256 KiB. A instituição poderá consultar o arquivo.</p>
+                  onChange={e=>setAttachment(e.target.files?.[0]||null)} className="block text-[length:var(--type-caption)]" />
+                <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-85858b)]">PDF, PNG ou JPG; até 256 KiB. A instituição poderá consultar o arquivo.</p>
                 <button type="button" disabled={!attachment || uploading}
-                  onClick={()=>void uploadAttachment()} className="rounded-lg border border-[#D0D5DD] px-4 py-2 text-[12px] disabled:opacity-50">
+                  onClick={()=>void uploadAttachment()} className="rounded-lg border border-[var(--color-legacy-d0d5dd)] px-4 py-2 text-xs disabled:opacity-50">
                   {uploading?"Enviando…":"Anexar arquivo"}
                 </button>
               </div>
             </>}
           </section>}
-          {history && <section aria-label="Linha do tempo da solicitação" className="rounded-xl border border-[#E6E7EA] p-4">
-            <div className="flex items-center justify-between gap-3"><h3 className="text-[13px] font-semibold">Histórico · {history.subject}</h3><button type="button" onClick={() => setHistory(null)} className="text-[12px] text-[#505967] underline">Fechar</button></div>
-            {history.events.length === 0 ? <p className="mt-3 text-[12px] text-[#75777C]">Nenhuma movimentação disponível.</p>
-              : <ol className="mt-4 space-y-0 border-l border-[#E6E7EA] pl-4">
+          {history && <section aria-label="Linha do tempo da solicitação" className="rounded-xl border border-[var(--color-border)] p-4">
+            <div className="flex items-center justify-between gap-3"><h3 className="text-[length:var(--type-body-compact)] font-semibold">Histórico · {history.subject}</h3><button type="button" onClick={() => setHistory(null)} className="text-xs text-[var(--color-slate-600)] underline">Fechar</button></div>
+            {history.events.length === 0 ? <p className="mt-3 text-xs text-[var(--color-muted)]">Nenhuma movimentação disponível.</p>
+              : <ol className="mt-4 space-y-0 border-l border-[var(--color-border)] pl-4">
                 {history.events.map((item, index) => <li key={item.occurred_at + "-" + index} className="relative pb-5 last:pb-0">
-                  <span aria-hidden="true" className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#266DF0]" />
-                  <p className="text-[12px] font-medium text-[#101112]">{serviceStatusLabel(item.status)}</p>
-                  <time dateTime={item.occurred_at} className="mt-0.5 block text-[11px] text-[#75777C]">{new Date(item.occurred_at).toLocaleString("pt-BR")}</time>
+                  <span aria-hidden="true" className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[var(--color-blue)]" />
+                  <p className="text-xs font-medium text-[var(--color-ink)]">{serviceStatusLabel(item.status)}</p>
+                  <time dateTime={item.occurred_at} className="mt-0.5 block text-[length:var(--type-caption)] text-[var(--color-muted)]">{new Date(item.occurred_at).toLocaleString("pt-BR")}</time>
                 </li>)}
               </ol>}
           </section>}
-          {requests.length === 0 && <p className="text-[12px] text-[#667085]">Nenhuma solicitação registrada.</p>}
+          {requests.length === 0 && <p className="text-xs text-[var(--color-legacy-667085)]">Nenhuma solicitação registrada.</p>}
         </>}
         {!loading && !loadError && view === "documents" && <>
-          {documents.length === 0 && <p className="text-[12px] text-[#667085]">Nenhum documento liberado.</p>}
-          <ul className="divide-y divide-[#EAECF0]">
-            {documents.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-[12px]">
+          {documents.length === 0 && <p className="text-xs text-[var(--color-legacy-667085)]">Nenhum documento liberado.</p>}
+          <ul className="divide-y divide-[var(--color-legacy-eaecf0)]">
+            {documents.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-xs">
               <span>{item.title}</span>
               <div className="flex flex-wrap gap-3">
-                <button type="button" className="text-[#2563EB]" onClick={() => openDocument(item)}>Visualizar</button>
-                <button type="button" className="text-[#2563EB]" onClick={() => verifyDocument(item)}>Verificar</button>
+                <button type="button" className="text-[var(--color-legacy-2563eb)]" onClick={() => openDocument(item)}>Visualizar</button>
+                <button type="button" className="text-[var(--color-legacy-2563eb)]" onClick={() => verifyDocument(item)}>Verificar</button>
               </div>
             </li>)}
           </ul>
-          {documentProof !== null && <div className="rounded-lg border border-[#EAECF0] bg-[#F9FAFB] p-4">
-            <p className="text-[12px] font-semibold text-[#344054]">
+          {documentProof !== null && <div className="rounded-lg border border-[var(--color-legacy-eaecf0)] bg-[var(--color-source-f9fafb)] p-4">
+            <p className="text-xs font-semibold text-[var(--color-legacy-344054)]">
               {documentProofValid ? "Integridade confirmada pela MIRA" : "Integridade não confirmada"}
             </p>
-            <p className="mt-2 break-all font-mono text-[11px] text-[#667085]">{documentProof}</p>
-            <p className="mt-2 text-[11px] text-[#98A2B3]">
+            <p className="mt-2 break-all font-mono text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{documentProof}</p>
+            <p className="mt-2 text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">
               Código de verificação de conteúdo. Não substitui assinatura eletrônica qualificada.
             </p>
           </div>}
-          {documentText !== null && <div className="rounded-lg border border-[#EAECF0] p-4">
-            <h3 className="mb-3 text-[13px] font-semibold">{documentTitle}</h3>
-            <p className="whitespace-pre-wrap text-[12px] leading-6 text-[#475467]">{documentText}</p>
-            <p className="mt-3 text-[11px] text-[#98A2B3]">Pré-visualização textual. Documento oficial assinado ainda não disponível.</p>
+          {documentText !== null && <div className="rounded-lg border border-[var(--color-legacy-eaecf0)] p-4">
+            <h3 className="mb-3 text-[length:var(--type-body-compact)] font-semibold">{documentTitle}</h3>
+            <p className="whitespace-pre-wrap text-xs leading-6 text-[var(--color-legacy-475467)]">{documentText}</p>
+            <p className="mt-3 text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">Pré-visualização textual. Documento oficial assinado ainda não disponível.</p>
           </div>}
         </>}
         {!loading && !loadError && view === "financial" && <>
-          <p className="text-[12px] text-[#667085]">Dados importados são informativos. Cobranças oficiais da Asaas aparecem separadamente, somente após emissão autorizada.</p>
-          <ul className="divide-y divide-[#EAECF0]">
-            {financial.map((item) => <li key={item.id} className="flex justify-between gap-3 py-3 text-[12px]">
-              <div><p className="font-medium">{item.label}</p><p className="text-[#667085]">{financeStates[item.status] || "Situação não verificada"}</p></div>
+          <p className="text-xs text-[var(--color-legacy-667085)]">Dados importados são informativos. Cobranças oficiais da Asaas aparecem separadamente, somente após emissão autorizada.</p>
+          <ul className="divide-y divide-[var(--color-legacy-eaecf0)]">
+            {financial.map((item) => <li key={item.id} className="flex justify-between gap-3 py-3 text-xs">
+              <div><p className="font-medium">{item.label}</p><p className="text-[var(--color-legacy-667085)]">{financeStates[item.status] || "Situação não verificada"}</p></div>
               <strong>{brazilMoney(item)}</strong>
             </li>)}
           </ul>
-          {financial.length === 0 && <p className="text-[12px] text-[#667085]">Nenhuma informação financeira disponível.</p>}
-          {asaasCharges.length > 0 && <div className="mt-5 border-t border-[#EAECF0] pt-4">
-            <h3 className="text-[13px] font-semibold text-[#344054]">Cobranças oficiais Asaas</h3>
-            <p className="mt-1 text-[11px] text-[#667085]">Pagamento recebido e repasse para a instituição são confirmações distintas.</p>
-            <ul className="mt-2 divide-y divide-[#EAECF0]">
+          {financial.length === 0 && <p className="text-xs text-[var(--color-legacy-667085)]">Nenhuma informação financeira disponível.</p>}
+          {asaasCharges.length > 0 && <div className="mt-5 border-t border-[var(--color-legacy-eaecf0)] pt-4">
+            <h3 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-344054)]">Cobranças oficiais Asaas</h3>
+            <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Pagamento recebido e repasse para a instituição são confirmações distintas.</p>
+            <ul className="mt-2 divide-y divide-[var(--color-legacy-eaecf0)]">
               {asaasCharges.map((charge) => <li key={charge.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
-                  <p className="text-[12px] font-medium text-[#344054]">
+                  <p className="text-xs font-medium text-[var(--color-legacy-344054)]">
                     {officialChargeAmount(charge.amount)} · {charge.method === "pix" ? "Pix" : "Boleto"}
                   </p>
-                  <p className="mt-1 text-[11px] text-[#667085]">
+                  <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
                     {charge.split_settled_verified ? "Repasse à instituição confirmado" :
                       charge.payment_received_verified ? "Pagamento recebido; repasse pendente" :
                       "Aguardando pagamento"}
                   </p>
-                  {charge.environment === "sandbox" && <p className="text-[11px] text-[#B54708]">Ambiente de teste</p>}
+                  {charge.environment === "sandbox" && <p className="text-[length:var(--type-caption)] text-[var(--color-source-b54708)]">Ambiente de teste</p>}
                 </div>
-                {!charge.payment_received_verified && <button className="text-[12px] font-semibold text-[#2563EB]"
+                {!charge.payment_received_verified && <button className="text-xs font-semibold text-[var(--color-legacy-2563eb)]"
                   onClick={() => void showPayment(charge)}>Consultar {charge.method === "pix" ? "Pix" : "boleto"}</button>}
               </li>)}
             </ul>
-            {paymentInstructions && <div className="rounded-lg border border-[#EAECF0] bg-[#F9FAFB] p-3">
-              <p className="text-[12px] font-medium text-[#344054]">{paymentInstructions.method === "pix" ? "Pix copia e cola" : "Linha digitável"}</p>
-              <p className="mt-2 break-all font-mono text-[11px] text-[#667085]">
+            {paymentInstructions && <div className="rounded-lg border border-[var(--color-legacy-eaecf0)] bg-[var(--color-source-f9fafb)] p-3">
+              <p className="text-xs font-medium text-[var(--color-legacy-344054)]">{paymentInstructions.method === "pix" ? "Pix copia e cola" : "Linha digitável"}</p>
+              <p className="mt-2 break-all font-mono text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
                 {paymentInstructions.copy_and_paste || paymentInstructions.identification_field || "Indisponível"}
               </p>
-              {paymentInstructions.copy_and_paste && <button className="mt-2 text-[12px] font-semibold text-[#2563EB]"
+              {paymentInstructions.copy_and_paste && <button className="mt-2 text-xs font-semibold text-[var(--color-legacy-2563eb)]"
                 onClick={() => void navigator.clipboard?.writeText(paymentInstructions.copy_and_paste || "")}>Copiar código Pix</button>}
             </div>}
           </div>}

@@ -3,6 +3,27 @@
 @tailwind utilities;
 
 :root {
+  --color-legacy-202126: #202126;
+  --color-legacy-f8f9fc: #f8f9fc;
+  --color-legacy-fff4f3: #fff4f3;
+  --color-legacy-eef7f1: #eef7f1;
+  --color-legacy-92400e: #92400e;
+  --color-legacy-1e58c7: #1e58c7;
+  --color-legacy-f0f1f3: #f0f1f3;
+  --color-legacy-fff2f2: #fff2f2;
+  --color-legacy-e5e7eb: #e5e7eb;
+  --color-legacy-edf3ff: #edf3ff;
+  --color-legacy-d6e4ff: #d6e4ff;
+  --color-legacy-fff8f1: #fff8f1;
+  --color-legacy-7a3c14: #7a3c14;
+  --color-legacy-fff6f6: #fff6f6;
+  --color-legacy-b6cdfe: #b6cdfe;
+  --color-legacy-dde5f0: #dde5f0;
+  --color-legacy-fcfdff: #fcfdff;
+  --type-size-21: 21px;
+  --type-size-38: 38px;
+  --type-size-53: 53px;
+  --type-size-25: 25px;
   --color-legacy-aeb7ff: #aeb7ff;
   --color-legacy-3442b5: #3442b5;
   --color-legacy-f7f6f2: #f7f6f2;
