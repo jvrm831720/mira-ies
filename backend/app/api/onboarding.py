@@ -207,8 +207,8 @@ def _image_logo(data_url: str) -> tuple[str, bytes] | None:
 
 def _image_mime_matches(mime: str, data: bytes) -> bool:
     return (
-        (mime == "image/png" and data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"))
-        or (mime == "image/jpeg" and data.startswith(b"\\xff\\xd8\\xff"))
+        (mime == "image/png" and data.startswith(b"\x89PNG\r\n\x1a\n"))
+        or (mime == "image/jpeg" and data.startswith(b"\xff\xd8\xff"))
         or (mime == "image/webp" and data[:4] == b"RIFF" and data[8:12] == b"WEBP")
     )
 
