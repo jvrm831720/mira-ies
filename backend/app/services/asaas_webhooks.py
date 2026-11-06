@@ -112,7 +112,9 @@ async def work_tenant(db: AsyncSession, tenant_id: str, *, limit: int = 20) -> d
             (AsaasWebhookApplication.tenant_id == AsaasWebhookEvent.tenant_id)
             & (AsaasWebhookApplication.event_id == AsaasWebhookEvent.id),
         )
-        .where(AsaasWebhookEvent.tenant_id == tenant_id, AsaasWebhookApplication.id.is_(None))
+        .where(AsaasWebhookEvent.tenant_id == tenant_id,
+               AsaasWebhookEvent.environment == gateway.environment(),
+               AsaasWebhookApplication.id.is_(None))
         .order_by(AsaasWebhookEvent.received_at, AsaasWebhookEvent.id)
         .limit(limit)
     )).scalars().all()
