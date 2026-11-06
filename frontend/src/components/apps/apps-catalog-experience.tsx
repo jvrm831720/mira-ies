@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { hasNavigationPermission } from "@/components/layout/navigation";
-import { ArrowRight, Check, Clock3, Info, Plug, Plus, RefreshCw, Search, X } from "@/components/ui/icons";
+import { ArrowRight, Check, Info, Plus, RefreshCw, Search, X } from "@/components/ui/icons";
 import { filterAppsCatalog, unifyAppsCatalog, type AppsCategory, type CatalogApp } from "./apps-catalog-model";
 
 type Tab = "Mais usados" | "Conectados" | "Descobrir";
@@ -70,7 +70,6 @@ export function AppsCatalogExperience() {
   {jacad:jacad.data,sponte:sponte.data},
  ),[nativeCatalog.data,externalCatalog.data,accounts.data,jacad.data,sponte.data]);
  const visible=useMemo(()=>filterAppsCatalog(rows,query,category,tab),[rows,query,category,tab]);
- const connectionsCount=rows.filter(item=>item.status==="connected"||item.status==="configured").length;
  const partial=canManage && externalCatalog.isError;
  const loading=nativeCatalog.isLoading && !nativeCatalog.data;
 
