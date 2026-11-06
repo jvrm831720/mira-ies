@@ -19,6 +19,7 @@ from app.api.native_academic import PortalIdentity, _portal_action, _portal_iden
 from app.core.auth import AuthContext, require_permission
 from app.core.config import get_settings
 from app.db.session import get_db
+from app.services.student_service_visibility import student_visible_event_note
 from app.models.student_services import (
     StudentDocument, StudentFinancialReference, StudentServiceEvent, StudentServiceNotification, StudentServiceRequest,
 )
@@ -130,7 +131,7 @@ async def request_history(
         StudentServiceEvent.request_id == row.id,
     ).order_by(StudentServiceEvent.occurred_at, StudentServiceEvent.id))).scalars().all()
     return {"request": _request_json(row), "events": [{
-        "status": item.status, "note": item.note, "occurred_at": item.occurred_at.isoformat(),
+        "status": item.status, "note": student_visible_event_note(item.actor_type, item.note), "occurred_at": item.occurred_at.isoformat(),
     } for item in events]}
 
 
