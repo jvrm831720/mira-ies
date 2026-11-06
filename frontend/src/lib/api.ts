@@ -540,6 +540,25 @@ export const api = {
     request<PreviewMessage>(`/api/v1/agents/retention/preview/${studentId}`),
 
 
+  retentionCampaignSchedule: () =>
+    request<import("@/types/api").RetentionCampaignScheduleResponse>(
+      "/api/v1/agents/retention/campaigns/intelligence/schedule"
+    ),
+
+  scheduleRetentionCampaignProposal: (id: string, body: {
+    scheduled_for: string; schedule_timezone: string;
+  }) =>
+    request<import("@/types/api").RetentionCampaignScheduleItem>(
+      `/api/v1/agents/retention/campaigns/intelligence/proposals/${encodeURIComponent(id)}/schedule`,
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+
+  removeRetentionCampaignSchedule: (id: string) =>
+    request<import("@/types/api").RetentionCampaignScheduleItem>(
+      `/api/v1/agents/retention/campaigns/intelligence/proposals/${encodeURIComponent(id)}/schedule`,
+      { method: "DELETE" }
+    ),
+
   retentionCampaignProposals: () =>
     request<import("@/types/api").RetentionCampaignProposalsResponse>(
       "/api/v1/agents/retention/campaigns/intelligence/proposals"

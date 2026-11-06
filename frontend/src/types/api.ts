@@ -959,7 +959,7 @@ export type StudentGroupMembersResponse = {
 };
 
 
-export type RetentionCampaignProposalStatus = "draft" | "in_review" | "changes_requested" | "approved";
+export type RetentionCampaignProposalStatus = "draft" | "in_review" | "changes_requested" | "approved" | "scheduled" | "running" | "paused" | "completed" | "cancelled" | "failed";
 export type RetentionCampaignProposal = {
   id: string; tenant_id: string; status: RetentionCampaignProposalStatus; revision: number;
   title: string; objective: string; strategy: string; recommended_channels: string[];
@@ -971,7 +971,7 @@ export type RetentionCampaignProposal = {
   reviewed_by?: string | null; reviewed_at?: string | null; approved_by?: string | null; approved_at?: string | null;
   authorization_status: "not_verified" | "institution_attested"; authorization_basis?: string | null;
   authorization_reference?: string | null; authorization_attested_by?: string | null;
-  authorization_attested_at?: string | null; execution_enabled: false;
+  authorization_attested_at?: string | null; scheduled_for?: string | null; schedule_timezone?: string | null; execution_enabled: false;
 };
 export type RetentionCampaignProposalsResponse = { count: number; proposals: RetentionCampaignProposal[] };
 export type RetentionCampaignOpportunity = {
@@ -1003,6 +1003,24 @@ export type RetentionCampaignProposalAudit = {
     id: string; event_type: string; actor_user_id?: string | null; revision: number;
     details: Record<string, unknown>; created_at: string;
   }>;
+};
+
+export type RetentionCampaignScheduleItem = {
+  proposal_id: string;
+  tenant_id: string;
+  title: string;
+  status: "scheduled" | "approved";
+  scheduled_for: string | null;
+  schedule_timezone: string | null;
+  revision: number;
+  execution_enabled: false;
+  dispatch_created?: false;
+};
+export type RetentionCampaignScheduleResponse = {
+  tenant_id: string;
+  count: number;
+  schedules: RetentionCampaignScheduleItem[];
+  execution_enabled: false;
 };
 
 
