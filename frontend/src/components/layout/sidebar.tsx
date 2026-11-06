@@ -93,10 +93,10 @@ export function Sidebar() {
   const displayName = me.data?.display_name || me.data?.email || "Conta";
   const email = me.data?.email || "";
   const workspaceItems = workspaces.data?.workspaces || [];
-  const canConfigure = hasNavigationPermission(me.data, "settings.manage");
-  const canInvite = hasNavigationPermission(me.data, "members.manage");
-  const canSeeMembers = hasNavigationPermission(me.data, "members.view");
-  const canSeeRoles = hasNavigationPermission(me.data, "permissions.manage");
+  const canConfigure = items.some(item => item.href === "/config");
+  const canSeeMembers = items.some(item => item.href === "/membros");
+  const canInvite = canSeeMembers && hasNavigationPermission(me.data, "members.manage");
+  const canSeeRoles = items.some(item => item.href === "/membros/cargos");
   const canSeePlan = items.some(item => item.href === "/fatura");
 
   useEffect(() => {
