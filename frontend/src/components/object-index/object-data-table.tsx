@@ -112,7 +112,7 @@ export function ObjectDataTable<T extends { id: string }>({
             field.sortable && "cursor-pointer hover:text-[var(--color-ink)]",
             active && "text-[var(--color-ink)]")}>
           <span className="truncate">{field.title}</span>
-          {active && sorts.length > 1 && <span className="text-[10px] tabular-nums" aria-hidden="true">{rank + 1}</span>}
+          {active && sorts.length > 1 && <span className="text-[length:var(--type-overline)] tabular-nums" aria-hidden="true">{rank + 1}</span>}
           {field.sortable && <ChevronDown className={cn("h-3 w-3 shrink-0", active && !active.desc && "rotate-180",
             !active && "opacity-0 group-hover:opacity-100")} />}
         </button>;
@@ -202,7 +202,7 @@ export function ObjectDataTable<T extends { id: string }>({
                   onClick={() => onPinnedChange(pinned.includes(header.column.id)
                     ? pinned.filter(id => id !== header.column.id) : [...pinned, header.column.id].slice(0, 3))}
                   title={pinned.includes(header.column.id) ? "Desafixar coluna" : "Fixar coluna"}
-                  className={cn("shrink-0 rounded px-1 text-[10px] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]",
+                  className={cn("shrink-0 rounded px-1 text-[length:var(--type-overline)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]",
                     pinned.includes(header.column.id) ? "text-[var(--color-blue)]" : "text-[var(--color-muted)] opacity-50 group-hover:opacity-100")}>
                   {pinned.includes(header.column.id) ? "◆" : "◇"}
                 </button>}
