@@ -35,9 +35,9 @@ def _serialize(row: dict) -> dict:
 async def list_collection_cases(
     q: str = Query("", max_length=160),
     status: str | None = Query(None, pattern="^(open|paid|disputed|agreement|cancelled|unknown)$"),
-    statuses: str | None = Query(None, max_length=120),
-    sort: str = Query("updated_at"),
-    desc: bool = Query(True),
+    statuses: str | None = None,
+    sort: str = "updated_at",
+    desc: bool = True,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
     auth: AuthContext = Depends(require_permission("audit.view")),
@@ -56,6 +56,8 @@ async def list_collection_cases(
         where.append("(external_ref ILIKE :pattern OR subject_ref ILIKE :pattern)")
         params["pattern"] = f"%{needle}%"
     if statuses is not None:
+        if len(statuses) > 120:
+            raise HTTPException(status_code=422, detail="Filtro de estado extenso.")
         choices = set(statuses.split(",")) if statuses else set()
         valid = {"open", "paid", "disputed", "agreement", "cancelled", "unknown"}
         if not choices or len(choices) > 6 or not choices.issubset(valid):
