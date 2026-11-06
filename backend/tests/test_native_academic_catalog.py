@@ -183,7 +183,7 @@ async def test_catalog_pages_filter_and_isolate_tenants(tenant_factory, db_sessi
 
     async def page(query, offset=0):
         return await list_catalog_records(
-            "programs", q=query, sort="code", desc=True, offset=offset,
+            "programs", q=query, program_id=None, status=None, sort="code", desc=True, offset=offset,
             limit=1, auth=auth, db=db_session,
         )
 
