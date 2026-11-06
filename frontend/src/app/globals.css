@@ -1848,9 +1848,173 @@ textarea {
 }
 .mira-flow-security-flow { display: grid; gap: 16px; margin-top: 20px; }
 .mira-flow-security-flow .mira-flow-primary, .mira-flow-security-flow .mira-flow-secondary { width: fit-content; }
-.mira-flow-mfa-setup { display: grid; gap: 12px; }
-.mira-flow-mfa-setup img { width: 174px; height: 174px; background: var(--color-legacy-fff); border-radius: 8px; padding: 8px; }
-.mira-flow-mfa-setup code { display: block; overflow-wrap: anywhere; border: 1px solid var(--color-legacy-35373d); border-radius: 8px; padding: 10px; font-size: var(--type-caption); }
+/* Guided MFA onboarding: native TOTP + focused, accessible 6-digit control. */
+.mira-flow-security-guide { min-width: 0; display: grid; gap: 18px; }
+.mira-flow-security-intro { display: grid; gap: 8px; justify-items: start; }
+.mira-flow-security-intro .mira-flow-eyebrow { margin: 0 0 5px; }
+.mira-flow-security-emblem {
+  display: grid; place-items: center; width: 47px; height: 47px;
+  border-radius: 15px; border: 1px solid var(--color-legacy-355d9a);
+  color: var(--color-legacy-b4d0ff);
+  background: linear-gradient(145deg, var(--color-legacy-182234), var(--color-legacy-15171b));
+  box-shadow: 0 8px 24px rgb(0 0 0 / 15%);
+}
+.mira-flow-security-intro > p:last-child {
+  margin: 0; color: var(--color-legacy-92969f); max-width: 370px;
+  font-size: var(--type-body-compact); line-height: 1.55;
+}
+.mira-flow-security-card {
+  min-width: 0; display: grid; gap: 16px;
+  border: 1px solid var(--color-legacy-353a44);
+  border-radius: 12px; padding: 17px 15px;
+  background: var(--color-legacy-15171b);
+  box-shadow: 0 16px 42px rgb(0 0 0 / 13%);
+}
+.mira-flow-security-card-title {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  padding-bottom: 13px; border-bottom: 1px solid var(--color-legacy-30343b);
+  color: var(--color-legacy-e7e9ed);
+}
+.mira-flow-security-card-title > svg { flex-shrink: 0; color: var(--color-legacy-b4d0ff); }
+.mira-flow-security-card-title strong {
+  font-size: var(--type-body-xs); line-height: 18px; font-weight: 600;
+}
+.mira-flow-security-card-title > span {
+  margin-left: auto; white-space: nowrap;
+  color: var(--color-legacy-92969f); font-size: var(--type-overline);
+}
+.mira-flow-security-steps { list-style: none; display: grid; gap: 17px; margin: 0; padding: 0; }
+.mira-flow-security-step {
+  position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start; gap: 12px; min-width: 0;
+}
+.mira-flow-security-step:not(.last)::before {
+  content: ""; position: absolute; left: 13px; top: 32px; bottom: -16px;
+  width: 1px; background: var(--color-legacy-35373d); pointer-events: none;
+}
+.mira-flow-security-number {
+  position: relative; z-index: 1; display: grid; place-items: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--color-legacy-4a4e57);
+  background: var(--color-legacy-20242a); color: var(--color-legacy-e7e9ed);
+  font-size: var(--type-body-xs); font-weight: 600;
+}
+.mira-flow-security-step.last .mira-flow-security-number {
+  border-color: var(--color-legacy-355d9a);
+  background: var(--color-legacy-151e2c); color: var(--color-legacy-b4d0ff);
+}
+.mira-flow-security-step-body { min-width: 0; padding-top: 4px; }
+.mira-flow-security-step-body h2 {
+  margin: 0; font-size: var(--type-body-compact); line-height: 20px;
+  font-weight: 600; color: var(--auth-text);
+}
+.mira-flow-security-step-body > p {
+  margin: 5px 0 0; font-size: var(--type-body-xs);
+  line-height: 1.55; color: var(--color-legacy-92969f);
+}
+.mira-flow-security-app-note {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 9px;
+  color: var(--color-legacy-b9bfcb); font-size: var(--type-overline);
+  line-height: 1.5;
+}
+.mira-flow-security-app-note svg { flex: 0 0 auto; }
+.mira-flow-security-qr-area { display: grid; gap: 7px; justify-items: start; margin-top: 13px; }
+.mira-flow-security-qr-frame {
+  display: grid; place-items: center; padding: 11px;
+  border: 1px solid var(--color-legacy-353a44);
+  border-radius: 12px; background: var(--color-legacy-fff);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 4%);
+}
+.mira-flow-security-qr-frame img { width: 180px; height: 180px; display: block; object-fit: contain; }
+.mira-flow-security-qr-caption {
+  margin: 0; color: var(--color-legacy-878d98);
+  font-size: var(--type-overline); line-height: 1.55;
+}
+.mira-flow-security-qr-pending { display: grid; justify-items: start; gap: 10px; margin-top: 14px; }
+.mira-flow-security-qr-pending p {
+  margin: 0; font-size: var(--type-caption); color: var(--color-legacy-92969f);
+}
+.mira-flow-security-manual { margin-top: 11px; min-width: 0; }
+.mira-flow-security-manual-trigger {
+  display: inline-flex; align-items: center; gap: 6px; border: 0;
+  padding: 4px 0; background: transparent;
+  color: var(--color-legacy-87b2ff); font-size: var(--type-body-xs);
+  line-height: 1.4; text-align: left; cursor: pointer;
+}
+.mira-flow-security-manual-panel {
+  display: grid; gap: 9px; min-width: 0; margin-top: 7px;
+  padding: 11px; border: 1px solid var(--color-legacy-35373d);
+  border-radius: 8px; background: var(--color-ink);
+}
+.mira-flow-security-manual-panel > p {
+  margin: 0; color: var(--color-legacy-92969f); font-size: var(--type-overline);
+  line-height: 1.55;
+}
+.mira-flow-security-manual-secret {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  border: 1px solid var(--color-legacy-353a44);
+  border-radius: 7px; padding: 6px; background: var(--color-legacy-15171b);
+}
+.mira-flow-security-manual-secret code {
+  flex: 1; min-width: 0; overflow-wrap: anywhere;
+  color: var(--color-legacy-e7e9ed); font-size: var(--type-overline);
+  letter-spacing: .045em;
+}
+.mira-flow-security-copy-error {
+  margin: 0; color: var(--color-legacy-f3a4ae);
+  font-size: var(--type-overline); line-height: 1.55;
+}
+.mira-flow-security-manual-secret button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  flex: 0 0 auto; border: 1px solid var(--color-legacy-35373d);
+  border-radius: 6px; padding: 6px; color: var(--color-legacy-e7e9ed);
+  background: var(--color-legacy-20242a);
+  font-size: var(--type-overline);
+}
+.mira-flow-otp-field { display: grid; gap: 8px; margin-top: 13px; min-width: 0; }
+.mira-flow-otp-field > label {
+  font-size: var(--type-caption); color: var(--color-legacy-b9bfcb);
+}
+.mira-flow-otp-control { position: relative; min-width: 0; width: 100%; max-width: 294px; }
+.mira-flow-otp-control .mira-flow-otp-native {
+  position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%;
+  margin: 0; padding: 0; opacity: 0; background: transparent; border: 0;
+  cursor: text;
+}
+.mira-flow-otp-control .mira-flow-otp-native:focus-visible { box-shadow: none; outline: 0; }
+.mira-flow-otp-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.mira-flow-otp-slot {
+  display: grid; place-items: center; min-width: 0; height: 44px;
+  border: 1px solid var(--color-legacy-353a44); border-radius: 8px;
+  background: var(--color-ink); color: var(--auth-text);
+  font-size: var(--type-heading-xs); font-weight: 600;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.mira-flow-otp-control:focus-within .mira-flow-otp-slot.active {
+  border-color: var(--auth-blue);
+  box-shadow: 0 0 0 2px rgb(53 119 241 / 20%);
+}
+.mira-flow-otp-control:has(input:disabled) .mira-flow-otp-slot { opacity: .55; }
+.mira-flow-security-hint {
+  margin: 0; color: var(--color-legacy-878d98);
+  font-size: var(--type-overline); line-height: 1.55;
+}
+.mira-flow-security-card-actions {
+  display: grid; gap: 9px; border-top: 1px solid var(--color-legacy-30343b);
+  padding-top: 15px;
+}
+.mira-flow-security-card-actions .mira-flow-primary { width: 100%; }
+.mira-flow-security-card-actions p {
+  margin: 0; text-align: center;
+  color: var(--color-legacy-878d98); font-size: var(--type-overline);
+  line-height: 1.5;
+}
+@media (max-width: 560px) {
+  .mira-flow-security-card { padding: 15px 11px; }
+  .mira-flow-security-step { gap: 9px; }
+  .mira-flow-otp-slots { gap: 4px; }
+  .mira-flow-otp-slot { height: 41px; }
+}
 .mira-flow-recovery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .mira-flow-recovery code { padding: 10px; border: 1px solid var(--color-legacy-34373e); border-radius: 8px; text-align: center; color: var(--auth-text); font-size: var(--type-caption); }
 .mira-flow-preview {
