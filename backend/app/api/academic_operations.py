@@ -741,18 +741,19 @@ async def _requests(db: AsyncSession, tenant_id: str, *, student_id=None, status
     ).limit(200))).all()
     result = []
     for r, student, name, registration, course, term_label in rows:
-        classes = (await db.execute(select(AcademicClass.code)
+        classes = (await db.execute(select(AcademicClass.id, AcademicClass.code)
             .join(AcademicEnrollmentRequestClass, and_(
                 AcademicEnrollmentRequestClass.class_id == AcademicClass.id,
                 AcademicEnrollmentRequestClass.tenant_id == AcademicClass.tenant_id,
             ))
             .where(AcademicEnrollmentRequestClass.tenant_id == tenant_id,
                    AcademicEnrollmentRequestClass.request_id == r.id)
-        )).scalars().all()
+        )).all()
         result.append({**_request_json(r), "student_id": student,
                        "student_name": name, "student_registration": registration,
                        "program_name": course, "term_label": term_label,
-                       "class_codes": list(classes)})
+                       "class_ids": [class_id for class_id, _ in classes],
+                       "class_codes": [code for _, code in classes]})
     return {"items": result, "limit": 200}
 
 
@@ -940,15 +941,17 @@ async def _class_roster(db: AsyncSession, tenant_id: str, class_id: UUID | str):
         .where(AcademicClassEnrollment.tenant_id == tenant_id,
                AcademicClassEnrollment.class_id == cls.id,
                AcademicClassEnrollment.status.in_(("enrolled", "completed")))
-        .order_by(Student.nome).limit(300))).all()
+        .order_by(Student.nome).limit(301))).all()
     assessments = (await db.execute(select(AcademicAssessment).where(
         AcademicAssessment.tenant_id == tenant_id,
         AcademicAssessment.class_id == cls.id,
-    ).order_by(AcademicAssessment.code).limit(100))).scalars().all()
+    ).order_by(AcademicAssessment.code).limit(101))).scalars().all()
     lessons = (await db.execute(select(AcademicLesson).where(
         AcademicLesson.tenant_id == tenant_id,
         AcademicLesson.class_id == cls.id,
-    ).order_by(AcademicLesson.starts_at).limit(150))).scalars().all()
+    ).order_by(AcademicLesson.starts_at).limit(151))).scalars().all()
+    if len(roster) > 300 or len(assessments) > 100 or len(lessons) > 150:
+        _conflict("Turma maior que os limites de processamento seguro; não é possível fechar parcialmente.")
     grades = (await db.execute(select(AcademicGrade).where(
         AcademicGrade.tenant_id == tenant_id, AcademicGrade.class_id == cls.id,
     ))).scalars().all()
@@ -1203,8 +1206,9 @@ async def publish_class_grades(
     if (any(sid not in by_student for sid in roster) or
             any(r.score < 0 or r.score > exam.max_score for r in rows)):
         _conflict("Todas as notas devem estar lançadas e válidas antes da publicação.")
+    active_set = set(roster)
     for row in rows:
-        if row.publication_status == "draft":
+        if row.student_id in active_set and row.publication_status == "draft":
             row.publication_status = "published"
     _event(db, auth.tenant_id, "staff", auth.user_id, "grades_published", "class", cls.id,
            {"assessment_id": exam.id, "count": len(roster)})

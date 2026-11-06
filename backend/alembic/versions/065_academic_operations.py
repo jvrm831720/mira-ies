@@ -161,6 +161,13 @@ def upgrade():
         sa.UniqueConstraint("tenant_id", "class_id", "student_id", name="uq_mira_academic_class_outcome_student"),
         fk("class_id", "mira_academic_classes", "fk_mira_outcome_class_tenant"),
         fk("student_id", "students", "fk_mira_outcome_student_tenant"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "class_id", "student_id"],
+            ["mira_academic_class_enrollments.tenant_id",
+             "mira_academic_class_enrollments.class_id",
+             "mira_academic_class_enrollments.student_id"],
+            name="fk_mira_outcome_class_enrollment_tenant",
+        ),
         sa.CheckConstraint("result IN ('passed','failed')", name="ck_mira_outcome_result"),
         sa.CheckConstraint("score_percent BETWEEN 0 AND 100", name="ck_mira_outcome_score"),
         sa.CheckConstraint("attendance_percent BETWEEN 0 AND 100", name="ck_mira_outcome_attendance"),

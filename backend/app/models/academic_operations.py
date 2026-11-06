@@ -151,6 +151,10 @@ class AcademicClassOutcome(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "class_id", "student_id", name="uq_mira_academic_class_outcome_student"),
         ForeignKeyConstraint(["tenant_id", "class_id"], ["mira_academic_classes.tenant_id", "mira_academic_classes.id"], name="fk_mira_outcome_class_tenant"),
+        ForeignKeyConstraint(["tenant_id", "class_id", "student_id"],
+                             ["mira_academic_class_enrollments.tenant_id", "mira_academic_class_enrollments.class_id",
+                              "mira_academic_class_enrollments.student_id"],
+                             name="fk_mira_outcome_class_enrollment_tenant"),
         ForeignKeyConstraint(["tenant_id", "student_id"], ["students.tenant_id", "students.id"], name="fk_mira_outcome_student_tenant"),
         CheckConstraint("result IN ('passed','failed')", name="ck_mira_outcome_result"),
         CheckConstraint("score_percent BETWEEN 0 AND 100", name="ck_mira_outcome_score"),
