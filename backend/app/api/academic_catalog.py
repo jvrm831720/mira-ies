@@ -213,12 +213,13 @@ def _fields(item: BaseModel) -> dict:
     }
 
 
-CatalogResource = Literal["programs", "subjects", "teachers", "terms"]
+CatalogResource = Literal["programs", "subjects", "teachers", "terms", "classes"]
 CATALOG_LISTS = {
     "programs": (AcademicProgram, AcademicProgram.name, AcademicProgram.code),
     "subjects": (AcademicSubject, AcademicSubject.name, AcademicSubject.code),
     "teachers": (AcademicTeacher, AcademicTeacher.display_name, AcademicTeacher.staff_code),
     "terms": (AcademicTerm, AcademicTerm.label, AcademicTerm.code),
+    "classes": (AcademicClass, AcademicClass.code, AcademicClass.code),
 }
 
 

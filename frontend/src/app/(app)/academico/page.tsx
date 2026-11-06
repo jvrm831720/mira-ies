@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AcademicCatalogSelector, type AcademicResource } from "@/components/academic/academic-catalog-selector";
 import { AcademicCatalogTable } from "@/components/academic/academic-catalog-table";
 import { AcademicNavigation } from "@/components/academic/academic-navigation";
 
@@ -36,7 +37,7 @@ const CLASS_FIELDS: ObjectField<Item>[] = [
 ];
 
 type Draft = { id: string; resource: string; title: string; class_id: string | null };
-type Field = { key: string; label: string; type?: "date" | "datetime-local" | "number"; options?: Item[]; required?: boolean };
+type Field = { key: string; label: string; type?: "date" | "datetime-local" | "number"; resource?: AcademicResource; required?: boolean };
 type NewKind = "program" | "subject" | "teacher" | "term" | "class" | "lesson" | "assessment" | "calendar_event";
 
 async function staffRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -79,9 +80,9 @@ const keys: Record<NewKind, string> = {
 function pretty(item: Item): string {
   return item.name || item.display_name || item.label || item.code || item.id;
 }
-function fieldsFor(kind: NewKind, data: Overview): Field[] {
+function fieldsFor(kind: NewKind): Field[] {
   const p = (key: string, label: string): Field => ({ key, label, required: true });
-  const select = (key: string, label: string, options: Item[]): Field => ({ key, label, options, required: true });
+  const select = (key: string, label: string, resource: AcademicResource): Field => ({ key, label, resource, required: true });
   const term: Field[] = [p("code", "Código do período"), p("label", "Nome do período"),
     { ...p("starts_on", "Data inicial"), type: "date" },
     { ...p("ends_on", "Data final"), type: "date" }];
@@ -92,22 +93,22 @@ function fieldsFor(kind: NewKind, data: Overview): Field[] {
   switch (kind) {
     case "program": return [p("code", "Código do curso"), p("name", "Nome do curso"), {key:"modality",label:"Modalidade"}];
     case "subject": return [
-      select("program_id", "Curso vinculado", data.programs),
+      select("program_id", "Curso vinculado", "programs"),
       p("code", "Código da disciplina"), p("name", "Nome da disciplina"),
       {key:"credit_hours",label:"Carga horária",type:"number"},
     ];
     case "teacher": return [p("staff_code", "Código docente"), p("display_name", "Nome do professor"),
       {key:"department",label:"Departamento"}];
     case "term": return term;
-    case "class": return [select("subject_id", "Disciplina", data.subjects), select("term_id", "Período", data.terms),
-      {key:"teacher_id",label:"Professor responsável (opcional)",options:data.teachers},
+    case "class": return [select("subject_id", "Disciplina", "subjects"), select("term_id", "Período", "terms"),
+      {key:"teacher_id",label:"Professor responsável (opcional)",resource:"teachers"},
       p("code", "Código da turma"), {key:"campus",label:"Unidade/campus"}];
-    case "lesson": return [select("class_id", "Turma", data.classes), ...range,
+    case "lesson": return [select("class_id", "Turma", "classes"), ...range,
       {key:"topic",label:"Tema da aula"}, {key:"room",label:"Sala ou link"}];
-    case "assessment": return [select("class_id", "Turma", data.classes),
+    case "assessment": return [select("class_id", "Turma", "classes"),
       p("code", "Código da avaliação"), p("title", "Título"),
       {...p("max_score", "Pontuação máxima"),type:"number"}];
-    case "calendar_event": return [select("term_id", "Período", data.terms),
+    case "calendar_event": return [select("term_id", "Período", "terms"),
       p("title", "Título do evento"), ...range, {key:"location",label:"Local"}];
   }
 }
@@ -189,7 +190,7 @@ export default function AcademicManagementPage() {
   });
 
   const possible = useMemo(() => (
-    overview.data ? fieldsFor(kind || "program", overview.data) : []
+    overview.data ? fieldsFor(kind || "program") : []
   ), [kind, overview.data]);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -367,13 +368,11 @@ export default function AcademicManagementPage() {
               </div>
               {possible.map(field => <div key={field.key}>
                 <label htmlFor={"catalog-" + field.key} className="mb-1.5 block text-[11px] font-semibold text-[#475467]">{field.label}</label>
-                {field.options ?
-                  <select id={"catalog-" + field.key} required={field.required}
-                    value={form[field.key] || ""} onChange={e => setForm(v=>({...v,[field.key]:e.target.value}))}
-                    className="h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-2 text-[12px]">
-                    <option value="">Selecionar</option>
-                    {field.options.map(item => <option key={item.id} value={item.id}>{pretty(item)}</option>)}
-                  </select> :
+                {field.resource ?
+                  <AcademicCatalogSelector key={kind + field.key} id={"catalog-" + field.key}
+                    label={field.label} resource={field.resource} required={field.required}
+                    value={form[field.key] || ""} tenant={me.data?.tenant_id} user={me.data?.user_id}
+                    load={staffRequest} onChange={value => setForm(previous => ({ ...previous, [field.key]: value }))} /> :
                   <input id={"catalog-" + field.key} required={field.required} type={field.type || "text"}
                     value={form[field.key] || ""} onChange={e=>setForm(v=>({...v,[field.key]:e.target.value}))}
                     className="h-10 w-full rounded-lg border border-[#D0D5DD] px-3 text-[12px] outline-none focus:border-[#2563EB]"/>
