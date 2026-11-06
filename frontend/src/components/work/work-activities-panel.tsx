@@ -24,6 +24,10 @@ import type {
 } from "@/types/work";
 import { cn } from "@/lib/utils";
 import { RiskBadge } from "@/components/ui/badge";
+import { WorkQueueFilters } from "./work-queue-filters";
+import { StudentRiskFactors } from "@/components/students/student-risk-factors";
+import { hasNavigationPermission } from "@/components/layout/navigation";
+import { toast } from "sonner";
 import { WorkQueueSummary } from "./work-queue-summary";
 import { InfoBlock, InterventionContext } from "./work-activity-detail-parts";
 import { formatDate, STATUS_LABEL, TYPE_LABEL, PRIORITY_LABEL, ORIGIN_LABEL, EVENT_LABEL, RESULT_KIND_LABEL, CHANNEL_LABEL } from "./work-activity-labels";
@@ -35,6 +39,8 @@ type Props = {
 
 export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Props) {
   const qc = useQueryClient();
+  const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
+  const canSensitive = hasNavigationPermission(me.data, "students.sensitive.view");
   const [view, setView] = useState<"all" | "mine" | "overdue">("all");
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -119,7 +125,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
   const studentQuery = useQuery({
     queryKey: ["student-risk", selectedActivity?.student_id],
     queryFn: () => api.studentRisk(selectedActivity!.student_id!),
-    enabled: Boolean(selectedActivity?.student_id),
+    enabled: Boolean(selectedActivity?.student_id) && canSensitive,
     retry: false,
   });
 
@@ -204,8 +210,9 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
       void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
       if (created?.id) setSelectedId(created.id);
+      toast.success("Atividade criada.");
     },
-    onError: (err: Error) => setFormError(err.message),
+    onError: (err: Error) => { setFormError(err.message); toast.error(err.message); },
   });
 
   const patchMut = useMutation({
@@ -233,11 +240,12 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
       setResultNote("");
       setResultKind("");
       setResultError(null);
+      toast.success("Resultado operacional registrado.");
       void qc.invalidateQueries({ queryKey: ["work-activity-events"] });
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
       void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
     },
-    onError: (err: Error) => setResultError(err.message),
+    onError: (err: Error) => { setResultError(err.message); toast.error(err.message); },
   });
 
   const rows = activitiesQuery.data?.activities ?? [];
@@ -275,87 +283,17 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
 
         <WorkQueueSummary data={summaryQuery.data} isLoading={summaryQuery.isLoading} isError={summaryQuery.isError} />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div role="tablist" className="flex flex-wrap gap-1 rounded-xl bg-[var(--color-panel)] p-1">
-            {(
-              [
-                { id: "all" as const, label: "Todas" },
-                { id: "mine" as const, label: "Minhas" },
-                { id: "overdue" as const, label: "Vencidas" },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={view === tab.id}
-                onClick={() => {
-                  setView(tab.id);
-                  setAssigneeFilter("");
-                }}
-                className={cn(
-                  "inline-flex min-h-9 items-center rounded-lg px-3 py-2 text-sm font-medium",
-                  view === tab.id
-                    ? "bg-white text-[var(--color-ink)] shadow-sm"
-                    : "text-[var(--color-slate-600)] hover:text-[var(--color-slate-600)]"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          {view === "all" && (
-            <select
-              value={assigneeFilter}
-              onChange={(e) => setAssigneeFilter(e.target.value)}
-              aria-label="Filtrar por responsável"
-              className="h-10 rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-slate-600)]"
-            >
-              <option value="">Todos os responsáveis</option>
-              <option value="unassigned">Sem responsável</option>
-              {activeMembers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.display_name || m.email}
-                </option>
-              ))}
-            </select>
-          )}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filtrar por status"
-            className="h-10 rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-slate-600)]"
-          >
-            <option value="">Todos os status</option>
-            <option value="open">Aberta</option>
-            <option value="in_progress">Em andamento</option>
-            <option value="completed">Concluída</option>
-            <option value="cancelled">Cancelada</option>
-          </select>
-          <select
-            value={originFilter}
-            onChange={(e) => setOriginFilter(e.target.value)}
-            aria-label="Filtrar por origem"
-            className="h-10 rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-slate-600)]"
-          >
-            <option value="">Todas as origens</option>
-            <option value="manual">Equipe</option>
-            <option value="campaign">Campanha</option>
-          </select>
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            aria-label="Filtrar por prioridade"
-            className="h-10 rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-slate-600)]"
-          >
-            <option value="">Todas as prioridades</option>
-            <option value="urgent">Urgente</option>
-            <option value="high">Alta</option>
-            <option value="normal">Normal</option>
-            <option value="low">Baixa</option>
-          </select>
-        </div>
-
+        <WorkQueueFilters view={view} setView={setView}
+          assigneeFilter={assigneeFilter} setAssigneeFilter={setAssigneeFilter}
+          statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+          originFilter={originFilter} setOriginFilter={setOriginFilter}
+          priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter}
+          activeMembers={activeMembers} />
+        {summaryQuery.data?.urgent_pending ? <button type="button" onClick={() => { setView("all"); setPriorityFilter("urgent"); }}
+          className="flex w-full items-center justify-between rounded-[var(--radius-md)] border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-left text-[12px] text-[var(--color-ink)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
+          <span><strong>{summaryQuery.data.urgent_pending}</strong> atividade(s) urgentes aguardam tratamento</span>
+          <span className="font-semibold">Priorizar agora</span>
+        </button> : null}
         {showCreate && (
           <form
             className="space-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-source-f9fafb)] p-4"
@@ -773,7 +711,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-slate-600)]">
                 Contexto do aluno
               </p>
-              {!selectedActivity.student_id ? (
+              {!canSensitive ? <p className="text-[12px] text-[var(--color-muted)]">Contexto de risco restrito ao perfil autorizado.</p> : !selectedActivity.student_id ? (
                 <p className="text-xs text-[var(--color-muted)]">Nenhum aluno vinculado a esta atividade.</p>
               ) : studentQuery.isLoading ? (
                 <p className="text-xs text-[var(--color-slate-600)]">Carregando dados do aluno…</p>
@@ -816,6 +754,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                       )}
                     </div>
                   </div>
+                  {studentQuery.data && <div className="col-span-full"><StudentRiskFactors student={studentQuery.data}/></div>}
                 </div>
               )}
             </div>
