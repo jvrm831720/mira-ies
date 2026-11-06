@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  --type-size-19: 19px;
   --color-legacy-9299a4: #9299a4;
   --color-legacy-858c96: #858c96;
   --color-legacy-946200: #946200;

@@ -74,8 +74,8 @@ export function DispatchExperience() {
   },[]);
   useEffect(()=>{setSelected(null);setBuilding(false);setSection("overview");},[tenantId,userId]);
 
-  if(me.isLoading)return <main role="status" className="mira-page p-8 text-[12px] text-[var(--color-muted)]">Verificando permissões da operação…</main>;
-  if(me.isError||!canView)return <main role="alert" className="mira-page p-8 text-[13px] text-[var(--color-slate-600)]">
+  if(me.isLoading)return <main role="status" className="mira-page p-8 text-xs text-[var(--color-muted)]">Verificando permissões da operação…</main>;
+  if(me.isError||!canView)return <main role="alert" className="mira-page p-8 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">
     Acesso à operação indisponível. Verifique permissões do workspace e módulo de Dispatch.
   </main>;
 
@@ -88,18 +88,18 @@ export function DispatchExperience() {
     <main className="mira-page min-h-dvh bg-[var(--color-canvas)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-4 md:px-7">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">MIRA / Operação</p>
-          <h1 className="mt-1 text-[19px] font-semibold tracking-tight">Comunicação institucional</h1>
-          <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Planeje, autorize, monitore e verifique — sem confundir proposta, disparo e resultado.</p>
+          <p className="text-[length:var(--type-overline)] font-semibold uppercase tracking-wider text-[var(--color-muted)]">MIRA / Operação</p>
+          <h1 className="mt-1 text-[length:var(--type-size-19)] font-semibold tracking-tight">Comunicação institucional</h1>
+          <p className="mt-1 text-xs text-[var(--color-slate-600)]">Planeje, autorize, monitore e verifique — sem confundir proposta, disparo e resultado.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={refresh} disabled={campaigns.isFetching||metrics.isFetching}
-            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 text-[12px] font-medium hover:bg-[var(--color-panel)] disabled:opacity-50">
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 text-xs font-medium hover:bg-[var(--color-panel)] disabled:opacity-50">
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </button>
-          {canExecute && <Link href="/disparos/console?mode=individual" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 text-[12px] font-medium hover:bg-[var(--color-panel)]">Contato individual</Link>}
+          {canExecute && <Link href="/disparos/console?mode=individual" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 text-xs font-medium hover:bg-[var(--color-panel)]">Contato individual</Link>}
           {canCreate && <button type="button" onClick={()=>{setBuilding(true);setSection("campaigns");}}
-            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-[12px] font-medium text-white">
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-xs font-medium text-white">
             <Plus className="h-3.5 w-3.5" /> Nova campanha
           </button>}
         </div>
@@ -107,7 +107,7 @@ export function DispatchExperience() {
       <DispatchNavigation section={section} onSectionChange={tab=>{setSection(tab);setBuilding(false);}}
         canManageProviders={canManageProviders}/>
       <div className="mx-auto max-w-[1500px] space-y-5 px-4 py-5 md:px-7">
-        {campaigns.isError && <p role="alert" className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3 text-[12px] text-[var(--color-red)]">
+        {campaigns.isError && <p role="alert" className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3 text-xs text-[var(--color-red)]">
           Não foi possível consultar todas as campanhas. <button type="button" className="underline" onClick={()=>void campaigns.refetch()}>Tentar novamente</button>
         </p>}
         {section==="overview" && <DispatchOverview
@@ -115,10 +115,10 @@ export function DispatchExperience() {
           loading={metrics.isLoading||campaigns.isLoading} failed={metrics.isError}
           onRetry={refresh} onChange={setSection} />}
         {section==="campaigns" && <>
-          {building && (sources.isLoading||templates.isLoading) && <div role="status" className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-6 text-[12px] text-[var(--color-muted)]">
+          {building && (sources.isLoading||templates.isLoading) && <div role="status" className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-6 text-xs text-[var(--color-muted)]">
             Carregando fontes e modelos autorizados…
           </div>}
-          {building && (sources.isError||templates.isError) && <div role="alert" className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-6 text-[12px] text-[var(--color-red)]">
+          {building && (sources.isError||templates.isError) && <div role="alert" className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-6 text-xs text-[var(--color-red)]">
             Não foi possível validar origens ou modelos. <button className="underline" type="button" onClick={()=>{void sources.refetch();void templates.refetch();}}>Tentar novamente</button>
           </div>}
           {building && sources.data && templates.data && <CampaignBuilder
@@ -135,7 +135,7 @@ export function DispatchExperience() {
           financial={financial.data||null} canAudit={canAudit}
           financialLoading={financial.isLoading} financialError={financial.isError}/>}
         <section className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white">
-          <button type="button" className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-[12px] font-medium text-[var(--color-slate-600)]"
+          <button type="button" className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-xs font-medium text-[var(--color-slate-600)]"
             aria-expanded={advanced} onClick={()=>setAdvanced(v=>!v)}>
             Recursos existentes da MIRA <ChevronDown className={"h-4 w-4 transition-transform "+(advanced?"rotate-180":"")}/>
           </button>
@@ -146,13 +146,13 @@ export function DispatchExperience() {
               {href:"/disparos/modelos",label:"Modelos aprovados"},
               {href:"/workflows",label:"Workflows"},
             ] as const).map(item=><Link key={item.href} href={item.href}
-              className="inline-flex h-9 items-center gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[11px] hover:bg-[var(--color-panel)]">
+              className="inline-flex h-9 items-center gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[length:var(--type-caption)] hover:bg-[var(--color-panel)]">
               {item.label}<ArrowRight className="h-3 w-3"/>
             </Link>)}
-            {canManageProviders && <Link href="/disparos/provedores" className="inline-flex h-9 items-center gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[11px]">Provedores <ArrowRight className="h-3 w-3"/></Link>}
+            {canManageProviders && <Link href="/disparos/provedores" className="inline-flex h-9 items-center gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[length:var(--type-caption)]">Provedores <ArrowRight className="h-3 w-3"/></Link>}
           </div>}
         </section>
-        <p className="flex items-start gap-2 text-[11px] leading-relaxed text-[var(--color-muted)]"><ShieldCheck className="h-4 w-4 shrink-0"/> A interface não ativa provedores, não aprova campanhas e não envia mensagens ao consultar registros. O backend continua responsável por MFA, RBAC, autorização, consentimento e idempotência.</p>
+        <p className="flex items-start gap-2 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-muted)]"><ShieldCheck className="h-4 w-4 shrink-0"/> A interface não ativa provedores, não aprova campanhas e não envia mensagens ao consultar registros. O backend continua responsável por MFA, RBAC, autorização, consentimento e idempotência.</p>
       </div>
     </main>
     {selected && <CampaignDetailDrawer key={selected.id} campaign={selected} tenantId={tenantId}
