@@ -20,7 +20,7 @@ from app.core.auth import AuthContext, require_permission
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.student_services import (
-    StudentDocument, StudentFinancialReference, StudentServiceEvent, StudentServiceRequest,
+    StudentDocument, StudentFinancialReference, StudentServiceEvent, StudentServiceNotification, StudentServiceRequest,
 )
 
 portal_router = APIRouter(prefix="/student-portal/services", tags=["Portal do Aluno — serviços"])
@@ -55,6 +55,7 @@ def _request_json(row):
         "id": row.id, "category": row.category, "subject": row.subject,
         "description": row.description, "status": row.status,
         "created_at": row.created_at.isoformat(), "updated_at": row.updated_at.isoformat(),
+        "priority": row.priority, "due_at": row.due_at.isoformat() if row.due_at else None,
     }
 
 
@@ -164,11 +165,28 @@ async def review_request(
         raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
     if body.status not in TRANSITIONS[row.status]:
         raise HTTPException(status_code=409, detail="Transição de status inválida.")
+    if body.status in ("approved", "completed") and not row.assigned_membership_id:
+        raise HTTPException(status_code=409, detail="Atribua um responsável antes de aprovar ou concluir.")
+    if body.status == "completed" and row.category in ("declaration", "transcript", "enrollment"):
+        document = (await db.execute(select(StudentDocument).where(
+            StudentDocument.tenant_id == auth.tenant_id,
+            StudentDocument.student_id == row.student_id,
+            StudentDocument.id == row.generated_document_id,
+            StudentDocument.publication_status == "published",
+        ))).scalar_one_or_none()
+        if document is None:
+            raise HTTPException(status_code=409, detail="Publique o documento antes de concluir esta solicitação.")
     row.status = body.status
     row.updated_at = datetime.now(timezone.utc)
+    if body.status == "completed":
+        row.completed_at = row.updated_at
     db.add(StudentServiceEvent(
         tenant_id=auth.tenant_id, request_id=row.id, actor_type="staff",
         actor_user_id=auth.user_id, status=row.status, note=body.note,
+    ))
+    db.add(StudentServiceNotification(
+        tenant_id=auth.tenant_id, request_id=row.id, recipient_kind="student",
+        student_id=row.student_id, event_key="status", title="Sua solicitação foi atualizada",
     ))
     await db.commit()
     return _request_json(row)
@@ -210,6 +228,20 @@ async def publish_document(
         raise HTTPException(status_code=409, detail="Documento não está em rascunho.")
     row.publication_status = "published"
     row.published_at = datetime.now(timezone.utc)
+    linked = (await db.execute(select(StudentServiceRequest).where(
+        StudentServiceRequest.tenant_id == auth.tenant_id,
+        StudentServiceRequest.student_id == row.student_id,
+        StudentServiceRequest.generated_document_id == row.id,
+    ).with_for_update())).scalar_one_or_none()
+    if linked:
+        db.add(StudentServiceEvent(
+            tenant_id=auth.tenant_id, request_id=linked.id, actor_type="staff",
+            actor_user_id=auth.user_id, status=linked.status, note="Documento publicado e disponível ao aluno.",
+        ))
+        db.add(StudentServiceNotification(
+            tenant_id=auth.tenant_id, request_id=linked.id, recipient_kind="student",
+            student_id=row.student_id, event_key="document", title="Documento disponível na sua área acadêmica",
+        ))
     await db.commit()
     return {"id": row.id, "publication_status": "published"}
 

@@ -79,6 +79,8 @@ const groups: NavGroup[] = [
     links: [
       { href: "/academico", label: "Gestão acadêmica", icon: BookOpenCheck,
         keywords: "cursos professores disciplinas turmas notas aulas calendário boletim" },
+      { href: "/academico/servicos", label: "Serviços acadêmicos", icon: FileClock,
+        keywords: "solicitações alunos protocolos aprovação responsáveis prazos documentos anexos" },
     ],
   },
   {
@@ -113,6 +115,7 @@ const groups: NavGroup[] = [
 
 function isActive(pathname: string, link: NavLink): boolean {
   if (link.exact || link.href === "/") return pathname === "/";
+  if (link.href === "/academico") return pathname === "/academico";
   if (link.href === "/alunos") {
     return pathname === "/alunos" || (pathname.startsWith("/alunos/") && !pathname.startsWith("/alunos/grupos"));
   }
