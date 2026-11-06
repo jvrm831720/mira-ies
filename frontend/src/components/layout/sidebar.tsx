@@ -6,30 +6,8 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Activity,
-  ArrowLeftRight,
-  BarChart3,
-  BookOpenCheck,
-  BriefcaseBusiness,
-  Building2,
-  Check,
-  ChevronDown,
-  ChevronsUpDown,
-  CreditCard,
-  Database,
-  FileClock,
-  FileUp,
-  House,
-  LogOut,
-  Menu,
-  MessageCircle,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Search,
-  Settings2,
-  ShieldCheck,
-  Users,
-  Workflow,
+  ArrowLeftRight, Building2, Check, ChevronsUpDown, LogOut,
+  Menu, PanelLeftClose, PanelLeftOpen, Search, Settings2, X,
 } from "@/components/ui/icons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -37,95 +15,8 @@ import { clearAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { listWorkspaces, switchWorkspace } from "@/lib/workspaces-api";
 import type { WorkspaceItem } from "@/lib/workspaces-api";
-
-type NavLink = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  keywords?: string;
-  exact?: boolean;
-};
-
-type NavGroup = {
-  id: string;
-  label: string;
-  links: NavLink[];
-};
-
-const groups: NavGroup[] = [
-  {
-    id: "workspace",
-    label: "Workspace",
-    links: [
-      { href: "/", label: "Visão geral", icon: House, exact: true, keywords: "início painel dashboard" },
-      { href: "/membros", label: "Equipe", icon: Users, keywords: "membros convites pessoas" },
-      { href: "/config", label: "Configurações", icon: Settings2, keywords: "preferências instituição acesso" },
-      { href: "/membros/cargos", label: "Cargos e permissões", icon: ShieldCheck, keywords: "rbac funções acesso" },
-    ],
-  },
-  {
-    id: "permanencia",
-    label: "Permanência",
-    links: [
-      { href: "/alunos", label: "Alunos", icon: Users, keywords: "estudantes base acadêmica", },
-      { href: "/alunos/grupos", label: "Grupos", icon: BookOpenCheck, keywords: "segmentos listas alunos" },
-      { href: "/monitoramento", label: "Monitoramento", icon: Activity, keywords: "risco acompanhamento sinais" },
-      { href: "/resultados", label: "Resultados", icon: BarChart3, keywords: "indicadores evasão rematrícula" },
-    ],
-  },
-  {
-    id: "academico",
-    label: "Acadêmico",
-    links: [
-      { href: "/academico", label: "Gestão acadêmica", icon: BookOpenCheck,
-        keywords: "cursos professores disciplinas turmas notas aulas calendário boletim" },
-      { href: "/academico/jornadas", label: "Jornadas acadêmicas", icon: BookOpenCheck,
-        keywords: "matrícula rematrícula currículo grade curricular oferta notas frequência histórico regras" },
-      { href: "/academico/servicos", label: "Serviços acadêmicos", icon: FileClock,
-        keywords: "solicitações alunos protocolos aprovação responsáveis prazos documentos anexos" },
-    ],
-  },
-  {
-    id: "acoes",
-    label: "Ações",
-    links: [
-      { href: "/trabalho", label: "Central de trabalho", icon: BriefcaseBusiness, keywords: "fila tarefas pendências" },
-      { href: "/retencao", label: "Intervenções", icon: Workflow, keywords: "jornadas ações retenção" },
-      { href: "/campanhas", label: "Campanhas", icon: FileClock, keywords: "comunicação aprovações" },
-      { href: "/disparos", label: "Disparos", icon: MessageCircle, keywords: "envios cobranças fila canais entregas" },
-      { href: "/retencao/logs", label: "Histórico de contatos", icon: Activity, keywords: "execução entregas logs" },
-    ],
-  },
-  {
-    id: "dados",
-    label: "Dados",
-    links: [
-      { href: "/importar", label: "Importar dados", icon: FileUp, keywords: "upload csv xlsx base" },
-      { href: "/importacoes", label: "Histórico de importações", icon: FileClock, keywords: "arquivos processamento" },
-      { href: "/conectores", label: "Integrações", icon: Database, keywords: "sistemas conectores fontes" },
-      { href: "/conectores/financeiro", label: "Fontes financeiras", icon: CreditCard, keywords: "erp conciliação metadados com posio fontes importação" },
-    ],
-  },
-  {
-    id: "plano",
-    label: "Plano MIRA",
-    links: [
-      { href: "/fatura", label: "Plano e cobrança", icon: CreditCard, keywords: "assinatura fatura créditos pagamento" },
-    ],
-  },
-];
-
-function isActive(pathname: string, link: NavLink): boolean {
-  if (link.exact || link.href === "/") return pathname === "/";
-  if (link.href === "/academico") return pathname === "/academico";
-  if (link.href === "/alunos") {
-    return pathname === "/alunos" || (pathname.startsWith("/alunos/") && !pathname.startsWith("/alunos/grupos"));
-  }
-  if (link.href === "/retencao") {
-    return pathname === "/retencao" || (pathname.startsWith("/retencao/") && !pathname.startsWith("/retencao/logs"));
-  }
-  return pathname === link.href || pathname.startsWith(link.href + "/");
-}
+import { activeNavigationHref, getVisibleNavigation } from "./navigation";
+import { CommandPalette } from "./command-palette";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -136,10 +27,9 @@ export function Sidebar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [commandQuery, setCommandQuery] = useState("");
-  const commandRef = useRef<HTMLInputElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  const mobileOpener = useRef<HTMLButtonElement>(null);
 
   const me = useQuery({
     queryKey: ["org-me"],
@@ -158,313 +48,240 @@ export function Sidebar() {
       membership_id: item.membership_id || undefined,
       tenant_id: item.tenant_id,
     }),
-    onSuccess: (result) => {
-      toast.success(`Workspace alterado para ${result.tenant_name}.`);
+    onSuccess: result => {
+      toast.success("Workspace alterado para " + result.tenant_name + ".");
       queryClient.clear();
       window.location.assign("/");
     },
     onError: (error: Error) => toast.error(error.message || "Não foi possível trocar de workspace."),
   });
 
-  const orgName = me.data?.tenant_name || "Seu workspace";
+  const visibleGroups = useMemo(() => getVisibleNavigation(me.data), [me.data]);
+  const activeHref = activeNavigationHref(visibleGroups, pathname);
+  const canConfigure = visibleGroups.some(group => group.items.some(item => item.href === "/config"));
+  const orgName = me.data?.tenant_name || "Workspace";
   const displayName = me.data?.display_name || me.data?.email || "Conta";
-  const role = me.data?.role;
-  const email = me.data?.email;
-  // Students and billing workspaces cannot enter academic administration.
-  const academicAllowed = me.data?.operation_profile === "institution"
-    && (me.data?.permissions
-      ? me.data.permissions.includes("students.sensitive.view")
-      : ["admin", "coordinator"].includes(me.data?.role || ""));
-  const visibleGroups = useMemo(() => groups
-    .filter((group) => group.id !== "academico" || academicAllowed), [academicAllowed]);
-
-  const commandGroups = useMemo(() => {
-    const q = commandQuery.trim().toLocaleLowerCase("pt-BR");
-    return visibleGroups.map((group) => ({
-      ...group,
-      links: q ? group.links.filter((link) =>
-        [link.label, link.keywords || "", group.label].some((value) => value.toLocaleLowerCase("pt-BR").includes(q))
-      ) : group.links,
-    })).filter((group) => group.links.length > 0);
-  }, [commandQuery, visibleGroups]);
-
-  const commandResults = useMemo(() => commandGroups.flatMap((group) => group.links.map((link) => ({
-    ...link,
-    groupLabel: group.label,
-  }))), [commandGroups]);
+  const role = me.data?.role || "Membro";
+  const email = me.data?.email || "";
+  const workspaceItems = workspaces.data?.workspaces || [];
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setCommandOpen(true);
-        window.setTimeout(() => commandRef.current?.focus(), 0);
-      }
-      if (event.key === "Escape") {
-        setCommandOpen(false);
-        setWorkspaceOpen(false);
-        setAccountOpen(false);
-        setMobileOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    try {
+      setCollapsed(window.localStorage.getItem("mira:sidebar-collapsed") === "true");
+    } catch { /* preference storage is optional */ }
   }, []);
 
   useEffect(() => {
-    const onDocumentClick = (event: MouseEvent) => {
+    setMobileOpen(false);
+    setAccountOpen(false);
+    setWorkspaceOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        setAccountOpen(false);
+        setWorkspaceOpen(false);
+      }
+    }
+    function onDocumentClick(event: MouseEvent) {
       if (!workspaceRef.current?.contains(event.target as Node)) setWorkspaceOpen(false);
       if (!accountRef.current?.contains(event.target as Node)) setAccountOpen(false);
-    };
+    }
+    window.addEventListener("keydown", onKeyDown);
     document.addEventListener("mousedown", onDocumentClick);
-    return () => document.removeEventListener("mousedown", onDocumentClick);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onDocumentClick);
+    };
   }, []);
 
-  useEffect(() => setMobileOpen(false), [pathname]);
-  useEffect(() => {
-    if (commandOpen) window.setTimeout(() => commandRef.current?.focus(), 0);
-  }, [commandOpen]);
+  function toggleCollapsed() {
+    setCollapsed(previous => {
+      const next = !previous;
+      try { window.localStorage.setItem("mira:sidebar-collapsed", String(next)); } catch { /* optional */ }
+      return next;
+    });
+  }
+
+  function closeMobile() {
+    setMobileOpen(false);
+    mobileOpener.current?.focus();
+  }
 
   function logout() {
     clearAuth();
     router.replace("/login");
   }
 
-  const workspaceItems = workspaces.data?.workspaces || [];
-  const openCommand = () => {
-    setCommandQuery("");
-    setCommandOpen(true);
-  };
-
   return (
     <>
-      <button
-        type="button"
+      <button ref={mobileOpener} type="button"
+        aria-label="Abrir navegação" aria-controls="mira-workspace-navigation" aria-expanded={mobileOpen}
         onClick={() => setMobileOpen(true)}
-        aria-label="Abrir navegação"
-        className="fixed left-3 top-3 z-40 grid h-9 w-9 place-items-center rounded-lg border border-[#E5E7EB] bg-white text-[#344054] shadow-sm md:hidden"
-      >
+        className="fixed left-3 top-3 z-30 grid h-9 w-9 place-items-center rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white text-[var(--color-slate-600)] shadow-sm focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] md:hidden">
         <Menu className="h-4 w-4" />
       </button>
+      {mobileOpen && <button type="button" aria-label="Fechar menu lateral" onClick={closeMobile}
+        className="fixed inset-0 z-40 bg-[var(--color-ink)]/40 md:hidden" />}
 
-      {mobileOpen && (
-        <button
-          type="button"
-          aria-label="Fechar navegação"
-          onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-[#101828]/35 md:hidden"
-        />
-      )}
-
-      {commandOpen && (
-        <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[#101828]/35 px-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label="Busca global">
-          <button type="button" aria-label="Fechar busca global" onClick={() => setCommandOpen(false)} className="absolute inset-0 cursor-default" />
-          <div className="relative z-10 w-full max-w-[560px] overflow-hidden rounded-2xl border border-[#E7E7E9] bg-white shadow-[0_24px_80px_rgba(16,24,40,0.22)]">
-            <div className="flex items-center gap-3 border-b border-[#EEEEF0] px-4">
-              <Search className="h-4 w-4 shrink-0 text-[#85858B]" />
-              <input
-                ref={commandRef}
-                value={commandQuery}
-                onChange={(event) => setCommandQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && commandResults[0]) {
-                    router.push(commandResults[0].href);
-                    setCommandOpen(false);
-                  }
-                }}
-                placeholder="Buscar páginas, módulos e ações…"
-                aria-label="Buscar páginas, módulos e ações"
-                className="h-14 min-w-0 flex-1 bg-transparent text-sm text-[#29292D] outline-none placeholder:text-[#929299]"
-              />
-              <kbd className="rounded border border-[#E7E7E9] bg-[#FAFAFA] px-1.5 py-0.5 text-[10px] text-[#929299]">Esc</kbd>
-            </div>
-            <div className="max-h-[min(60vh,420px)] overflow-y-auto p-2">
-              {commandResults.length ? commandGroups.map((group) => (
-                <section key={group.id} className="mb-3 last:mb-0">
-                  <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.11em] text-[#929299]">{group.label}</p>
-                  {group.links.map((link) => {
-                    const Icon = link.icon;
-                    return (
-                      <button key={link.href} type="button" onClick={() => { router.push(link.href); setCommandOpen(false); }} className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left text-[13px] text-[#55555C] transition hover:bg-[#F5F5F6] hover:text-[#202124]">
-                        <Icon className="h-4 w-4 shrink-0 text-[#85858B]" />
-                        <span className="min-w-0 flex-1 truncate">{link.label}</span>
-                        <span className="text-[10px] text-[#A0A0A5]">{group.label}</span>
-                      </button>
-                    );
-                  })}
-                </section>
-              )) : <p className="px-3 py-10 text-center text-sm text-[#85858B]">Nenhum resultado encontrado.</p>}
-            </div>
-            <div className="flex items-center justify-between border-t border-[#EEEEF0] px-3 py-2 text-[10px] text-[#929299]"><span>Enter abre o primeiro resultado</span><span>Busca global da MIRA</span></div>
-          </div>
-        </div>
-      )}
-
-      <aside
+      <aside id="mira-workspace-navigation"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-dvh min-h-0 shrink-0 flex-col border-r border-[#E7E7E9] bg-white text-[#202124]",
-          "transition-[width,transform] duration-200 ease-out md:sticky md:top-0 md:z-20 md:h-screen md:translate-x-0",
-          collapsed ? "w-[64px]" : "w-[248px]",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
-        )}
-      >
-        <div className={cn("shrink-0 px-3 pt-3", collapsed && "px-2")}>
-          <div className="relative" ref={workspaceRef}>
-            <button
-              type="button"
-              onClick={() => setWorkspaceOpen((value) => !value)}
-              aria-expanded={workspaceOpen}
-              aria-haspopup="listbox"
-              className={cn(
-                "flex w-full items-center rounded-lg px-2 py-2 text-left transition hover:bg-[#F7F7F8]",
-                collapsed ? "justify-center" : "gap-2.5"
-              )}
-            >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#171717] text-white">
-                <Image src="/mira-mark.svg" alt="MIRA" width={21} height={14} className="h-[14px] w-auto brightness-0 invert" priority />
+          "fixed inset-y-0 left-0 z-50 flex h-dvh w-[270px] min-h-0 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-canvas)] text-[var(--color-ink)]",
+          "transition-[width,transform] duration-[var(--motion-standard)] ease-out motion-reduce:transition-none",
+          "md:sticky md:top-0 md:z-20 md:h-dvh md:translate-x-0",
+          collapsed ? "md:w-[64px]" : "md:w-[252px]",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}>
+        <div className={cn("shrink-0 px-3 pt-3", collapsed && "md:px-2")}>
+          <div className="mb-2 flex items-center gap-2">
+            <div className={cn("flex min-w-0 flex-1 items-center gap-2 px-2", collapsed && "md:justify-center md:px-0")}>
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[var(--color-ink)]">
+                <Image src="/mira-mark.svg" alt="Marca MIRA" width={22} height={15} className="h-[15px] w-auto brightness-0 invert" priority />
               </span>
-              {!collapsed && (
-                <>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold text-[#202124]">{orgName}</span>
-                    <span className="mt-0.5 block text-[11px] text-[#85858B]">Workspace MIRA</span>
-                  </span>
-                  <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-[#85858B]" />
-                </>
-              )}
+              <span className={cn("truncate text-[13px] font-semibold tracking-[-0.02em]", collapsed && "md:hidden")}>MIRA</span>
+            </div>
+            <button type="button" onClick={closeMobile} aria-label="Fechar navegação"
+              className="grid h-8 w-8 place-items-center rounded-[var(--radius-md)] text-[var(--color-muted)] hover:bg-[var(--color-panel)] md:hidden">
+              <X className="h-4 w-4" />
             </button>
+          </div>
 
-            {workspaceOpen && (
-              <div className={cn(
-                "absolute z-50 overflow-hidden rounded-xl border border-[#E7E7E9] bg-white shadow-[0_12px_40px_rgba(16,24,40,0.14)]",
-                collapsed ? "left-[calc(100%+8px)] top-0 w-[260px]" : "left-0 right-0 top-[calc(100%+6px)]"
+          <div className="relative" ref={workspaceRef}>
+            <button type="button" aria-label={"Workspace: " + orgName}
+              aria-expanded={workspaceOpen} aria-haspopup="menu"
+              onClick={() => { setWorkspaceOpen(value => !value); setAccountOpen(false); }}
+              className={cn(
+                "flex w-full items-center gap-2.5 rounded-[var(--radius-lg)] border border-transparent px-2 py-2 text-left transition-colors duration-[var(--motion-standard)] hover:border-[var(--color-border)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]",
+                collapsed && "md:justify-center md:px-0"
               )}>
-                <div className="border-b border-[#EEEEF0] px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#85858B]">Seus workspaces</p>
-                </div>
-                <div className="max-h-[280px] overflow-y-auto p-1.5">
-                  {workspaces.isLoading ? (
-                    <p className="px-2.5 py-3 text-[12px] text-[#85858B]">Carregando workspaces…</p>
-                  ) : workspaceItems.length ? workspaceItems.map((item) => (
-                    <button
-                      key={item.membership_id || item.tenant_id}
-                      type="button"
-                      disabled={item.is_current || switcher.isPending}
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-panel)] text-[11px] font-semibold">
+                {orgName.slice(0, 2).toUpperCase()}
+              </span>
+              <span className={cn("min-w-0 flex-1", collapsed && "md:hidden")}>
+                <span className="block truncate text-[12px] font-semibold">{orgName}</span>
+                <span className="block truncate text-[11px] text-[var(--color-muted)]">Trocar workspace</span>
+              </span>
+              <ChevronsUpDown className={cn("h-3.5 w-3.5 shrink-0 text-[var(--color-muted)]", collapsed && "md:hidden")} aria-hidden="true" />
+            </button>
+            {workspaceOpen && <div role="menu" aria-label="Seus workspaces"
+              className={cn(
+                "absolute z-[60] w-[260px] overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-overlay)]",
+                "left-0 top-[calc(100%+6px)]",
+                collapsed && "md:left-[calc(100%+8px)] md:top-0"
+              )}>
+              <div className="border-b border-[var(--color-border)] px-3 py-2 text-[11px] font-semibold text-[var(--color-slate-600)]">Seus workspaces</div>
+              <div className="max-h-[260px] overflow-y-auto p-1.5">
+                {workspaces.isLoading ? <p role="status" className="px-3 py-3 text-[12px] text-[var(--color-muted)]">Carregando…</p>
+                  : workspaces.isError ? <div className="px-3 py-3 text-[12px] text-[var(--color-slate-600)]">
+                    <p>Não foi possível carregar workspaces.</p>
+                    <button type="button" onClick={() => void workspaces.refetch()} className="mt-1 font-medium text-[var(--color-blue)]">Tentar novamente</button>
+                  </div>
+                  : workspaceItems.length ? workspaceItems.map(item =>
+                    <button key={item.membership_id || item.tenant_id}
+                      type="button" role="menuitem" disabled={item.is_current || switcher.isPending || item.status !== "active"}
+                      aria-current={item.is_current ? "true" : undefined}
                       onClick={() => switcher.mutate(item)}
                       className={cn(
-                        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition",
-                        item.is_current ? "bg-[#F5F5F6]" : "hover:bg-[#F7F7F8]"
-                      )}
-                    >
-                      <Building2 className="h-4 w-4 shrink-0 text-[#77777D]" />
+                        "flex w-full items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-2 text-left text-[12px] transition-colors duration-[var(--motion-standard)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] disabled:cursor-default",
+                        item.is_current && "bg-[var(--color-panel)]"
+                      )}>
+                      <Building2 className="h-4 w-4 shrink-0 text-[var(--color-muted)]" aria-hidden="true" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] font-medium text-[#29292D]">{item.tenant_name}</span>
-                        <span className="block truncate text-[10px] text-[#85858B]">{item.role}</span>
+                        <span className="block truncate font-medium">{item.tenant_name}</span>
+                        <span className="block text-[10px] text-[var(--color-muted)]">{item.role}</span>
                       </span>
-                      {item.is_current ? <Check className="h-4 w-4 text-[#266DF0]" /> : <ArrowLeftRight className="h-3.5 w-3.5 text-[#A0A0A5]" />}
+                      {item.is_current ? <Check className="h-4 w-4 text-[var(--color-blue)]" /> : <ArrowLeftRight className="h-3.5 w-3.5 text-[var(--color-muted)]" />}
                     </button>
-                  )) : (
-                    <p className="px-2.5 py-3 text-[12px] leading-relaxed text-[#85858B]">
-                      {workspaces.isError ? "Não foi possível carregar outros workspaces." : "Este usuário ainda tem acesso a um único workspace."}
-                    </p>
-                  )}
-                </div>
-                <div className="border-t border-[#EEEEF0] px-3 py-2">
-                  <p className="text-[10px] text-[#85858B]">O acesso depende das permissões da sua conta.</p>
-                </div>
+                  ) : <p className="px-3 py-3 text-[12px] text-[var(--color-muted)]">Nenhum workspace disponível.</p>}
               </div>
-            )}
+            </div>}
           </div>
-
-          {!collapsed ? (
-            <button type="button" onClick={openCommand} aria-label="Abrir busca global" className="mt-3 mb-3 flex h-9 w-full items-center gap-2 rounded-lg border border-[#E7E7E9] bg-[#FAFAFA] px-3 text-left text-[12px] text-[#929299] transition hover:border-[#B8B8BE] hover:bg-white">
-              <Search className="h-3.5 w-3.5" /><span className="flex-1">Buscar</span><kbd className="rounded border border-[#E7E7E9] bg-white px-1.5 py-0.5 text-[9px]">⌘ K</kbd>
-            </button>
-          ) : (
-            <button type="button" onClick={openCommand} aria-label="Abrir busca global" className="mx-auto mt-3 mb-3 grid h-9 w-9 place-items-center rounded-lg text-[#77777D] hover:bg-[#F5F5F6]"><Search className="h-4 w-4" /></button>
-          )}
+          <button type="button" onClick={() => setCommandOpen(true)}
+            aria-label="Buscar páginas (Ctrl+K ou Cmd+K)"
+            className={cn(
+              "my-3 flex h-9 w-full items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-panel)] px-2.5 text-left text-[12px] text-[var(--color-slate-600)] transition-colors duration-[var(--motion-standard)] hover:bg-white focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]",
+              collapsed && "md:justify-center md:px-0"
+            )}>
+            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className={cn("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>Buscar</span>
+            <kbd className={cn("rounded border border-[var(--color-border)] bg-white px-1.5 py-0.5 text-[10px]", collapsed && "md:hidden")}>⌘ K</kbd>
+          </button>
         </div>
 
-        <nav aria-label="Navegação principal" className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3", collapsed ? "px-2" : "px-3")}>
-          <div className="flex flex-col gap-4">
-            {visibleGroups.map((group) => (
-              <section key={group.id}>
-                {!collapsed && (
-                  <h2 className="mb-1 px-2.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-[#929299]">
-                    {group.label}
-                  </h2>
-                )}
-                <div className="space-y-0.5">
-                  {group.links.map((link) => {
-                    const active = isActive(pathname, link);
-                    const Icon = link.icon;
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        aria-label={link.label}
-                        aria-current={active ? "page" : undefined}
-                        onClick={() => setMobileOpen(false)}
-                        title={collapsed ? link.label : undefined}
-                        className={cn(
-                          "group flex h-9 items-center rounded-lg text-[12px] transition-colors",
-                          collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
-                          active ? "bg-[#F0F0F1] font-semibold text-[#202124]" : "font-medium text-[#55555C] hover:bg-[#F7F7F8] hover:text-[#202124]"
-                        )}
-                      >
-                        <Icon className={cn("h-[16px] w-[16px] shrink-0", active ? "text-[#202124]" : "text-[#85858B] group-hover:text-[#55555C]")} />
-                        {!collapsed && <span className="min-w-0 flex-1 truncate">{link.label}</span>}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
+        <nav aria-label="Navegação principal" className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3", collapsed && "md:px-2")}>
+          {me.isLoading ? <p role="status" className="px-2 py-4 text-[12px] text-[var(--color-muted)]">Carregando navegação…</p>
+            : me.isError ? <div className="px-2 py-4 text-[12px] text-[var(--color-slate-600)]">
+              <p>Não foi possível verificar seu acesso.</p>
+              <button type="button" onClick={() => void me.refetch()} className="mt-2 text-[var(--color-blue)]">Tentar novamente</button>
+            </div>
+            : <div className="flex flex-col gap-4">
+              {visibleGroups.map(group => (
+                <section key={group.id}>
+                  <h2 className={cn("mb-1 px-2.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]", collapsed && "md:sr-only")}>{group.label}</h2>
+                  <div className="space-y-0.5">
+                    {group.items.map(item => {
+                      const Icon = item.icon;
+                      const active = item.href === activeHref;
+                      return (
+                        <Link key={item.href} href={item.href} aria-label={item.label}
+                          aria-current={active ? "page" : undefined} title={collapsed ? item.label : undefined}
+                          onClick={() => setMobileOpen(false)}
+                          className={cn(
+                            "group flex h-9 items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 text-[12px] font-medium transition-colors duration-[var(--motion-standard)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]",
+                            collapsed && "md:justify-center md:px-0",
+                            active ? "bg-[var(--color-panel)] font-semibold text-[var(--color-ink)]" : "text-[var(--color-slate-600)] hover:bg-[var(--color-panel)] hover:text-[var(--color-ink)]"
+                          )}>
+                          <Icon className="h-4 w-4 shrink-0 text-[var(--color-muted)] group-hover:text-[var(--color-ink)]" aria-hidden="true" />
+                          <span className={cn("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>{item.label}</span>
+                          {active && <span className={cn("h-1.5 w-1.5 rounded-full bg-[var(--color-blue)]", collapsed && "md:hidden")} aria-hidden="true" />}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>}
         </nav>
 
-        <div className={cn("shrink-0 border-t border-[#EEEEF0] bg-white", collapsed ? "p-2" : "p-2.5")} ref={accountRef}>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setAccountOpen((value) => !value)}
-              aria-expanded={accountOpen}
-              aria-haspopup="menu"
-              className={cn("flex w-full items-center rounded-lg py-2 transition hover:bg-[#F7F7F8]", collapsed ? "justify-center" : "gap-2.5 px-2")}
-            >
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#EDEDF0] text-[10px] font-semibold text-[#55555C]">{displayName.slice(0, 1).toUpperCase()}</span>
-              {!collapsed && (
-                <>
-                  <span className="min-w-0 flex-1 text-left">
-                    <span className="block truncate text-[11px] font-semibold text-[#29292D]">{displayName}</span>
-                    <span className="block truncate text-[10px] text-[#929299]">{role || email || "Conta"}</span>
-                  </span>
-                  <ChevronsUpDown className="h-3.5 w-3.5 text-[#929299]" />
-                </>
-              )}
+        <div className={cn("relative shrink-0 border-t border-[var(--color-border)] p-2.5", collapsed && "md:px-2")} ref={accountRef}>
+          <button type="button" aria-expanded={accountOpen} aria-haspopup="menu"
+            onClick={() => { setAccountOpen(value => !value); setWorkspaceOpen(false); }}
+            className={cn("flex w-full items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-2 text-left transition-colors duration-[var(--motion-standard)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]", collapsed && "md:justify-center md:px-0")}>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-panel)] text-[11px] font-semibold">{displayName.slice(0, 1).toUpperCase()}</span>
+            <span className={cn("min-w-0 flex-1", collapsed && "md:hidden")}>
+              <span className="block truncate text-[12px] font-semibold">{displayName}</span>
+              <span className="block truncate text-[11px] text-[var(--color-muted)]">{role}</span>
+            </span>
+            <ChevronsUpDown className={cn("h-3.5 w-3.5 text-[var(--color-muted)]", collapsed && "md:hidden")} aria-hidden="true" />
+          </button>
+          {accountOpen && <div role="menu" aria-label="Conta"
+            className={cn(
+              "absolute bottom-[calc(100%+6px)] left-2 right-2 z-[60] overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-overlay)]",
+              collapsed && "md:bottom-0 md:left-[calc(100%+8px)] md:right-auto md:w-[238px]"
+            )}>
+            <div className="border-b border-[var(--color-border)] px-3 py-2.5">
+              <p className="truncate text-[12px] font-semibold">{displayName}</p>
+              <p className="truncate text-[11px] text-[var(--color-muted)]">{email}</p>
+            </div>
+            {canConfigure && <Link role="menuitem" href="/config" onClick={() => setAccountOpen(false)}
+              className="flex items-center gap-2 px-3 py-2.5 text-[12px] text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
+              <Settings2 className="h-4 w-4" /> Configurações
+            </Link>}
+            <button type="button" role="menuitem" onClick={logout}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[12px] text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
+              <LogOut className="h-4 w-4" /> Sair da conta
             </button>
-            {accountOpen && (
-              <div role="menu" className={cn("absolute z-50 overflow-hidden rounded-xl border border-[#E7E7E9] bg-white shadow-[0_12px_40px_rgba(16,24,40,0.14)]", collapsed ? "bottom-0 left-[calc(100%+8px)] w-[220px]" : "bottom-[calc(100%+8px)] left-0 right-0")}>
-                <div className="border-b border-[#EEEEF0] px-3 py-2.5">
-                  <p className="truncate text-[12px] font-semibold text-[#29292D]">{displayName}</p>
-                  <p className="truncate text-[10px] text-[#85858B]">{email || role || ""}</p>
-                </div>
-                <button type="button" role="menuitem" onClick={logout} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[12px] text-[#55555C] hover:bg-[#F7F7F8]">
-                  <LogOut className="h-4 w-4" /> Sair da conta
-                </button>
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setCollapsed((value) => !value)}
-            aria-label={collapsed ? "Expandir navegação" : "Recolher navegação"}
-            className={cn("mt-1 hidden h-8 w-full items-center justify-center gap-2 rounded-lg text-[#85858B] transition hover:bg-[#F7F7F8] hover:text-[#29292D] md:flex", !collapsed && "text-[11px] font-medium")}
-          >
+          </div>}
+          <button type="button" onClick={toggleCollapsed} aria-label={collapsed ? "Expandir navegação" : "Recolher navegação"}
+            className="mt-1 hidden h-8 w-full items-center justify-center gap-2 rounded-[var(--radius-md)] text-[11px] font-medium text-[var(--color-muted)] transition-colors duration-[var(--motion-standard)] hover:bg-[var(--color-panel)] md:flex">
             {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <><PanelLeftClose className="h-4 w-4" /> Recolher menu</>}
           </button>
         </div>
       </aside>
+      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen}
+        groups={visibleGroups} loading={me.isLoading} error={me.isError} />
     </>
   );
 }

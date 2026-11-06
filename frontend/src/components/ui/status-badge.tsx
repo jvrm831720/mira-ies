@@ -11,37 +11,37 @@ import {
 const variants = {
   pending: {
     label: "Pendente",
-    className: "border-amber-500/25 bg-amber-500/10 text-amber-600",
+    className: "border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] text-amber-800",
     icon: AlertTriangle,
   },
   progress: {
     label: "Em andamento",
-    className: "border-sky-500/25 bg-sky-500/10 text-sky-600",
+    className: "border-[var(--color-blue-tint-border)] bg-[var(--color-blue-tint)] text-[var(--color-blue-ink)]",
     icon: Loader2,
   },
   submitted: {
     label: "Enviado",
-    className: "border-violet-500/25 bg-violet-500/10 text-violet-600",
+    className: "border-[var(--color-purple-tint-border)] bg-[var(--color-purple-tint)] text-[var(--color-purple)]",
     icon: Send,
   },
   review: {
     label: "Em revisão",
-    className: "border-yellow-500/25 bg-yellow-500/10 text-yellow-700",
+    className: "border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] text-amber-800",
     icon: Clock3,
   },
   success: {
     label: "Sucesso",
-    className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-600",
+    className: "border-[var(--color-green-tint-border)] bg-[var(--color-green-tint)] text-[var(--color-green)]",
     icon: CheckCircle2,
   },
   failed: {
     label: "Falhou",
-    className: "border-red-500/25 bg-red-500/10 text-red-600",
+    className: "border-[var(--color-red-tint-border)] bg-red-50 text-[var(--color-red)]",
     icon: XCircle,
   },
   expired: {
     label: "Expirado",
-    className: "border-neutral-500/25 bg-neutral-500/10 text-neutral-500",
+    className: "border-[var(--color-border)] bg-[var(--color-panel)] text-[var(--color-slate-600)]",
     icon: Clock3,
   },
 } as const;
@@ -62,7 +62,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-tight",
+        "inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] border px-2 py-0.5 text-[11px] font-medium tracking-tight",
         v.className,
         className
       )}

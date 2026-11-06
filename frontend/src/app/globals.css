@@ -39,17 +39,17 @@
   --color-ink: #101112;
   --color-ink-900: #232529;
   --color-ink-850: #242629;
-  --color-slate-600: #6f7988;
+  --color-slate-600: #505967;
   --color-slate-500: #505155;
   --color-steel: #383E47;
-  --color-muted: #6f7988;
+  --color-muted: #75777C;
   --color-faint: #9FA1A7;
   --color-divider: #E4E7EC;
   --color-line: #E4E7EC;
-  --color-border: #E4E7EC;
-  --color-border-subtle: #F0F1F3;
-  --color-panel: #F4F5F6;
-  --color-surface-raised: #FAFAFA;
+  --color-border: #E6E7EA;
+  --color-border-subtle: #EEEFF1;
+  --color-panel: #F8F9FA;
+  --color-surface-raised: #FBFBFB;
   --color-canvas: #FFFFFF;
 
   /* ── Attio interactive & semantic tags ── */
@@ -104,12 +104,12 @@
   /* ── Semantic surfaces (product) ── */
   --surface-page: #ffffff;
   --surface-card: #ffffff;
-  --surface-subtle: #f4f5f6;
-  --text-primary: #1c1d1f;
-  --text-secondary: #6f7988;
-  --border-subtle: #e4e7ec;
+  --surface-subtle: #f8f9fa;
+  --text-primary: #101112;
+  --text-secondary: #505967;
+  --border-subtle: #e6e7ea;
   --border-strong: #cad0d9;
-  --focus-ring: hsl(var(--ring));
+  --focus-ring: var(--color-blue);
   --shadow-card: 0 2px 3px -2px rgba(28, 40, 64, 0.10), 0 4px 6px -2px rgba(28, 40, 64, 0.04);
   --shadow-overlay: 0 16px 48px rgba(15, 23, 42, 0.16);
   --shadow-button-attio: rgba(255, 255, 255, 0.1) 0.2px 0.2px 2px 0px inset, rgba(0, 0, 0, 0.25) 0px 1.5px 1.5px 0px;
@@ -1468,4 +1468,25 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .mira-flow-message, .mira-flow-interaction, .mira-flow-orb span { animation: none; }
   .mira-flow-page * { transition-duration: 0.01ms !important; }
+}
+
+
+/* Wave 0.0 · shared authenticated App Shell. Auth, Portal and Control Center
+   keep their independent surfaces and are not restyled by these selectors. */
+.mira-app-shell {
+  min-height: 100dvh;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: Inter, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01" on;
+}
+.mira-app-shell [aria-current="page"] {
+  text-decoration: none;
+}
+.mira-app-shell :focus-visible {
+  outline-color: var(--color-blue);
+  outline-offset: 2px;
+}
+.mira-app-shell :is(button, a, input) {
+  -webkit-tap-highlight-color: transparent;
 }
