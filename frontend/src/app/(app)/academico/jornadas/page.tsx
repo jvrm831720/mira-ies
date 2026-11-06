@@ -100,6 +100,12 @@ export default function JourneysPage(){
   const [curriculumName,setCurriculumName]=useState("");
   const [curriculumItems,setCurriculumItems]=useState<CurriculumItem[]>([{...blank}]);
   const [offerId,setOfferId]=useState("");
+  const [offerLoadedId, setOfferLoadedId] = useState("");
+  const offerDetails = useQuery({
+    queryKey: ["academic-offer", me.data?.tenant_id, me.data?.user_id, offerId],
+    queryFn: ({ signal }) => call<{class: Class}>(`/classes/${offerId}/roster`, { signal }),
+    enabled: Boolean(canView && offerId && tab === "ofertas"), retry: false,
+  });
   const [offerCapacity,setOfferCapacity]=useState("");
   const [offerOpen,setOfferOpen]=useState(false);
   const [passing,setPassing]=useState("60");
@@ -117,6 +123,14 @@ export default function JourneysPage(){
   const [presence,setPresence]=useState<Record<string,string>>({});
   const [preview,setPreview]=useState<Preview|null>(null);
   const [transcript,setTranscript]=useState<Transcript[]>([]);
+
+  useEffect(() => {
+    const record = offerDetails.data?.class;
+    if (!record || record.id !== offerId) return;
+    setOfferCapacity(record.capacity == null ? "" : String(record.capacity));
+    setOfferOpen(record.enrollment_open);
+    setOfferLoadedId(record.id);
+  }, [offerDetails.data, offerId]);
 
   async function refresh(){
     setLoading(true);
@@ -356,16 +370,19 @@ onChange={value => setCurriculumItems(previous => previous.map((entry, i) => i =
       <p className="mt-1 text-[12px] text-[#667085]">As turmas são cadastradas em Gestão acadêmica; a abertura de vagas é controlada separadamente.</p>
       <div className="mt-5 space-y-4">
         <label className="block text-[11px] text-[#667085]">Turma
-          <select value={offerId} onChange={e=>{setOfferId(e.target.value);const c=overview?.classes.find(x=>x.id===e.target.value);
-            setOfferCapacity(c?.capacity==null?"":String(c.capacity));setOfferOpen(c?.enrollment_open||false);}} className={field+" mt-1"}>
-            <option value="">Selecionar turma</option>
-            {overview?.classes.map(c=><option key={c.id} value={c.id}>
-              {c.code} · {overview.subjects.find(s=>s.id===c.subject_id)?.name} · {c.status}</option>)}
-          </select></label>
+          <AcademicCatalogSelector id="offer-class" label="Turma" resource="classes"
+            value={offerId} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+            onChange={value => {setOfferId(value);setOfferLoadedId("");setOfferCapacity("");setOfferOpen(false);}} />
+</label>
+        {offerDetails.isFetching && <p role="status" className="text-xs">Carregando oferta…</p>}
+        {offerDetails.isError && <p role="alert" className="text-xs">
+          Não foi possível carregar a oferta.
+          <button type="button" className="ml-2 underline" onClick={() => void offerDetails.refetch()}>Tentar novamente</button>
+        </p>}
         <label className="block text-[11px] text-[#667085]">Capacidade da turma (opcional)
           <input type="number" min="1" max="10000" className={field+" mt-1"} value={offerCapacity} onChange={e=>setOfferCapacity(e.target.value)}/></label>
         <label className="flex items-center gap-2 text-[12px] text-[#475467]"><input type="checkbox" checked={offerOpen} onChange={e=>setOfferOpen(e.target.checked)}/>Aceitar novas solicitações de matrícula</label>
-        {canApprove&&<button type="button" className={primary} disabled={busy||!offerId}
+        {canApprove&&<button type="button" className={primary} disabled={busy||!offerId||offerLoadedId!==offerId||offerDetails.isFetching||offerDetails.isError}
           onClick={()=>void act("/classes/"+offerId+"/offer",{capacity:offerCapacity?Number(offerCapacity):null,enrollment_open:offerOpen})}>Salvar oferta</button>}
       </div>
     </section>}
