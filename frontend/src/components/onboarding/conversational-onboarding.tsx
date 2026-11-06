@@ -90,6 +90,7 @@ export function ConversationalOnboarding() {
   const [logoDataUrl, setLogoDataUrl] = useState("");
   const lookupSequence = useRef(0);
   const lastCnpjLookup = useRef("");
+  const cnpjLookupSequence = useRef(0);
   const [searchWarning, setSearchWarning] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -172,6 +173,7 @@ export function ConversationalOnboarding() {
     const digits = form.cnpj.replace(/\D/g, "");
     if (digits.length !== 14 || !isValidCnpj(digits)) return;
     if (enrichment?.company?.cnpj === digits || lastCnpjLookup.current === digits) return;
+    const lookupId = ++cnpjLookupSequence.current;
     const timer = window.setTimeout(() => {
       lastCnpjLookup.current = digits;
       void enrichOnboarding({ onboarding_token: token, email, cnpj: digits, website: "" }).then(result => {
@@ -181,7 +183,7 @@ export function ConversationalOnboarding() {
           tradeName: prev.tradeName || result.company?.trade_name || "" }));
       }).catch(() => { /* A pesquisa cadastral não bloqueia o formulário. */ });
     }, 650);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); cnpjLookupSequence.current += 1; };
   }, [initialized, token, email, step, securityStep, siteRevealed, form.cnpj, enrichment?.company?.cnpj]);
 
   useEffect(() => {
@@ -238,6 +240,7 @@ export function ConversationalOnboarding() {
   function skipWebsite() {
     lookupSequence.current += 1;
     setSiteRevealed(true); setSiteStatus("manual");
+    setForm(prev => ({ ...prev, website: "" }));
     setSearchWarning("Sem site? Tudo bem. Preencha os dados da organização manualmente.");
   }
 
@@ -439,7 +442,7 @@ export function ConversationalOnboarding() {
                           {siteStatus === "searching" ? <>
                             <SearchingOrb />
                             <div>
-                              <strong>Buscando {form.website.trim()}…</strong>
+                              <strong><TypingText text={"Buscando " + form.website.trim() + "…"} /></strong>
                               <p>Consultando o site, CNPJ, cadastro público e logotipo.</p>
                             </div>
                           </> : <div>
