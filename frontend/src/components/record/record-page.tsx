@@ -10,7 +10,7 @@ export function RecordPage({ record, status, actions=[], backHref, children, asi
 }) {
   return <div className="mira-page mx-auto w-full max-w-[1500px] px-4 pb-10 pt-5 md:px-8 md:pt-6">
     <nav aria-label="Localização do registro" className="mb-4">
-      <Link href={backHref} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-slate-600)] hover:text-[var(--color-blue)]">
+      <Link href={backHref} className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-slate-600)] hover:text-[var(--color-blue)]">
         <ArrowLeft className="h-4 w-4"/> Voltar à lista
       </Link>
     </nav>

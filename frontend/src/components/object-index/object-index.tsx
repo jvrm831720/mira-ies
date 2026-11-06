@@ -205,18 +205,18 @@ export function ObjectIndex<T extends { id: string }>({
       <div className="min-w-0">
         <div className="flex items-center gap-2.5">
           <Layers className="h-[18px] w-[18px] text-[var(--color-slate-600)]" aria-hidden="true" />
-          <h1 className="truncate text-[18px] font-semibold tracking-[-0.025em]">{title}</h1>
-          {!loading && typeof total === "number" && <span className="text-[11px] tabular-nums text-[var(--color-muted)]">
+          <h1 className="truncate text-lg font-semibold tracking-[-0.025em]">{title}</h1>
+          {!loading && typeof total === "number" && <span className="text-[length:var(--type-caption)] tabular-nums text-[var(--color-muted)]">
             {total.toLocaleString("pt-BR")}
           </span>}
         </div>
-        {description && <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">{description}</p>}
+        {description && <p className="mt-1 text-xs text-[var(--color-slate-600)]">{description}</p>}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {actions}
         {onRefresh && <button type="button" onClick={onRefresh} disabled={refreshing}
           aria-label="Atualizar registros"
-          className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 text-[12px] font-medium text-[var(--color-ink)] hover:bg-[var(--color-panel)] disabled:opacity-50">
+          className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 text-xs font-medium text-[var(--color-ink)] hover:bg-[var(--color-panel)] disabled:opacity-50">
           <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} /> Atualizar
         </button>}
       </div>
@@ -227,31 +227,31 @@ export function ObjectIndex<T extends { id: string }>({
         {defaultViews.map(view =>
           <button key={view.id} type="button" onClick={() => switchView(view.id)}
             aria-current={!activeSavedId && state.view === view.id ? "page" : undefined}
-            className={cn("shrink-0 border-b-2 px-3 py-3 text-[12px] font-medium transition-colors duration-[var(--motion-standard)]",
+            className={cn("shrink-0 border-b-2 px-3 py-3 text-xs font-medium transition-colors duration-[var(--motion-standard)]",
               !activeSavedId && state.view === view.id ? "border-[var(--color-ink)] text-[var(--color-ink)]" : "border-transparent text-[var(--color-slate-600)] hover:text-[var(--color-ink)]")}>
             {view.title}
           </button>)}
         <div className="relative ml-2">
           <button type="button" aria-expanded={menu === "views"} aria-haspopup="menu"
             onClick={() => setMenu(menu === "views" ? null : "views")}
-            className={cn("inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--radius-md)] px-2.5 text-[12px] hover:bg-[var(--color-panel)]",
+            className={cn("inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--radius-md)] px-2.5 text-xs hover:bg-[var(--color-panel)]",
               activeSavedId ? "font-semibold text-[var(--color-ink)]" : "text-[var(--color-slate-600)]")}>
             {activeSavedId ? savedLabel : "Minhas visualizações"} <ChevronDown className="h-3.5 w-3.5" />
           </button>
           {menu === "views" && <div role="menu" className="absolute left-0 top-[calc(100%+7px)] z-40 w-[260px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-2 shadow-[var(--shadow-overlay)]">
-            <p className="px-2 py-1 text-[10px] font-semibold uppercase text-[var(--color-muted)]">Pessoais · persistidas</p>
-            {saved.isLoading && <p className="px-2 py-2 text-[11px] text-[var(--color-muted)]">Carregando…</p>}
-            {saved.isError && <p role="alert" className="px-2 py-2 text-[11px] text-[var(--color-red)]">Não foi possível carregar suas visualizações.</p>}
-            {!saved.isLoading && saved.data?.views.length === 0 && <p className="px-2 py-3 text-[11px] text-[var(--color-muted)]">Nenhuma visualização pessoal ainda.</p>}
+            <p className="px-2 py-1 text-[length:var(--type-overline)] font-semibold uppercase text-[var(--color-muted)]">Pessoais · persistidas</p>
+            {saved.isLoading && <p className="px-2 py-2 text-[length:var(--type-caption)] text-[var(--color-muted)]">Carregando…</p>}
+            {saved.isError && <p role="alert" className="px-2 py-2 text-[length:var(--type-caption)] text-[var(--color-red)]">Não foi possível carregar suas visualizações.</p>}
+            {!saved.isLoading && saved.data?.views.length === 0 && <p className="px-2 py-3 text-[length:var(--type-caption)] text-[var(--color-muted)]">Nenhuma visualização pessoal ainda.</p>}
             {saved.data?.views.map(view => <button key={view.id} type="button" role="menuitem"
               onClick={() => switchView(view.id, view.id)}
-              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-[12px] hover:bg-[var(--color-panel)]">
+              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">
               <span className="truncate">{view.name}</span>
               {view.id === activeSavedId && <Check className="h-3.5 w-3.5 text-[var(--color-blue)]" />}
             </button>)}
             <div className="my-1 border-t border-[var(--color-border)]" />
             <button type="button" role="menuitem" onClick={() => { setMenu(null); setEditingView("new"); setViewName(""); }}
-              className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left text-[12px] hover:bg-[var(--color-panel)]">
+              className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">
               <Plus className="h-3.5 w-3.5" /> Salvar visualização atual
             </button>
             {activeSaved && <>
@@ -259,13 +259,13 @@ export function ObjectIndex<T extends { id: string }>({
                 void updateSaved.mutateAsync({ id: activeSaved.id, name: activeSaved.name, config: effectiveViewSpec }).then(
                   () => { setMenu(null); void queryClient.invalidateQueries({ queryKey: ["object-views", userTenant, userId, objectKey] }); }
                 ).catch(e => setViewError(e instanceof Error ? e.message : "Falha ao atualizar."));
-              }} className="w-full rounded-md px-2 py-2 text-left text-[12px] hover:bg-[var(--color-panel)]">Atualizar configuração</button>
+              }} className="w-full rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">Atualizar configuração</button>
               <button type="button" role="menuitem" onClick={() => { setEditingView("rename"); setViewName(activeSaved.name); setMenu(null); }}
-                className="w-full rounded-md px-2 py-2 text-left text-[12px] hover:bg-[var(--color-panel)]">Renomear</button>
+                className="w-full rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">Renomear</button>
               <button type="button" role="menuitem" onClick={duplicateView}
-                className="w-full rounded-md px-2 py-2 text-left text-[12px] hover:bg-[var(--color-panel)]">Duplicar</button>
+                className="w-full rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">Duplicar</button>
               <button type="button" role="menuitem" onClick={deleteView}
-                className="w-full rounded-md px-2 py-2 text-left text-[12px] text-[var(--color-red)] hover:bg-[var(--color-panel)]">Excluir</button>
+                className="w-full rounded-md px-2 py-2 text-left text-xs text-[var(--color-red)] hover:bg-[var(--color-panel)]">Excluir</button>
             </>}
           </div>}
         </div>
@@ -278,11 +278,11 @@ export function ObjectIndex<T extends { id: string }>({
         <input type="search" value={state.query} onChange={event => change({ query: event.target.value })}
           aria-label={"Buscar em " + title}
           placeholder="Buscar registros…"
-          className="h-full w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white pl-9 pr-3 text-[12px] outline-none focus:border-[var(--color-blue)] focus:ring-2 focus:ring-[var(--color-blue)]/10" />
+          className="h-full w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white pl-9 pr-3 text-xs outline-none focus:border-[var(--color-blue)] focus:ring-2 focus:ring-[var(--color-blue)]/10" />
       </label>
       <div className="relative">
         <button type="button" aria-expanded={menu === "filter"} onClick={() => setMenu(menu === "filter" ? null : "filter")}
-          className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-[12px] text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
+          className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-xs text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
           <Filter className="h-3.5 w-3.5" /> Filtrar {state.filters.length ? "(" + state.filters.length + ")" : ""}
         </button>
         {menu === "filter" && <div className="absolute right-0 top-[calc(100%+5px)] z-30 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-overlay)]">
@@ -291,17 +291,17 @@ export function ObjectIndex<T extends { id: string }>({
       </div>
       <div className="relative">
         <button type="button" aria-expanded={menu === "sort"} onClick={() => setMenu(menu === "sort" ? null : "sort")}
-          className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-[12px] text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
+          className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-xs text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
           Ordenar <ChevronDown className="h-3 w-3" />
         </button>
         {menu === "sort" && <div className="absolute right-0 top-[calc(100%+5px)] z-30 w-[210px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-2 shadow-[var(--shadow-overlay)]">
-          <button type="button" onClick={() => { change({ sort: null }); setMenu(null); }} className="w-full px-2 py-1.5 text-left text-[12px] hover:bg-[var(--color-panel)]">Ordem padrão</button>
+          <button type="button" onClick={() => { change({ sort: null }); setMenu(null); }} className="w-full px-2 py-1.5 text-left text-xs hover:bg-[var(--color-panel)]">Ordem padrão</button>
           {fields.filter(field => field.sortable).map(field => <div key={field.key} className="flex items-center gap-1">
-            <span className="min-w-0 flex-1 truncate px-2 text-[12px]">{field.title}</span>
+            <span className="min-w-0 flex-1 truncate px-2 text-xs">{field.title}</span>
             {([false, true] as const).map(desc => <button key={String(desc)} type="button"
               aria-label={"Ordenar " + field.title + (desc ? " decrescente" : " crescente")}
               onClick={() => { change({ sort: { key: field.key, desc } }); setMenu(null); }}
-              className={cn("rounded-md px-1.5 py-1 text-[11px] hover:bg-[var(--color-panel)]", state.sort?.key === field.key && state.sort.desc === desc && "bg-[var(--color-blue-tint)] text-[var(--color-blue)]")}>
+              className={cn("rounded-md px-1.5 py-1 text-[length:var(--type-caption)] hover:bg-[var(--color-panel)]", state.sort?.key === field.key && state.sort.desc === desc && "bg-[var(--color-blue-tint)] text-[var(--color-blue)]")}>
               {desc ? "↓" : "↑"}
             </button>)}
           </div>)}
@@ -309,13 +309,13 @@ export function ObjectIndex<T extends { id: string }>({
       </div>
       <div className="relative">
         <button type="button" aria-expanded={menu === "columns"} onClick={() => setMenu(menu === "columns" ? null : "columns")}
-          className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-[12px] text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
+          className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-xs text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
           Propriedades <ChevronDown className="h-3 w-3" />
         </button>
         {menu === "columns" && <div className="absolute right-0 top-[calc(100%+5px)] z-30 w-[280px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-2 shadow-[var(--shadow-overlay)]">
-          <p className="px-2 py-1.5 text-[11px] font-semibold">Colunas disponíveis</p>
+          <p className="px-2 py-1.5 text-[length:var(--type-caption)] font-semibold">Colunas disponíveis</p>
           {fields.map(field => <div key={field.key} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--color-panel)]">
-            <label className="flex min-w-0 flex-1 items-center gap-2 text-[12px]">
+            <label className="flex min-w-0 flex-1 items-center gap-2 text-xs">
               <input type="checkbox" checked={field.primary || state.columns.includes(field.key)}
                 disabled={field.primary} onChange={event => {
                   const next = event.target.checked ? [...state.columns, field.key]
@@ -333,12 +333,12 @@ export function ObjectIndex<T extends { id: string }>({
                 if (i < 0 || j < 0 || j >= next.length || fieldMap.get(next[j])?.primary) return;
                 [next[i], next[j]] = [next[j], next[i]];
                 updateColumns(next);
-              }} className="rounded px-1 text-[11px] text-[var(--color-muted)] hover:bg-white disabled:opacity-30">
+              }} className="rounded px-1 text-[length:var(--type-caption)] text-[var(--color-muted)] hover:bg-white disabled:opacity-30">
               {direction === "up" ? "↑" : "↓"}
             </button>)}
           </div>)}
           <button type="button" onClick={() => updateColumns(fields.map(field => field.key))}
-            className="mt-2 w-full border-t border-[var(--color-border)] px-2 py-2 text-left text-[12px] text-[var(--color-blue)]">
+            className="mt-2 w-full border-t border-[var(--color-border)] px-2 py-2 text-left text-xs text-[var(--color-blue)]">
             Restaurar padrão
           </button>
         </div>}
@@ -349,22 +349,22 @@ export function ObjectIndex<T extends { id: string }>({
       {state.filters.map((filter, index) => <button key={index} type="button"
         aria-label={"Remover filtro " + (fieldMap.get(filter.key)?.title || filter.key)}
         onClick={() => change({ filters: state.filters.filter((_, i) => i !== index) })}
-        className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] border border-[var(--color-border)] bg-[var(--color-panel)] px-2 py-1 text-[11px] text-[var(--color-slate-600)]">
+        className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] border border-[var(--color-border)] bg-[var(--color-panel)] px-2 py-1 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">
         {fieldMap.get(filter.key)?.title || filter.key}: {filter.op}{filter.value != null ? " " + String(filter.value) : ""} <X className="h-3 w-3" />
       </button>)}
       <button type="button" onClick={() => change({ filters: [] })}
-        className="text-[11px] text-[var(--color-blue)] hover:underline">Limpar filtros</button>
+        className="text-[length:var(--type-caption)] text-[var(--color-blue)] hover:underline">Limpar filtros</button>
     </div>}
 
     {extra}
     {error ? <div role="alert" className="p-6 text-center">
-      <p className="text-[13px] text-[var(--color-red)]">Não foi possível consultar os registros.</p>
-      {onRetry && <button type="button" onClick={onRetry} className="mt-2 text-[12px] text-[var(--color-blue)] hover:underline">Tentar novamente</button>}
+      <p className="text-[length:var(--type-body-compact)] text-[var(--color-red)]">Não foi possível consultar os registros.</p>
+      {onRetry && <button type="button" onClick={onRetry} className="mt-2 text-xs text-[var(--color-blue)] hover:underline">Tentar novamente</button>}
     </div> : <>
-      {partial && <p role="note" className="border-b border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2 text-[11px] text-[var(--color-slate-600)] sm:px-6">
+      {partial && <p role="note" className="border-b border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2 text-[length:var(--type-caption)] text-[var(--color-slate-600)] sm:px-6">
         Prévia limitada: busca, filtros, ordenação e seleção referem-se somente aos {rows.length} registros carregados, não a toda a base.
       </p>}
-      {selectedCount > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-blue-tint)] px-4 py-2 text-[12px] sm:px-6">
+      {selectedCount > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-blue-tint)] px-4 py-2 text-xs sm:px-6">
         <p className="font-medium text-[var(--color-blue-ink)]">{selectedCount} selecionado(s) nesta página</p>
         <div className="flex items-center gap-2">
           {selectionActions?.(selectedRows)}
@@ -384,7 +384,7 @@ export function ObjectIndex<T extends { id: string }>({
         onOpen={onOpen} loading={loading}
         emptyText={emptyTitle || (state.query || state.filters.length ? "Nenhum registro corresponde aos filtros." : "Nenhum registro disponível.")}
         emptyAction={emptyAction} />
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--color-border)] px-4 py-3 text-[11px] text-[var(--color-slate-600)] sm:px-6">
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--color-border)] px-4 py-3 text-[length:var(--type-caption)] text-[var(--color-slate-600)] sm:px-6">
         <span className="tabular-nums">{loading ? "Carregando…" : remote
           ? count ? ((state.pageIndex * state.pageSize) + 1) + "–" + ((state.pageIndex * state.pageSize) + visibleRows.length) + " de " + count.toLocaleString("pt-BR") : "0 registros"
           : count + " registro(s)" + (partial ? " na prévia" : "")}</span>
@@ -393,7 +393,7 @@ export function ObjectIndex<T extends { id: string }>({
             Por página
             <select aria-label="Registros por página" value={state.pageSize}
               onChange={event => change({ pageSize: Number(event.target.value) as 25 | 50 | 100 })}
-              className="h-8 rounded-[var(--radius-md)] border border-[var(--color-border)] px-1.5 text-[11px]">
+              className="h-8 rounded-[var(--radius-md)] border border-[var(--color-border)] px-1.5 text-[length:var(--type-caption)]">
               <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
             </select>
           </label>
@@ -421,13 +421,13 @@ export function ObjectIndex<T extends { id: string }>({
       className="max-w-[420px]">
       <form onSubmit={event => { event.preventDefault(); if (editingView) saveView(editingView); }}
         className="space-y-4">
-        {editingView && <label className="block text-[12px] text-[var(--color-slate-600)]">Nome
+        {editingView && <label className="block text-xs text-[var(--color-slate-600)]">Nome
           <input autoFocus value={viewName} maxLength={80} onChange={event => setViewName(event.target.value)}
-            className="mt-1 h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[13px] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]" />
+            className="mt-1 h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[length:var(--type-body-compact)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]" />
         </label>}
-        {viewError && <p role="alert" className="text-[12px] text-[var(--color-red)]">{viewError}</p>}
+        {viewError && <p role="alert" className="text-xs text-[var(--color-red)]">{viewError}</p>}
         {editingView && <button type="submit" disabled={save.isPending || updateSaved.isPending}
-          className="h-9 w-full rounded-[var(--radius-md)] bg-[var(--color-ink)] px-4 text-[12px] font-medium text-white disabled:opacity-50">
+          className="h-9 w-full rounded-[var(--radius-md)] bg-[var(--color-ink)] px-4 text-xs font-medium text-white disabled:opacity-50">
           {save.isPending || updateSaved.isPending ? "Salvando…" : "Salvar"}
         </button>}
       </form>
