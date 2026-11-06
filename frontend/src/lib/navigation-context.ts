@@ -80,7 +80,7 @@ export function readObjectIndexState<T>(
     if (list.length) state.columns = list;
   }
   const page = Number(search.get("page"));
-  if (Number.isInteger(page) && page >= 0 && page <= 100000) state.pageIndex = page;
+  if (Number.isInteger(page) && page >= 0 && page <= 10000) state.pageIndex = page;
   const size = Number(search.get("size"));
   if (size === 25 || size === 50 || size === 100) state.pageSize = size;
   return state;
@@ -104,7 +104,7 @@ export function buildIndexHref(
   if (state.columns.length && state.columns.join(",").length <= 800) {
     params.set("cols", state.columns.join(","));
   }
-  if (state.pageIndex > 0) params.set("page", String(Math.min(state.pageIndex, 100000)));
+  if (state.pageIndex > 0) params.set("page", String(Math.min(state.pageIndex, 10000)));
   if (state.pageSize !== 50) params.set("size", String(state.pageSize));
   if (recordId && UUID.test(recordId)) params.set("record", recordId);
   const query = params.toString();
@@ -113,7 +113,7 @@ export function buildIndexHref(
 
 /** A full-page student link accepts only an internal /alunos listing as its return target. */
 export function studentReturnHref(candidate: string | null): string {
-  if (!candidate || candidate.length > 2600 || !candidate.startsWith("/alunos")) return "/alunos";
+  if (!candidate || candidate.length > 9000 || !candidate.startsWith("/alunos")) return "/alunos";
   try {
     const parsed = new URL(candidate, "https://mira.invalid");
     if (parsed.origin !== "https://mira.invalid" || parsed.pathname !== "/alunos" || parsed.hash) return "/alunos";
