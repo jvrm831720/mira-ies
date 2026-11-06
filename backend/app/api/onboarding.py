@@ -28,7 +28,7 @@ from app.models.auth import AuthChallenge, User
 from app.models.organization import Membership, ModuleEntitlement, Organization, TenantBranding, TenantLogoAsset
 from app.models.tenant import Tenant
 from app.services.onboarding_enrichment import (
-    extract_single_cnpj, fetch_site_favicon, lookup_company,
+    fetch_site_favicon, lookup_company,
     normalize_public_website, scrape_website,
 )
 
