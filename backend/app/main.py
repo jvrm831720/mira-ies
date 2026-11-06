@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.api import (
     upload, health, scoring, connectors, jacad, sponte, sophia, sophia_sync,
     outcomes, academic_outcomes, outcome_analytics, agents, auth, mfa, delivery_webhooks, org, billing,
-    retention_campaigns, retention_campaign_execution, retention_campaign_intelligence, retention_campaign_proposal_workflow, control_center_auth,
+    retention_campaigns, retention_campaign_execution, retention_campaign_intelligence, retention_campaign_proposal_workflow, retention_campaign_scheduling, control_center_auth,
     control_center_admin, mira_admin, work_activities, student_work_timeline, composio,
     signals, student_groups, totvs_rm_operations, connector_destinations, tenant_rbac, omie, onboarding,
     smart_import, custom_fields, native_academic, academic_catalog, academic_portal, academic_operations, student_services, student_service_operations, student_finance_composio, student_document_attestation, finance_reconciliation, student_payments, asaas_official, dispatch, dispatch_integrations, dispatch_interventions, dispatch_providers, dispatch_native_webhooks, dispatch_source_keys, dispatch_composio,
@@ -199,6 +199,7 @@ app.include_router(retention_campaigns.router, prefix="/api/v1")
 app.include_router(retention_campaign_execution.router, prefix="/api/v1")
 app.include_router(retention_campaign_intelligence.router, prefix="/api/v1")
 app.include_router(retention_campaign_proposal_workflow.router, prefix="/api/v1")
+app.include_router(retention_campaign_scheduling.router, prefix="/api/v1")
 app.include_router(delivery_webhooks.router, prefix="/api/v1", tags=["Webhooks de entrega"])
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(onboarding.router, prefix="/api/v1")
