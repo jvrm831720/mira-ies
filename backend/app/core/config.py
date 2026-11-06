@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     student_payments_asaas_issuer_wallet_id: str | None = None
     # Official Asaas API. Credentials do not imply permission to execute.
     asaas_mode: str = "sandbox"
+    asaas_sandbox_issuer_wallet_id: str | None = None
+    asaas_production_issuer_wallet_id: str | None = None
     asaas_sandbox_enabled: bool = False
     asaas_production_enabled: bool = False
     asaas_wallet_review_enabled: bool = False

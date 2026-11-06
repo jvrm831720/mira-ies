@@ -57,6 +57,19 @@ def environment(*, write: bool = False) -> str:
     return mode
 
 
+def issuer_wallet() -> str:
+    mode = environment()
+    cfg = get_settings()
+    value = (getattr(cfg, "asaas_production_issuer_wallet_id", None) if mode == "production"
+             else getattr(cfg, "asaas_sandbox_issuer_wallet_id", None)
+                  or getattr(cfg, "student_payments_asaas_issuer_wallet_id", None))
+    from uuid import UUID
+    try:
+        return str(UUID(value))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise GatewayDenied("Carteira da conta emissora não configurada para o ambiente.") from exc
+
+
 def token() -> str:
     mode = environment()
     cfg = get_settings()

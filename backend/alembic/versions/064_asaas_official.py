@@ -27,6 +27,7 @@ def protect(table):
       WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true),'')::uuid)""")
 
 def upgrade():
+    op.add_column("mira_asaas_workspace_destinations",sa.Column("verified_environment",sa.String(16)))
     op.create_table("mira_asaas_customer_bindings",
         pk(), tenant(), ref("student_id"), column("asaas_customer_id"),
         column("issuer_environment",16),
@@ -109,6 +110,7 @@ def upgrade():
           FOR EACH ROW EXECUTE FUNCTION mira_asaas_history_immutable()""")
 
 def downgrade():
+    op.drop_column("mira_asaas_workspace_destinations","verified_environment")
     for name in ("mira_asaas_webhook_events","mira_asaas_webhook_applications"):
         op.execute(f"DROP TRIGGER IF EXISTS {name}_immutable ON {name}")
     op.execute("DROP FUNCTION IF EXISTS mira_asaas_history_immutable()")

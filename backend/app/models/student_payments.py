@@ -114,6 +114,7 @@ class AsaasWorkspaceDestination(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     confirmed_by_user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_environment: Mapped[str | None] = mapped_column(String(16))
     verified_by_user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=now)

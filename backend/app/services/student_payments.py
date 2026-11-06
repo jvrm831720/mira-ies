@@ -419,6 +419,7 @@ async def save_destination(db: AsyncSession, *, tenant_id: str, user_id: str,
             current.wallet_id = normalized
             current.status = "pending"
             current.verified_at = None
+            current.verified_environment = None
             current.verified_by_user_id = None
         current.version += 1
         current.confirmed_by_user_id = user_id

@@ -117,9 +117,9 @@ async def prepare_charge(
     dest = (await db.execute(select(AsaasWorkspaceDestination).where(
         AsaasWorkspaceDestination.tenant_id == tenant_id,
     ).with_for_update())).scalar_one_or_none()
-    if not dest or (mode == "production" and dest.status != "verified") or dest.status == "rejected":
+    if not dest or (mode == "production" and (dest.status != "verified" or dest.verified_environment != mode)) or dest.status == "rejected":
         raise AsaasFlowDenied("Carteira recebedora ainda não homologada para o ambiente selecionado.")
-    issuer = get_settings().student_payments_asaas_issuer_wallet_id
+    issuer = gateway.issuer_wallet()
     if not issuer or str(UUID(issuer)) == dest.wallet_id:
         raise AsaasFlowDenied("Conta emissora deve ser configurada e diferente do destino.")
     student = (await db.execute(select(Student).where(
@@ -171,7 +171,7 @@ async def _preflight_submit(db: AsyncSession, row: AsaasCharge, user_id: str):
     ))).scalar_one_or_none()
     if (dest is None or dest.wallet_id != row.destination_wallet_id
             or dest.version != row.destination_version
-            or (row.environment == "production" and dest.status != "verified")):
+            or (row.environment == "production" and (dest.status != "verified" or dest.verified_environment != row.environment))):
         raise AsaasFlowDenied("Destino financeiro modificado ou não homologado.")
     obs = (await db.execute(select(FinanceObservation).where(
         FinanceObservation.tenant_id == row.tenant_id,
@@ -320,6 +320,7 @@ async def verify_destination(db: AsyncSession, *, tenant_id: str,
         raise AsaasFlowDenied("Destino já homologado.")
     # This action must be used ONLY after an out-of-band Asaas support/ownership check.
     target.status = "verified"
+    target.verified_environment = gateway.environment()
     target.verified_at = datetime.now(timezone.utc)
     target.verified_by_user_id = reviewer_id
     target.updated_at = datetime.now(timezone.utc)
