@@ -10,6 +10,7 @@ import {
 import { api } from "@/lib/api";
 import { getAccessToken, setAccessToken } from "@/lib/auth";
 import { OnboardingIntegrationSetup } from "./onboarding-integration-setup";
+import { OnboardingProOverview } from "./onboarding-pro-overview";
 import { completeOrganizationOnboarding, enrichOnboarding, type OnboardingEnrichment } from "@/lib/onboarding-api";
 import { corporateDomain, isValidCnpj, maskCnpj, publicCompanyDescription, plausiblePublicWebsite } from "@/lib/onboarding-flow.mjs";
 
@@ -418,18 +419,18 @@ export function ConversationalOnboarding() {
                       step === "description" ? (publicCompanyDescription(enrichment) ? "Encontramos informações sobre sua empresa." : "Conte um pouco sobre sua empresa.") :
                       step === "name" ? "E como você prefere que te chamem?" :
                       step === "integrations" ? (form.firstName || "Agora") + ", vamos conectar suas ferramentas." :
-                      "Vamos proteger seu workspace."}
+                      "Seu workspace está pronto para começar."}
                   </h1>
                   <p>
                     {step === "workspace" ? "Qual é o site da sua organização? Vamos encontrar os dados automaticamente." :
                       step === "description" ? "Esta descrição ajuda a entender a operação. Confirme ou edite antes de continuar." :
                       step === "name" ? "Assim, podemos deixar sua experiência mais pessoal, sem formulários longos." :
                       step === "integrations" ? "Autorize suas conexões agora ou continue sem elas. Você poderá adicionar mais contas depois." :
-                      "Crie sua organização e confirme o MFA antes de conectar seus aplicativos. Nenhuma cobrança será iniciada."}
+                      "Revise os detalhes finais e conheça o MIRA Pro, criado para transformar sinais em decisões e ações."}
                   </p>
                 </div>
 
-                <div className="mira-flow-interaction" key={"card-" + step}>
+                <div className={"mira-flow-interaction" + (step === "provision" ? " mira-flow-interaction-pro" : "")} key={"card-" + step}>
                   {step === "workspace" && (
                     <>
                       <div className="mira-flow-card-heading">Vamos conhecer sua organização</div>
@@ -534,18 +535,10 @@ export function ConversationalOnboarding() {
                   )}
 
                   {step === "provision" && (
-                    <>
-                      <p className="mira-flow-card-label">Tudo pronto para começar</p>
-                      <div className="mira-flow-finish-summary">
-                        <span><CheckCircle2 size={16} /> Empresa: {previewName}</span>
-                        <span><CheckCircle2 size={16} /> Perfil de acesso: {form.firstName} {form.lastName}</span>
-                        <span><CheckCircle2 size={16} /> Conexões opcionais após o MFA</span>
-                      </div>
-                      <div className="mira-flow-trial-note">
-                        <strong>Segurança antes das conexões</strong>
-                        <p>Crie o workspace e configure o autenticador. Em seguida, autorize as conexões reais sem ativar sincronizações automaticamente.</p>
-                      </div>
-                    </>
+                    <OnboardingProOverview
+                      workspaceName={previewName}
+                      responsibleName={[form.firstName, form.lastName].filter(Boolean).join(" ")}
+                    />
                   )}
 
                   {error && <p className="mira-flow-error" role="alert">{error}</p>}
@@ -553,7 +546,7 @@ export function ConversationalOnboarding() {
                     <button type="button" className="mira-flow-back" onClick={back} disabled={busy || siteStatus === "searching"}><ArrowLeft size={14} /> Voltar</button>
                     {step === "provision" ? (
                       <button type="button" className="mira-flow-primary" disabled={busy} onClick={() => void finish()}>
-                        {busy ? "Criando…" : "Criar e proteger workspace"} <ArrowRight size={14} />
+                        {busy ? "Criando…" : "Criar meu workspace"} <ArrowRight size={14} />
                       </button>
                     ) : (
                       <button type="button" className="mira-flow-primary" disabled={busy || siteStatus === "searching" || (step === "workspace" && !siteRevealed)} onClick={next}>
