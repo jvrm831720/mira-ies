@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
+import { RecordDrawer } from "@/components/record/record-drawer";
+import { RecordProperties } from "@/components/record/record-properties";
+import { RecordRelations } from "@/components/record/record-relations";
+import { RecordActivity } from "@/components/record/record-activity";
+import { RecordSections } from "@/components/record/record-sections";
+import { getVisibleNavigation } from "@/components/layout/navigation";
 import type { ObjectField } from "@/components/object-index/object-index-types";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -118,8 +124,11 @@ function CampaignProposalsContent() {
   });
   const proposals = proposalsQuery.data?.proposals ?? [];
   const [selectedId, setSelectedId] = useState("");
+  const [previewId, setPreviewId] = useState<string|null>(null);
   const [objectIndexState, setObjectIndexState] = useState(() => initialObjectIndexState(CAMPAIGN_INDEX_FIELDS));
   const selected = proposals.find((item) => item.id === selectedId) ?? null;
+  const previewProposal = proposals.find(item => item.id === previewId) ?? null;
+  const canSeeGroups = getVisibleNavigation(meQuery.data).some(group=>group.items.some(item=>item.href==="/alunos/grupos"));
   const [title, setTitle] = useState("");
   const [objective, setObjective] = useState("");
   const [strategy, setStrategy] = useState("");
@@ -277,7 +286,7 @@ function CampaignProposalsContent() {
               ]}
               partial={typeof proposalsQuery.data?.count === "number" && proposalsQuery.data.count > proposals.length}
               total={proposalsQuery.data?.count}
-              onOpen={proposal => setSelectedId(proposal.id)}
+              onOpen={proposal => { setSelectedId(proposal.id); setPreviewId(proposal.id); }}
               onRefresh={() => void proposalsQuery.refetch()}
               refreshing={proposalsQuery.isFetching}
               emptyTitle="Nenhuma proposta corresponde aos filtros."
@@ -591,6 +600,40 @@ function CampaignProposalsContent() {
           A execução é preparada no motor compartilhado de disparos, sem envio nesta tela.
         </div>
       </main>
+      <RecordDrawer record={previewProposal?{
+          kind:"campaign",id:previewProposal.id,title:previewProposal.title,
+          caption:"Proposta de campanha",subtitle:previewProposal.objective,
+        }:null}
+        onClose={()=>setPreviewId(null)}>
+        {previewProposal && <RecordSections key={previewProposal.id} sections={[
+          {id:"properties",label:"Propriedades",content:<div className="space-y-4">
+            <RecordProperties compact groups={[{id:"campaign",title:"Dados da proposta",properties:[
+              {key:"status",label:"Estado",value:statusLabels[previewProposal.status]||previewProposal.status,type:"status"},
+              {key:"objective",label:"Objetivo",value:previewProposal.objective},
+              {key:"revision",label:"Revisão",value:previewProposal.revision,type:"number"},
+              {key:"audience",label:"Público avaliado",value:previewProposal.audience_total,type:"number"},
+              {key:"channels",label:"Canais recomendados",value:previewProposal.recommended_channels.join(", ")||null},
+              {key:"created",label:"Criada em",value:previewProposal.created_at,type:"date"},
+              {key:"auth",label:"Situação de autorização",value:previewProposal.authorization_status,type:"status"},
+            ]}]}/>
+            <RecordRelations relations={previewProposal.source_group_ids.map(id=>({
+              id,label:"Grupo de origem",value:id,
+              href:canSeeGroups?"/alunos/grupos/"+encodeURIComponent(id):undefined,
+              type:"student_group",
+            }))}/>
+          </div>},
+          {id:"activity",label:"Atividade",content:<RecordActivity events={[
+            {id:"created:"+previewProposal.id,kind:"status",at:previewProposal.created_at,
+              title:"Proposta registrada",origin:"Campanhas",status:"Criada"},
+            ...(previewProposal.reviewed_at?[{id:"review:"+previewProposal.id,kind:"status" as const,
+              at:previewProposal.reviewed_at,title:"Revisão registrada",origin:"Campanhas",
+              status:previewProposal.status}]:[]),
+            ...(previewProposal.approved_at?[{id:"approve:"+previewProposal.id,kind:"status" as const,
+              at:previewProposal.approved_at,title:"Aprovação registrada",origin:"Campanhas",
+              status:"Aprovada"}]:[]),
+          ]}/>},
+        ]}/>}
+      </RecordDrawer>
     </>
   );
 }

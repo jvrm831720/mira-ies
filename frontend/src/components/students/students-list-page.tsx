@@ -15,7 +15,7 @@ import {
 import type { ObjectField, ObjectDefaultView } from "@/components/object-index/object-index-types";
 import { listStudentIndex, type ObjectIndexStudent } from "@/lib/object-index-api";
 import { api } from "@/lib/api";
-import { getVisibleNavigation } from "@/components/layout/navigation";
+import { getVisibleNavigation, hasNavigationPermission } from "@/components/layout/navigation";
 import { RiskBadge } from "@/components/ui/badge";
 
 const STUDENT_VIEWS: ObjectDefaultView[] = [
@@ -97,18 +97,27 @@ export function StudentsListPage() {
   const visibleNav = useMemo(() => getVisibleNavigation(me.data), [me.data]);
   const canView = visibleNav.some(group => group.items.some(item => item.href === "/alunos"));
   const canImport = visibleNav.some(group => group.items.some(item => item.href === "/importar"));
+  const canSensitive = hasNavigationPermission(me.data, "students.sensitive.view");
+  const publicFields = STUDENT_FIELDS.filter(field => ["nome", "matricula", "curso"].includes(field.key));
+  const exposedFields = canSensitive ? STUDENT_FIELDS : publicFields;
+  const exposedViews = canSensitive ? STUDENT_VIEWS : STUDENT_VIEWS.filter(view => view.id === "todos");
+  const safeView = canSensitive ? state.view : "todos";
+  const safeFilters = canSensitive ? state.filters : state.filters.filter(filter =>
+    ["nome", "matricula", "curso"].includes(filter.key));
+  // Avoid even asking the backend for a prohibited risk sorting/count query.
+  const safeSort = !canSensitive && state.sort?.key === "risk_score" ? null : state.sort;
 
-  const sort = !state.sort ? "risk_desc"
-    : state.sort.key === "risk_score" ? (state.sort.desc ? "risk_desc" : "risk_asc")
-    : state.sort.key === "curso" ? "course_asc" : (state.sort.desc ? "name_desc" : "name_asc");
+  const sort = !safeSort ? (canSensitive ? "risk_desc" : "name_asc")
+    : safeSort.key === "risk_score" ? (safeSort.desc ? "risk_desc" : "risk_asc")
+    : safeSort.key === "curso" ? "course_asc" : (safeSort.desc ? "name_desc" : "name_asc");
 
   const query = useQuery({
-    queryKey: ["object-index", "students", me.data?.tenant_id, me.data?.user_id, debouncedQuery, state.view, state.filters, sort, state.pageIndex, state.pageSize],
+    queryKey: ["object-index", "students", me.data?.tenant_id, me.data?.user_id, debouncedQuery, safeView, safeFilters, sort, state.pageIndex, state.pageSize],
     queryFn: () => listStudentIndex({
       limit: state.pageSize, offset: state.pageIndex * state.pageSize,
       q: debouncedQuery.trim() || undefined,
-      view: state.view,
-      filters: state.filters,
+      view: safeView,
+      filters: safeFilters,
       sort,
     }),
     enabled: canView && !validGroup,
@@ -129,9 +138,14 @@ export function StudentsListPage() {
   return <>
     <main className="mira-page min-h-dvh">
       <ObjectIndex objectKey="students" title="Alunos"
-        description="Explore registros institucionais, classificação e acompanhamento com dados verificados."
-        fields={STUDENT_FIELDS} rows={query.data?.students || []} state={state} onStateChange={setState}
-        defaultViews={STUDENT_VIEWS} remote
+        description={canSensitive ? "Explore registros institucionais, classificação e acompanhamento com dados verificados." : "Registros institucionais autorizados para este perfil."}
+        fields={exposedFields} rows={query.data?.students || []}
+        state={canSensitive ? state : {
+          ...state, view: safeView, filters: safeFilters, sort: safeSort,
+          columns: state.columns.filter(key => publicFields.some(field => field.key === key)),
+        }}
+        onStateChange={setState}
+        defaultViews={exposedViews} remote
         total={query.data?.total}
         loading={query.isLoading}
         error={query.isError}
