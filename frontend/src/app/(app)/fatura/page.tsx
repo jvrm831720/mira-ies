@@ -28,7 +28,7 @@ const PACKS = [
 ] as const;
 
 const CHANNELS = [
-  { key: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle, tint: "text-[#25D366]" },
+  { key: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle, tint: "text-[var(--color-legacy-25d366)]" },
   { key: "email" as const, label: "E-mail", icon: Mail, tint: "text-sky-600" },
   { key: "sms" as const, label: "SMS", icon: MessageSquare, tint: "text-violet-600" },
 ];
@@ -71,10 +71,10 @@ export default function FaturaPage() {
       />
       <main className="mx-auto w-full max-w-[1100px] space-y-6 px-4 pb-12 pt-5 md:px-9">
         {/* Plan */}
-        <section className="overflow-hidden rounded-[24px] border border-white/10 bg-[#0f0e1c] text-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
+        <section className="overflow-hidden rounded-[24px] border border-white/10 bg-[var(--color-legacy-0f0e1c)] text-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
           <div className="grid gap-0 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-5 p-6 md:p-8">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/80">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[length:var(--type-caption)] font-semibold text-white/80">
                 <Sparkles className="h-3.5 w-3.5 text-[var(--brand-coral)]" />
                 Plano atual
               </div>
@@ -104,7 +104,7 @@ export default function FaturaPage() {
             </div>
 
             <div className="border-t border-white/10 bg-black/25 p-6 md:p-8 lg:border-l lg:border-t-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
+              <p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.16em] text-white/40">
                 Próxima cobrança
               </p>
               <p className="mt-3 text-3xl font-semibold tracking-tight">
@@ -117,7 +117,7 @@ export default function FaturaPage() {
                 <Button
                   type="button"
                   onClick={() => setInvoicesOpen(true)}
-                  className="rounded-full bg-white text-[#0f0e1c] hover:bg-white/90"
+                  className="rounded-full bg-white text-[var(--color-legacy-0f0e1c)] hover:bg-white/90"
                 >
                   <Receipt className="h-4 w-4" />
                   Baixar faturas
@@ -153,7 +153,7 @@ export default function FaturaPage() {
         {/* Credits */}
         <section className="space-y-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+            <p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.14em] text-primary">
               Créditos de disparo
             </p>
             <h3 className="mt-1 text-base font-semibold">Saldo por canal</h3>
@@ -244,7 +244,7 @@ export default function FaturaPage() {
                     )}
                   >
                     {"popular" in pack && pack.popular ? (
-                      <span className="absolute -top-2 right-3 rounded-full bg-[var(--brand-coral)] px-2 py-0.5 text-[10px] font-bold text-[var(--brand-midnight)]">
+                      <span className="absolute -top-2 right-3 rounded-full bg-[var(--brand-coral)] px-2 py-0.5 text-[length:var(--type-overline)] font-bold text-[var(--brand-midnight)]">
                         Popular
                       </span>
                     ) : null}
@@ -271,7 +271,7 @@ export default function FaturaPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/80 bg-[#0c0b1d] text-white shadow-[0_10px_30px_rgba(16,13,80,0.12)]">
+          <Card className="border-border/80 bg-[var(--color-legacy-0c0b1d)] text-white shadow-[0_10px_30px_rgba(16,13,80,0.12)]">
             <CardHeader>
               <CardTitle className="text-base text-white">Como os créditos funcionam</CardTitle>
             </CardHeader>
@@ -295,7 +295,7 @@ export default function FaturaPage() {
                 </li>
               </ul>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
+                <p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.14em] text-white/40">
                   Resumo da compra
                 </p>
                 <p className="mt-2 text-lg font-semibold text-white">
@@ -398,7 +398,7 @@ export default function FaturaPage() {
 function MetricDark({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-      <p className="text-[11px] font-medium text-white/45">{label}</p>
+      <p className="text-[length:var(--type-caption)] font-medium text-white/45">{label}</p>
       <p className="mt-1 text-lg font-semibold tracking-tight text-white">{value}</p>
     </div>
   );

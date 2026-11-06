@@ -28,10 +28,10 @@ function LogRow({ log }: { log: InterventionLog }) {
   return (
     <tr className="border-b border-border/70 transition hover:bg-secondary/30">
       <td className="whitespace-nowrap px-4 py-3.5 text-xs text-muted-foreground">{dateLabel(log.created_at)}</td>
-      <td className="px-4 py-3.5"><span className="block text-xs font-semibold">{log.matricula || "—"}</span><span className="mt-0.5 block text-[10px] text-muted-foreground">{log.risk_level || ""}</span></td>
+      <td className="px-4 py-3.5"><span className="block text-xs font-semibold">{log.matricula || "—"}</span><span className="mt-0.5 block text-[length:var(--type-overline)] text-muted-foreground">{log.risk_level || ""}</span></td>
       <td className="px-4 py-3.5 text-xs capitalize">{log.channel || "Sem canal"}</td>
-      <td className="px-4 py-3.5"><span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusStyle(log.status)}`}>{statusLabel[log.status] || log.status}</span></td>
-      <td className="px-4 py-3.5"><span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusStyle(log.delivery_status)}`}>{log.delivery_status || "—"}</span></td>
+      <td className="px-4 py-3.5"><span className={`rounded-full px-2.5 py-1 text-[length:var(--type-overline)] font-semibold ${statusStyle(log.status)}`}>{statusLabel[log.status] || log.status}</span></td>
+      <td className="px-4 py-3.5"><span className={`rounded-full px-2.5 py-1 text-[length:var(--type-overline)] font-semibold ${statusStyle(log.delivery_status)}`}>{log.delivery_status || "—"}</span></td>
       <td className="max-w-[260px] truncate px-4 py-3.5 text-xs text-muted-foreground" title={log.error || log.message_preview || log.skip_reason || "—"}>{log.error || log.message_preview || log.skip_reason || "—"}</td>
     </tr>
   );
@@ -40,8 +40,8 @@ function LogRow({ log }: { log: InterventionLog }) {
 function LogCard({ log }: { log: InterventionLog }) {
   return (
     <article className="space-y-3 p-4">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">Matrícula {log.matricula || "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">{dateLabel(log.created_at)}{log.channel ? ` · ${log.channel}` : ""}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusStyle(log.status)}`}>{statusLabel[log.status] || log.status}</span></div>
-      <div className="flex flex-wrap gap-2"><span className="rounded-full bg-muted px-2.5 py-1 text-[10px] text-muted-foreground">Entrega: {log.delivery_status || "—"}</span>{log.risk_level && <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] capitalize text-muted-foreground">Risco {log.risk_level}</span>}</div>
+      <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">Matrícula {log.matricula || "—"}</p><p className="mt-1 text-[length:var(--type-caption)] text-muted-foreground">{dateLabel(log.created_at)}{log.channel ? ` · ${log.channel}` : ""}</p></div><span className={`rounded-full px-2.5 py-1 text-[length:var(--type-overline)] font-semibold ${statusStyle(log.status)}`}>{statusLabel[log.status] || log.status}</span></div>
+      <div className="flex flex-wrap gap-2"><span className="rounded-full bg-muted px-2.5 py-1 text-[length:var(--type-overline)] text-muted-foreground">Entrega: {log.delivery_status || "—"}</span>{log.risk_level && <span className="rounded-full bg-muted px-2.5 py-1 text-[length:var(--type-overline)] capitalize text-muted-foreground">Risco {log.risk_level}</span>}</div>
       <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{log.error || log.message_preview || log.skip_reason || "Sem detalhes adicionais."}</p>
     </article>
   );
@@ -64,7 +64,7 @@ export default function RetentionLogsPage() {
     <>
       <Header title="Histórico de contatos" subtitle="Acompanhe os registros e o status de entrega da régua." />
       <main className="mx-auto w-full max-w-[1600px] space-y-5 px-4 pb-10 pt-5 md:px-9 md:pt-7">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Rastreabilidade</p><h2 className="mt-1 text-xl font-semibold tracking-tight">Atividade recente</h2><p className="mt-1 text-sm text-muted-foreground">Até 100 registros no recorte selecionado.</p></div><button type="button" onClick={() => void refetch()} className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-xl border border-border bg-white px-3 text-xs font-semibold transition hover:bg-muted sm:self-auto"><RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} /> Atualizar</button></div>
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.14em] text-primary">Rastreabilidade</p><h2 className="mt-1 text-xl font-semibold tracking-tight">Atividade recente</h2><p className="mt-1 text-sm text-muted-foreground">Até 100 registros no recorte selecionado.</p></div><button type="button" onClick={() => void refetch()} className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-xl border border-border bg-white px-3 text-xs font-semibold transition hover:bg-muted sm:self-auto"><RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} /> Atualizar</button></div>
 
         <section aria-label="Resumo dos registros filtrados" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <LogStat icon={Activity} label="Registros" value={snapshot.total} color="text-primary bg-secondary" />
@@ -80,7 +80,7 @@ export default function RetentionLogsPage() {
           {isLoading && <div className="space-y-3 p-5">{Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-14 w-full rounded-xl" />)}</div>}
           {isError && <div role="alert" className="m-5 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-900"><p className="font-semibold">Não foi possível carregar o histórico.</p><button type="button" onClick={() => void refetch()} className="mt-2 font-medium underline">Tentar novamente</button></div>}
           {!isLoading && !isError && logs.length === 0 && <div className="flex flex-col items-center px-5 py-14 text-center"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-muted text-muted-foreground"><SearchX className="h-5 w-5" /></span><p className="mt-4 text-sm font-semibold">{emptyFilter ? "Nenhum registro corresponde aos filtros" : "Ainda não há contatos registrados"}</p><p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">{emptyFilter ? "Altere os filtros para consultar outros registros." : "Depois de iniciar uma simulação ou régua, os detalhes aparecem aqui."}</p></div>}
-          {!isLoading && !isError && logs.length > 0 && <><div className="hidden overflow-x-auto lg:block"><table className="w-full min-w-[920px] text-left"><thead className="bg-muted/35 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><tr><th className="px-4 py-3">Quando</th><th className="px-4 py-3">Aluno</th><th className="px-4 py-3">Canal</th><th className="px-4 py-3">Execução</th><th className="px-4 py-3">Entrega</th><th className="px-4 py-3">Detalhe</th></tr></thead><tbody>{logs.map((log) => <LogRow key={log.id} log={log} />)}</tbody></table></div><div className="divide-y divide-border lg:hidden">{logs.map((log) => <LogCard key={log.id} log={log} />)}</div><div className="border-t border-border bg-muted/20 px-5 py-3 text-[10px] text-muted-foreground">{logs.length.toLocaleString("pt-BR")} registros apresentados</div></>}
+          {!isLoading && !isError && logs.length > 0 && <><div className="hidden overflow-x-auto lg:block"><table className="w-full min-w-[920px] text-left"><thead className="bg-muted/35 text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><tr><th className="px-4 py-3">Quando</th><th className="px-4 py-3">Aluno</th><th className="px-4 py-3">Canal</th><th className="px-4 py-3">Execução</th><th className="px-4 py-3">Entrega</th><th className="px-4 py-3">Detalhe</th></tr></thead><tbody>{logs.map((log) => <LogRow key={log.id} log={log} />)}</tbody></table></div><div className="divide-y divide-border lg:hidden">{logs.map((log) => <LogCard key={log.id} log={log} />)}</div><div className="border-t border-border bg-muted/20 px-5 py-3 text-[length:var(--type-overline)] text-muted-foreground">{logs.length.toLocaleString("pt-BR")} registros apresentados</div></>}
         </Card>
       </main>
     </>
@@ -88,5 +88,5 @@ export default function RetentionLogsPage() {
 }
 
 function LogStat({ icon: Icon, label, value, color }: { icon: typeof Activity; label: string; value: number; color: string }) {
-  return <Card><CardContent className="flex items-center gap-3 p-4"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${color}`}><Icon className="h-4 w-4" /></span><div className="min-w-0"><p className="truncate text-[10px] font-medium text-muted-foreground">{label}</p><p className="mt-0.5 text-xl font-semibold tabular-nums">{value.toLocaleString("pt-BR")}</p></div></CardContent></Card>;
+  return <Card><CardContent className="flex items-center gap-3 p-4"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${color}`}><Icon className="h-4 w-4" /></span><div className="min-w-0"><p className="truncate text-[length:var(--type-overline)] font-medium text-muted-foreground">{label}</p><p className="mt-0.5 text-xl font-semibold tabular-nums">{value.toLocaleString("pt-BR")}</p></div></CardContent></Card>;
 }

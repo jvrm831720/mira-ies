@@ -171,14 +171,14 @@ export default function CommandCenterPage() {
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
         <section className="flex flex-col gap-3 border-b border-[var(--color-blue-tint)] pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[var(--color-ink)] sm:text-[24px]">
+            <h1 className="text-[length:var(--type-heading-medium)] font-semibold tracking-[-0.03em] text-[var(--color-ink)] sm:text-2xl">
               Visão geral
             </h1>
-            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--color-slate-600)]">
+            <p className="mt-1 max-w-2xl text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-slate-600)]">
               Estado operacional da base e prioridades de acompanhamento.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 text-[12px] text-[var(--color-slate-600)]">
+          <div className="flex shrink-0 items-center gap-2 text-xs text-[var(--color-slate-600)]">
             <span
               className={cn(
                 "h-2 w-2 rounded-full",
@@ -201,7 +201,7 @@ export default function CommandCenterPage() {
               value={q}
               onChange={(event) => setQ(event.target.value)}
               placeholder="Buscar aluno"
-              className="h-10 w-full rounded-lg border border-[var(--color-border)] bg-white pl-10 pr-3 text-[13px] text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-blue)] focus:ring-2 focus:ring-[var(--color-blue)]/15"
+              className="h-10 w-full rounded-lg border border-[var(--color-border)] bg-white pl-10 pr-3 text-[length:var(--type-body-compact)] text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-blue)] focus:ring-2 focus:ring-[var(--color-blue)]/15"
             />
             {searchHits.length > 0 && (
               <ul className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] shadow-lg">
@@ -216,10 +216,10 @@ export default function CommandCenterPage() {
                       }}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-medium text-[var(--color-ink)]">
+                        <span className="block truncate text-[length:var(--type-body-compact)] font-medium text-[var(--color-ink)]">
                           {student.nome}
                         </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-[var(--color-slate-600)]">
+                        <span className="mt-0.5 block truncate text-[length:var(--type-caption)] text-[var(--color-slate-600)]">
                           {student.matricula || "Sem matrícula"}
                           {student.curso ? ` · ${student.curso}` : ""}
                         </span>
@@ -236,14 +236,14 @@ export default function CommandCenterPage() {
               type="button"
               onClick={() => void refreshDashboard()}
               disabled={isRefreshing}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--color-border)] bg-white px-3.5 text-[13px] font-medium text-[var(--color-ink)] transition hover:bg-[var(--color-panel)] disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--color-border)] bg-white px-3.5 text-[length:var(--type-body-compact)] font-medium text-[var(--color-ink)] transition hover:bg-[var(--color-panel)] disabled:opacity-60"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
               Atualizar
             </button>
             <Link
               href="/importar"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-ink)] px-4 text-[13px] font-medium text-white transition hover:bg-[var(--color-ink)]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-ink)] px-4 text-[length:var(--type-body-compact)] font-medium text-white transition hover:bg-[var(--color-ink)]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar
@@ -275,15 +275,15 @@ export default function CommandCenterPage() {
           <section aria-label="Indicadores principais">
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-[var(--color-ink)]">
+                <h2 className="text-[length:var(--type-body-comfort)] font-semibold tracking-[-0.02em] text-[var(--color-ink)]">
                   Indicadores principais
                 </h2>
-                <p className="mt-0.5 text-[12px] text-[var(--color-slate-600)]">
+                <p className="mt-0.5 text-xs text-[var(--color-slate-600)]">
                   Resumo da base e da operação de retenção.
                 </p>
               </div>
               {!summary.isLoading && !summary.isError && (
-                <span className="hidden text-[12px] text-[var(--color-muted)] sm:inline">
+                <span className="hidden text-xs text-[var(--color-muted)] sm:inline">
                   {scoredStudents?.toLocaleString("pt-BR") ?? "—"} com score
                 </span>
               )}
@@ -366,12 +366,12 @@ export default function CommandCenterPage() {
                 <article className="rounded-xl border border-[var(--color-border)] bg-white p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-[13px] font-semibold text-[var(--color-ink)]">Distribuição de risco</h3>
-                      <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+                      <h3 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">Distribuição de risco</h3>
+                      <p className="mt-1 text-xs text-[var(--color-slate-600)]">
                         Classificação apenas com score. Sem score permanece separado.
                       </p>
                     </div>
-                    <span className="rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-slate-600)]">
+                    <span className="rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[length:var(--type-caption)] font-medium text-[var(--color-slate-600)]">
                       {scoredStudents?.toLocaleString("pt-BR") ?? "—"} com score
                     </span>
                   </div>
@@ -398,14 +398,14 @@ export default function CommandCenterPage() {
                   <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
                     {riskSegments.map((segment) => (
                       <div key={segment.label} className="min-w-0">
-                        <div className="flex items-center gap-2 text-[11px] text-[var(--color-slate-600)]">
+                        <div className="flex items-center gap-2 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">
                           <span className={"h-2 w-2 shrink-0 rounded-full " + segment.color} />
                           {segment.label}
                         </div>
                         <p className={"mt-1 text-xl font-semibold tabular-nums " + segment.text}>
                           {segment.count.toLocaleString("pt-BR")}
                         </p>
-                        <p className="text-[11px] text-[var(--color-muted)]">
+                        <p className="text-[length:var(--type-caption)] text-[var(--color-muted)]">
                           {riskTotal > 0
                             ? ((segment.count / riskTotal) * 100).toLocaleString("pt-BR", {
                                 maximumFractionDigits: 1,
@@ -417,16 +417,16 @@ export default function CommandCenterPage() {
                   </div>
                 </article>
                 <article className="rounded-xl border border-[var(--color-border)] bg-white p-4 sm:p-5">
-                  <h3 className="text-[13px] font-semibold text-[var(--color-ink)]">Cobertura da análise</h3>
-                  <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-slate-600)]">
+                  <h3 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">Cobertura da análise</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--color-slate-600)]">
                     Alunos sem score não entram como baixo risco e exigem revisão de dados.
                   </p>
                   <div className="mt-5 flex items-end justify-between gap-3">
                     <div>
-                      <p className="text-[28px] font-semibold tracking-[-0.04em] tabular-nums text-[var(--color-ink)]">
+                      <p className="text-[length:var(--type-display-medium)] font-semibold tracking-[-0.04em] tabular-nums text-[var(--color-ink)]">
                         {unscoredCount?.toLocaleString("pt-BR") ?? "—"}
                       </p>
-                      <p className="mt-1 text-[11px] text-[var(--color-slate-600)]">Sem score</p>
+                      <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">Sem score</p>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-semibold tabular-nums text-[var(--color-ink)]">
@@ -436,18 +436,18 @@ export default function CommandCenterPage() {
                             }) + "%"
                           : "—"}
                       </p>
-                      <p className="mt-1 text-[11px] text-[var(--color-slate-600)]">da base total</p>
+                      <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">da base total</p>
                     </div>
                   </div>
                   <Link
                     href="/alunos"
-                    className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[var(--color-blue)] hover:text-[var(--color-blue)]"
+                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-blue)] hover:text-[var(--color-blue)]"
                   >
                     Revisar alunos sem score
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                   {operationalGeneratedAtLabel && (
-                    <p className="mt-4 border-t border-[var(--color-border)] pt-3 text-[11px] text-[var(--color-muted)]">
+                    <p className="mt-4 border-t border-[var(--color-border)] pt-3 text-[length:var(--type-caption)] text-[var(--color-muted)]">
                       Resumo operacional gerado em {operationalGeneratedAtLabel}
                     </p>
                   )}
@@ -457,7 +457,7 @@ export default function CommandCenterPage() {
             {!summary.isLoading && !summary.isError && !riskDataConsistent && (
               <p
                 role="status"
-                className="mt-4 rounded-xl border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-4 py-3 text-[13px] text-[var(--color-peach-tint-border)]"
+                className="mt-4 rounded-xl border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-4 py-3 text-[length:var(--type-body-compact)] text-[var(--color-peach-tint-border)]"
               >
                 A distribuição de risco e a cobertura não estão disponíveis porque os dados da API
                 estão incompletos ou inconsistentes. Os valores não foram tratados como zero.
@@ -471,15 +471,15 @@ export default function CommandCenterPage() {
             <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[var(--color-panel)] text-[var(--color-blue)]">
               <Upload className="h-5 w-5" />
             </span>
-            <h2 className="mt-4 text-[16px] font-semibold tracking-[-0.02em] text-[var(--color-ink)]">
+            <h2 className="mt-4 text-base font-semibold tracking-[-0.02em] text-[var(--color-ink)]">
               Vamos começar pela sua base de alunos
             </h2>
-            <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-[var(--color-slate-600)]">
+            <p className="mx-auto mt-2 max-w-sm text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-slate-600)]">
               Envie uma planilha para ver os alunos e identificar quem precisa de atenção.
             </p>
             <Link
               href="/importar"
-              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-ink)] px-4 text-[13px] font-medium text-white hover:bg-[var(--color-ink)]"
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-ink)] px-4 text-[length:var(--type-body-compact)] font-medium text-white hover:bg-[var(--color-ink)]"
             >
               <Upload className="h-3.5 w-3.5" />
               Importar alunos
@@ -519,8 +519,8 @@ export default function CommandCenterPage() {
                 <ClipboardList className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-semibold text-[var(--color-ink)]">Central de trabalho</span>
-                <span className="mt-0.5 block text-[12px] text-[var(--color-slate-600)]">
+                <span className="block text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">Central de trabalho</span>
+                <span className="mt-0.5 block text-xs text-[var(--color-slate-600)]">
                   Intervenções e acompanhamento.
                 </span>
               </span>
@@ -534,8 +534,8 @@ export default function CommandCenterPage() {
                 <MessageSquareHeart className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-semibold text-[var(--color-ink)]">Intervenções</span>
-                <span className="mt-0.5 block text-[12px] text-[var(--color-slate-600)]">Régua de retenção e fluxos.</span>
+                <span className="block text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">Intervenções</span>
+                <span className="mt-0.5 block text-xs text-[var(--color-slate-600)]">Régua de retenção e fluxos.</span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-[var(--color-muted)] transition group-hover:translate-x-0.5" />
             </Link>
@@ -543,7 +543,7 @@ export default function CommandCenterPage() {
         )}
 
         {!isEmpty && !summary.isError && (
-          <div className="flex items-center gap-2 border-t border-[var(--color-border)] pt-4 text-[12px] text-[var(--color-muted)]">
+          <div className="flex items-center gap-2 border-t border-[var(--color-border)] pt-4 text-xs text-[var(--color-muted)]">
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[var(--color-green)]" />
             Indicadores refletem apenas dados retornados pela API; ausência não é tratada como zero.
           </div>
@@ -578,13 +578,13 @@ function MetricCard({
   const body = (
     <>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</p>
+        <p className="text-[length:var(--type-caption)] font-medium uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</p>
         <span className={cn("shrink-0", tones[tone])}>{icon}</span>
       </div>
-      <p className="mt-4 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[var(--color-ink)]">
+      <p className="mt-4 text-[length:var(--type-display-medium)] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[var(--color-ink)]">
         {value}
       </p>
-      <p className="mt-2 text-[11px] leading-snug text-[var(--color-slate-600)]">{hint}</p>
+      <p className="mt-2 text-[length:var(--type-caption)] leading-snug text-[var(--color-slate-600)]">{hint}</p>
     </>
   );
   const cls =
