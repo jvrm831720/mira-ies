@@ -82,7 +82,7 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
           </span></p>
           {q.data.risk_score==null&&<p className="text-[11px] text-[var(--color-muted)]">Sem score não significa baixo risco.</p>}
           {studentId&&<StudentRiskTrend studentId={studentId}/>}
-        </div>
+        </div>}
         {canSensitive&&<StudentRiskFactors student={q.data}/>}
         <RecordProperties groups={groups.filter(group=>group.id==="identification"||(canSensitive&&group.id==="risk"))} compact />
         <RecordRelations relations={studentRelations(q.data)}/>
