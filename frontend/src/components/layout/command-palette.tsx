@@ -148,35 +148,35 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, loading, 
           aria-activedescendant={results[safeSelected] ? listId + "-item-" + safeSelected : undefined}
           aria-autocomplete="list" aria-label="Buscar páginas, alunos e ações autorizadas"
           placeholder="Buscar aluno, campanha, relatório ou ação…" autoComplete="off"
-          className="h-full min-w-0 flex-1 border-0 bg-transparent text-[13px] text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)]" />
+          className="h-full min-w-0 flex-1 border-0 bg-transparent text-[length:var(--type-body-compact)] text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)]" />
         <button type="button" aria-label="Fechar" onClick={() => onOpenChange(false)}
           className="rounded-md p-1 text-[var(--color-muted)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"><X className="h-4 w-4"/></button>
       </div>
       <div id={listId} role="listbox" aria-label="Resultados autorizados" className="max-h-[min(58vh,430px)] overflow-y-auto p-2">
-        {loading ? <p role="status" className="px-3 py-10 text-center text-[13px]">Carregando permissões…</p> :
-          error ? <p role="alert" className="px-3 py-10 text-center text-[13px]">Não foi possível verificar suas permissões.</p> : <>
+        {loading ? <p role="status" className="px-3 py-10 text-center text-[length:var(--type-body-compact)]">Carregando permissões…</p> :
+          error ? <p role="alert" className="px-3 py-10 text-center text-[length:var(--type-body-compact)]">Não foi possível verificar suas permissões.</p> : <>
           {results.map((item, index) => {
             const Icon = item.icon;
             return <button key={item.href} id={listId + "-item-" + index}
               ref={node => { itemRefs.current[index] = node; }} role="option" aria-selected={index === safeSelected}
               type="button" onMouseEnter={() => setSelected(index)} onClick={() => navigate(item.href)}
-              className={cn("flex w-full items-center gap-3 rounded-[var(--radius-lg)] px-3 py-2.5 text-left text-[13px] transition-colors duration-[var(--motion-standard)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] motion-reduce:transition-none",
+              className={cn("flex w-full items-center gap-3 rounded-[var(--radius-lg)] px-3 py-2.5 text-left text-[length:var(--type-body-compact)] transition-colors duration-[var(--motion-standard)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] motion-reduce:transition-none",
                 index === safeSelected ? "bg-[var(--color-panel)] text-[var(--color-ink)]" : "text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]")}>
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true"/>
-              <span className="min-w-0 flex-1 truncate font-medium">{item.label}{item.detail && <span className="block truncate text-[11px] font-normal text-[var(--color-muted)]">{item.detail}</span>}</span>
-              <span className="text-[11px] text-[var(--color-muted)]">{item.category}</span>
+              <span className="min-w-0 flex-1 truncate font-medium">{item.label}{item.detail && <span className="block truncate text-[length:var(--type-caption)] font-normal text-[var(--color-muted)]">{item.detail}</span>}</span>
+              <span className="text-[length:var(--type-caption)] text-[var(--color-muted)]">{item.category}</span>
               {index === safeSelected && <ArrowRight className="h-3.5 w-3.5" aria-hidden="true"/>}
             </button>;
           })}
           {canSearchStudents && query.trim().length >= 2 && studentResults.isFetching &&
-            <p role="status" className="px-3 py-2 text-[12px] text-[var(--color-muted)]">Buscando alunos autorizados…</p>}
-          {studentResults.isError && <p role="alert" className="px-3 py-2 text-[12px] text-[var(--color-red)]">Busca de alunos indisponível. As páginas continuam acessíveis.</p>}
-          {!results.length && !studentResults.isFetching && <p className="px-3 py-10 text-center text-[13px] text-[var(--color-slate-600)]">
+            <p role="status" className="px-3 py-2 text-xs text-[var(--color-muted)]">Buscando alunos autorizados…</p>}
+          {studentResults.isError && <p role="alert" className="px-3 py-2 text-xs text-[var(--color-red)]">Busca de alunos indisponível. As páginas continuam acessíveis.</p>}
+          {!results.length && !studentResults.isFetching && <p className="px-3 py-10 text-center text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">
             Nenhum resultado disponível para esta busca.
           </p>}
         </>}
       </div>
-      <div className="flex justify-between border-t border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2 text-[11px] text-[var(--color-muted)]">
+      <div className="flex justify-between border-t border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2 text-[length:var(--type-caption)] text-[var(--color-muted)]">
         <span>↑ ↓ selecionar · Enter abrir · Esc fechar</span><span>Somente informações autorizadas</span>
       </div>
     </section>
