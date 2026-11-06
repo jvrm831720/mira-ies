@@ -57,7 +57,7 @@ export function PortalShell({
       </a>
       <div className="md:grid md:min-h-dvh md:grid-cols-[224px_minmax(0,1fr)]">
         <aside aria-label="Menu do Portal do Aluno"
-          className="hidden min-h-dvh border-r border-[#E6E7EA] bg-[#FBFBFB] md:flex md:flex-col">
+          className="sticky top-0 hidden h-dvh min-h-0 overflow-y-auto border-r border-[#E6E7EA] bg-[#FBFBFB] md:flex md:flex-col">
           <div className="flex h-[66px] items-center gap-3 border-b border-[#E6E7EA] px-5">
             <span className="text-[23px] font-bold tracking-[-0.085em]">mira<span className="text-[#266DF0]">.</span></span>
             <span className="h-5 w-px bg-[#E6E7EA]" />
