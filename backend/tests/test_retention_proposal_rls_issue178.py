@@ -62,6 +62,7 @@ async def test_retention_proposal_rls_enforces_tenant_for_read_write(
 
     tenant_a, _ = await tenant_factory(slug="proposal-rls-178-a")
     tenant_b, _ = await tenant_factory(slug="proposal-rls-178-b")
+    tenant_a_id, tenant_b_id = tenant_a.id, tenant_b.id
 
     async def context(tenant_id: str) -> None:
         await db_session.execute(
@@ -69,36 +70,37 @@ async def test_retention_proposal_rls_enforces_tenant_for_read_write(
             {"id": tenant_id},
         )
 
-    await context(tenant_a.id)
-    row_a = _proposal(tenant_a.id, "a")
+    await context(tenant_a_id)
+    row_a = _proposal(tenant_a_id, "a")
     db_session.add(row_a)
     await db_session.commit()
 
-    await context(tenant_b.id)
-    row_b = _proposal(tenant_b.id, "b")
+    await context(tenant_b_id)
+    row_b = _proposal(tenant_b_id, "b")
     db_session.add(row_b)
     await db_session.commit()
+    row_a_id, row_b_id = row_a.id, row_b.id
 
-    await context(tenant_a.id)
+    await context(tenant_a_id)
     visible_a = (await db_session.execute(
         select(RetentionCampaignProposal.id)
     )).scalars().all()
-    assert visible_a == [row_a.id]
+    assert visible_a == [row_a_id]
     changed = await db_session.execute(text(
         "UPDATE retention_campaign_proposals SET title='unauthorized' WHERE id=:id"
-    ), {"id": row_b.id})
+    ), {"id": row_b_id})
     assert changed.rowcount == 0
     await db_session.rollback()
 
-    await context(tenant_b.id)
+    await context(tenant_b_id)
     visible_b = (await db_session.execute(
         select(RetentionCampaignProposal.id)
     )).scalars().all()
-    assert visible_b == [row_b.id]
+    assert visible_b == [row_b_id]
     await db_session.rollback()
 
-    await context(tenant_a.id)
-    db_session.add(_proposal(tenant_b.id, "foreign"))
+    await context(tenant_a_id)
+    db_session.add(_proposal(tenant_b_id, "foreign"))
     with pytest.raises(DBAPIError):
         await db_session.flush()
     await db_session.rollback()
