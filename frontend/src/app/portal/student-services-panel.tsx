@@ -65,8 +65,14 @@ const financeStates: Record<string, string> = {
 };
 function brazilMoney(raw: Financial) {
   const n = Number(raw.amount);
-  return raw.currency === "BRL" && Number.isFinite(n)
+  return raw.amount.trim() !== "" && raw.currency === "BRL" && Number.isFinite(n)
     ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n)
+    : "Valor não disponível";
+}
+function officialChargeAmount(amount: string): string {
+  const parsed = Number(amount);
+  return amount.trim() !== "" && Number.isFinite(parsed) && parsed >= 0
+    ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parsed)
     : "Valor não disponível";
 }
 
@@ -405,7 +411,7 @@ export function StudentServicesPanel({ initialView = "requests", standalone = fa
           <p className="text-[12px] text-[#667085]">Dados importados são informativos. Cobranças oficiais da Asaas aparecem separadamente, somente após emissão autorizada.</p>
           <ul className="divide-y divide-[#EAECF0]">
             {financial.map((item) => <li key={item.id} className="flex justify-between gap-3 py-3 text-[12px]">
-              <div><p className="font-medium">{item.label}</p><p className="text-[#667085]">{item.status}</p></div>
+              <div><p className="font-medium">{item.label}</p><p className="text-[#667085]">{financeStates[item.status] || "Situação não verificada"}</p></div>
               <strong>{brazilMoney(item)}</strong>
             </li>)}
           </ul>
@@ -417,7 +423,7 @@ export function StudentServicesPanel({ initialView = "requests", standalone = fa
               {asaasCharges.map((charge) => <li key={charge.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
                   <p className="text-[12px] font-medium text-[#344054]">
-                    {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(charge.amount))} · {charge.method === "pix" ? "Pix" : "Boleto"}
+                    {officialChargeAmount(charge.amount)} · {charge.method === "pix" ? "Pix" : "Boleto"}
                   </p>
                   <p className="mt-1 text-[11px] text-[#667085]">
                     {charge.split_settled_verified ? "Repasse à instituição confirmado" :
