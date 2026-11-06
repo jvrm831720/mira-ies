@@ -137,8 +137,9 @@ export default function AcademicServiceDeskPage() {
     ),
     enabled: !!canView, retry: false,
   });
-  const activeId = selectedId && queue.data?.items.some((x) => x.id === selectedId)
-    ? selectedId : queue.data?.items[0]?.id || null;
+  // Notifications can open a request outside the current paginated list.
+  // The backend independently verifies tenant access for this request ID.
+  const activeId = selectedId || queue.data?.items[0]?.id || null;
   const detail = useQuery({
     queryKey: ["academic-service-detail", activeId],
     queryFn: () => request<Detail>("/requests/" + activeId + "/detail"),
@@ -358,7 +359,7 @@ export default function AcademicServiceDeskPage() {
                 <h3 className="mb-2 text-[12px] font-semibold">Aprovação e resolução</h3>
                 {!canApprove ? <p className="text-[11px] text-[#85858B]">Aprovações e encerramentos exigem permissão institucional específica.</p> :
                   <div className="space-y-3">
-                    <label className="block text-[11px] text-[#667085]">Justificativa / observação da decisão
+                    <label className="block text-[11px] text-[#667085]">Justificativa da decisão (visível ao aluno)
                       <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} maxLength={500} className={inputStyle + " mt-1 h-auto py-2"} placeholder="Registre o motivo da decisão" />
                     </label>
                     <div className="flex flex-wrap gap-2">
