@@ -16,8 +16,9 @@ export function RecordDrawer({ record,onClose,fullPageHref,status,actions=[],chi
   const onCloseRef=useRef(onClose);
   useEffect(()=>{onCloseRef.current=onClose;},[onClose]);
   const titleId=useId();const dialogRef=useRef<HTMLElement>(null);const origin=useRef<HTMLElement|null>(null);
+  const recordId=record?.id;
   useEffect(()=>{
-    if(!record)return;
+    if(!recordId)return;
     origin.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
     const previous=document.body.style.overflow;document.body.style.overflow="hidden";
     dialogRef.current?.focus();
@@ -37,7 +38,7 @@ export function RecordDrawer({ record,onClose,fullPageHref,status,actions=[],chi
     };
     window.addEventListener("keydown",trap);
     return ()=>{window.removeEventListener("keydown",trap);document.body.style.overflow=previous;origin.current?.focus();};
-  },[record?.id]);
+  },[recordId]);
   if(!record)return null;
   return <div className="fixed inset-0 z-[70] flex justify-end">
     <button type="button" tabIndex={-1} aria-label="Fechar visualização"
