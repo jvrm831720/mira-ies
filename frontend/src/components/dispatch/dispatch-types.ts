@@ -1,4 +1,4 @@
-import type { DispatchCampaign } from "@/lib/dispatch-api";
+import type { DispatchCampaign, DispatchTemplate, DispatchSource } from "@/lib/dispatch-api";
 
 export type DispatchSection = "overview" | "campaigns" | "monitor" | "results";
 export type DispatchPurpose = DispatchCampaign["purpose"];
