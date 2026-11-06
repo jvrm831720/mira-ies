@@ -308,7 +308,7 @@ export function ObjectIndex<T extends { id: string }>({
           <p className="mb-2 text-xs font-semibold">Ordenação múltipla</p>
           {sorts.length === 0 && <p className="mb-2 text-xs text-[var(--color-muted)]">Ordem padrão do servidor</p>}
           {sorts.map((item, index) => <div key={item.key} className="mb-2 flex items-center gap-2">
-            <span className="w-4 shrink-0 text-[11px] tabular-nums text-[var(--color-muted)]">{index + 1}</span>
+            <span className="w-4 shrink-0 text-[length:var(--type-overline)] tabular-nums text-[var(--color-muted)]">{index + 1}</span>
             <span className="min-w-0 flex-1 truncate text-xs">{fields.find(field => field.key === item.key)?.title || item.key}</span>
             <button type="button" aria-label={"Inverter " + item.key} className="rounded border px-2 py-1 text-xs"
               onClick={() => changeSorts(sorts.map(sort => sort.key === item.key ? { ...sort, desc: !sort.desc } : sort))}>
