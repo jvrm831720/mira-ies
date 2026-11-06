@@ -14,6 +14,7 @@ from app.services.connectors.base import (
     to_float,
     to_bool,
     to_str,
+    extract_field_provenance,
 )
 
 
@@ -78,6 +79,7 @@ class GenericConnector:
                 "nota_media": to_float(pick(item, "nota_media", "grade_avg", "gpa")),
                 "reprovacoes": to_int(pick(item, "reprovacoes", "failures")),
                 "source_id": to_str(pick(item, "source_id", "source"), "generic"),
+                "__mira_provenance": extract_field_provenance(item, "generic"),
                 "raw": item,
             })
         return records

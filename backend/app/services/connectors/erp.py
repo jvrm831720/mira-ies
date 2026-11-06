@@ -15,6 +15,7 @@ from app.services.connectors.base import (
     to_int,
     to_float,
     to_str,
+    extract_field_provenance,
 )
 
 
@@ -66,6 +67,7 @@ class JacadConnector:
                 "nota_media": to_float(pick(item, "mediaGeral", "media", "notaMedia", "cr")),
                 "reprovacoes": to_int(pick(item, "reprovacoes", "qtdReprovacoes")),
                 "source_id": "jacad",
+                "__mira_provenance": extract_field_provenance(item, "jacad"),
                 "raw": item,
             })
         return records
@@ -121,6 +123,7 @@ class SponteConnector:
                 "status_financeiro": to_str(pick(item, "StatusFinanceiro", "status_financeiro")),
                 "status_aluno": to_str(pick(item, "SituacaoAluno", "StatusAluno", "status_aluno")),
                 "source_id": "sponte",
+                "__mira_provenance": extract_field_provenance(item, "sponte"),
                 "raw": item,
             })
         return records
@@ -169,6 +172,7 @@ class SophiaConnector:
                 "nota_media": to_float(pick(item, "media", "media_geral", "nota")),
                 "reprovacoes": to_int(pick(item, "reprovacoes", "qtd_reprov")),
                 "source_id": "sophia",
+                "__mira_provenance": extract_field_provenance(item, "sophia"),
                 "raw": item,
             })
         return records
@@ -217,6 +221,7 @@ class GvcollegeConnector:
                 "nota_media": to_float(pick(acad, "media", "academicoMedia", "notaMedia")),
                 "reprovacoes": to_int(pick(acad, "reprovacoes")),
                 "source_id": "gvcollege",
+                "__mira_provenance": extract_field_provenance(item, "gvcollege"),
                 "raw": item,
             })
         return records
@@ -256,6 +261,7 @@ class WpensarConnector:
                 "nota_media": to_float(pick(item, "grade_avg", "nota_media", "gpa")),
                 "reprovacoes": to_int(pick(item, "failures", "reprovacoes")),
                 "source_id": "wpensar",
+                "__mira_provenance": extract_field_provenance(item, "wpensar"),
                 "raw": item,
             })
         return records

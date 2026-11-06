@@ -15,6 +15,7 @@ from app.services.connectors.base import (
     to_int,
     to_float,
     to_str,
+    extract_field_provenance,
 )
 
 
@@ -111,6 +112,7 @@ class MoodleConnector:
                 "nota_media": to_float(pick(item, "grade", "grade_avg", "nota", "finalgrade")),
                 "reprovacoes": to_int(pick(item, "failed_activities", "reprovacoes")),
                 "source_id": "moodle",
+                "__mira_provenance": extract_field_provenance(item, "moodle"),
                 "raw": item,
             })
         return records
@@ -179,6 +181,7 @@ class CanvasConnector:
                 )),
                 "reprovacoes": to_int(pick(item, "missing_submissions", "reprovacoes")),
                 "source_id": "canvas",
+                "__mira_provenance": extract_field_provenance(item, "canvas"),
                 "raw": item,
             })
         for r in records:
