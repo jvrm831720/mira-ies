@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Upload, Users } from "@/components/ui/icons";
@@ -21,6 +21,7 @@ import { RiskBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { RiskScoreTrend } from "./risk-trend";
+import { RETENTION_SELECTION_KEY, serializeRetentionSelection } from "@/lib/retention-selection";
 import { RiskMovementsFeed } from "./risk-movements-feed";
 
 const STUDENT_VIEWS: ObjectDefaultView[] = [
@@ -139,17 +140,23 @@ export function StudentsListPage() {
     ? { ...field, render: (row: ObjectIndexStudent) =>
       <RiskScoreTrend score={row.risk_score} movement={movementsByStudent.get(row.id)} /> } : field),
     [movementsByStudent]);
-  const simulateCampaign = useMutation({
-    mutationFn: () => api.enqueueRetention({
-      dry_run: true, student_ids: campaignIds, limit: campaignIds.length, campaign_name: campaignName.trim(),
-    }, typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : undefined),
-    onSuccess: () => {
-      toast.success("Simulação de retenção solicitada. Nenhuma mensagem real será enviada.");
+  function prepareCampaign() {
+    if (!canPrepareCampaign || !campaignIds.length || campaignName.trim().length < 3 ||
+      !me.data?.tenant_id || !me.data?.user_id) {
+      toast.error("Não foi possível validar a seleção ou a autorização.");
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(RETENTION_SELECTION_KEY, serializeRetentionSelection({
+        tenantId: me.data.tenant_id, userId: me.data.user_id,
+        ids: campaignIds, campaign: campaignName.trim(), createdAt: Date.now(),
+      }));
       setCampaignIds([]);
-      setCampaignName("");
-    },
-    onError: (e: Error) => toast.error(e.message || "Não foi possível preparar o público."),
-  });
+      router.push("/retencao?source=selection");
+    } catch {
+      toast.error("Não foi possível transferir a seleção ao planejamento.");
+    }
+  }
 
   const query = useQuery({
     queryKey: ["object-index", "students", me.data?.tenant_id, me.data?.user_id, debouncedQuery, safeView, safeFilters, sort, state.pageIndex, state.pageSize],
@@ -196,7 +203,7 @@ export function StudentsListPage() {
         selectionActions={canPrepareCampaign ? rows => <Button size="sm" variant="primary" onClick={() => {
           setCampaignIds([...new Set(rows.map(row => row.id))]);
           setCampaignName("");
-        }}>Preparar retenção ({rows.length})</Button> : undefined}
+        }}>Criar campanha de retenção ({rows.length})</Button> : undefined}
         emptyAction={state.query || state.filters.length
           ? <button type="button" className="text-[12px] font-medium text-[var(--color-blue)] hover:underline"
               onClick={() => setState(initialObjectIndexState(STUDENT_FIELDS))}>Limpar busca e filtros</button>
@@ -220,23 +227,23 @@ export function StudentsListPage() {
     </main>
     <StudentDrawer studentId={selectedId} onClose={() => setSelectedId(null)} />
     <Dialog open={campaignIds.length > 0}
-      onOpenChange={open => { if (!open && !simulateCampaign.isPending) setCampaignIds([]); }}
-      title="Preparar ação de retenção"
-      description="Seleção limitada aos registros desta página. Esta operação é uma simulação, não uma autorização de disparo.">
+      onOpenChange={open => { if (!open) setCampaignIds([]); }}
+      title="Criar campanha de retenção"
+      description="Seleção desta página. Você revisará público, canais e condições no planejamento antes de qualquer execução.">
       <form className="space-y-4" onSubmit={event => {
         event.preventDefault();
-        if (canPrepareCampaign && campaignIds.length && campaignName.trim().length >= 3) simulateCampaign.mutate();
+        prepareCampaign();
       }}>
-        <p className="text-[13px] text-[var(--color-slate-600)]">{campaignIds.length} aluno(s) selecionado(s). As regras de consentimento, elegibilidade e canais continuam no servidor.</p>
+        <p className="text-[13px] text-[var(--color-slate-600)]">{campaignIds.length} aluno(s) selecionado(s) nesta página. O público será revisado na régua; consentimento e elegibilidade continuam sob controle do servidor.</p>
         <label className="block text-[12px] font-medium text-[var(--color-ink)]">Nome de referência
           <input value={campaignName} onChange={event => setCampaignName(event.target.value)}
             minLength={3} maxLength={100} placeholder="Ex.: Acompanhamento de novembro" required
             className="mt-1 h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 text-[13px] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]" />
         </label>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" disabled={simulateCampaign.isPending} onClick={() => setCampaignIds([])}>Cancelar</Button>
-          <Button type="submit" variant="primary" disabled={!canPrepareCampaign || simulateCampaign.isPending || campaignName.trim().length < 3}>
-            {simulateCampaign.isPending ? "Preparando…" : "Simular campanha sem envio"}
+          <Button type="button" variant="secondary" onClick={() => setCampaignIds([])}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={!canPrepareCampaign || campaignName.trim().length < 3}>
+            Continuar para planejamento
           </Button>
         </div>
       </form>
