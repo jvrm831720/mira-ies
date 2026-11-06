@@ -1,6 +1,5 @@
 from app.models.student import UploadBatch, Student
 from app.models.custom_field import CustomFieldDefinition
-from app.models.object_view import ObjectView, ObjectViewRevision, ObjectViewFavorite
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.models.educational_outcome import AcademicOutcome
 from app.models.auth import (
