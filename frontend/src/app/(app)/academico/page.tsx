@@ -5,7 +5,7 @@ import { AcademicCatalogSelector, type AcademicResource } from "@/components/aca
 import { AcademicCatalogTable } from "@/components/academic/academic-catalog-table";
 import { AcademicNavigation } from "@/components/academic/academic-navigation";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useDeferredValue, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2, Loader2,
@@ -141,9 +141,25 @@ export default function AcademicManagementPage() {
   const [failed, setFailed] = useState<string | null>(null);
   const [classIndexState, setClassIndexState] = useState(() => initialObjectIndexState(CLASS_FIELDS));
 
-  const [selection, setSelection] = useState<{ id: string; tenant: string; user: string } | null>(null);
+  const classQuery = useDeferredValue(classIndexState.query);
+  const classRequest = {
+    query: classQuery.slice(0, 180), active_only: classIndexState.view === "active",
+    filters: classIndexState.filters, sort: classIndexState.sort,
+    columns: classIndexState.columns, page_size: classIndexState.pageSize,
+    offset: classIndexState.pageIndex * classIndexState.pageSize,
+  };
+  const classes = useQuery({
+    queryKey: ["native-academic", me.data?.tenant_id, me.data?.user_id, "class-index", classRequest],
+    queryFn: ({ signal }) => staffRequest<{ items: Item[]; total: number }>("/classes/index", {
+      method: "POST", body: JSON.stringify(classRequest), signal,
+    }),
+    enabled: Boolean(canView && overview.data && me.data?.tenant_id && me.data.user_id),
+    retry: false,
+  });
+
+  const [selection, setSelection] = useState<{ record: Item; tenant: string; user: string } | null>(null);
   const selectedClass = selection && selection.tenant === me.data?.tenant_id && selection.user === me.data?.user_id
-    ? overview.data?.classes.find(row => row.id === selection.id)
+    ? selection.record
     : undefined;
   const closeRecord = useCallback((open: boolean) => {
     if (!open) setSelection(null);
@@ -250,7 +266,7 @@ export default function AcademicManagementPage() {
       </section>
       <ObjectIndex objectKey="academic_classes"
         title="Turmas"
-        description="Índice de turmas da prévia oficial do catálogo acadêmico."
+        description="Turmas do catálogo acadêmico institucional."
         fields={CLASS_FIELDS.map(field => {
           if (field.key === "subject_id") return {
             ...field,
@@ -275,19 +291,18 @@ export default function AcademicManagementPage() {
           };
           return field;
         })}
-        rows={overview.data.classes} state={classIndexState} onStateChange={setClassIndexState}
+        rows={classes.data?.items ?? []} remote loading={classes.isLoading} error={classes.isError} state={classIndexState} onStateChange={setClassIndexState}
         onOpen={row => {
           if (me.data?.tenant_id && me.data.user_id) {
-            setSelection({ id: row.id, tenant: me.data.tenant_id, user: me.data.user_id });
+            setSelection({ record: row, tenant: me.data.tenant_id, user: me.data.user_id });
           }
         }}
-        total={overview.data.counts.classes}
-        partial={overview.data.counts.classes > overview.data.classes.length}
+        total={classes.data?.total ?? 0}
         defaultViews={[
           { id: "todos", title: "Todas" },
           { id: "active", title: "Ativas", filterKey: "status:active" },
         ]}
-        onRefresh={() => void overview.refetch()} refreshing={overview.isFetching}
+        onRetry={() => void classes.refetch()} onRefresh={() => void classes.refetch()} refreshing={classes.isFetching}
         emptyTitle="Nenhuma turma foi carregada do catálogo acadêmico."
       />
 

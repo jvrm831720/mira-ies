@@ -13,11 +13,12 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.native_academic import _require_ies
+from app.api.object_views import ViewSpec, validate_view
 from app.core.auth import AuthContext, require_permission
 from app.core.config import get_settings
 from app.db.session import get_db
@@ -253,6 +254,61 @@ async def list_catalog_records(
         .offset(offset).limit(limit + 1)
     )).mappings().all()
     return {"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit}
+
+
+class ClassIndexRequest(ViewSpec):
+    query: str = Field(default="", max_length=180)
+    active_only: bool = False
+    offset: int = Field(default=0, ge=0)
+
+
+@router.post("/classes/index")
+async def class_index(
+    body: ClassIndexRequest,
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    _human(auth)
+    await _require_ies(db, auth)
+    validate_view("academic_classes", body)
+    fields = {key: getattr(AcademicClass, key) for key in (
+        "code", "status", "subject_id", "term_id", "teacher_id",
+    )}
+    conditions = [AcademicClass.tenant_id == auth.tenant_id]
+    if body.active_only:
+        conditions.append(AcademicClass.status == "active")
+    if search := body.query.strip():
+        conditions.append(or_(*(cast(column, String).icontains(search, autoescape=True)
+                                for column in fields.values())))
+    for spec in body.filters:
+        column = cast(fields[spec.key], String)
+        value = str(spec.value)
+        match spec.op:
+            case "empty":
+                conditions.append(or_(column.is_(None), column == ""))
+            case "eq":
+                conditions.append(column == value)
+            case "neq":
+                conditions.append(column != value)
+            case "contains":
+                conditions.append(column.icontains(value, autoescape=True))
+            case "not_contains":
+                conditions.append(~column.icontains(value, autoescape=True))
+            case "starts_with":
+                conditions.append(column.istartswith(value, autoescape=True))
+            case "in":
+                conditions.append(column.in_([str(item) for item in spec.value]))
+    sort = fields[body.sort.key] if body.sort else AcademicClass.code
+    order = sort.desc() if body.sort and body.sort.desc else sort.asc()
+    total = (await db.execute(
+        select(func.count()).select_from(AcademicClass).where(*conditions)
+    )).scalar_one()
+    rows = (await db.execute(
+        select(AcademicClass.id, *fields.values()).where(*conditions)
+        .order_by(order.nulls_last(), AcademicClass.id).offset(body.offset).limit(body.page_size)
+    )).mappings().all()
+    return {"items": [dict(row) for row in rows], "total": total}
 
 
 @router.get("/overview")
