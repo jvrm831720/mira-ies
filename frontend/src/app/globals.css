@@ -110,7 +110,7 @@
   --shadow-focus-attio: rgba(83, 139, 243, 0.1) 0px 0px 0px 4px, rgba(28, 40, 64, 0.1) 0px 1px 2px -1px, rgba(28, 40, 64, 0.06) 0px 2px 4px 0px;
   --motion-fast: 120ms;
   --motion-standard: 180ms;
-  --motion-slow: 260ms;
+  --motion-slow: 180ms;
 }
 
 * {
@@ -306,75 +306,18 @@ textarea {
     border-color: var(--color-purple-tint-border);
   }
   .mira-tag--peach {
-    color: #9a5b1a;
+    color: var(--color-red);
     background: var(--color-peach-tint);
     border-color: var(--color-peach-tint-border);
   }
   .mira-tag--red {
     color: var(--color-red);
-    background: #FEF2F2;
+    background: var(--color-red-tint);
     border-color: var(--color-red-tint-border);
   }
 }
 
-/* ── Overview dark executive (preserved) ── */
-.mira-overview-dark {
-  --overview-bg: #090a0c;
-  --overview-surface: #121417;
-  --overview-surface-raised: #191c20;
-  --overview-border: #292d33;
-  --overview-text: #f8fafc;
-  --overview-muted: #a1a7b0;
-  --overview-subtle: #777f8a;
-  margin-top: 1rem;
-  padding: clamp(1rem, 2.2vw, 2rem);
-  border: 1px solid #202329;
-  border-radius: 1.25rem;
-  background: var(--overview-bg);
-  color: var(--overview-text);
-  box-shadow: 0 18px 60px rgba(9, 10, 12, 0.12);
-}
-.mira-overview-dark h1,
-.mira-overview-dark h2,
-.mira-overview-dark h3 {
-  color: var(--overview-text);
-}
-.mira-overview-dark p,
-.mira-overview-dark label {
-  color: var(--overview-muted);
-}
-.mira-overview-dark article,
-.mira-overview-dark [data-mira-card="true"],
-.mira-overview-dark .mira-surface {
-  background-color: var(--overview-surface);
-  border-color: var(--overview-border);
-  box-shadow: none;
-}
-.mira-overview-dark input:not([type="checkbox"]),
-.mira-overview-dark select {
-  color: var(--overview-text);
-  background-color: var(--overview-surface);
-  border-color: var(--overview-border);
-}
-.mira-overview-dark input::placeholder {
-  color: var(--overview-subtle);
-}
-.mira-overview-dark a:hover {
-  filter: brightness(1.12);
-}
-.mira-overview-dark button:focus-visible,
-.mira-overview-dark a:focus-visible,
-.mira-overview-dark input:focus-visible,
-.mira-overview-dark select:focus-visible {
-  outline: 2px solid #60a5fa;
-  outline-offset: 3px;
-}
-@media (max-width: 640px) {
-  .mira-overview-dark {
-    margin-inline: -0.5rem;
-    border-radius: 1rem;
-  }
-}
+/* Product surfaces remain light; unused overview dark theme retired. */
 
 /* ── Auth surface (Login = canonical reference) ──
    Composição editorial escura Attio. Escopo restrito a autenticação / onboarding.
