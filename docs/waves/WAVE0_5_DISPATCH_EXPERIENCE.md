@@ -79,5 +79,5 @@ Backend revisado: `dispatch.py`, `dispatch_providers.py`, `dispatch_integrations
 
 ## Banco auditado (leitura, sem DDL)
 
-Projeto `mira-testes`: Alembic `066_object_index_views` observado em 06/11/2026. O advisor de segurança Supabase acusa RLS desabilitado em `retention_campaign_proposals` no schema `public` (e outras advertências com naturezas distintas). Corrigir em Wave de hardening do banco depois de examinar grants, triggers, políticas e caminhos de acesso; não executar migração nesta Wave.
+Projeto `mira-testes`: Alembic `066_object_index_views` observado em 06/11/2026. A leitura de `pg_class` confirmou `relrowsecurity=false`, `relforcerowsecurity=false` e nenhuma policy em `public.retention_campaign_proposals`. Em `information_schema.role_table_grants`, os papéis `anon` e `authenticated` possuem grants amplos (SELECT, INSERT, UPDATE, DELETE, TRUNCATE etc.). Há risco potencial de acesso direto dependendo dos schemas expostos pela Supabase Data API. Tratar como hardening prioritário no [issue #178](https://github.com/jvrm831720/mira-ies/issues/178). As principais tabelas Dispatch examinadas possuem RLS ENABLE+FORCE e policy configurada. Nenhuma mutação de schema foi executada nesta Wave.
 
