@@ -163,7 +163,7 @@ export function Sidebar() {
         title={collapsed ? label : undefined}
         onClick={onLinkClick}
         className={cn(
-          "group flex h-[29px] w-full items-center gap-2 rounded-[9px] px-2 text-[13px] font-medium leading-5",
+          "group flex h-[29px] w-full items-center gap-2 rounded-[9px] px-2 text-[14px] font-medium leading-5",
           "outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#4E8CFC] motion-reduce:transition-none",
           "text-[#F1F2F3] hover:bg-[#1B1C1F]",
           active && "bg-[#1B1C1F]",
@@ -201,6 +201,7 @@ export function Sidebar() {
       <aside
         id="mira-workspace-navigation"
         aria-label="Navegação do workspace"
+        style={{ fontFamily: "Inter, sans-serif" }}
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex h-dvh w-[275px] min-h-0 shrink-0 flex-col border-r border-[#232427]",
           "bg-[#0B0C0D] font-sans text-[#F1F2F3] antialiased",
@@ -227,7 +228,7 @@ export function Sidebar() {
               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-[6px] border border-[#343538] bg-[#202125]">
                 <Image src="/mira-mark.svg" alt="Marca MIRA" width={18} height={13} className="h-[13px] w-auto brightness-0 invert" priority />
               </span>
-              <span className={cn("min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.02em]", collapsed && "md:hidden")}>{orgName}</span>
+              <span className={cn("min-w-0 flex-1 truncate text-[16px] font-semibold tracking-[-0.02em]", collapsed && "md:hidden")}>{orgName}</span>
             </button>
             <button
               type="button"
@@ -265,7 +266,7 @@ export function Sidebar() {
                     type="button" role="menuitem"
                     disabled={item.is_current || switcher.isPending || item.status !== "active"}
                     onClick={() => switcher.mutate(item)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] hover:bg-[#292A2E] disabled:opacity-60"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] hover:bg-[#292A2E] disabled:opacity-60"
                   >
                     <Building2 aria-hidden="true" className="h-4 w-4 shrink-0 text-[#A2A4AA]" />
                     <span className="min-w-0 flex-1 truncate">{item.tenant_name}</span>
@@ -275,18 +276,18 @@ export function Sidebar() {
             }
             <div className="border-t border-[#303135] py-1">
               {canConfigure && <Link role="menuitem" href="/config" onClick={onLinkClick}
-                className="block px-8 py-2 text-[13px] hover:bg-[#292A2E]">Configurações do workspace</Link>}
+                className="block px-8 py-2 text-[14px] hover:bg-[#292A2E]">Configurações do workspace</Link>}
               {canSeeMembers && <Link role="menuitem" href="/membros" onClick={onLinkClick}
-                className="block px-8 py-2 text-[13px] hover:bg-[#292A2E]">Membros da equipe</Link>}
+                className="block px-8 py-2 text-[14px] hover:bg-[#292A2E]">Membros da equipe</Link>}
               {canSeeRoles && <Link role="menuitem" href="/membros/cargos" onClick={onLinkClick}
-                className="block px-8 py-2 text-[13px] hover:bg-[#292A2E]">Cargos e permissões</Link>}
+                className="block px-8 py-2 text-[14px] hover:bg-[#292A2E]">Cargos e permissões</Link>}
               {canSeePlan && <Link role="menuitem" href="/fatura" onClick={onLinkClick}
-                className="block px-8 py-2 text-[13px] hover:bg-[#292A2E]">Plano MIRA</Link>}
+                className="block px-8 py-2 text-[14px] hover:bg-[#292A2E]">Plano MIRA</Link>}
             </div>
             <div className="border-t border-[#303135] py-1">
               <div className="truncate px-8 py-2 text-[11px] text-[#9CA0A7]" title={email}>{displayName}</div>
               <button type="button" role="menuitem" onClick={logout}
-                className="flex w-full items-center gap-2 px-8 py-2 text-left text-[13px] hover:bg-[#292A2E]">
+                className="flex w-full items-center gap-2 px-8 py-2 text-left text-[14px] hover:bg-[#292A2E]">
                 <LogOut aria-hidden="true" className="h-4 w-4" /> Sair da conta
               </button>
             </div>
@@ -299,7 +300,7 @@ export function Sidebar() {
             aria-label="Buscar páginas (Ctrl+K ou Cmd+K)"
             className={cn(
               "flex h-[30px] w-full items-center gap-2 rounded-[9px] border border-[#26272A]",
-              "bg-[#141517] px-2 text-left text-[13px] text-[#F1F2F3]",
+              "bg-[#141517] px-2 text-left text-[14px] text-[#F1F2F3]",
               "hover:bg-[#1B1C1F] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4E8CFC]",
               collapsed && "md:justify-center md:px-0",
             )}
@@ -364,7 +365,7 @@ export function Sidebar() {
             aria-label="Convidar membros"
             title={collapsed ? "Convidar membros" : undefined}
             className={cn(
-              "flex h-[29px] items-center gap-2 rounded-[9px] px-2 text-[13px] text-[#F1F2F3]",
+              "flex h-[29px] items-center gap-2 rounded-[9px] px-2 text-[14px] text-[#F1F2F3]",
               "hover:bg-[#1B1C1F] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4E8CFC]",
               collapsed && "md:justify-center md:px-0",
             )}
