@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "origin": "Upstream source vendored by pinned Git submodules; NOT deployment-ready",
+  "checked_at": "2026-11-05",
+  "sources": [
+    {
+      "key": "framework",
+      "url": "https://github.com/frappe/frappe.git",
+      "branch": "version-15",
+      "sha": "53bae3ef2550ca96320f036f581446783cd11b72",
+      "license": "MIT",
+      "role": "core",
+      "required": true,
+      "path": "vendor/frappe/framework"
+    },
+    {
+      "key": "erpnext",
+      "url": "https://github.com/frappe/erpnext.git",
+      "branch": "version-15",
+      "sha": "e5cde8c4b9e3f7f567a92ca3e65fd411402b89ce",
+      "license": "GPL-3.0",
+      "role": "business-finance",
+      "required": true,
+      "path": "vendor/frappe/erpnext"
+    },
+    {
+      "key": "education",
+      "url": "https://github.com/frappe/education.git",
+      "branch": "version-15.1",
+      "sha": "1f89e2e827d61f62f430a5343376837fdc43213f",
+      "license": "GPL-3.0 (project declaration; verify pinned license.txt)",
+      "role": "academic-backoffice",
+      "required": true,
+      "path": "vendor/frappe/education"
+    },
+    {
+      "key": "frappe-ui",
+      "url": "https://github.com/frappe/frappe-ui.git",
+      "branch": "main",
+      "sha": "cb9743784bd899b8d12726c0affc8a17ecd1ad81",
+      "license": "MIT",
+      "role": "vue-ui-source",
+      "required": false,
+      "path": "vendor/frappe/frappe-ui"
+    },
+    {
+      "key": "frappe_docker",
+      "url": "https://github.com/frappe/frappe_docker.git",
+      "branch": "main",
+      "sha": "fbf76edcf5791b1d9743955b85caf0a19974d5a6",
+      "license": "MIT",
+      "role": "self-hosting-deployment",
+      "required": false,
+      "path": "vendor/frappe/frappe_docker"
+    },
+    {
+      "key": "payments",
+      "url": "https://github.com/frappe/payments.git",
+      "branch": "develop",
+      "sha": "b2ceb4a0484cf5c4f4f8625a63182dda63de8895",
+      "license": "MIT",
+      "role": "gateway-integrations (NO_PIX_PROMISE)",
+      "required": false,
+      "path": "vendor/frappe/payments"
+    },
+    {
+      "key": "print_designer",
+      "url": "https://github.com/frappe/print_designer.git",
+      "branch": "develop",
+      "sha": "02dc886314149c95e682c3bd9677b717d3d8a126",
+      "license": "AGPL-3.0",
+      "role": "optional-pdf-design",
+      "required": false,
+      "path": "vendor/frappe/print_designer"
+    }
+  ]
+}
