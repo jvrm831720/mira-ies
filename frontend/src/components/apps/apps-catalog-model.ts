@@ -38,7 +38,7 @@ const editorial: Record<string, { name: string; description: string; category: A
 };
 export function normalizeAppKey(value: string): string {
   const clean = value.toLocaleLowerCase("en-US").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-  const aliases: Record<string, string> = { google_drive:"googledrive", google_sheets:"googlesheets", google_calendar:"googlecalendar", microsoft_outlook:"outlook", sophiaapi:"sophia", outlook365:"outlook" };
+  const aliases: Record<string, string> = { microsoftoutlook:"outlook", outlook365:"outlook", sophiaapi:"sophia" };
   return aliases[clean] || clean;
 }
 function categoryOf(value?: string | null): AppsCategory {
