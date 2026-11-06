@@ -1,14 +1,14 @@
 """Wave 5: institutional academic service workflow, immutable conversation and evidence.
 
-Revision ID: 063_academic_services_central
+Revision ID: 064_academic_services_central
 Revises: 062_finance_reconcile
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "063_academic_services_central"
-down_revision = "062_finance_reconcile"
+revision = "064_academic_services_central"
+down_revision = "063_payment_sandbox"
 branch_labels = None
 depends_on = None
 U = postgresql.UUID(as_uuid=False)

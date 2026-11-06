@@ -102,6 +102,7 @@ class FinanceIngestionBatch(Base):
 class FinanceObservation(Base):
     __tablename__ = "mira_finance_observations"
     __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_mira_finance_observation_tenant_id"),
         UniqueConstraint("tenant_id", "profile_id", "fingerprint", name="uq_mira_finance_observation_dedup"),
         ForeignKeyConstraint(
             ["tenant_id", "profile_id"], ["mira_finance_source_profiles.tenant_id", "mira_finance_source_profiles.id"],

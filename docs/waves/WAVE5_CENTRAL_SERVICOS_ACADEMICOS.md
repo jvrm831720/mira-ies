@@ -24,7 +24,7 @@ A MIRA reutiliza a solicitação criada pelo aluno em `/api/v1/student-portal/se
 
 ### Modelo de dados / migration
 
-A migration `063_academic_services_central` adiciona responsável via `mira_memberships`, prioridade, prazo, data de conclusão e vínculo de documento; cria comentários, anexos, notificações e modelos. Relações entre entidades são amarradas ao `tenant_id`; todas as tabelas novas usam PostgreSQL RLS e FORCE RLS. Eventos e evidências possuem triggers de imutabilidade.
+A migration `064_academic_services_central` adiciona responsável via `mira_memberships`, prioridade, prazo, data de conclusão e vínculo de documento; cria comentários, anexos, notificações e modelos. Relações entre entidades são amarradas ao `tenant_id`; todas as tabelas novas usam PostgreSQL RLS e FORCE RLS. Eventos e evidências possuem triggers de imutabilidade.
 
 ### Permissões
 

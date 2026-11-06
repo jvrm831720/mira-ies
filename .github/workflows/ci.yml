@@ -85,10 +85,10 @@ jobs:
           -- Legacy 002/004 bootstrap create_all uses the current ORM metadata.
           -- Remove later-wave tables/columns before replaying revisions 039..head.
           DROP TABLE IF EXISTS
-            mira_student_service_notifications,
-            mira_student_service_attachments,
-            mira_student_service_comments,
-            mira_student_document_templates,
+            mira_student_service_notifications, mira_student_service_attachments,
+            mira_student_service_comments, mira_student_document_templates,
+            mira_student_payment_evidence, mira_student_payment_intents,
+            mira_payment_provider_profiles, mira_asaas_workspace_destinations,
             mira_finance_review_events, mira_finance_review_cases,
             mira_finance_observations, mira_finance_ingestion_batches,
             mira_finance_student_links, mira_finance_source_profiles,
@@ -210,6 +210,34 @@ jobs:
               ) AND NOT tgisinternal
             ) <> 3 THEN
               RAISE EXCEPTION 'Wave 4C immutable history trigger missing';
+            END IF;
+            IF EXISTS (
+              SELECT 1 FROM (VALUES
+                ('mira_asaas_workspace_destinations'),
+                ('mira_payment_provider_profiles'),
+                ('mira_student_payment_intents'),
+                ('mira_student_payment_evidence')
+              ) AS required(table_name)
+              LEFT JOIN pg_class cls ON cls.relname=required.table_name
+              LEFT JOIN pg_namespace ns ON ns.oid=cls.relnamespace AND ns.nspname='public'
+              WHERE cls.oid IS NULL OR ns.oid IS NULL
+                OR NOT cls.relrowsecurity OR NOT cls.relforcerowsecurity
+                OR NOT EXISTS (
+                  SELECT 1 FROM pg_policies p
+                  WHERE p.schemaname='public' AND p.tablename=required.table_name
+                    AND p.policyname=required.table_name || '_tenant_access'
+                )
+            ) THEN
+              RAISE EXCEPTION 'Wave 4D payments tenant RLS/FORCE RLS policy missing';
+            END IF;
+            IF (
+              SELECT count(*) FROM pg_trigger
+              WHERE tgname IN (
+                'mira_student_payment_intents_immutable',
+                'mira_student_payment_evidence_immutable'
+              ) AND NOT tgisinternal
+            ) <> 2 THEN
+              RAISE EXCEPTION 'Wave 4D immutable payment ledger trigger missing';
             END IF;
           END
           $mira$;

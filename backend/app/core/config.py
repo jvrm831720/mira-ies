@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     native_academic_catalog_enabled: bool = False
     native_academic_services_enabled: bool = False
     student_finance_reconciliation_enabled: bool = False
+    student_payments_sandbox_enabled: bool = False
+    student_payments_sandbox_webhooks_enabled: bool = False
+    student_payments_sandbox_hmac_secret: str | None = None
+    # Issuer account wallet ID; recipient must be another Asaas wallet.
+    student_payments_asaas_issuer_wallet_id: str | None = None
     student_finance_composio_enabled: bool = False
     student_finance_composio_read_tools: str = ""
     student_document_attestation_enabled: bool = False
