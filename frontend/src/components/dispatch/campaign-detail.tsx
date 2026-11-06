@@ -16,7 +16,7 @@ import { MAX_ITEMS_PREVIEW, readableDate } from "./dispatch-utils";
 type DispatchItem = {
   id: string;
   status: string;
-  attempt: number;
+  attempt?: number | null;
   updated_at?: string | null;
   last_error?: string | null;
 };
@@ -41,7 +41,7 @@ function ItemList({ items, loading }: { items: DispatchItem[]; loading: boolean 
               {ITEM_STATUS_LABEL[item.status] || "Estado desconhecido"}
               {!!item.last_error && <span className="block text-[10px] text-[var(--color-red)]">Falha registrada; detalhes não exibidos</span>}
             </td>
-            <td className="px-2 py-3 tabular-nums">{item.attempt}</td>
+            <td className="px-2 py-3 tabular-nums">{item.attempt ?? "—"}</td>
             <td className="px-2 py-3">{readableDate(item.updated_at)}</td>
           </tr>)}</tbody>
         </table>
@@ -98,7 +98,7 @@ export function CampaignDetailDrawer({
     retry: false,
   });
   const current = detail.data?.campaign || campaign;
-  const items = (detail.data?.items || []) as DispatchItem[];
+  const items: DispatchItem[] = detail.data?.items || [];
   const status = CAMPAIGN_STATUS_LABEL[current.status] || current.status;
   const groups: RecordPropertyGroup[] = [
     { id: "identity", title: "Operação", properties: [
