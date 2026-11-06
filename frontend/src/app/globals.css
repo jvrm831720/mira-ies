@@ -1787,3 +1787,37 @@ textarea {
 .mira-app-shell :is(button, a, input) {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* MIRA Wave 0.8: exact dark sidebar palette expressed as design tokens. */
+:root {
+  --mira-sidebar-billing: #CB712C;
+  --mira-sidebar-academic: #9377D9;
+  --mira-sidebar-primary: #266DF0;
+  --mira-sidebar-focus: #4E8CFC;
+  --mira-sidebar-ink: #F1F2F3;
+  --mira-sidebar-hover: #1B1C1F;
+  --mira-sidebar-icon: #A2A4AA;
+  --mira-sidebar-outline: #303135;
+  --mira-sidebar-bg: #0B0C0D;
+  --mira-sidebar-edge: #232427;
+  --mira-sidebar-divider: #242528;
+  --mira-sidebar-menu: #17181A;
+  --mira-sidebar-mark-outline: #343538;
+  --mira-sidebar-mark-bg: #202125;
+  --mira-sidebar-secondary: #B7B9BE;
+  --mira-sidebar-menu-hover: #292A2E;
+  --mira-sidebar-muted: #9CA0A7;
+  --mira-sidebar-section: #26272A;
+  --mira-sidebar-deep: #141517;
+  --mira-sidebar-separator: #35363A;
+  --mira-sidebar-control: #333438;
+  --mira-sidebar-accent: #81A9FA;
+  --mira-sidebar-caption: #9A9CA3;
+  --mira-sidebar-foot-divider: #252629;
+  --mira-sidebar-type-10: 10px;
+  --mira-sidebar-type-11: 11px;
+  --mira-sidebar-type-12: 12px;
+  --mira-sidebar-type-14: 14px;
+  --mira-sidebar-type-16: 16px;
+  --mira-sidebar-type-17: 17px;
+}

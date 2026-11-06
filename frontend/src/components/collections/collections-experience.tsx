@@ -67,7 +67,9 @@ export function CollectionsExperience() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
   const profile = me.data?.operation_profile;
-  const allowedProfile = ["collection", "debt_collection", "billing", "cobranca"].includes(profile ?? "");
+  const educationWithBilling = profile === "institution"
+    && Array.isArray(me.data?.enabled_modules) && me.data.enabled_modules.includes("billing");
+  const allowedProfile = ["collection", "debt_collection", "billing", "cobranca"].includes(profile ?? "") || educationWithBilling;
   const allowed = allowedProfile && hasNavigationPermission(me.data, "audit.view")
     && (!Array.isArray(me.data?.enabled_modules) || me.data.enabled_modules.includes("billing"));
   const tenant = me.data?.tenant_id ?? "";
