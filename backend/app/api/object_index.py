@@ -6,8 +6,9 @@ No arbitrary SQL field names or order expressions are accepted.
 from __future__ import annotations
 
 from typing import Literal
+import json
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,8 +75,27 @@ async def index_students(
     auth: AuthContext = Depends(require_permission("students.view")),
     db: AsyncSession = Depends(get_db),
 ):
+    # Effective RBAC controls response fields AND the ability to infer a
+    # student's private risk from sorting, counts or predicates.
+    sensitive = (
+        "students.sensitive.view" in auth.permissions
+        if auth.permissions is not None else
+        auth.custom_role_id is None and auth.role in ("admin", "coordinator")
+    )
+    compiled = compile_filters(filters)
+    if not sensitive:
+        sensitive_views = {"risco", "sem_classificacao", "dados_insuficientes", "acompanhamento"}
+        forbidden = bool(risk_level) or view in sensitive_views or sort.startswith("risk_")
+        if filters:
+            filters_data = json.loads(filters)  # validated by compile_filters()
+            forbidden = forbidden or any(
+                item["key"] not in {"nome", "matricula", "curso"}
+                for item in filters_data
+            )
+        if forbidden:
+            raise HTTPException(status_code=403, detail="Filtros e ordenação sensíveis não autorizados.")
     scoped = _student_filters(auth.tenant_id, q=q, course=course, risk_level=risk_level, view=view)
-    scoped.extend(compile_filters(filters))
+    scoped.extend(compiled)
     total = (await db.execute(select(func.count(Student.id)).where(and_(*scoped)))).scalar_one()
     # All row access is bound to the same tenant as the count. No client-provided ID list.
     rows = (await db.execute(
@@ -84,7 +104,7 @@ async def index_students(
     )).scalars().all()
     ids = [row.id for row in rows]
     latest: dict[str, dict] = {}
-    if ids:
+    if ids and sensitive:
         ranked = (select(
             InterventionLog.student_id,
             InterventionLog.status,
@@ -103,11 +123,14 @@ async def index_students(
     return {
         "students": [{
             "id": student.id, "nome": student.nome, "matricula": student.matricula,
-            "curso": student.curso, "risk_level": student.risk_level,
-            "risk_score": student.risk_score,
-            "shap_summary": (student.shap_top_factors or {}).get("summary"),
-            "shap_top_factors": student.shap_top_factors,
-            "follow_up": latest.get(student.id),
+            "curso": student.curso,
+            **({
+                "risk_level": student.risk_level,
+                "risk_score": student.risk_score,
+                "shap_summary": (student.shap_top_factors or {}).get("summary"),
+                "shap_top_factors": student.shap_top_factors,
+                "follow_up": latest.get(student.id),
+            } if sensitive else {}),
         } for student in rows],
         "total": total, "limit": limit, "offset": offset,
         "has_more": offset + len(rows) < total,

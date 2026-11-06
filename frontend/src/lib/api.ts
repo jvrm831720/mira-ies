@@ -682,6 +682,22 @@ export const api = {
     return response;
   },
 
+  // Composio discovery is restricted to settings.manage on the backend.
+  // Listing does not authenticate, approve, connect or execute remote tools.
+  composioCatalog: () =>
+    request<{ source: string; total: number; items: Array<{
+      slug: string; name: string; description?: string | null;
+      categories?: string[]; category?: string | null;
+      enabled: boolean; selected_tool_slugs?: string[];
+    }> }>("/api/v1/integrations/composio/catalog"),
+
+  composioConnections: () =>
+    request<{ total: number; items: Array<{
+      id: string; toolkit_slug: string; connected_account_id: string;
+      display_name?: string | null; status: string;
+      connected_at?: string | null; disconnected_at?: string | null;
+    }> }>("/api/v1/integrations/composio/connections"),
+
   listConnectors: () =>
     request<{
       count: number;
