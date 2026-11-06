@@ -43,7 +43,7 @@ const editorial: Record<string, { name: string; description: string; category: A
  */
 const moreEditorial: Array<[string,string,AppsCategory,string]> = [
   ["microsoftteams","Microsoft Teams","Comunicação","Mensagens e reuniões"],
-  ["zoom","Zoom","Videoconferências"],["zoomchat","Zoom Team Chat","Comunicação","Colaboração por mensagens"],
+  ["zoom","Zoom","Comunicação","Videoconferências"],["zoomchat","Zoom Team Chat","Comunicação","Colaboração por mensagens"],
   ["aircall","Aircall","Comunicação","Telefonia empresarial"],
   ["hubspot","HubSpot","Outros","CRM e relacionamento"],["salesforce","Salesforce","Outros","Gestão de clientes"],
   ["pipedrive","Pipedrive","Outros","Funil comercial"],["dynamics365","Dynamics 365","Outros","CRM corporativo"],
@@ -68,7 +68,7 @@ const moreEditorial: Array<[string,string,AppsCategory,string]> = [
   ["gvdasa","GVDASA","Acadêmico","Sistema educacional"],["wpensar","WPensar","Acadêmico","Gestão educacional"],
 ];
 for (const [id,name,category,description] of moreEditorial) {
-  if (!editorial[id]) editorial[id] = {name,description,category,initials:name.slice(0,1).toUpperCase(),color:"gray",rank:1000};
+  if (!editorial[id]) editorial[id] = {name,description:description||"Integração com sua operação",category,initials:name.slice(0,1).toUpperCase(),color:"gray",rank:1000};
 }
 
 export function normalizeAppKey(value: string): string {
