@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
 import type { ObjectField } from "@/components/object-index/object-index-types";
-import type { RetentionCampaignProposal } from "@/types/api";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
