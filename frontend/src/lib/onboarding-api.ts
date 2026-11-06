@@ -15,6 +15,8 @@ export type CompleteOnboardingPayload = {
   campuses: string;
   description: string;
   data_sources: string[];
+  logo_data_url?: string;
+  auto_logo?: boolean;
 };
 
 export type CompanyEnrichment = {
@@ -35,6 +37,8 @@ export type WebsiteEnrichment = {
   markdown: string;
   truncated: boolean;
   source: string;
+  detected_cnpj?: string | null;
+  logo_url?: string | null;
 };
 
 export type OnboardingEnrichment = {
