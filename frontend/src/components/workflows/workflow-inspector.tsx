@@ -1,0 +1,144 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, CheckCircle2, LockKeyhole, ShieldCheck } from "@/components/ui/icons";
+import { api } from "@/lib/api";
+import type { WorkflowBlock, WorkflowRecord } from "./workflow-model";
+import { mayEditProposal } from "./workflow-model";
+
+const stateNames = {
+  verified: "Registrado na MIRA",
+  pending: "Aguardando etapa",
+  attention: "Requer atenção",
+  unavailable: "Sem capacidade/evidência disponível",
+};
+
+export function WorkflowInspector({
+  record, node, canEdit, permissions, onSaved,
+}: {
+  record: WorkflowRecord;
+  node: WorkflowBlock | undefined;
+  canEdit: boolean;
+  permissions: string[];
+  onSaved: () => Promise<unknown>;
+}) {
+  const [title, setTitle] = useState("");
+  const [objective, setObjective] = useState("");
+  const [strategy, setStrategy] = useState("");
+  const [messageBrief, setMessageBrief] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    setTitle(record.kind === "proposal" ? record.source.title : "");
+    setObjective(record.kind === "proposal" ? record.source.objective : "");
+    setStrategy(record.kind === "proposal" ? record.source.strategy : "");
+    setMessageBrief(record.kind === "proposal" ? record.source.message_brief : "");
+    setError(""); setSuccess("");
+  }, [record]);
+
+  if (!node) return <aside aria-label="Propriedades do bloco" className="rounded-xl border border-[#E6E8EC] bg-white p-5 text-sm text-[#747A86]">Selecione um bloco do fluxo para consultar suas propriedades.</aside>;
+
+  const canPersist = node.id === "proposal" && mayEditProposal(record, canEdit);
+  async function save() {
+    if (!canPersist || record.kind !== "proposal" || saving) return;
+    setError(""); setSuccess("");
+    if (title.trim().length < 3 || objective.trim().length < 3 || strategy.trim().length < 3 || messageBrief.trim().length < 3) {
+      setError("Preencha todos os campos com pelo menos 3 caracteres."); return;
+    }
+    // Native human confirmation; changes can reset previous review/authorization.
+    if (!window.confirm("Salvar a alteração na proposta real? A revisão e autorização anteriores podem ser invalidadas pelo backend.")) return;
+    setSaving(true);
+    try {
+      const changes = {
+        title: title.trim(), objective: objective.trim(),
+        strategy: strategy.trim(), message_brief: messageBrief.trim(),
+      };
+      await api.updateRetentionCampaignProposal(record.id, changes);
+      await onSaved();
+      setSuccess("Proposta atualizada no serviço de permanência.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível salvar a proposta.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <aside aria-label="Propriedades do bloco" className="min-w-0 overflow-hidden rounded-xl border border-[#E7E9EE] bg-white">
+      <div className="border-b border-[#EDF0F2] px-5 py-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.11em] text-[#8A929E]">Propriedades do bloco</span>
+          <span className="rounded-md bg-[#F3F5F8] px-2 py-1 text-[10px] text-[#626975]"> {canPersist ? "Persistível" : "Somente leitura"} </span>
+        </div>
+        <h2 className="text-[15px] font-semibold tracking-tight text-[#181B21]">{node.title}</h2>
+        <p className="mt-1 text-xs leading-5 text-[#737B87]">{node.description}</p>
+      </div>
+      <div className="space-y-5 p-5">
+        <div className="rounded-lg border border-[#EDF0F2] bg-[#FAFBFC] p-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-[#343B45]">
+            {node.state === "verified" ? <CheckCircle2 className="h-4 w-4 text-[#287347]" /> : <LockKeyhole className="h-4 w-4 text-[#848B95]" />}
+            {stateNames[node.state]}
+          </div>
+          <p className="mt-1.5 text-[11px] text-[#717984]">Evidência: {node.source}</p>
+        </div>
+        <div>
+          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.09em] text-[#818A96]">Dados verificados</h3>
+          <dl className="space-y-3">
+            {node.details.map(item => (
+              <div key={item.label} className="border-b border-[#F0F1F4] pb-2 last:border-0">
+                <dt className="text-[11px] text-[#858C97]">{item.label}</dt>
+                <dd className="mt-1 break-words text-[12px] font-medium leading-5 text-[#262A31]">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        <div className="border-t border-[#EEF0F3] pt-4">
+          <h3 className="flex items-center gap-2 text-xs font-semibold text-[#353943]"><ShieldCheck className="h-4 w-4 text-[#727A88]" /> Permissão da etapa</h3>
+          <p className="mt-2 rounded-md bg-[#F6F8FA] px-2 py-1.5 font-mono text-[11px] text-[#3F4753]">{node.requiredPermission}</p>
+          <p className="mt-2 text-[11px] leading-5 text-[#818994]">
+            {permissions.includes(node.requiredPermission) ? "Concedida na sessão do workspace. O serviço valida novamente ao receber a ação." : "Não concedida nesta sessão ou indisponível. Nada pode ser executado aqui."}
+          </p>
+        </div>
+        {canPersist && record.kind === "proposal" && (
+          <form onSubmit={event => { event.preventDefault(); void save(); }} className="space-y-3 border-t border-[#EEF0F3] pt-4">
+            <div>
+              <p className="text-[12px] font-semibold text-[#222730]">Editar configuração persistível</p>
+              <p className="mt-1 text-[11px] leading-5 text-[#7B828D]">Somente proposta em rascunho/ajustes. A API controla MFA, versão e segregação de funções.</p>
+            </div>
+            <label className="block text-[11px] font-medium text-[#59616C]">Título
+              <input name="title" required minLength={3} maxLength={160} value={title} onChange={e => setTitle(e.target.value)}
+                className="mt-1 w-full rounded-md border border-[#DCE1E7] px-3 py-2 text-xs text-[#20242B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]" />
+            </label>
+            <label className="block text-[11px] font-medium text-[#59616C]">Objetivo
+              <textarea name="objective" required minLength={3} maxLength={4000} rows={3} value={objective} onChange={e => setObjective(e.target.value)}
+                className="mt-1 w-full resize-y rounded-md border border-[#DCE1E7] px-3 py-2 text-xs text-[#20242B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]" />
+            </label>
+            <label className="block text-[11px] font-medium text-[#59616C]">Estratégia
+              <textarea name="strategy" required minLength={3} maxLength={4000} rows={3} value={strategy} onChange={e => setStrategy(e.target.value)}
+                className="mt-1 w-full resize-y rounded-md border border-[#DCE1E7] px-3 py-2 text-xs text-[#20242B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]" />
+            </label>
+            <label className="block text-[11px] font-medium text-[#59616C]">Brief de comunicação
+              <textarea name="brief" required minLength={3} maxLength={8000} rows={3} value={messageBrief} onChange={e => setMessageBrief(e.target.value)}
+                className="mt-1 w-full resize-y rounded-md border border-[#DCE1E7] px-3 py-2 text-xs text-[#20242B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]" />
+            </label>
+            {error && <p role="alert" className="text-xs text-[#B3261E]">{error}</p>}
+            {success && <p role="status" className="text-xs text-[#276749]">{success}</p>}
+            <button type="submit" disabled={saving} className="w-full rounded-lg bg-[#202124] px-3 py-2.5 text-xs font-semibold text-white hover:bg-black disabled:opacity-40">
+              {saving ? "Salvando..." : "Salvar na proposta"}
+            </button>
+          </form>
+        )}
+        <div className="border-t border-[#EEF0F3] pt-4">
+          <p className="mb-3 text-[11px] text-[#868D99]">Operações críticas continuam no fluxo institucional existente.</p>
+          <Link href={record.kind === "proposal" ? "/campanhas" : "/disparos"}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2563EB] hover:underline">
+            Abrir operação original <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
+    </aside>
+  );
+}
