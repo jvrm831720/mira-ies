@@ -73,13 +73,16 @@ async def test_retention_proposal_rls_enforces_tenant_for_read_write(
     await context(tenant_a_id)
     row_a = _proposal(tenant_a_id, "a")
     db_session.add(row_a)
+    await db_session.flush()
+    row_a_id = row_a.id
     await db_session.commit()
 
     await context(tenant_b_id)
     row_b = _proposal(tenant_b_id, "b")
     db_session.add(row_b)
+    await db_session.flush()
+    row_b_id = row_b.id
     await db_session.commit()
-    row_a_id, row_b_id = row_a.id, row_b.id
 
     await context(tenant_a_id)
     visible_a = (await db_session.execute(
