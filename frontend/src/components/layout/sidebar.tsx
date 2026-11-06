@@ -115,6 +115,7 @@ const groups: NavGroup[] = [
 
 function isActive(pathname: string, link: NavLink): boolean {
   if (link.exact || link.href === "/") return pathname === "/";
+  if (link.href === "/academico") return pathname === "/academico";
   if (link.href === "/alunos") {
     return pathname === "/alunos" || (pathname.startsWith("/alunos/") && !pathname.startsWith("/alunos/grupos"));
   }
