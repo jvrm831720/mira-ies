@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Upload, Users } from "@/components/ui/icons";
 import { StudentDrawer } from "@/components/students/student-drawer";
@@ -17,6 +18,11 @@ import { listStudentIndex, type ObjectIndexStudent } from "@/lib/object-index-ap
 import { api } from "@/lib/api";
 import { getVisibleNavigation, hasNavigationPermission } from "@/components/layout/navigation";
 import { RiskBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { RiskScoreTrend } from "./risk-trend";
+import { RETENTION_SELECTION_KEY, serializeRetentionSelection } from "@/lib/retention-selection";
+import { RiskMovementsFeed } from "./risk-movements-feed";
 
 const STUDENT_VIEWS: ObjectDefaultView[] = [
   { id: "todos", title: "Todos" },
@@ -80,6 +86,8 @@ export function StudentsListPage() {
   const router = useRouter();
   const [state, setState] = useState(() => parseInitialState(searchParams));
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [campaignIds, setCampaignIds] = useState<string[]>([]);
+  const [campaignName, setCampaignName] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState(state.query);
   const groupId = searchParams.get("group") || "";
   const validGroup = KNOWN_GROUP_IDS.has(groupId) ? groupId : "";
@@ -92,6 +100,7 @@ export function StudentsListPage() {
   const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
   useEffect(() => {
     setSelectedId(null);
+    setCampaignIds([]);
   }, [me.data?.tenant_id, me.data?.user_id]);
 
   const visibleNav = useMemo(() => getVisibleNavigation(me.data), [me.data]);
@@ -110,6 +119,44 @@ export function StudentsListPage() {
   const sort = !safeSort ? (canSensitive ? "risk_desc" : "name_asc")
     : safeSort.key === "risk_score" ? (safeSort.desc ? "risk_desc" : "risk_asc")
     : safeSort.key === "curso" ? "course_asc" : (safeSort.desc ? "name_desc" : "name_asc");
+
+  const canPrepareCampaign = canSensitive && hasNavigationPermission(me.data, "campaigns.create");
+  const range = useMemo(() => {
+    const now = new Date();
+    const previous = new Date(now);
+    previous.setDate(now.getDate() - 30);
+    return { from: previous.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) };
+  }, []);
+  const movementsQuery = useQuery({
+    queryKey: ["risk-movements", me.data?.tenant_id, range.from, range.to],
+    queryFn: () => api.riskHistory({ from: range.from, to: range.to, page: 1, page_size: 100 }),
+    enabled: canSensitive && canView,
+    staleTime: 60_000, retry: false,
+  });
+  const movementsByStudent = useMemo(() =>
+    new Map((movementsQuery.data?.movements || []).map(m => [m.student_id, m])),
+    [movementsQuery.data]);
+  const riskFields = useMemo(() => STUDENT_FIELDS.map(field => field.key === "risk_score"
+    ? { ...field, render: (row: ObjectIndexStudent) =>
+      <RiskScoreTrend score={row.risk_score} movement={movementsByStudent.get(row.id)} /> } : field),
+    [movementsByStudent]);
+  function prepareCampaign() {
+    if (!canPrepareCampaign || !campaignIds.length || campaignName.trim().length < 3 ||
+      !me.data?.tenant_id || !me.data?.user_id) {
+      toast.error("Não foi possível validar a seleção ou a autorização.");
+      return;
+    }
+    try {
+      window.sessionStorage.setItem(RETENTION_SELECTION_KEY, serializeRetentionSelection({
+        tenantId: me.data.tenant_id, userId: me.data.user_id,
+        ids: campaignIds, campaign: campaignName.trim(), createdAt: Date.now(),
+      }));
+      setCampaignIds([]);
+      router.push("/retencao?source=selection");
+    } catch {
+      toast.error("Não foi possível transferir a seleção ao planejamento.");
+    }
+  }
 
   const query = useQuery({
     queryKey: ["object-index", "students", me.data?.tenant_id, me.data?.user_id, debouncedQuery, safeView, safeFilters, sort, state.pageIndex, state.pageSize],
@@ -139,7 +186,7 @@ export function StudentsListPage() {
     <main className="mira-page min-h-dvh">
       <ObjectIndex objectKey="students" title="Alunos"
         description={canSensitive ? "Explore registros institucionais, classificação e acompanhamento com dados verificados." : "Registros institucionais autorizados para este perfil."}
-        fields={exposedFields} rows={query.data?.students || []}
+        fields={canSensitive ? riskFields : exposedFields} rows={query.data?.students || []}
         state={canSensitive ? state : {
           ...state, view: safeView, filters: safeFilters, sort: safeSort,
           columns: state.columns.filter(key => publicFields.some(field => field.key === key)),
@@ -153,6 +200,14 @@ export function StudentsListPage() {
         onRefresh={() => void query.refetch()}
         refreshing={query.isFetching}
         onOpen={row => setSelectedId(row.id)}
+        selectionActions={canPrepareCampaign ? rows => <Button size="sm" variant="primary" onClick={() => {
+          setCampaignIds([...new Set(rows.map(row => row.id))]);
+          setCampaignName("");
+        }}>Criar campanha de retenção ({rows.length})</Button> : undefined}
+        emptyAction={state.query || state.filters.length
+          ? <button type="button" className="text-[12px] font-medium text-[var(--color-blue)] hover:underline"
+              onClick={() => setState(initialObjectIndexState(STUDENT_FIELDS))}>Limpar busca e filtros</button>
+          : canImport ? <Link href="/importar" className="text-[12px] font-medium text-[var(--color-blue)] hover:underline">Importar alunos</Link> : null}
         actions={<div className="flex items-center gap-2">
           <Link href="/alunos/grupos" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[12px] font-medium text-[var(--color-ink)] hover:bg-[var(--color-panel)]">
             <Users className="h-3.5 w-3.5" /> Grupos
@@ -161,9 +216,37 @@ export function StudentsListPage() {
             <Upload className="h-3.5 w-3.5" /> Importar
           </Link>}
         </div>}
-        extra={groupId && !validGroup ? <p role="alert" className="p-3 text-[12px] text-[var(--color-red)]">O grupo indicado não foi reconhecido.</p> : null}
+        extra={<>
+          {canSensitive && <RiskMovementsFeed movements={movementsQuery.data?.movements || []}
+            loading={movementsQuery.isLoading} unavailable={movementsQuery.isError}
+            truncated={Boolean(movementsQuery.data?.movements_truncated || movementsQuery.data?.temporal_data_truncated)}
+            onOpen={setSelectedId} />}
+          {groupId && !validGroup && <p role="alert" className="p-3 text-[12px] text-[var(--color-red)]">O grupo indicado não foi reconhecido.</p>}
+        </>}
       />
     </main>
     <StudentDrawer studentId={selectedId} onClose={() => setSelectedId(null)} />
+    <Dialog open={campaignIds.length > 0}
+      onOpenChange={open => { if (!open) setCampaignIds([]); }}
+      title="Criar campanha de retenção"
+      description="Seleção desta página. Você revisará público, canais e condições no planejamento antes de qualquer execução.">
+      <form className="space-y-4" onSubmit={event => {
+        event.preventDefault();
+        prepareCampaign();
+      }}>
+        <p className="text-[13px] text-[var(--color-slate-600)]">{campaignIds.length} aluno(s) selecionado(s) nesta página. O público será revisado na régua; consentimento e elegibilidade continuam sob controle do servidor.</p>
+        <label className="block text-[12px] font-medium text-[var(--color-ink)]">Nome de referência
+          <input value={campaignName} onChange={event => setCampaignName(event.target.value)}
+            minLength={3} maxLength={100} placeholder="Ex.: Acompanhamento de novembro" required
+            className="mt-1 h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 text-[13px] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]" />
+        </label>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => setCampaignIds([])}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={!canPrepareCampaign || campaignName.trim().length < 3}>
+            Continuar para planejamento
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   </>;
 }

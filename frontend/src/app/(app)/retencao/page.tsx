@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +32,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { loadGroupMemberIds } from "@/lib/retention-audience";
+import { RETENTION_SELECTION_KEY, parseRetentionSelection } from "@/lib/retention-selection";
+import { hasNavigationPermission } from "@/components/layout/navigation";
 import type { RiskLevel, RetentionCampaignOpportunity, RetentionRunResult } from "@/types/api";
 
 const steps = [
@@ -81,8 +83,40 @@ function PlanningPanel({
   const [dryRun, setDryRun] = useState(true);
   const [selectedGroups, setSelectedGroups] = useState<string[]>(groupFromUrl ? [groupFromUrl] : []);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const fromStudentSelection = searchParams.get("source") === "selection";
+  const [selectionReady, setSelectionReady] = useState(!fromStudentSelection);
+  const [selectionError, setSelectionError] = useState("");
+  const selectionConsumed = useRef(false);
+  const currentUser = useQuery({ queryKey: ["org-me"], queryFn: api.me, staleTime: 60_000, retry: false });
   const [audienceLoading, setAudienceLoading] = useState(false);
   const [intelligentSelection, setIntelligentSelection] = useState<RetentionCampaignOpportunity | null>(null);
+
+  useEffect(() => {
+    if (!fromStudentSelection || selectionConsumed.current || currentUser.isLoading) return;
+    selectionConsumed.current = true;
+    let value: string | null = null;
+    try {
+      value = window.sessionStorage.getItem(RETENTION_SELECTION_KEY);
+      window.sessionStorage.removeItem(RETENTION_SELECTION_KEY);
+    } catch {
+      setSelectionReady(false);
+      setSelectionError("O navegador bloqueou o acesso à seleção temporária. Selecione novamente os alunos.");
+      return;
+    }
+    const data = parseRetentionSelection(value, currentUser.data?.tenant_id, currentUser.data?.user_id);
+    if (!data || currentUser.isError ||
+      !hasNavigationPermission(currentUser.data, "campaigns.create") ||
+      !hasNavigationPermission(currentUser.data, "students.sensitive.view")) {
+      setSelectionReady(false);
+      setSelectionError("A seleção expirou ou não pertence a este usuário e workspace. Escolha novamente os alunos.");
+      return;
+    }
+    setCampaign(data.campaign);
+    setSelectedIds(data.ids);
+    setDryRun(true);
+    setSelectionReady(true);
+    setSelectionError("");
+  }, [fromStudentSelection, currentUser.data, currentUser.isLoading, currentUser.isError]);
 
   const summaryQuery = useQuery({ queryKey: ["student-groups", "summary"], queryFn: () => api.studentGroupsSummary() });
   const opportunitiesQuery = useQuery({
@@ -133,8 +167,16 @@ function PlanningPanel({
 
   return (
     <div className="space-y-5">
+      {fromStudentSelection && selectionError ? <div role="alert"
+        className="rounded-[var(--radius-md)] border border-[var(--color-red-tint-border)] bg-[var(--color-red-tint)] px-4 py-3 text-[12px] text-[var(--color-red)]">
+        {selectionError} <Link href="/alunos" className="font-semibold underline">Voltar à lista</Link>
+      </div> : null}
+      {fromStudentSelection && selectionReady && selectedIds.length > 0 ? <div role="status"
+        className="rounded-[var(--radius-md)] border border-[var(--color-blue-tint-border)] bg-[var(--color-blue-tint)] px-4 py-3 text-[12px] text-[var(--color-ink)]">
+        {selectedIds.length} aluno(s) da lista carregados para planejamento. Nenhum envio foi realizado.
+      </div> : null}
       <Card className="overflow-hidden">
-        <CardHeader className="border-b bg-[#FCFCFD]">
+        <CardHeader className="border-b bg-[var(--color-surface-raised)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>Monte a intervenção</CardTitle>
@@ -156,7 +198,7 @@ function PlanningPanel({
           </div>
 
           {source === "intelligent" ? (
-            <div className="space-y-3 rounded-xl border border-[#D9D6FE] bg-[#F9F8FF] p-4">
+            <div className="space-y-3 rounded-xl border border-[var(--color-blue-tint)] bg-[var(--color-blue-tint)] p-4">
               <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">Oportunidades recomendadas</p><p className="text-xs text-muted-foreground">A recomendação é determinística e explicável; a mensagem ainda precisa de revisão humana.</p></div><Link href="/campanhas" className="text-xs font-semibold text-primary underline underline-offset-2">Abrir aprovações</Link></div>
               {opportunitiesQuery.isLoading ? <div className="space-y-2"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div> : opportunitiesQuery.isError ? <p className="text-sm text-red-600">Não foi possível carregar as oportunidades para seu perfil.</p> : (opportunitiesQuery.data?.opportunities ?? []).length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma oportunidade disponível no momento.</p> : <div className="grid gap-2 lg:grid-cols-2">{(opportunitiesQuery.data?.opportunities ?? []).map((opportunity) => { const selected = intelligentSelection?.group_id === opportunity.group_id; return <button key={opportunity.group_id} type="button" onClick={() => applyOpportunity(opportunity)} className={`rounded-lg border p-3 text-left ${selected ? "border-primary bg-white" : "border-border bg-white hover:border-primary/40"}`}><div className="flex items-start justify-between gap-2"><span className="text-sm font-semibold">{opportunity.group_name}</span><span className="rounded-full bg-muted px-2 py-1 text-[10px] font-semibold">{formatNumber(opportunity.matched_count)} alunos</span></div><p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{opportunity.objective}</p><div className="mt-2 flex items-center gap-1 text-[11px] font-medium text-primary">Usar recomendação <ChevronRight className="h-3 w-3" /></div></button>; })}</div>}
             </div>
@@ -177,7 +219,7 @@ function PlanningPanel({
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={dryRun} onChange={(event) => setDryRun(event.target.checked)} /><span><span className="font-semibold text-foreground">Dry-run recomendado</span><br />Simula a execução sem enviar mensagens reais.</span></label>
-            <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => onNavigate("aprovar")}><FileCheck2 className="mr-2 h-4 w-4" />Ver aprovações</Button><Button disabled={running || (!campaign.trim() && source === "manual")} onClick={() => void onRun({ levels, studentIds: selectedIds, campaign, dryRun, channels })}>{running ? "Preparando…" : dryRun ? "Simular intervenção" : "Executar intervenção"}<ChevronRight className="ml-2 h-4 w-4" /></Button></div>
+            <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => onNavigate("aprovar")}><FileCheck2 className="mr-2 h-4 w-4" />Ver aprovações</Button><Button disabled={running || (fromStudentSelection && !selectionReady) || (!campaign.trim() && source === "manual")} onClick={() => void onRun({ levels, studentIds: selectedIds, campaign, dryRun, channels })}>{running ? "Preparando…" : dryRun ? "Simular intervenção" : "Executar intervenção"}<ChevronRight className="ml-2 h-4 w-4" /></Button></div>
           </div>
         </CardContent>
       </Card>
@@ -226,7 +268,7 @@ function RetencaoContent() {
     finally { setRunning(false); }
   }
 
-  return <><Header title="Intervenções" subtitle="Planeje, aprove e acompanhe estratégias de retenção em um só lugar." /><main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10"><div className="rounded-[10px] border border-[#E4E7EC] bg-white p-4 shadow-none"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Centro de intervenção</p><p className="mt-1 text-sm text-muted-foreground">Do sinal operacional ao histórico do aluno, cada etapa tem seu próprio contexto e permissão.</p></div><div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground"><Users className="h-4 w-4" /> {result ? "Última execução pronta para acompanhamento" : "Nenhuma execução nesta sessão"}</div></div><div className="mt-5 grid gap-2 md:grid-cols-3">{steps.map((item, index) => { const active = step === item.id; const complete = steps.findIndex((entry) => entry.id === step) > index; return <button key={item.id} type="button" onClick={() => setStep(item.id)} className={`relative flex items-center gap-3 rounded-xl border p-3 text-left ${active ? "border-primary bg-primary/5" : complete ? "border-emerald-200 bg-emerald-50/50" : "border-border hover:bg-muted/30"}`}><span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold ${active ? "bg-primary text-white" : complete ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>{complete ? <Check className="h-4 w-4" /> : index + 1}</span><span><span className="block text-sm font-semibold">{item.label}</span><span className="block text-[11px] text-muted-foreground">{item.detail}</span></span>{index < steps.length - 1 ? <ChevronRight className="absolute -right-3 hidden h-4 w-4 bg-white text-muted-foreground md:block" /> : null}</button>; })}</div></div>{step === "planejar" ? <PlanningPanel onNavigate={setStep} onRun={run} running={running} /> : null}{step === "aprovar" ? <ApprovalPanel onPlan={() => setStep("planejar")} /> : null}{step === "executar" ? <ExecutionPanel result={result} onPlan={() => setStep("planejar")} onRefresh={() => void queryClient.invalidateQueries({ queryKey: ["retention-logs", "interventions"] })} /> : null}<div className="flex items-start gap-2 rounded-xl border bg-muted/20 p-4 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Toda execução respeita opt-out global, preferências por canal, deduplicação e intervalos anti-spam. A aprovação institucional não substitui a análise da base legal nem libera envio fora das permissões do tenant.</div></main></>;
+  return <><Header title="Intervenções" subtitle="Planeje, aprove e acompanhe estratégias de retenção em um só lugar." /><main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10"><div className="rounded-[10px] border border-[var(--color-blue-tint)] bg-white p-4 shadow-none"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Centro de intervenção</p><p className="mt-1 text-sm text-muted-foreground">Do sinal operacional ao histórico do aluno, cada etapa tem seu próprio contexto e permissão.</p></div><div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground"><Users className="h-4 w-4" /> {result ? "Última execução pronta para acompanhamento" : "Nenhuma execução nesta sessão"}</div></div><div className="mt-5 grid gap-2 md:grid-cols-3">{steps.map((item, index) => { const active = step === item.id; const complete = steps.findIndex((entry) => entry.id === step) > index; return <button key={item.id} type="button" onClick={() => setStep(item.id)} className={`relative flex items-center gap-3 rounded-xl border p-3 text-left ${active ? "border-primary bg-primary/5" : complete ? "border-emerald-200 bg-emerald-50/50" : "border-border hover:bg-muted/30"}`}><span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold ${active ? "bg-primary text-white" : complete ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"}`}>{complete ? <Check className="h-4 w-4" /> : index + 1}</span><span><span className="block text-sm font-semibold">{item.label}</span><span className="block text-[11px] text-muted-foreground">{item.detail}</span></span>{index < steps.length - 1 ? <ChevronRight className="absolute -right-3 hidden h-4 w-4 bg-white text-muted-foreground md:block" /> : null}</button>; })}</div></div>{step === "planejar" ? <PlanningPanel onNavigate={setStep} onRun={run} running={running} /> : null}{step === "aprovar" ? <ApprovalPanel onPlan={() => setStep("planejar")} /> : null}{step === "executar" ? <ExecutionPanel result={result} onPlan={() => setStep("planejar")} onRefresh={() => void queryClient.invalidateQueries({ queryKey: ["retention-logs", "interventions"] })} /> : null}<div className="flex items-start gap-2 rounded-xl border bg-muted/20 p-4 text-xs leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Toda execução respeita opt-out global, preferências por canal, deduplicação e intervalos anti-spam. A aprovação institucional não substitui a análise da base legal nem libera envio fora das permissões do tenant.</div></main></>;
 }
 
 export default function RetencaoPage() {

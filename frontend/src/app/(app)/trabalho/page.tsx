@@ -173,15 +173,15 @@ export default function WorkCenterPage() {
         subtitle="Fila operacional de decisões e intervenções — dados reais do tenant."
       />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10">
-        <section className="flex flex-col justify-between gap-4 border-b border-[#E5E7EB] pb-5 sm:flex-row sm:items-center">
+        <section className="flex flex-col justify-between gap-4 border-b border-[var(--color-border)] pb-5 sm:flex-row sm:items-center">
           <div className="max-w-2xl">
-            <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2563EB]">
+            <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-blue)]">
               <ClipboardList className="h-3.5 w-3.5" /> Operação diária
             </p>
-            <h2 className="text-xl font-semibold tracking-[-0.035em] text-[#111827] sm:text-2xl">
+            <h2 className="text-xl font-semibold tracking-[-0.035em] text-[var(--color-ink)] sm:text-2xl">
               O que precisa de atenção agora
             </h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-[#667085]">
+            <p className="mt-1.5 text-sm leading-relaxed text-[var(--color-slate-600)]">
               Decisões planejadas, envios em andamento, falhas e alunos críticos. Atividades operacionais
               com responsável, prazo e histórico ficam na seção abaixo (persistidas no tenant).
             </p>
@@ -191,13 +191,13 @@ export default function WorkCenterPage() {
               type="button"
               onClick={refreshAll}
               disabled={refreshing}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#344054] transition hover:bg-[#F9FAFB] disabled:opacity-50"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--color-blue-tint-border)] bg-white px-4 text-sm font-semibold text-[var(--color-blue)] transition hover:bg-[var(--color-blue-tint)] disabled:opacity-50"
             >
               <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} /> Atualizar
             </button>
             <Link
               href="/retencao"
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white transition hover:bg-[#1D4ED8]"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--color-blue)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--color-blue)]"
             >
               Intervenções <ArrowRight className="h-4 w-4" />
             </Link>
@@ -216,11 +216,11 @@ export default function WorkCenterPage() {
           <WorkActivitiesPanel createDraft={createDraft} onDraftConsumed={() => setCreateDraft(null)} />
         </div>
 
-        <section className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
-          <div className="space-y-4 border-b border-[#EAECF0] px-4 py-4 sm:px-5">
-            <h2 className="text-base font-semibold tracking-[-0.02em] text-[#101828]">Fila operacional</h2>
+        <section className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-sm">
+          <div className="space-y-4 border-b border-[var(--color-border)] px-4 py-4 sm:px-5">
+            <h2 className="text-base font-semibold tracking-[-0.02em] text-[var(--color-ink)]">Fila operacional</h2>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div role="tablist" className="flex flex-wrap gap-1 rounded-xl bg-[#F2F4F7] p-1">
+              <div role="tablist" className="flex flex-wrap gap-1 rounded-xl bg-[var(--color-blue-tint)] p-1">
                 {(
                   [
                     { id: "planned" as const, label: "Planejadas", count: pendingLabel },
@@ -237,35 +237,35 @@ export default function WorkCenterPage() {
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
                       "inline-flex min-h-9 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
-                      activeTab === tab.id ? "bg-white text-[#101828] shadow-sm" : "text-[#667085] hover:text-[#344054]"
+                      activeTab === tab.id ? "bg-white text-[var(--color-ink)] shadow-sm" : "text-[var(--color-slate-600)] hover:text-[var(--color-blue)]"
                     )}
                   >
                     {tab.label}
-                    <span className="rounded-md bg-[#F2F4F7] px-1.5 py-0.5 text-xs tabular-nums">{tab.count}</span>
+                    <span className="rounded-md bg-[var(--color-blue-tint)] px-1.5 py-0.5 text-xs tabular-nums">{tab.count}</span>
                   </button>
                 ))}
               </div>
               {activeTab !== "critical" && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm">
+                  <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} className="h-10 rounded-xl border border-[var(--color-blue-tint-border)] bg-white px-3 text-sm">
                     <option value="">Todos os canais</option>
                     <option value="whatsapp">WhatsApp</option>
                     <option value="email">E-mail</option>
                     <option value="sms">SMS</option>
                   </select>
-                  <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm">
+                  <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="h-10 rounded-xl border border-[var(--color-blue-tint-border)] bg-white px-3 text-sm">
                     <option value="">Todos os riscos</option>
                     <option value="critico">Crítico</option>
                     <option value="medio">Moderado</option>
                     <option value="baixo">Baixo</option>
                   </select>
                   <label className="relative block min-w-[200px] flex-1 sm:max-w-xs">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" />
                     <input
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="Matrícula, canal, motivo…"
-                      className="h-10 w-full rounded-xl border border-[#D0D5DD] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#84ADFF] focus:ring-4 focus:ring-[#EFF4FF]"
+                      className="h-10 w-full rounded-xl border border-[var(--color-blue-tint-border)] bg-white pl-9 pr-3 text-sm outline-none focus:border-[var(--color-blue-tint-border)] focus:ring-4 focus:ring-[var(--color-blue-tint)]"
                     />
                   </label>
                 </div>
@@ -276,7 +276,7 @@ export default function WorkCenterPage() {
           {activeTab === "critical" ? (
             <div role="tabpanel" className="p-4 sm:p-5">
               {critical.isError ? (
-                <div role="alert" className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-4 text-sm text-[#B42318]">
+                <div role="alert" className="rounded-xl border border-[var(--color-red-tint)] bg-[var(--color-red-tint)] p-4 text-sm text-[var(--color-red)]">
                   Não foi possível carregar alunos críticos.
                 </div>
               ) : (
@@ -286,23 +286,23 @@ export default function WorkCenterPage() {
           ) : (
             <div role="tabpanel" className="p-4 sm:p-5">
               {activeLogQuery?.isError ? (
-                <div role="alert" className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-4 text-sm text-[#B42318]">
+                <div role="alert" className="rounded-xl border border-[var(--color-red-tint)] bg-[var(--color-red-tint)] p-4 text-sm text-[var(--color-red)]">
                   Não foi possível carregar a fila.
                   <button type="button" onClick={() => void activeLogQuery.refetch()} className="mt-2 block font-semibold underline">
                     Tentar novamente
                   </button>
                 </div>
               ) : activeLogQuery?.isLoading ? (
-                <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-[#F2F4F7]" />)}</div>
+                <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-[var(--color-blue-tint)]" />)}</div>
               ) : filteredLogs.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#D0D5DD] bg-[#F9FAFB] px-5 py-10 text-center text-sm text-[#667085]">
+                <div className="rounded-xl border border-dashed border-[var(--color-blue-tint-border)] bg-[var(--color-blue-tint)] px-5 py-10 text-center text-sm text-[var(--color-slate-600)]">
                   Nenhum registro na fila com os filtros atuais.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[920px] text-left text-sm">
                     <thead>
-                      <tr className="border-b border-[#EAECF0] text-xs text-[#667085]">
+                      <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-slate-600)]">
                         <th className="px-3 py-3 font-medium">Aluno</th>
                         <th className="px-3 py-3 font-medium">Risco</th>
                         <th className="px-3 py-3 font-medium">Canal</th>
@@ -314,38 +314,38 @@ export default function WorkCenterPage() {
                     </thead>
                     <tbody>
                       {filteredLogs.map((item) => (
-                        <tr key={item.id} className="border-b border-[#F2F4F7]">
+                        <tr key={item.id} className="border-b border-[var(--color-blue-tint)]">
                           <td className="px-3 py-3.5">
                             {item.student_id ? (
                               <button type="button" onClick={() => setSelectedId(item.student_id!)} className="text-left">
-                                <span className="block font-semibold text-[#101828] hover:text-[#2563EB]">
+                                <span className="block font-semibold text-[var(--color-ink)] hover:text-[var(--color-blue)]">
                                   {item.matricula || "Abrir ficha"}
                                 </span>
-                                <span className="mt-0.5 block max-w-[160px] truncate text-xs text-[#667085]">{item.student_id}</span>
+                                <span className="mt-0.5 block max-w-[160px] truncate text-xs text-[var(--color-slate-600)]">{item.student_id}</span>
                               </button>
                             ) : (
-                              <span className="font-medium text-[#344054]">{item.matricula || "Sem aluno"}</span>
+                              <span className="font-medium text-[var(--color-blue)]">{item.matricula || "Sem aluno"}</span>
                             )}
                           </td>
                           <td className="px-3 py-3.5">
                             {item.risk_level ? (
                               <RiskBadge level={item.risk_level as "baixo" | "medio" | "critico"} />
                             ) : (
-                              <span className="text-xs text-[#98A2B3]">Sem score</span>
+                              <span className="text-xs text-[var(--color-muted)]">Sem score</span>
                             )}
-                            <span className="mt-1 block text-[11px] tabular-nums text-[#667085]">{scoreLabel(item.risk_score)}</span>
+                            <span className="mt-1 block text-[11px] tabular-nums text-[var(--color-slate-600)]">{scoreLabel(item.risk_score)}</span>
                           </td>
-                          <td className="px-3 py-3.5 text-[#475467]">{item.channel || "—"}</td>
-                          <td className="px-3 py-3.5 text-[#475467]">{item.status}</td>
-                          <td className="px-3 py-3.5 text-xs text-[#475467]">{formatDate(item.created_at)}</td>
-                          <td className="max-w-[240px] truncate px-3 py-3.5 text-xs text-[#475467]">
+                          <td className="px-3 py-3.5 text-[var(--color-blue)]">{item.channel || "—"}</td>
+                          <td className="px-3 py-3.5 text-[var(--color-blue)]">{item.status}</td>
+                          <td className="px-3 py-3.5 text-xs text-[var(--color-blue)]">{formatDate(item.created_at)}</td>
+                          <td className="max-w-[240px] truncate px-3 py-3.5 text-xs text-[var(--color-blue)]">
                             {item.decision_reason || item.skip_reason || item.error || "—"}
                           </td>
                           <td className="px-3 py-3.5">
                             <button
                               type="button"
                               onClick={() => startCreateFromLog(item)}
-                              className="inline-flex h-8 items-center rounded-lg border border-[#B2CCFF] bg-[#EFF4FF] px-2.5 text-xs font-semibold text-[#1849A9] hover:bg-[#D1E0FF]"
+                              className="inline-flex h-8 items-center rounded-lg border border-[var(--color-blue-tint-border)] bg-[var(--color-blue-tint)] px-2.5 text-xs font-semibold text-[var(--color-blue)] hover:bg-[var(--color-blue-tint)]"
                             >
                               Criar atividade
                             </button>
@@ -379,19 +379,19 @@ function Metric({
   tone?: "neutral" | "warning" | "danger" | "critical";
 }) {
   const tones = {
-    neutral: "bg-[#F2F4F7] text-[#475467]",
-    warning: "bg-[#FFFAEB] text-[#B54708]",
-    danger: "bg-[#FEF3F2] text-[#B42318]",
-    critical: "bg-[#FFF1F3] text-[#C01048]",
+    neutral: "bg-[var(--color-blue-tint)] text-[var(--color-blue)]",
+    warning: "bg-[var(--color-peach-tint)] text-[var(--color-peach-tint-border)]",
+    danger: "bg-[var(--color-red-tint)] text-[var(--color-red)]",
+    critical: "bg-[var(--color-red-tint)] text-[var(--color-red)]",
   };
   return (
-    <article className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5">
+    <article className="rounded-2xl border border-[var(--color-border)] bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-center gap-3">
         <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", tones[tone])}>{icon}</span>
-        <p className="text-sm font-medium text-[#475467]">{label}</p>
+        <p className="text-sm font-medium text-[var(--color-blue)]">{label}</p>
       </div>
-      <p className="mt-4 text-3xl font-semibold tracking-tight tabular-nums text-[#101828]">{value}</p>
-      <p className="mt-1 text-xs leading-relaxed text-[#667085]">{description}</p>
+      <p className="mt-4 text-3xl font-semibold tracking-tight tabular-nums text-[var(--color-ink)]">{value}</p>
+      <p className="mt-1 text-xs leading-relaxed text-[var(--color-slate-600)]">{description}</p>
     </article>
   );
 }

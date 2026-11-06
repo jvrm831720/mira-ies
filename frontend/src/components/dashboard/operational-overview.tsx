@@ -26,14 +26,14 @@ export function OperationalOverview({ model, agents, modelLoading, agentsLoading
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl border border-black/[0.055] bg-[var(--brand-paper)] p-4">
             <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-[var(--brand-indigo)] shadow-sm"><Zap className="h-4 w-4" /></span><span className="text-[11px] font-semibold text-neutral-600">Motor preditivo</span></div>
-            {modelLoading ? <Skeleton className="mt-4 h-5 w-28" /> : modelError ? <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[#b84336]"><AlertCircle className="h-3.5 w-3.5" /> Status indisponível</div> : <>
+            {modelLoading ? <Skeleton className="mt-4 h-5 w-28" /> : modelError ? <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-red)]"><AlertCircle className="h-3.5 w-3.5" /> Status indisponível</div> : <>
               <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-neutral-900">{modelReady ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-amber-600" />}{modelReady ? "Disponível" : model?.status === "error" ? "Requer atenção" : "Não confirmado"}</p>
               <p className="mt-1 truncate text-[10px] text-neutral-500" title={model?.version || undefined}>{model?.version ? `Versão ${model.version}` : model?.model_scope === "tenant" ? "Modelo da instituição" : "Modelo base"}</p>
             </>}
           </div>
           <div className="rounded-2xl border border-black/[0.055] bg-[var(--brand-paper)] p-4">
             <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-[var(--brand-indigo)] shadow-sm"><ShieldCheck className="h-4 w-4" /></span><span className="text-[11px] font-semibold text-neutral-600">Modo de execução</span></div>
-            {agentsLoading ? <Skeleton className="mt-4 h-5 w-32" /> : agentsError ? <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[#b84336]"><AlertCircle className="h-3.5 w-3.5" /> Status indisponível</div> : <>
+            {agentsLoading ? <Skeleton className="mt-4 h-5 w-32" /> : agentsError ? <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-red)]"><AlertCircle className="h-3.5 w-3.5" /> Status indisponível</div> : <>
               <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-neutral-900"><span className={`h-2 w-2 rounded-full ${dryRun ? "bg-emerald-500" : "bg-amber-500"}`} />{dryRun ? "Simulação por padrão" : "Execução ativa por padrão"}</p>
               <p className="mt-1 text-[10px] text-neutral-500">{dryRun ? "Nenhuma mensagem real por padrão" : "Verifique as credenciais e as políticas antes de executar"}</p>
             </>}
