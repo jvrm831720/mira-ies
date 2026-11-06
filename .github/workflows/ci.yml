@@ -85,6 +85,10 @@ jobs:
           -- Legacy 002/004 bootstrap create_all uses the current ORM metadata.
           -- Remove later-wave tables/columns before replaying revisions 039..head.
           DROP TABLE IF EXISTS
+            mira_student_service_notifications,
+            mira_student_service_attachments,
+            mira_student_service_comments,
+            mira_student_document_templates,
             mira_finance_review_events, mira_finance_review_cases,
             mira_finance_observations, mira_finance_ingestion_batches,
             mira_finance_student_links, mira_finance_source_profiles,
