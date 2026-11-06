@@ -61,7 +61,7 @@ const nativeNames = new Set(["jacad","sponte","sophia","moodle","canvas","gvcoll
 const priority = ["whatsapp","gmail","outlook","googlecalendar","googledrive","slack","jacad","sponte","sophia","moodle","canvas","omie","asaas","openai","googlesheets"];
 export const categories: Array<"Todos" | AppCategory> = ["Todos","Comunicação","Acadêmico","Financeiro","Produtividade","IA","CRM","Documentos","Atendimento","Marketing"];
 export const editorialCatalog: AppEntry[] = [
-  {id:"whatsapp",name:"WhatsApp",description:"Atendimento e campanhas",category:"Comunicação",status:"request",kind:"native",href:"/disparos"},
+  {id:"whatsapp",name:"WhatsApp",description:"Atendimento e campanhas",category:"Comunicação",status:"request",kind:"native",href:"/disparos"} as AppEntry,
   ...groups.flatMap(([category, items]) => items.map(([id,name,description]):AppEntry=>({
     id,name,description,category,status:"request",kind:nativeNames.has(id)?"native":"app",
     href:nativeNames.has(id)?"/conectores":undefined,providerSlug:id
