@@ -490,7 +490,9 @@ export default function CommandCenterPage() {
               aria-label="Prioridade e atividade"
             >
               <CriticalList
-                students={critical.data?.students}
+                students={critical.data?.students.map(item => ({
+          ...item, ...(students.data?.students.find(row => row.id === item.id) || {}),
+        }))}
                 loading={critical.isLoading}
                 onSelect={(id) => setSelectedId(id)}
               />
