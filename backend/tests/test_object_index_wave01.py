@@ -200,6 +200,7 @@ async def test_object_index_viewer_cannot_infer_sensitive_risk_by_filters_or_sor
 @pytest.mark.asyncio
 async def test_object_index_viewer_projection_omits_risk_shap_and_followup(db_session, tenant_factory):
     tenant, _ = await tenant_factory(slug="index-viewer")
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant.id})
     batch = UploadBatch(
         tenant_id=tenant.id, filename="viewer.csv", original_filename="viewer.csv",
     )
