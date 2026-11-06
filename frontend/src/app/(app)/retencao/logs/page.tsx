@@ -18,9 +18,9 @@ function dateLabel(value?: string | null) {
 }
 
 function statusStyle(status?: string | null) {
-  if (["sent", "delivered", "read"].includes(status || "")) return "bg-[#e9f7f0] text-[#287653]";
-  if (["failed", "unknown", "bounced", "rejected"].includes(status || "")) return "bg-[#fff0ed] text-[#b84336]";
-  if (status === "dry_run") return "bg-[#eef0ff] text-[#3848b5]";
+  if (["sent", "delivered", "read"].includes(status || "")) return "bg-[var(--color-green-tint)] text-[var(--color-green)]";
+  if (["failed", "unknown", "bounced", "rejected"].includes(status || "")) return "bg-[var(--color-red-tint)] text-[var(--color-red)]";
+  if (status === "dry_run") return "bg-[var(--color-blue-tint)] text-[var(--color-blue)]";
   return "bg-muted text-muted-foreground";
 }
 
@@ -68,9 +68,9 @@ export default function RetentionLogsPage() {
 
         <section aria-label="Resumo dos registros filtrados" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <LogStat icon={Activity} label="Registros" value={snapshot.total} color="text-primary bg-secondary" />
-          <LogStat icon={CheckCircle2} label="Enviados ou entregues" value={snapshot.delivered} color="text-[#287653] bg-[#e9f7f0]" />
-          <LogStat icon={Clock3} label="Em andamento/verificação" value={snapshot.pending} color="text-[#3848b5] bg-[#eef0ff]" />
-          <LogStat icon={TriangleAlert} label="Falhas" value={snapshot.failed} color="text-[#b84336] bg-[#fff0ed]" />
+          <LogStat icon={CheckCircle2} label="Enviados ou entregues" value={snapshot.delivered} color="text-[var(--color-green)] bg-[var(--color-green-tint)]" />
+          <LogStat icon={Clock3} label="Em andamento/verificação" value={snapshot.pending} color="text-[var(--color-blue)] bg-[var(--color-blue-tint)]" />
+          <LogStat icon={TriangleAlert} label="Falhas" value={snapshot.failed} color="text-[var(--color-red)] bg-[var(--color-red-tint)]" />
         </section>
 
         <Card><CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2 text-xs font-semibold"><span className="grid h-8 w-8 place-items-center rounded-xl bg-secondary text-primary"><Filter className="h-4 w-4" /></span>Filtros</div><div className="grid gap-2 sm:grid-cols-2"><label><span className="sr-only">Filtrar por canal</span><select aria-label="Filtrar por canal" className="h-10 min-w-[180px] rounded-xl border border-input bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-primary/25" value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">Todos os canais</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="sms">SMS</option></select></label><label><span className="sr-only">Filtrar por status</span><select aria-label="Filtrar por status" className="h-10 min-w-[180px] rounded-xl border border-input bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-primary/25" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Todos os status</option><option value="dry_run">Simulado</option><option value="sent">Enviado</option><option value="sending">Enviando</option><option value="unknown">Verificar</option><option value="skipped">Ignorado</option><option value="failed">Falhou</option><option value="planned">Planejado</option></select></label></div></CardContent></Card>

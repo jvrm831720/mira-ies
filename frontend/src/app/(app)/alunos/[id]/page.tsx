@@ -197,15 +197,15 @@ export default function StudentDetailPage() {
         )}
 
         {error && (
-          <div role="alert" className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-8 text-center">
-            <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-white text-[#B42318]">
+          <div role="alert" className="rounded-xl border border-[var(--color-red-tint)] bg-[var(--color-red-tint)] p-8 text-center">
+            <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-white text-[var(--color-red)]">
               <CircleAlert className="h-5 w-5" />
             </span>
             <p className="mt-4 text-[15px] font-semibold text-[var(--color-ink)]">Não foi possível abrir esta ficha.</p>
             <p className="mt-1 text-[13px] text-[var(--color-slate-600)]">
               A consulta de risco falhou ou o aluno não está acessível nesta instituição.
             </p>
-            <button type="button" onClick={() => void refetch()} className="mt-4 text-[13px] font-semibold text-[#B42318] underline underline-offset-4">
+            <button type="button" onClick={() => void refetch()} className="mt-4 text-[13px] font-semibold text-[var(--color-red)] underline underline-offset-4">
               Tentar novamente
             </button>
           </div>
@@ -240,7 +240,7 @@ export default function StudentDetailPage() {
                   type="button"
                   aria-current={activeSection === section ? "page" : undefined}
                   onClick={() => navigateToSection(section, id)}
-                  className={`inline-flex h-10 items-center border-b-2 text-[12px] font-medium transition ${activeSection === section ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:border-[var(--color-border)] hover:text-[#1C1D1F]"}`}
+                  className={`inline-flex h-10 items-center border-b-2 text-[12px] font-medium transition ${activeSection === section ? "border-[var(--color-ink)] text-[var(--color-ink)]" : "border-transparent text-[var(--color-slate-600)] hover:border-[var(--color-border)] hover:text-[var(--color-ink)]"}`}
                 >
                   {label}
                 </button>
@@ -287,7 +287,7 @@ export default function StudentDetailPage() {
                 <InfoCard label="Status financeiro" value={displayValue(data.status_financeiro)} />
               </div>
               <div className="mt-4 overflow-hidden rounded-lg border border-[var(--color-border)]">
-                <div className="grid grid-cols-3 border-b border-[var(--color-border)] bg-[#F9FAFB] px-4 py-3 text-[11px] font-medium text-[var(--color-slate-600)]"><span>Obrigação / parcela</span><span>Vencimento</span><span>Pagamento</span></div>
+                <div className="grid grid-cols-3 border-b border-[var(--color-border)] bg-[var(--color-blue-tint)] px-4 py-3 text-[11px] font-medium text-[var(--color-slate-600)]"><span>Obrigação / parcela</span><span>Vencimento</span><span>Pagamento</span></div>
                 <p className="px-4 py-6 text-center text-[12px] text-[var(--color-slate-600)]">Faturas, parcelas e pagamentos ainda não estão disponíveis como registros verificados nesta ficha.</p>
               </div>
               <div className="mt-3 rounded-lg border border-[var(--color-border)] px-4 py-4"><p className="text-[13px] font-semibold text-[var(--color-ink)]">Acordos e negociações</p><p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Sem integração homologada para consultar acordos vinculados a este aluno.</p></div>
@@ -319,7 +319,7 @@ export default function StudentDetailPage() {
                     </p>
                   )}
                   {summaryText ? (
-                    <p className="mt-4 text-[13px] leading-relaxed text-[#344054]">{summaryText}</p>
+                    <p className="mt-4 text-[13px] leading-relaxed text-[var(--color-blue)]">{summaryText}</p>
                   ) : (
                     <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">Explicação detalhada indisponível para este aluno.</p>
                   )}
@@ -373,7 +373,7 @@ export default function StudentDetailPage() {
                           <li key={String(rule.flag || index)} className="rounded-lg border border-[var(--color-border)] px-3.5 py-3">
                             <div className="flex flex-wrap items-start justify-between gap-2">
                               <p className="text-[13px] font-semibold text-[var(--color-ink)]">{businessText(String(rule.description || rule.flag || "Regra aplicada"))}</p>
-                              <span className="shrink-0 rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-semibold tabular-nums text-[#9A3412]">
+                              <span className="shrink-0 rounded-md bg-[var(--color-peach-tint)] px-2 py-1 text-[11px] font-semibold tabular-nums text-[var(--color-red)]">
                                 +{displayValue(typeof rule.delta_points === "number" ? rule.delta_points : null)} pts
                               </span>
                             </div>
@@ -383,7 +383,7 @@ export default function StudentDetailPage() {
                                 {threshold != null ? ` · limite ${String(evidence.operator || "")} ${String(threshold)}` : ""}
                               </p>
                             )}
-                            {recommendation && <p className="mt-2 text-[12px] leading-relaxed text-[#344054]">Próxima ação sugerida: {recommendation}</p>}
+                            {recommendation && <p className="mt-2 text-[12px] leading-relaxed text-[var(--color-blue)]">Próxima ação sugerida: {recommendation}</p>}
                           </li>
                         );
                       })}
@@ -392,7 +392,7 @@ export default function StudentDetailPage() {
                 )}
 
                 {explanationMetadata?.status === "unavailable" && (
-                  <p className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-[12px] text-[#92400E]">
+                  <p className="rounded-lg border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-[12px] text-[var(--color-peach-tint-border)]">
                     O score foi calculado, mas a explicação SHAP não ficou disponível nesta avaliação.
                   </p>
                 )}
@@ -405,7 +405,7 @@ export default function StudentDetailPage() {
                   ) : (
                     <ol className="mt-4 space-y-2">
                       {actions.map((action, index) => (
-                        <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-3 text-[13px] leading-relaxed text-[#344054]">
+                        <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-3 text-[13px] leading-relaxed text-[var(--color-blue)]">
                           <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[var(--color-blue)] ring-1 ring-[var(--color-border)]">{index + 1}</span>
                           {action}
                         </li>
@@ -416,9 +416,9 @@ export default function StudentDetailPage() {
               </div>
 
               <div className="space-y-4">
-                <section id="student-communication" className={cn("scroll-mt-24 rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[var(--color-border)] bg-white")}>
+                <section id="student-communication" className={cn("scroll-mt-24 rounded-xl border p-5", data.communication_opt_out ? "border-[var(--color-red-tint)] bg-[var(--color-red-tint)]" : "border-[var(--color-border)] bg-white")}>
                   <div className="flex items-start gap-3">
-                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[var(--color-blue-tint)] text-[var(--color-blue)]")}>
+                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[var(--color-red)]" : "bg-[var(--color-blue-tint)] text-[var(--color-blue)]")}>
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <div>
@@ -434,7 +434,7 @@ export default function StudentDetailPage() {
                     onClick={() => preferenceMutation.mutate(!data.communication_opt_out)}
                     className={cn(
                       "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] disabled:opacity-60",
-                      data.communication_opt_out ? "bg-[var(--color-blue)] text-white hover:bg-[#1F5DD1]" : "border border-[var(--color-border)] bg-white text-[var(--color-ink)] hover:bg-[var(--color-panel)]"
+                      data.communication_opt_out ? "bg-[var(--color-blue)] text-white hover:bg-[var(--color-blue)]" : "border border-[var(--color-border)] bg-white text-[var(--color-ink)] hover:bg-[var(--color-panel)]"
                     )}
                   >
                     {preferenceMutation.isPending ? "Salvando…" : data.communication_opt_out ? "Revogar opt-out" : "Registrar opt-out"}
@@ -455,7 +455,7 @@ export default function StudentDetailPage() {
                     type="button"
                     onClick={() => void loadPreview()}
                     disabled={loadingPreview}
-                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-blue)] text-[13px] font-semibold text-white transition hover:bg-[#1F5DD1] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
+                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-blue)] text-[13px] font-semibold text-white transition hover:bg-[var(--color-blue)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {loadingPreview ? "Preparando…" : "Gerar prévia da mensagem"}
@@ -463,7 +463,7 @@ export default function StudentDetailPage() {
                   {preview && (
                     <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
                       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">Prévia</p>
-                      <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-[#344054]">{preview}</p>
+                      <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-[var(--color-blue)]">{preview}</p>
                     </div>
                   )}
                 </section>

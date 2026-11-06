@@ -22,72 +22,15 @@ import type {
   WorkActivityStatus,
   WorkResultKind,
 } from "@/types/work";
-import type { InterventionLog } from "@/types/api";
 import { cn } from "@/lib/utils";
 import { RiskBadge } from "@/components/ui/badge";
-
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  open: "Aberta",
-  in_progress: "Em andamento",
-  completed: "Concluída",
-  cancelled: "Cancelada",
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  follow_up: "Follow-up",
-  contact: "Contato",
-  review: "Revisão",
-  other: "Outro",
-};
-
-const PRIORITY_LABEL: Record<string, string> = {
-  low: "Baixa",
-  normal: "Normal",
-  high: "Alta",
-  urgent: "Urgente",
-};
-
-const ORIGIN_LABEL: Record<string, string> = {
-  manual: "Equipe",
-  campaign: "Campanha",
-};
-
-const EVENT_LABEL: Record<string, string> = {
-  created: "Criação",
-  assignee_changed: "Responsável",
-  due_changed: "Prazo",
-  status_changed: "Status",
-  completed: "Conclusão",
-  cancelled: "Cancelamento",
-  result_recorded: "Resultado operacional",
-  priority_changed: "Prioridade",
-  details_changed: "Detalhes",
-  relations_changed: "Vínculos",
-};
-
-const RESULT_KIND_LABEL: Record<WorkResultKind, string> = {
-  done: "Concluída",
-  unreachable: "Não conseguiu contato",
-  deferred: "Adiada",
-  referred: "Encaminhada",
-};
-
-const CHANNEL_LABEL: Record<string, string> = {
-  whatsapp: "WhatsApp",
-  email: "E-mail",
-  sms: "SMS",
-};
+import { WorkQueueFilters } from "./work-queue-filters";
+import { StudentRiskFactors } from "@/components/students/student-risk-factors";
+import { hasNavigationPermission } from "@/components/layout/navigation";
+import { toast } from "sonner";
+import { WorkQueueSummary } from "./work-queue-summary";
+import { InfoBlock, InterventionContext } from "./work-activity-detail-parts";
+import { formatDate, STATUS_LABEL, TYPE_LABEL, PRIORITY_LABEL, ORIGIN_LABEL, EVENT_LABEL, RESULT_KIND_LABEL, CHANNEL_LABEL } from "./work-activity-labels";
 
 type Props = {
   createDraft?: CreateFromLogDraft | null;
@@ -96,6 +39,8 @@ type Props = {
 
 export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Props) {
   const qc = useQueryClient();
+  const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
+  const canSensitive = hasNavigationPermission(me.data, "students.sensitive.view");
   const [view, setView] = useState<"all" | "mine" | "overdue">("all");
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -180,7 +125,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
   const studentQuery = useQuery({
     queryKey: ["student-risk", selectedActivity?.student_id],
     queryFn: () => api.studentRisk(selectedActivity!.student_id!),
-    enabled: Boolean(selectedActivity?.student_id),
+    enabled: Boolean(selectedActivity?.student_id) && canSensitive,
     retry: false,
   });
 
@@ -265,8 +210,9 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
       void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
       if (created?.id) setSelectedId(created.id);
+      toast.success("Atividade criada.");
     },
-    onError: (err: Error) => setFormError(err.message),
+    onError: (err: Error) => { setFormError(err.message); toast.error(err.message); },
   });
 
   const patchMut = useMutation({
@@ -294,25 +240,26 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
       setResultNote("");
       setResultKind("");
       setResultError(null);
+      toast.success("Resultado operacional registrado.");
       void qc.invalidateQueries({ queryKey: ["work-activity-events"] });
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
       void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
     },
-    onError: (err: Error) => setResultError(err.message),
+    onError: (err: Error) => { setResultError(err.message); toast.error(err.message); },
   });
 
   const rows = activitiesQuery.data?.activities ?? [];
   const activeMembers = members.data?.members?.filter((m) => m.status === "active") ?? [];
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
-      <div className="space-y-4 border-b border-[#EAECF0] px-4 py-4 sm:px-5">
+    <section className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-sm">
+      <div className="space-y-4 border-b border-[var(--color-border)] px-4 py-4 sm:px-5">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div>
-            <h2 className="text-base font-semibold tracking-[-0.02em] text-[#101828]">
+            <h2 className="text-base font-semibold tracking-[-0.02em] text-[var(--color-ink)]">
               Atividades operacionais
             </h2>
-            <p className="mt-1 text-sm text-[#667085]">
+            <p className="mt-1 text-sm text-[var(--color-slate-600)]">
               Trabalho humano separado de envios automatizados · prioridade, prazos e histórico ·
               vínculo opcional com aluno e campanha
             </p>
@@ -328,112 +275,28 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                 setDraftMeta(null);
               }
             }}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--color-blue)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-blue)]"
           >
             <UserPlus className="h-4 w-4" /> Nova atividade
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Resumo da fila">
-          {[
-            { label: "Pendentes", value: summaryQuery.data?.pending },
-            { label: "Atrasadas", value: summaryQuery.data?.overdue, warning: true },
-            { label: "Sem responsável", value: summaryQuery.data?.unassigned, warning: true },
-            { label: "Urgentes", value: summaryQuery.data?.urgent_pending, warning: true },
-            { label: "De campanhas", value: summaryQuery.data?.campaign_pending },
-            { label: "Concluídas · 7d", value: summaryQuery.data?.completed_7d },
-          ].map((metric) => (
-            <div key={metric.label} className="rounded-xl border border-[#EAECF0] bg-[#FCFCFD] px-3 py-2.5">
-              <p className="text-[11px] font-medium text-[#667085]">{metric.label}</p>
-              <p className={cn("mt-1 text-lg font-semibold tabular-nums", metric.warning && Number(metric.value) > 0 ? "text-[#B42318]" : "text-[#101828]")}>{summaryQuery.isError || metric.value == null ? "—" : metric.value.toLocaleString("pt-BR")}</p>
-            </div>
-          ))}
-        </div>
+        <WorkQueueSummary data={summaryQuery.data} isLoading={summaryQuery.isLoading} isError={summaryQuery.isError} />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div role="tablist" className="flex flex-wrap gap-1 rounded-xl bg-[#F2F4F7] p-1">
-            {(
-              [
-                { id: "all" as const, label: "Todas" },
-                { id: "mine" as const, label: "Minhas" },
-                { id: "overdue" as const, label: "Vencidas" },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={view === tab.id}
-                onClick={() => {
-                  setView(tab.id);
-                  setAssigneeFilter("");
-                }}
-                className={cn(
-                  "inline-flex min-h-9 items-center rounded-lg px-3 py-2 text-sm font-medium",
-                  view === tab.id
-                    ? "bg-white text-[#101828] shadow-sm"
-                    : "text-[#667085] hover:text-[#344054]"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          {view === "all" && (
-            <select
-              value={assigneeFilter}
-              onChange={(e) => setAssigneeFilter(e.target.value)}
-              aria-label="Filtrar por responsável"
-              className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm text-[#344054]"
-            >
-              <option value="">Todos os responsáveis</option>
-              <option value="unassigned">Sem responsável</option>
-              {activeMembers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.display_name || m.email}
-                </option>
-              ))}
-            </select>
-          )}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filtrar por status"
-            className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm text-[#344054]"
-          >
-            <option value="">Todos os status</option>
-            <option value="open">Aberta</option>
-            <option value="in_progress">Em andamento</option>
-            <option value="completed">Concluída</option>
-            <option value="cancelled">Cancelada</option>
-          </select>
-          <select
-            value={originFilter}
-            onChange={(e) => setOriginFilter(e.target.value)}
-            aria-label="Filtrar por origem"
-            className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm text-[#344054]"
-          >
-            <option value="">Todas as origens</option>
-            <option value="manual">Equipe</option>
-            <option value="campaign">Campanha</option>
-          </select>
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            aria-label="Filtrar por prioridade"
-            className="h-10 rounded-xl border border-[#D0D5DD] bg-white px-3 text-sm text-[#344054]"
-          >
-            <option value="">Todas as prioridades</option>
-            <option value="urgent">Urgente</option>
-            <option value="high">Alta</option>
-            <option value="normal">Normal</option>
-            <option value="low">Baixa</option>
-          </select>
-        </div>
-
+        <WorkQueueFilters view={view} setView={setView}
+          assigneeFilter={assigneeFilter} setAssigneeFilter={setAssigneeFilter}
+          statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+          originFilter={originFilter} setOriginFilter={setOriginFilter}
+          priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter}
+          activeMembers={activeMembers} />
+        {summaryQuery.data?.urgent_pending ? <button type="button" onClick={() => { setView("all"); setPriorityFilter("urgent"); }}
+          className="flex w-full items-center justify-between rounded-[var(--radius-md)] border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-left text-[12px] text-[var(--color-ink)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
+          <span><strong>{summaryQuery.data.urgent_pending}</strong> atividade(s) urgentes aguardam tratamento</span>
+          <span className="font-semibold">Priorizar agora</span>
+        </button> : null}
         {showCreate && (
           <form
-            className="space-y-3 rounded-xl border border-[#D0D5DD] bg-[#F9FAFB] p-4"
+            className="space-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-source-f9fafb)] p-4"
             onSubmit={(e) => {
               e.preventDefault();
               if (!title.trim()) {
@@ -444,17 +307,17 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
             }}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <p className="text-sm font-semibold text-[#101828]">
+              <p className="text-sm font-semibold text-[var(--color-ink)]">
                 {linkLogId ? "Criar atividade a partir da intervenção" : "Criar atividade"}
               </p>
               {linkLogId && (
-                <span className="rounded-full bg-[#EFF4FF] px-2.5 py-1 text-[11px] font-medium text-[#3538CD]">
+                <span className="rounded-full bg-[var(--color-source-eff4ff)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-source-3538cd)]">
                   Vinculada ao log · {linkLogId.slice(0, 8)}…
                 </span>
               )}
             </div>
             {draftMeta && (
-              <p className="text-xs leading-relaxed text-[#667085]">
+              <p className="text-xs leading-relaxed text-[var(--color-slate-600)]">
                 Prefill com canal
                 {draftMeta.channel
                   ? ` ${CHANNEL_LABEL[draftMeta.channel] ?? draftMeta.channel}`
@@ -465,22 +328,22 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
               </p>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-xs font-medium text-[#475467]">
+              <label className="block text-xs font-medium text-[var(--color-slate-600)]">
                 Título *
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   maxLength={200}
-                  className="mt-1 h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm"
                   required
                 />
               </label>
-              <label className="block text-xs font-medium text-[#475467]">
+              <label className="block text-xs font-medium text-[var(--color-slate-600)]">
                 Tipo
                 <select
                   value={activityType}
                   onChange={(e) => setActivityType(e.target.value)}
-                  className="mt-1 h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm"
                 >
                   <option value="follow_up">Follow-up</option>
                   <option value="contact">Contato</option>
@@ -488,12 +351,12 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                   <option value="other">Outro</option>
                 </select>
               </label>
-              <label className="block text-xs font-medium text-[#475467]">
+              <label className="block text-xs font-medium text-[var(--color-slate-600)]">
                 Prioridade
                 <select
                   value={createPriority}
                   onChange={(e) => setCreatePriority(e.target.value)}
-                  className="mt-1 h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm"
                 >
                   <option value="urgent">Urgente</option>
                   <option value="high">Alta</option>
@@ -501,12 +364,12 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                   <option value="low">Baixa</option>
                 </select>
               </label>
-              <label className="block text-xs font-medium text-[#475467]">
+              <label className="block text-xs font-medium text-[var(--color-slate-600)]">
                 Responsável
                 <select
                   value={assigneeId}
                   onChange={(e) => setAssigneeId(e.target.value)}
-                  className="mt-1 h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm"
                 >
                   <option value="">Sem responsável</option>
                   {activeMembers.map((m) => (
@@ -516,28 +379,28 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                   ))}
                 </select>
               </label>
-              <label className="block text-xs font-medium text-[#475467]">
+              <label className="block text-xs font-medium text-[var(--color-slate-600)]">
                 Prazo
                 <input
                   type="datetime-local"
                   value={dueAt}
                   onChange={(e) => setDueAt(e.target.value)}
-                  className="mt-1 h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm"
+                  className="mt-1 h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm"
                 />
               </label>
             </div>
-            <label className="block text-xs font-medium text-[#475467]">
+            <label className="block text-xs font-medium text-[var(--color-slate-600)]">
               Descrição
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
                 maxLength={4000}
-                className="mt-1 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
               />
             </label>
             {formError && (
-              <p role="alert" className="text-sm text-[#B42318]">
+              <p role="alert" className="text-sm text-[var(--color-red)]">
                 {formError}
               </p>
             )}
@@ -545,7 +408,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
               <button
                 type="submit"
                 disabled={createMut.isPending}
-                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#2563EB] px-3 text-sm font-semibold text-white disabled:opacity-50"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--color-blue)] px-3 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {createMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 Salvar
@@ -553,7 +416,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
               <button
                 type="button"
                 onClick={resetCreateForm}
-                className="h-9 rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm font-medium text-[#344054]"
+                className="h-9 rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm font-medium text-[var(--color-slate-600)]"
               >
                 Cancelar
               </button>
@@ -566,7 +429,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
         {activitiesQuery.isError ? (
           <div
             role="alert"
-            className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-4 text-sm text-[#B42318]"
+            className="rounded-xl border border-[var(--color-red-tint-border)] bg-[var(--color-red-tint)] p-4 text-sm text-[var(--color-red)]"
           >
             <p className="font-semibold">Não foi possível carregar atividades.</p>
             <p className="mt-1 text-xs">{(activitiesQuery.error as Error)?.message}</p>
@@ -581,22 +444,22 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
         ) : activitiesQuery.isLoading ? (
           <div className="space-y-3" aria-label="Carregando atividades">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-14 animate-pulse rounded-xl bg-[#F2F4F7]" />
+              <div key={i} className="h-14 animate-pulse rounded-xl bg-[var(--color-panel)]" />
             ))}
           </div>
         ) : rows.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#D0D5DD] bg-[#F9FAFB] px-5 py-10 text-center">
-            <div className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-white text-[#667085] ring-1 ring-[#EAECF0]">
+          <div className="rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-source-f9fafb)] px-5 py-10 text-center">
+            <div className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-white text-[var(--color-slate-600)] ring-1 ring-[var(--color-border)]">
               <ClipboardList className="h-5 w-5" />
             </div>
-            <p className="mt-3 text-sm font-semibold text-[#101828]">
+            <p className="mt-3 text-sm font-semibold text-[var(--color-ink)]">
               {view === "mine"
                 ? "Nenhuma atividade atribuída a você"
                 : view === "overdue"
                   ? "Nenhuma atividade vencida"
                   : "Nenhuma atividade operacional"}
             </p>
-            <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-[#667085]">
+            <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-[var(--color-slate-600)]">
               Atividades são independentes dos logs de intervenção. Use &quot;Criar atividade&quot; nas
               filas de logs ou o botão acima para atribuir responsável e prazo.
             </p>
@@ -605,7 +468,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
           <div className="overflow-x-auto">
             <table className="w-full min-w-[880px] text-left text-sm">
               <thead>
-                <tr className="border-b border-[#EAECF0] text-xs text-[#667085]">
+                <tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-slate-600)]">
                   <th className="px-3 py-3 font-medium">Título</th>
                   <th className="px-3 py-3 font-medium">Status</th>
                   <th className="px-3 py-3 font-medium">Responsável</th>
@@ -615,16 +478,16 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
               </thead>
               <tbody>
                 {rows.map((item: WorkActivity) => (
-                  <tr key={item.id} className="border-b border-[#F2F4F7]">
+                  <tr key={item.id} className="border-b border-[var(--color-panel)]">
                     <td className="px-3 py-3.5">
                       <button
                         type="button"
                         onClick={() => setSelectedId(selectedId === item.id ? null : item.id)}
-                        className="text-left font-semibold text-[#101828] hover:text-[#2563EB]"
+                        className="text-left font-semibold text-[var(--color-ink)] hover:text-[var(--color-blue)]"
                       >
                         {item.title}
                       </button>
-                      <p className="mt-0.5 text-xs text-[#667085]">
+                      <p className="mt-0.5 text-xs text-[var(--color-slate-600)]">
                         {TYPE_LABEL[item.activity_type] ?? item.activity_type}
                         {` · ${ORIGIN_LABEL[item.origin_type] ?? item.origin_type}`}
                         {` · prioridade ${PRIORITY_LABEL[item.priority] ?? item.priority}`}
@@ -632,7 +495,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                         {item.student_id ? " · com aluno" : ""}
                       </p>
                       {item.campaign_id && (
-                        <p className="mt-1 text-[10px] font-medium text-[#3538CD]">
+                        <p className="mt-1 text-[10px] font-medium text-[var(--color-source-3538cd)]">
                           Campanha · {item.campaign_id.slice(0, 8)}…
                         </p>
                       )}
@@ -642,28 +505,28 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                         className={cn(
                           "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
                           item.status === "completed"
-                            ? "bg-[#ECFDF3] text-[#027A48]"
+                            ? "bg-[var(--color-source-ecfdf3)] text-[var(--color-source-027a48)]"
                             : item.status === "cancelled"
-                              ? "bg-[#F2F4F7] text-[#475467]"
+                              ? "bg-[var(--color-panel)] text-[var(--color-slate-600)]"
                               : item.overdue
-                                ? "bg-[#FEF3F2] text-[#B42318]"
-                                : "bg-[#EFF4FF] text-[#3538CD]"
+                                ? "bg-[var(--color-red-tint)] text-[var(--color-red)]"
+                                : "bg-[var(--color-source-eff4ff)] text-[var(--color-source-3538cd)]"
                         )}
                       >
                         {STATUS_LABEL[item.status] ?? item.status}
                         {item.overdue ? " · vencida" : ""}
                       </span>
                     </td>
-                    <td className="px-3 py-3.5 text-[#475467]">
+                    <td className="px-3 py-3.5 text-[var(--color-slate-600)]">
                       {item.assignee?.display_name || item.assignee?.email || (
-                        <span className="text-[#98A2B3]">Sem responsável</span>
+                        <span className="text-[var(--color-muted)]">Sem responsável</span>
                       )}
                     </td>
                     <td className="px-3 py-3.5">
                       <span
                         className={cn(
                           "inline-flex items-center gap-1 text-xs",
-                          item.overdue ? "font-semibold text-[#B42318]" : "text-[#475467]"
+                          item.overdue ? "font-semibold text-[var(--color-red)]" : "text-[var(--color-slate-600)]"
                         )}
                       >
                         <CalendarClock className="h-3.5 w-3.5" />
@@ -686,7 +549,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                                     body: { status: "in_progress" as WorkActivityStatus },
                                   })
                                 }
-                                className="rounded-lg border border-[#D0D5DD] bg-white p-1.5 text-[#344054]"
+                                className="rounded-lg border border-[var(--color-border)] bg-white p-1.5 text-[var(--color-slate-600)]"
                               >
                                 <Play className="h-4 w-4" />
                               </button>
@@ -702,7 +565,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                                     body: { status: "open" as WorkActivityStatus },
                                   })
                                 }
-                                className="rounded-lg border border-[#D0D5DD] bg-white p-1.5 text-[#344054]"
+                                className="rounded-lg border border-[var(--color-border)] bg-white p-1.5 text-[var(--color-slate-600)]"
                               >
                                 <RotateCcw className="h-4 w-4" />
                               </button>
@@ -717,7 +580,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                                   body: { status: "completed" as WorkActivityStatus },
                                 })
                               }
-                              className="rounded-lg border border-[#ABEFC6] bg-[#ECFDF3] p-1.5 text-[#027A48]"
+                              className="rounded-lg border border-[var(--color-source-abefc6)] bg-[var(--color-source-ecfdf3)] p-1.5 text-[var(--color-source-027a48)]"
                             >
                               <CheckCircle2 className="h-4 w-4" />
                             </button>
@@ -731,7 +594,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                                   body: { status: "cancelled" as WorkActivityStatus },
                                 })
                               }
-                              className="rounded-lg border border-[#FECDCA] bg-[#FEF3F2] p-1.5 text-[#B42318]"
+                              className="rounded-lg border border-[var(--color-red-tint-border)] bg-[var(--color-red-tint)] p-1.5 text-[var(--color-red)]"
                             >
                               <XCircle className="h-4 w-4" />
                             </button>
@@ -747,7 +610,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                                   },
                                 })
                               }
-                              className="h-8 rounded-lg border border-[#D0D5DD] bg-white px-2 text-xs"
+                              className="h-8 rounded-lg border border-[var(--color-border)] bg-white px-2 text-xs"
                             >
                               <option value="urgent">Urgente</option>
                               <option value="high">Alta</option>
@@ -769,7 +632,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                                   });
                                 }
                               }}
-                              className="h-8 max-w-[140px] rounded-lg border border-[#D0D5DD] bg-white px-2 text-xs"
+                              className="h-8 max-w-[140px] rounded-lg border border-[var(--color-border)] bg-white px-2 text-xs"
                             >
                               <option value="">Sem resp.</option>
                               {activeMembers.map((m) => (
@@ -784,7 +647,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                           type="button"
                           title="Detalhe e histórico"
                           onClick={() => setSelectedId(selectedId === item.id ? null : item.id)}
-                          className="rounded-lg border border-[#D0D5DD] bg-white p-1.5 text-[#475467]"
+                          className="rounded-lg border border-[var(--color-border)] bg-white p-1.5 text-[var(--color-slate-600)]"
                         >
                           <History className="h-4 w-4" />
                         </button>
@@ -798,11 +661,11 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
         )}
 
         {selectedId && selectedActivity && (
-          <div className="mt-4 space-y-4 rounded-xl border border-[#EAECF0] bg-[#F9FAFB] p-4">
+          <div className="mt-4 space-y-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-source-f9fafb)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p className="text-sm font-semibold text-[#101828]">{selectedActivity.title}</p>
-                <p className="mt-0.5 text-xs text-[#667085]">
+                <p className="text-sm font-semibold text-[var(--color-ink)]">{selectedActivity.title}</p>
+                <p className="mt-0.5 text-xs text-[var(--color-slate-600)]">
                   {TYPE_LABEL[selectedActivity.activity_type] ?? selectedActivity.activity_type} ·{" "}
                   {STATUS_LABEL[selectedActivity.status] ?? selectedActivity.status} ·{" "}
                   {ORIGIN_LABEL[selectedActivity.origin_type] ?? selectedActivity.origin_type} ·{" "}
@@ -817,7 +680,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                   setResultKind("");
                   setResultError(null);
                 }}
-                className="text-xs font-medium text-[#667085] hover:text-[#344054]"
+                className="text-xs font-medium text-[var(--color-slate-600)] hover:text-[var(--color-slate-600)]"
               >
                 Fechar
               </button>
@@ -826,7 +689,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <InfoBlock label="Descrição">
                 {selectedActivity.description?.trim() || (
-                  <span className="text-[#98A2B3]">Sem descrição</span>
+                  <span className="text-[var(--color-muted)]">Sem descrição</span>
                 )}
               </InfoBlock>
               <InfoBlock label="Responsável">
@@ -844,46 +707,46 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
               <InfoBlock label="Cancelada em">{formatDate(selectedActivity.cancelled_at)}</InfoBlock>
             </div>
 
-            <div className="rounded-lg border border-[#E5E7EB] bg-white p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#667085]">
+            <div className="rounded-lg border border-[var(--color-border)] bg-white p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-slate-600)]">
                 Contexto do aluno
               </p>
-              {!selectedActivity.student_id ? (
-                <p className="text-xs text-[#98A2B3]">Nenhum aluno vinculado a esta atividade.</p>
+              {!canSensitive ? <p className="text-[12px] text-[var(--color-muted)]">Contexto de risco restrito ao perfil autorizado.</p> : !selectedActivity.student_id ? (
+                <p className="text-xs text-[var(--color-muted)]">Nenhum aluno vinculado a esta atividade.</p>
               ) : studentQuery.isLoading ? (
-                <p className="text-xs text-[#667085]">Carregando dados do aluno…</p>
+                <p className="text-xs text-[var(--color-slate-600)]">Carregando dados do aluno…</p>
               ) : studentQuery.isError ? (
-                <p className="text-xs text-[#B42318]">
+                <p className="text-xs text-[var(--color-red)]">
                   Não foi possível carregar o contexto do aluno. O vínculo permanece; tente novamente.
                 </p>
               ) : (
                 <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <span className="text-[#98A2B3]">Nome</span>
-                    <p className="font-medium text-[#101828]">{studentQuery.data?.nome ?? "—"}</p>
+                    <span className="text-[var(--color-muted)]">Nome</span>
+                    <p className="font-medium text-[var(--color-ink)]">{studentQuery.data?.nome ?? "—"}</p>
                   </div>
                   <div>
-                    <span className="text-[#98A2B3]">Matrícula</span>
-                    <p className="font-medium text-[#101828]">
+                    <span className="text-[var(--color-muted)]">Matrícula</span>
+                    <p className="font-medium text-[var(--color-ink)]">
                       {studentQuery.data?.matricula ?? "—"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-[#98A2B3]">Curso</span>
-                    <p className="font-medium text-[#101828]">{studentQuery.data?.curso ?? "—"}</p>
+                    <span className="text-[var(--color-muted)]">Curso</span>
+                    <p className="font-medium text-[var(--color-ink)]">{studentQuery.data?.curso ?? "—"}</p>
                   </div>
                   <div>
-                    <span className="text-[#98A2B3]">Risco atual</span>
+                    <span className="text-[var(--color-muted)]">Risco atual</span>
                     <div className="mt-0.5 flex items-center gap-2">
                       {studentQuery.data?.risk_level ? (
                         <RiskBadge
                           level={studentQuery.data.risk_level as "baixo" | "medio" | "critico"}
                         />
                       ) : (
-                        <span className="text-[#98A2B3]">Sem avaliação</span>
+                        <span className="text-[var(--color-muted)]">Sem avaliação</span>
                       )}
                       {studentQuery.data?.risk_score != null && (
-                        <span className="tabular-nums text-[#475467]">
+                        <span className="tabular-nums text-[var(--color-slate-600)]">
                           {Number(studentQuery.data.risk_score).toLocaleString("pt-BR", {
                             maximumFractionDigits: 1,
                           })}
@@ -891,27 +754,28 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                       )}
                     </div>
                   </div>
+                  {studentQuery.data && <div className="col-span-full"><StudentRiskFactors student={studentQuery.data}/></div>}
                 </div>
               )}
             </div>
 
-            <div className="rounded-lg border border-[#E5E7EB] bg-white p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#667085]">
+            <div className="rounded-lg border border-[var(--color-border)] bg-white p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-slate-600)]">
                 Intervenção relacionada
               </p>
               {!selectedActivity.intervention_log_id ? (
-                <p className="text-xs text-[#98A2B3]">
+                <p className="text-xs text-[var(--color-muted)]">
                   Nenhuma intervenção vinculada. A atividade é independente do ciclo de envio.
                 </p>
               ) : relatedLogQuery.isLoading ? (
-                <p className="text-xs text-[#667085]">Carregando log de intervenção…</p>
+                <p className="text-xs text-[var(--color-slate-600)]">Carregando log de intervenção…</p>
               ) : relatedLogQuery.isError ? (
-                <p className="text-xs text-[#B42318]">
+                <p className="text-xs text-[var(--color-red)]">
                   Log vinculado ({selectedActivity.intervention_log_id.slice(0, 8)}…), mas não foi
                   possível carregar os detalhes.
                 </p>
               ) : !relatedLogQuery.data ? (
-                <p className="text-xs text-[#667085]">
+                <p className="text-xs text-[var(--color-slate-600)]">
                   Log {selectedActivity.intervention_log_id.slice(0, 8)}… vinculado; detalhes não
                   encontrados na consulta recente (tenant isolado).
                 </p>
@@ -921,12 +785,12 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
             </div>
 
             {selectedActivity.status !== "cancelled" && (
-              <div className="rounded-lg border border-[#D0D5DD] bg-white p-3">
-                <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#667085]">
+              <div className="rounded-lg border border-[var(--color-border)] bg-white p-3">
+                <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-slate-600)]">
                   <FileText className="h-3.5 w-3.5" /> Registrar resultado operacional
                 </p>
-                <p className="mb-3 text-[11px] leading-relaxed text-[#98A2B3]">
-                  Grava evento <code className="text-[#475467]">result_recorded</code>. Não altera
+                <p className="mb-3 text-[11px] leading-relaxed text-[var(--color-muted)]">
+                  Grava evento <code className="text-[var(--color-slate-600)]">result_recorded</code>. Não altera
                   status da atividade, delivery status nem outcome de permanência.
                 </p>
                 <form
@@ -941,12 +805,12 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                   }}
                 >
                   <div className="grid gap-2 sm:grid-cols-[180px_1fr]">
-                    <label className="block text-xs font-medium text-[#475467]">
+                    <label className="block text-xs font-medium text-[var(--color-slate-600)]">
                       Tipo
                       <select
                         value={resultKind}
                         onChange={(e) => setResultKind(e.target.value as WorkResultKind | "")}
-                        className="mt-1 h-9 w-full rounded-lg border border-[#D0D5DD] bg-white px-2 text-sm"
+                        className="mt-1 h-9 w-full rounded-lg border border-[var(--color-border)] bg-white px-2 text-sm"
                       >
                         <option value="">Sem classificação</option>
                         {(Object.keys(RESULT_KIND_LABEL) as WorkResultKind[]).map((k) => (
@@ -956,27 +820,27 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
                         ))}
                       </select>
                     </label>
-                    <label className="block text-xs font-medium text-[#475467]">
+                    <label className="block text-xs font-medium text-[var(--color-slate-600)]">
                       Observação *
                       <input
                         value={resultNote}
                         onChange={(e) => setResultNote(e.target.value)}
                         maxLength={2000}
                         placeholder="O que aconteceu no contato / follow-up"
-                        className="mt-1 h-9 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-sm"
+                        className="mt-1 h-9 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm"
                         required
                       />
                     </label>
                   </div>
                   {resultError && (
-                    <p role="alert" className="text-xs text-[#B42318]">
+                    <p role="alert" className="text-xs text-[var(--color-red)]">
                       {resultError}
                     </p>
                   )}
                   <button
                     type="submit"
                     disabled={resultMut.isPending}
-                    className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#344054] px-3 text-xs font-semibold text-white disabled:opacity-50"
+                    className="inline-flex h-8 items-center gap-2 rounded-lg bg-[var(--color-slate-600)] px-3 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     {resultMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Registrar resultado
@@ -986,25 +850,25 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
             )}
 
             <div>
-              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#101828]">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--color-ink)]">
                 <History className="h-4 w-4" /> Histórico de eventos
               </p>
               {eventsQuery.isLoading ? (
-                <p className="text-xs text-[#667085]">Carregando eventos…</p>
+                <p className="text-xs text-[var(--color-slate-600)]">Carregando eventos…</p>
               ) : eventsQuery.isError ? (
-                <p className="text-xs text-[#B42318]">Não foi possível carregar o histórico.</p>
+                <p className="text-xs text-[var(--color-red)]">Não foi possível carregar o histórico.</p>
               ) : (eventsQuery.data?.events?.length ?? 0) === 0 ? (
-                <p className="text-xs text-[#667085]">Sem eventos registrados.</p>
+                <p className="text-xs text-[var(--color-slate-600)]">Sem eventos registrados.</p>
               ) : (
                 <ul className="space-y-2">
                   {eventsQuery.data!.events.map((ev) => (
-                    <li key={ev.id} className="text-xs text-[#475467]">
-                      <span className="font-medium text-[#101828]">
+                    <li key={ev.id} className="text-xs text-[var(--color-slate-600)]">
+                      <span className="font-medium text-[var(--color-ink)]">
                         {EVENT_LABEL[ev.event_type] ?? ev.event_type}
                       </span>{" "}
                       · {formatDate(ev.created_at)}
                       {ev.payload ? (
-                        <span className="ml-1 text-[#98A2B3]">{JSON.stringify(ev.payload)}</span>
+                        <span className="ml-1 text-[var(--color-muted)]">{JSON.stringify(ev.payload)}</span>
                       ) : null}
                     </li>
                   ))}
@@ -1014,7 +878,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
           </div>
         )}
 
-        <p className="mt-3 text-xs text-[#667085]">
+        <p className="mt-3 text-xs text-[var(--color-slate-600)]">
           Status da atividade ≠ status de envio do InterventionLog ≠ outcome de permanência. Resultado
           operacional é apenas evento de auditoria.
         </p>
@@ -1023,48 +887,3 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
   );
 }
 
-function InfoBlock({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-[#98A2B3]">{label}</p>
-      <div className="mt-0.5 text-xs text-[#344054]">{children}</div>
-    </div>
-  );
-}
-
-function InterventionContext({ log }: { log: InterventionLog }) {
-  return (
-    <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
-      <div>
-        <span className="text-[#98A2B3]">Canal</span>
-        <p className="font-medium text-[#101828]">
-          {log.channel ? CHANNEL_LABEL[log.channel] ?? log.channel : "—"}
-        </p>
-      </div>
-      <div>
-        <span className="text-[#98A2B3]">Data</span>
-        <p className="font-medium text-[#101828]">{formatDate(log.created_at)}</p>
-      </div>
-      <div>
-        <span className="text-[#98A2B3]">Decision reason</span>
-        <p className="font-medium text-[#101828]">{log.decision_reason || "—"}</p>
-      </div>
-      <div>
-        <span className="text-[#98A2B3]">Status de execução</span>
-        <p className="font-medium text-[#101828]">{log.status || "—"}</p>
-      </div>
-      <div>
-        <span className="text-[#98A2B3]">Delivery status</span>
-        <p className="font-medium text-[#101828]">{log.delivery_status || "—"}</p>
-      </div>
-      <div>
-        <span className="text-[#98A2B3]">Outcome</span>
-        <p className="font-medium text-[#101828]">
-          {log.outcome
-            ? `${log.outcome}${log.outcome_at ? ` · ${formatDate(log.outcome_at)}` : ""}`
-            : "—"}
-        </p>
-      </div>
-    </div>
-  );
-}
