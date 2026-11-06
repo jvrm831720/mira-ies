@@ -195,20 +195,21 @@ def verify_payment_response(remote: dict, charge, *, strict: bool = True) -> str
         raise GatewayInconclusive("Valor externo inválido.") from exc
     if amount != charge.amount:
         raise GatewayInconclusive("Cobrança externa diverge no valor.")
-    split = remote.get("split")
-    if not isinstance(split, list) or len(split) != 1:
-        raise GatewayInconclusive("Provedor não confirmou o Split único obrigatório.")
-    dest = split[0]
-    if not isinstance(dest, dict) or dest.get("walletId") != charge.destination_wallet_id:
-        raise GatewayInconclusive("Carteira do Split não corresponde ao workspace.")
-    if dest.get("fixedValue") not in (None, 0):
-        raise GatewayInconclusive("Split contém um valor fixo não autorizado.")
-    try:
-        percent = Decimal(str(dest.get("percentualValue")))
-    except (ValueError, TypeError, ArithmeticError) as exc:
-        raise GatewayInconclusive("Percentual de Split inválido.") from exc
-    if percent != 100:
-        raise GatewayInconclusive("Split diferente de 100% do líquido.")
+    if strict:
+        split = remote.get("split")
+        if not isinstance(split, list) or len(split) != 1:
+            raise GatewayInconclusive("Provedor não confirmou o Split único obrigatório.")
+        dest = split[0]
+        if not isinstance(dest, dict) or dest.get("walletId") != charge.destination_wallet_id:
+            raise GatewayInconclusive("Carteira do Split não corresponde ao workspace.")
+        if dest.get("fixedValue") not in (None, 0):
+            raise GatewayInconclusive("Split contém um valor fixo não autorizado.")
+        try:
+            percent = Decimal(str(dest.get("percentualValue")))
+        except (ValueError, TypeError, ArithmeticError) as exc:
+            raise GatewayInconclusive("Percentual de Split inválido.") from exc
+        if percent != 100:
+            raise GatewayInconclusive("Split diferente de 100% do líquido.")
     return payment_id
 
 

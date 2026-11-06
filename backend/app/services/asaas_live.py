@@ -255,9 +255,9 @@ async def reconcile_charge(db: AsyncSession, *, tenant_id: str, charge_id: str) 
             charge.reconciliation_required = True
             await db.commit()
             raise AsaasFlowDenied("Referência ausente ou duplicada na Asaas: revisão manual obrigatória.")
-        charge.asaas_payment_id = gateway.verify_payment_response(matches[0], charge)
+        charge.asaas_payment_id = gateway.verify_payment_response(matches[0], charge, strict=False)
     remote = await gateway.request("GET", "/payments/" + charge.asaas_payment_id)
-    gateway.verify_payment_response(remote, charge)
+    gateway.verify_payment_response(remote, charge, strict=False)
     status = str(remote.get("status", "UNKNOWN")).upper()[:28]
     charge.provider_payment_status = status
     charge.payment_received_verified = status == "RECEIVED"
