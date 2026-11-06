@@ -84,7 +84,7 @@ async def test_students_filtered_and_paginated_by_tenant(db_session, tenant_fact
                 risk_level="critico" if score == 90 else "baixo" if score == 15 else None,
             ))
         await db_session.commit()
-    auth = SimpleNamespace(tenant_id=tenant_a.id)
+    auth = SimpleNamespace(tenant_id=tenant_a.id, role="coordinator", permissions=None, custom_role_id=None)
     await db_session.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_a.id})
 
     kwargs = dict(q=None, course=None, risk_level=None, view="todos",
