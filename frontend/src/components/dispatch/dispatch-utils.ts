@@ -33,8 +33,9 @@ export function permittedPurposes(profile?: string | null): DispatchPurpose[] {
 
 export function validChannel(purpose: DispatchPurpose, channel: string): boolean {
   // The backend explicitly refuses collections+WhatsApp.
-  return ["email", "sms"].includes(channel);
+  if (purpose === "collections" && channel === "whatsapp") return false;
   // The current delivery service only sends email/SMS; no live WhatsApp adapter.
+  return channel === "email" || channel === "sms";
 }
 
 export function sourceKey(source: DispatchSource): string {
