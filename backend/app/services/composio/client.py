@@ -251,7 +251,7 @@ def list_onboarding_auth_configs() -> list[dict[str, str]]:
                     or (toolkit if isinstance(toolkit, str) else ""))
             config_id = row.get("id") or getattr(item, "id", None)
             status = str(row.get("status") or getattr(item, "status", "ENABLED")).upper().split(".")[-1]
-            if not isinstance(slug, str) or not isinstance(config_id, str) or status not in {"ENABLED", "ACTIVE"}:
+            if not isinstance(slug, str) or not slug.strip() or not isinstance(config_id, str) or not config_id.strip() or status not in {"ENABLED", "ACTIVE"}:
                 continue
             result[(slug.lower(), config_id)] = {
                 "toolkit_slug": slug.lower(),
