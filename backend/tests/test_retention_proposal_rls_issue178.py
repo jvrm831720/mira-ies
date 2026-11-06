@@ -1,8 +1,6 @@
 """Regression for Issue #178: proposal rows must never cross tenants."""
 
 from datetime import datetime, timezone
-from uuid import uuid4
-
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
