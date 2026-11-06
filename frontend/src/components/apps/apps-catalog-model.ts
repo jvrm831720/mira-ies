@@ -79,6 +79,8 @@ export function unifyAppsCatalog(
   }
   for(const source of remotes){
     const key=normalizeAppKey(source.slug);
+    // The infrastructure vendor is never a customer-facing catalog app.
+    if (key === "composio") continue;
     const info=editorial[key];
     const active=accounts.find(account=>normalizeAppKey(account.toolkit_slug)===key && account.status==="active");
     const existing=apps.get(key);
@@ -86,7 +88,7 @@ export function unifyAppsCatalog(
     const state=active ? {status:"configured" as const,statusText:"Conta registrada"} : {status:"available" as const,statusText:"Disponível"};
     const base:CatalogApp={
       id:key,slug:source.slug,name:info?.name||source.name,
-      description:info?.description||source.description||"Conexão com o seu workspace",
+      description:info?.description||(source.description?.replace(/\bcomposio\b/gi, "MIRA").replace(/\btoolkits?\b/gi,"aplicativos") || "Conexão com o seu workspace"),
       category:info?.category||categoryOf(source.category || source.categories?.[0]),
       initials:info?.initials||nameInitials(source.name),color:info?.color||"gray",
       status:state.status,statusText:state.statusText,
