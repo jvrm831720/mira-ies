@@ -1,20 +1,16 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
-  Check, ChevronDown, ChevronRight, Filter, Layers, Plus, RefreshCw, Search, X,
+  ChevronDown, ChevronRight, Filter, Layers, RefreshCw, Search, X,
 } from "@/components/ui/icons";
 import { api } from "@/lib/api";
-import { toast } from "sonner";
-import { Dialog } from "@/components/ui/dialog";
-import {
-  createSavedObjectView, deleteSavedObjectView, listSavedObjectViews, updateSavedObjectView,
-} from "@/lib/object-index-api";
 import { cn } from "@/lib/utils";
 import { ObjectDataTable } from "./object-data-table";
 import { ObjectFilterBuilder } from "./object-filter-builder";
-import type { ObjectDefaultView, ObjectField, ObjectFilter, ObjectKind, ObjectSort, ObjectViewSpec } from "./object-index-types";
+import type { ObjectDefaultView, ObjectField, ObjectFilter, ObjectKind, ObjectSort, SavedObjectView } from "./object-index-types";
+import { ViewManager } from "./view-manager";
 import { defaultViewSpec, validateObjectView } from "./object-index-types";
 import { matchesObjectFilters } from "./object-index-utils";
 import { activeSorts, pageSelection, sortObjectRows, verifiedCount } from "./object-index-experience";
@@ -24,6 +20,8 @@ export type ObjectIndexState = {
   view: string;
   filters: ObjectFilter[];
   sort: ObjectSort | null;
+  savedViewId?: string | null;
+  propertyLabels?: Record<string, string>;
   sorts?: ObjectSort[];
   density?: "compact" | "comfortable";
   pinned?: string[];
@@ -34,7 +32,7 @@ export type ObjectIndexState = {
 };
 export function initialObjectIndexState<T>(fields: ObjectField<T>[], view = "todos"): ObjectIndexState {
   const spec = defaultViewSpec(fields);
-  return { query: "", view, filters: [], sort: null, sorts: [], density: "comfortable", pinned: [], columnWidths: {}, columns: spec.columns, pageIndex: 0, pageSize: 50 };
+  return { query: "", view, savedViewId: null, propertyLabels: {}, filters: [], sort: null, sorts: [], density: "comfortable", pinned: [], columnWidths: {}, columns: spec.columns, pageIndex: 0, pageSize: 50 };
 }
 
 export type ObjectIndexProps<T extends { id: string }> = {
@@ -63,7 +61,7 @@ export type ObjectIndexProps<T extends { id: string }> = {
   extra?: ReactNode;
 };
 
-type OpenMenu = "filter" | "sort" | "columns" | "views" | null;
+type OpenMenu = "filter" | "sort" | "columns" | null;
 
 export function ObjectIndex<T extends { id: string }>({
   objectKey, title, description, fields, rows, state, onStateChange,
@@ -71,35 +69,11 @@ export function ObjectIndex<T extends { id: string }>({
   remote = false, total, hasMore, partial = false, loading = false, error = false,
   onRetry, onRefresh, refreshing, onOpen, actions, emptyTitle, emptyAction, selectionActions, extra,
 }: ObjectIndexProps<T>) {
-  const queryClient = useQueryClient();
   const me = useQuery({ queryKey: ["org-me"], queryFn: () => api.me(), retry: false, staleTime: 60_000 });
   const userTenant = me.data?.tenant_id;
   const userId = me.data?.user_id;
-  const saved = useQuery({
-    queryKey: ["object-views", userTenant, userId, objectKey],
-    queryFn: () => listSavedObjectViews(objectKey),
-    enabled: Boolean(userTenant && userId),
-    retry: false, staleTime: 30_000,
-  });
-  const save = useMutation({
-    mutationFn: (payload: { name: string; config: ObjectViewSpec }) => createSavedObjectView(objectKey, payload.name, payload.config),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["object-views", userTenant, userId, objectKey] }); },
-  });
-  const updateSaved = useMutation({
-    mutationFn: (payload: { id: string; name: string; config: ObjectViewSpec }) => updateSavedObjectView(payload.id, payload.name, payload.config),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["object-views", userTenant, userId, objectKey] }); },
-  });
-  const removeSaved = useMutation({
-    mutationFn: deleteSavedObjectView,
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["object-views", userTenant, userId, objectKey] }); },
-  });
-
   const [menu, setMenu] = useState<OpenMenu>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [activeSavedId, setActiveSavedId] = useState<string | null>(null);
-  const [viewName, setViewName] = useState("");
-  const [editingView, setEditingView] = useState<"new" | "rename" | null>(null);
-  const [viewError, setViewError] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const query = useDeferredValue(state.query);
   const fieldMap = useMemo(() => new Map(fields.map(field => [field.key, field])), [fields]);
@@ -107,9 +81,12 @@ export function ObjectIndex<T extends { id: string }>({
   const density = state.density === "compact" ? "compact" : "comfortable";
   const pinned = (state.pinned || []).filter(key => state.columns.includes(key) && fields.some(field => field.key === key));
   const widths = state.columnWidths || {};
-  const activeSaved = saved.data?.views.find(item => item.id === activeSavedId);
-  const visibleFields = useMemo(() => fields.filter(field => field.primary || state.columns.includes(field.key))
-    .sort((a,b) => state.columns.indexOf(a.key) - state.columns.indexOf(b.key)), [fields, state.columns]);
+  const effectiveFields = useMemo(() => fields.map(field => {
+    const label = state.propertyLabels?.[field.key];
+    return label && label.trim().length >= 2 ? { ...field, title: label } : field;
+  }), [fields, state.propertyLabels]);
+  const visibleFields = useMemo(() => effectiveFields.filter(field => field.primary || state.columns.includes(field.key))
+    .sort((a,b) => state.columns.indexOf(a.key) - state.columns.indexOf(b.key)), [effectiveFields, state.columns]);
 
   const matches = useMemo(() => {
     if (remote) return rows;
@@ -135,10 +112,10 @@ export function ObjectIndex<T extends { id: string }>({
   const pageCount = exactTotal == null ? null : Math.max(1, Math.ceil(exactTotal / state.pageSize));
   const selectedRows = pageSelection(visibleRows, selected);
   const selectedCount = selectedRows.length;
-  const savedLabel = activeSaved?.name || defaultViews.find(view => view.id === state.view)?.title || "Todos";
   const effectiveViewSpec = validateObjectView(fields, {
     version: 1, filters: state.filters, sort: sorts[0] || null, sorts,
     density, pinned, columnWidths: widths, columns: state.columns, page_size: state.pageSize,
+    property_labels: state.propertyLabels || {},
   });
 
   function change(patch: Partial<ObjectIndexState>, resetPage = true) {
@@ -148,61 +125,34 @@ export function ObjectIndex<T extends { id: string }>({
   function changeSorts(next: ObjectSort[]) {
     change({ sort: next[0] || null, sorts: next.slice(0, 3) });
   }
-  function switchView(id: string, savedId: string | null = null) {
+  function switchView(id: string) {
     setMenu(null);
-    setSelected({});
-    setActiveSavedId(savedId);
-    if (!savedId) {
-      change({ view: id, query: "", filters: [], sort: null, sorts: [], columns: fields.map(field => field.key) });
-      return;
-    }
-    const view = saved.data?.views.find(item => item.id === savedId);
-    if (!view) return;
+    change({
+      view: id, savedViewId: null, propertyLabels: {}, query: "", filters: [],
+      sort: null, sorts: [], columns: fields.map(field => field.key),
+    });
+  }
+  function applySavedView(view: SavedObjectView) {
+    if (!view.config || view.schema_status === "unsupported") return;
     const spec = validateObjectView(fields, view.config);
-    change({ view: "todos", query: "", filters: spec.filters, sort: spec.sort,
-      sorts: spec.sorts || (spec.sort ? [spec.sort] : []),
+    setMenu(null);
+    change({
+      savedViewId: view.id, view: "todos", query: "", filters: spec.filters,
+      sort: spec.sort, sorts: spec.sorts || (spec.sort ? [spec.sort] : []),
       density: spec.density || "comfortable", pinned: spec.pinned || [],
-      columnWidths: spec.columnWidths || {}, columns: spec.columns, pageSize: spec.page_size });
+      columnWidths: spec.columnWidths || {}, columns: spec.columns,
+      propertyLabels: spec.property_labels || {}, pageSize: spec.page_size,
+    });
   }
   function updateColumns(columns: string[]) { change({ columns, pinned: pinned.filter(key => columns.includes(key)) }, false); }
   function updatePresentation(patch: Partial<ObjectIndexState>) { change(patch, false); }
-  function saveView(action: "new" | "rename") {
-    const name = viewName.trim();
-    if (name.length < 2) { setViewError("Informe pelo menos 2 caracteres."); return; }
-    setViewError("");
-    const task = action === "rename" && activeSaved
-      ? updateSaved.mutateAsync({ id: activeSaved.id, name, config: effectiveViewSpec })
-      : save.mutateAsync({ name, config: effectiveViewSpec });
-    void task.then(view => {
-      setEditingView(null);
-      setViewName("");
-      setActiveSavedId(view.id);
-      setMenu(null);
-      toast.success("Visualização salva.");
-      void queryClient.invalidateQueries({ queryKey: ["object-views", userTenant, userId, objectKey] });
-    }).catch(e => { const message = e instanceof Error ? e.message : "Não foi possível salvar."; setViewError(message); toast.error(message); });
-  }
-  function duplicateView() {
-    setViewName(savedLabel + " (cópia)");
-    setEditingView("new");
-    setMenu(null);
-  }
-  function deleteView() {
-    if (!activeSaved) return;
-    if (!window.confirm('Excluir a visualização pessoal "' + activeSaved.name + '"?')) return;
-    void removeSaved.mutateAsync(activeSaved.id).then(() => {
-      setActiveSavedId(null);
-      switchView("todos");
-      toast.success("Visualização excluída.");
-    }).catch(e => setViewError(e instanceof Error ? e.message : "Falha ao excluir."));
-  }
 
   // Never retain a previous page or workspace selection, even when record IDs overlap.
   useEffect(() => { setSelected({}); }, [objectKey, userTenant, userId, state.pageIndex, state.pageSize,
-    state.query, state.view, state.filters, state.sort, state.sorts]);
+    state.query, state.view, state.savedViewId, state.filters, state.sort, state.sorts]);
 
   useEffect(() => {
-    function keydown(event: KeyboardEvent) { if (event.key === "Escape") { setMenu(null); setEditingView(null); } }
+    function keydown(event: KeyboardEvent) { if (event.key === "Escape") setMenu(null); }
     function click(event: MouseEvent) { if (!menuRef.current?.contains(event.target as Node)) setMenu(null); }
     document.addEventListener("keydown", keydown);
     document.addEventListener("mousedown", click);
@@ -235,49 +185,13 @@ export function ObjectIndex<T extends { id: string }>({
       <div className="flex min-h-[43px] items-center gap-1 overflow-x-auto">
         {defaultViews.map(view =>
           <button key={view.id} type="button" onClick={() => switchView(view.id)}
-            aria-current={!activeSavedId && state.view === view.id ? "page" : undefined}
+            aria-current={!state.savedViewId && state.view === view.id ? "page" : undefined}
             className={cn("shrink-0 border-b-2 px-3 py-3 text-xs font-medium transition-colors duration-[var(--motion-standard)]",
-              !activeSavedId && state.view === view.id ? "border-[var(--color-ink)] text-[var(--color-ink)]" : "border-transparent text-[var(--color-slate-600)] hover:text-[var(--color-ink)]")}>
+              !state.savedViewId && state.view === view.id ? "border-[var(--color-ink)] text-[var(--color-ink)]" : "border-transparent text-[var(--color-slate-600)] hover:text-[var(--color-ink)]")}>
             {view.title}
           </button>)}
-        <div className="relative ml-2">
-          <button type="button" aria-expanded={menu === "views"} aria-haspopup="menu"
-            onClick={() => setMenu(menu === "views" ? null : "views")}
-            className={cn("inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--radius-md)] px-2.5 text-xs hover:bg-[var(--color-panel)]",
-              activeSavedId ? "font-semibold text-[var(--color-ink)]" : "text-[var(--color-slate-600)]")}>
-            {activeSavedId ? savedLabel : "Minhas visualizações"} <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-          {menu === "views" && <div role="menu" className="absolute left-0 top-[calc(100%+7px)] z-40 w-[260px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-2 shadow-[var(--shadow-overlay)]">
-            <p className="px-2 py-1 text-[length:var(--type-overline)] font-semibold uppercase text-[var(--color-muted)]">Pessoais · persistidas</p>
-            {saved.isLoading && <p className="px-2 py-2 text-[length:var(--type-caption)] text-[var(--color-muted)]">Carregando…</p>}
-            {saved.isError && <p role="alert" className="px-2 py-2 text-[length:var(--type-caption)] text-[var(--color-red)]">Não foi possível carregar suas visualizações.</p>}
-            {!saved.isLoading && saved.data?.views.length === 0 && <p className="px-2 py-3 text-[length:var(--type-caption)] text-[var(--color-muted)]">Nenhuma visualização pessoal ainda.</p>}
-            {saved.data?.views.map(view => <button key={view.id} type="button" role="menuitem"
-              onClick={() => switchView(view.id, view.id)}
-              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">
-              <span className="truncate">{view.name}</span>
-              {view.id === activeSavedId && <Check className="h-3.5 w-3.5 text-[var(--color-blue)]" />}
-            </button>)}
-            <div className="my-1 border-t border-[var(--color-border)]" />
-            <button type="button" role="menuitem" onClick={() => { setMenu(null); setEditingView("new"); setViewName(""); }}
-              className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">
-              <Plus className="h-3.5 w-3.5" /> Salvar visualização atual
-            </button>
-            {activeSaved && <>
-              <button type="button" role="menuitem" onClick={() => {
-                void updateSaved.mutateAsync({ id: activeSaved.id, name: activeSaved.name, config: effectiveViewSpec }).then(
-                  () => { setMenu(null); void queryClient.invalidateQueries({ queryKey: ["object-views", userTenant, userId, objectKey] }); }
-                ).catch(e => setViewError(e instanceof Error ? e.message : "Falha ao atualizar."));
-              }} className="w-full rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">Atualizar configuração</button>
-              <button type="button" role="menuitem" onClick={() => { setEditingView("rename"); setViewName(activeSaved.name); setMenu(null); }}
-                className="w-full rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">Renomear</button>
-              <button type="button" role="menuitem" onClick={duplicateView}
-                className="w-full rounded-md px-2 py-2 text-left text-xs hover:bg-[var(--color-panel)]">Duplicar</button>
-              <button type="button" role="menuitem" onClick={deleteView}
-                className="w-full rounded-md px-2 py-2 text-left text-xs text-[var(--color-red)] hover:bg-[var(--color-panel)]">Excluir</button>
-            </>}
-          </div>}
-        </div>
+        <ViewManager objectKey={objectKey} fields={fields} tenantId={userTenant} userId={userId}
+          activeId={state.savedViewId} currentConfig={effectiveViewSpec} onApply={applySavedView} />
       </div>
     </div>
 
@@ -295,7 +209,7 @@ export function ObjectIndex<T extends { id: string }>({
           <Filter className="h-3.5 w-3.5" /> Filtrar {state.filters.length ? "(" + state.filters.length + ")" : ""}
         </button>
         {menu === "filter" && <div className="absolute right-0 top-[calc(100%+5px)] z-30 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-overlay)]">
-          <ObjectFilterBuilder fields={fields} filters={state.filters} onChange={next => change({ filters: next })} onClose={() => setMenu(null)} />
+          <ObjectFilterBuilder fields={effectiveFields} filters={state.filters} onChange={next => change({ filters: next })} onClose={() => setMenu(null)} />
         </div>}
       </div>
       <div className="relative">
@@ -458,23 +372,6 @@ export function ObjectIndex<T extends { id: string }>({
       </footer>
     </>}
 
-    <Dialog open={Boolean(editingView || viewError)}
-      onOpenChange={open => { if (!open) { setEditingView(null); setViewError(""); } }}
-      title={editingView === "rename" ? "Renomear visualização" : "Salvar visualização pessoal"}
-      description="Uma configuração pessoal, sem armazenar os dados consultados."
-      className="max-w-[420px]">
-      <form onSubmit={event => { event.preventDefault(); if (editingView) saveView(editingView); }}
-        className="space-y-4">
-        {editingView && <label className="block text-xs text-[var(--color-slate-600)]">Nome
-          <input autoFocus value={viewName} maxLength={80} onChange={event => setViewName(event.target.value)}
-            className="mt-1 h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[length:var(--type-body-compact)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]" />
-        </label>}
-        {viewError && <p role="alert" className="text-xs text-[var(--color-red)]">{viewError}</p>}
-        {editingView && <button type="submit" disabled={save.isPending || updateSaved.isPending}
-          className="h-9 w-full rounded-[var(--radius-md)] bg-[var(--color-ink)] px-4 text-xs font-medium text-white disabled:opacity-50">
-          {save.isPending || updateSaved.isPending ? "Salvando…" : "Salvar"}
-        </button>}
-      </form>
-    </Dialog>
+
   </section>;
 }

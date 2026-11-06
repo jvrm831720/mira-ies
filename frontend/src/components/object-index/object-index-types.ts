@@ -20,16 +20,36 @@ export type ObjectViewSpec = {
   columnWidths?: Record<string, number>;
   columns: string[];
   page_size: 25 | 50 | 100;
+  property_labels?: Record<string, string>;
 };
 export type SavedObjectView = {
   id: string;
   object_key: ObjectKind;
   name: string;
-  scope: "personal";
-  config: ObjectViewSpec;
-  version: 1;
+  scope: "personal" | "workspace";
+  owner_user_id: string;
+  config: ObjectViewSpec | null;
+  schema_status: "current" | "upgraded" | "unsupported";
+  version: number;
+  revision: number;
+  favorite: boolean;
+  can_edit: boolean;
+  can_share: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type ViewRevision = {
+  revision: number; name: string; scope: "personal" | "workspace";
+  schema_version: number; created_at: string;
+};
+export type ObjectSchemaField = {
+  key: string; label: string; type: string; sensitive: boolean;
+  filterable: boolean; sortable: boolean; operators: string[];
+};
+export type ObjectSchema = {
+  object_key: ObjectKind; schema_version: number; property_source: string;
+  fields: ObjectSchemaField[]; notes: string;
 };
 
 export type ObjectField<T> = {
@@ -59,6 +79,7 @@ export function defaultViewSpec<T>(fields: ObjectField<T>[]): ObjectViewSpec {
     version: 1, filters: [], sort: null, sorts: [], density: "comfortable", pinned: [], columnWidths: {},
     columns: fields.map(field => field.key),
     page_size: 50,
+    property_labels: {},
   };
 }
 
@@ -79,6 +100,9 @@ export function validateObjectView<T>(fields: ObjectField<T>[], spec: ObjectView
     columnWidths: Object.fromEntries(Object.entries(spec.columnWidths || {}).filter(([key, width]) =>
       allowed.has(key) && columns.includes(key) && Number.isFinite(width) && width >= 100 && width <= 640)),
     columns,
+    property_labels: Object.fromEntries(Object.entries(spec.property_labels || {}).filter(([key, label]) =>
+      allowed.has(key) && columns.includes(key) && typeof label === "string" &&
+      label.trim().length >= 2 && label.length <= 80)),
     page_size: [25, 50, 100].includes(spec.page_size) ? spec.page_size : 50,
   };
 }

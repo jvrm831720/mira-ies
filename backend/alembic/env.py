@@ -39,6 +39,7 @@ import app.models.connector_destination  # noqa: F401
 import app.models.composio_connection  # noqa: F401
 import app.models.composio_approval  # noqa: F401
 import app.models.integration_features  # noqa: F401
+import app.models.object_view  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

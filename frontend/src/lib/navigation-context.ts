@@ -2,7 +2,7 @@ import type { ObjectField, ObjectDefaultView, ObjectFilter } from "@/components/
 import type { ObjectIndexState } from "@/components/object-index/object-index";
 
 /** Wave 1: presentation-only URL state. No record payload or authorization data is stored here. */
-const KEYS = ["v", "q", "f", "sort", "sorts", "cols", "page", "size", "record", "density", "pinned", "widths"] as const;
+const KEYS = ["v", "q", "f", "sort", "sorts", "cols", "page", "size", "record", "density", "pinned", "widths", "saved_view", "labels"] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FILTER_OPERATORS = new Set([
   "eq", "neq", "contains", "not_contains", "starts_with", "gt", "lt",
@@ -56,6 +56,8 @@ export function readObjectIndexState<T>(
   fallback: ObjectIndexState,
 ): ObjectIndexState {
   const state: ObjectIndexState = { ...fallback, filters: [...fallback.filters], columns: [...fallback.columns] };
+  const selectedView = search.get("saved_view");
+  state.savedViewId = selectedView && UUID.test(selectedView) ? selectedView : null;
   const view = search.get("v") || search.get("tab");
   if (view && views.some(item => item.id === view)) state.view = view;
   state.query = (search.get("q") || "").slice(0, 160);
@@ -105,6 +107,18 @@ export function readObjectIndexState<T>(
       }
     } catch { /* Invalid widths do not affect navigation. */ }
   }
+  const rawLabels = search.get("labels");
+  if (rawLabels && rawLabels.length <= 2500) {
+    try {
+      const parsed: unknown = JSON.parse(rawLabels);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const allowed = new Set(state.columns);
+        state.propertyLabels = Object.fromEntries(Object.entries(parsed).filter(([key, label]) =>
+          allowed.has(key) && fields.some(field => field.key === key) &&
+          typeof label === "string" && label.trim().length >= 2 && label.length <= 80).slice(0, 24));
+      }
+    } catch { /* Invalid presentation labels are discarded. */ }
+  }
   const page = Number(search.get("page"));
   if (Number.isInteger(page) && page >= 0 && page <= 10000) state.pageIndex = page;
   const size = Number(search.get("size"));
@@ -121,6 +135,7 @@ export function buildIndexHref(
   params.delete("tab");
   params.delete("risk");
   if (state.view !== "todos") params.set("v", state.view);
+  if (state.savedViewId && UUID.test(state.savedViewId)) params.set("saved_view", state.savedViewId);
   if (state.query) params.set("q", state.query.slice(0, 160));
   if (state.filters.length) {
     const filters = JSON.stringify(state.filters.slice(0, 8));
@@ -139,6 +154,10 @@ export function buildIndexHref(
   if (state.columnWidths && Object.keys(state.columnWidths).length) {
     const encoded = JSON.stringify(state.columnWidths);
     if (encoded.length <= 1500) params.set("widths", encoded);
+  }
+  if (state.propertyLabels && Object.keys(state.propertyLabels).length) {
+    const encoded = JSON.stringify(state.propertyLabels);
+    if (encoded.length <= 2500) params.set("labels", encoded);
   }
   if (state.pageIndex > 0) params.set("page", String(Math.min(state.pageIndex, 10000)));
   if (state.pageSize !== 50) params.set("size", String(state.pageSize));
