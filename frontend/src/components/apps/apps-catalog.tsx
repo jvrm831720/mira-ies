@@ -170,7 +170,8 @@ export function AppsCatalog() {
   });
   const items=useMemo(()=>mergeAppCatalog(
     live.data?.items,native.data?.connectors,connections.data?.items,
-    {jacad:!!jacad.data?.configured,sponte:!!sponte.data?.configured}
+    {jacad:jacad.data?.status==="connected"?"connected":!!jacad.data?.configured,
+      sponte:sponte.data?.status==="connected"?"connected":!!sponte.data?.configured}
   ),[live.data?.items,native.data?.connectors,connections.data?.items,jacad.data?.configured,sponte.data?.configured]);
   const displayed=useMemo(()=>filterApps(items,search,category,tab),[items,search,category,tab]);
   const connected=items.filter(item=>item.status==="connected"||item.status==="configured").length;
