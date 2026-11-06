@@ -6,12 +6,9 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   CircleAlert,
   History,
-  Mail,
   MessageSquareText,
-  Phone,
   ShieldCheck,
   Sparkles,
   RefreshCw,
@@ -23,8 +20,13 @@ import { Header } from "@/components/layout/header";
 import { RiskBadge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { RecordPage } from "@/components/record/record-page";
+import { RecordProperties } from "@/components/record/record-properties";
+import { RecordRelations } from "@/components/record/record-relations";
+import { StudentRecordActivity } from "@/components/record/student-record-activity";
+import { studentPropertyGroups, studentRelations, studentRecordIdentity } from "@/components/record/student-record-data";
+import { getVisibleNavigation, hasNavigationPermission } from "@/components/layout/navigation";
 import { cn, formatScore } from "@/lib/utils";
-import { StudentWorkTimeline } from "@/components/students/student-work-timeline";
 import { NativeAcademicPanel } from "@/components/students/native-academic-panel";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -74,9 +76,9 @@ function displayValue(
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="rounded-[10px] border border-[#E4E7EC] bg-white p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">{label}</p>
-      <p className="mt-2 text-[14px] font-semibold text-[#111827]">{value}</p>
+    <article className="rounded-[10px] border border-[var(--color-border)] bg-white p-4">
+      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--color-muted)]">{label}</p>
+      <p className="mt-2 text-[14px] font-semibold text-[var(--color-ink)]">{value}</p>
     </article>
   );
 }
@@ -93,17 +95,24 @@ export default function StudentDetailPage() {
   }
   const [loadingPreview, setLoadingPreview] = useState(false);
   const queryClient = useQueryClient();
+  const me = useQuery({queryKey:["org-me"],queryFn:api.me,retry:false,staleTime:60_000});
+  const availableNavigation = getVisibleNavigation(me.data);
+  const canRead = availableNavigation.some(g=>g.items.some(i=>i.href==="/alunos"));
+  const canSensitive = hasNavigationPermission(me.data,"students.sensitive.view");
+  const canEdit = hasNavigationPermission(me.data,"students.edit");
+  const canPrepareContact = availableNavigation.some(g=>g.items.some(i=>i.href==="/disparos"));
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["student-risk", id],
     queryFn: () => api.studentRisk(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && canRead,
+    staleTime:30_000,
   });
 
   const logs = useQuery({
     queryKey: ["student-logs", id],
     queryFn: () => api.retentionLogs({ student_id: id, limit: 20 }),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && canSensitive,
     retry: false,
   });
 
@@ -141,20 +150,6 @@ export default function StudentDetailPage() {
     }
   }
 
-  const scoreAvailable =
-    typeof data?.risk_score === "number" && Number.isFinite(data.risk_score);
-  const scoreBarWidth = scoreAvailable
-    ? Math.max(0, Math.min(100, data!.risk_score as number))
-    : null;
-  const scoreBarColor =
-    data?.risk_level === "critico"
-      ? "#F04438"
-      : data?.risk_level === "medio"
-        ? "#FDB022"
-        : data?.risk_level === "baixo"
-          ? "#12B76A"
-          : "#98A2B3";
-
   const summaryText =
     businessText(data?.shap_summary) ||
     businessText(data?.shap_top_factors?.summary) ||
@@ -187,37 +182,9 @@ export default function StudentDetailPage() {
     <>
       <Header title="Ficha do aluno" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/alunos"
-            className="inline-flex items-center gap-2 rounded-lg text-[13px] font-semibold text-[#667085] transition hover:text-[#266DF0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar para alunos
-          </Link>
-          {data && (
-            <Link
-              href={`/disparos?mode=individual&student=${encodeURIComponent(id)}`}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#DADADD] bg-white px-3 text-[12px] font-medium text-[#111827] hover:bg-[#F8F9FA]"
-            >
-              <Mail className="h-3.5 w-3.5" />
-              Preparar contato individual
-            </Link>
-          )}
-          {data && (
-            <button
-              type="button"
-              onClick={() => void refetch()}
-              disabled={isFetching}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#111827] transition hover:bg-[#F8F9FA] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
-              Atualizar
-            </button>
-          )}
-        </div>
-
-        {isLoading && (
+        {me.isLoading && <p role="status" className="px-5 py-8 text-[12px] text-[var(--color-slate-600)]">Verificando acesso…</p>}
+        {me.isError || (!me.isLoading && !canRead) ? <p role="alert" className="px-5 py-8 text-[12px] text-[var(--color-red)]">O registro não está disponível para este perfil e workspace.</p> : null}
+        {canRead && isLoading && (
           <div className="space-y-4">
             <Skeleton className="h-36 w-full rounded-xl" />
             <div className="grid gap-3 sm:grid-cols-3">
@@ -234,8 +201,8 @@ export default function StudentDetailPage() {
             <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-white text-[#B42318]">
               <CircleAlert className="h-5 w-5" />
             </span>
-            <p className="mt-4 text-[15px] font-semibold text-[#111827]">Não foi possível abrir esta ficha.</p>
-            <p className="mt-1 text-[13px] text-[#667085]">
+            <p className="mt-4 text-[15px] font-semibold text-[var(--color-ink)]">Não foi possível abrir esta ficha.</p>
+            <p className="mt-1 text-[13px] text-[var(--color-slate-600)]">
               A consulta de risco falhou ou o aluno não está acessível nesta instituição.
             </p>
             <button type="button" onClick={() => void refetch()} className="mt-4 text-[13px] font-semibold text-[#B42318] underline underline-offset-4">
@@ -244,67 +211,22 @@ export default function StudentDetailPage() {
           </div>
         )}
 
-        {data && (
-          <>
-            <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5 sm:p-6">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-[#E4E7EC] bg-[#F5F6F8] text-[17px] font-semibold text-[#454A54]" aria-hidden="true">{(data.nome || "?").trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}</div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">Registro do aluno</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2.5">
-                    <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#111827] sm:text-[24px]">
-                      {data.nome || "Nome não informado"}
-                    </h1>
-                    <RiskBadge level={data.risk_level} />
-                  </div>
-                  <p className="mt-1.5 text-[13px] text-[#667085]">
-                    Matrícula {data.matricula || "—"}
-                    {data.curso ? ` · ${data.curso}` : ""}
-                    {data.campus ? ` · ${data.campus}` : ""}
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-[#344054]">
-                    {data.telefone ? (
-                      <span className="inline-flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 text-[#667085]" />
-                        {data.telefone}
-                      </span>
-                    ) : null}
-                    {data.email ? (
-                      <span className="inline-flex items-center gap-2">
-                        <Mail className="h-3.5 w-3.5 text-[#667085]" />
-                        {data.email}
-                      </span>
-                    ) : null}
-                    {!data.telefone && !data.email && (
-                      <span className="text-[#98A2B3]">Sem telefone ou e-mail cadastrado</span>
-                    )}
-                  </div>
-                </div>
-                <div className="w-full shrink-0 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-4 sm:w-[240px]">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#98A2B3]">Score de risco</p>
-                  {scoreAvailable ? (
-                    <>
-                      <div className="mt-2 flex items-baseline gap-1">
-                        <span className="text-[32px] font-semibold tracking-[-0.04em] tabular-nums text-[#111827]">
-                          {formatScore(data.risk_score)}
-                        </span>
-                        <span className="text-[12px] text-[#98A2B3]">/ 100</span>
-                      </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${scoreBarWidth}%`, backgroundColor: scoreBarColor }} />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="mt-3 text-[20px] font-semibold text-[#667085]">Sem score</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-[#98A2B3]">Ausência de score não significa baixo risco.</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </section>
+        {data && canRead && (
+            <RecordPage
+              record={studentRecordIdentity(id,data)}
+              backHref="/alunos"
+              status={canSensitive ? <RiskBadge level={data.risk_level}/> : undefined}
+              actions={[
+                {id:"refresh",label:isFetching?"Atualizando…":"Atualizar",onClick:()=>void refetch(),disabled:isFetching},
+                ...(canPrepareContact?[{id:"prepare",label:"Preparar contato",href:"/disparos?mode=individual&student="+encodeURIComponent(id)}]:[]),
+              ]}
+              aside={<div className="space-y-4">
+                <RecordProperties compact groups={studentPropertyGroups(data,canSensitive)}/>
+                <RecordRelations relations={studentRelations(data)}/>
+              </div>}>
+              <div className="space-y-5">
 
-            <nav aria-label="Seções da ficha do aluno" className="flex flex-wrap items-center gap-6 border-b border-[#E4E7EC]">
+            <nav aria-label="Seções da ficha do aluno" className="flex flex-wrap items-center gap-6 border-b border-[var(--color-border)]">
               {([
                 ["overview", "Visão geral", "student-overview"],
                 ["academic", "Acadêmico", "student-academic"],
@@ -312,13 +234,13 @@ export default function StudentDetailPage() {
                 ["risk", "Análise de risco", "risk-analysis"],
                 ["activity", "Atividade", "student-activity"],
                 ["communication", "Comunicação", "student-communication"],
-              ] as const).map(([section, label, id]) => (
+              ] as const).filter(([section])=>canSensitive||section==="overview").map(([section, label, id]) => (
                 <button
                   key={section}
                   type="button"
                   aria-current={activeSection === section ? "page" : undefined}
                   onClick={() => navigateToSection(section, id)}
-                  className={`inline-flex h-10 items-center border-b-2 text-[12px] font-medium transition ${activeSection === section ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:border-[#E4E7EC] hover:text-[#1C1D1F]"}`}
+                  className={`inline-flex h-10 items-center border-b-2 text-[12px] font-medium transition ${activeSection === section ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:border-[var(--color-border)] hover:text-[#1C1D1F]"}`}
                 >
                   {label}
                 </button>
@@ -326,18 +248,18 @@ export default function StudentDetailPage() {
             </nav>
 
             <section id="student-overview" className="scroll-mt-24" aria-label="Resumo acadêmico e financeiro">
-              <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[#111827]">Situação acadêmica e financeira</h2>
+              <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.02em] text-[var(--color-ink)]">Situação acadêmica e financeira</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <InfoCard label="Curso" value={displayValue(data.curso)} />
                 <InfoCard label="Semestre" value={data.semestre != null ? `Semestre ${data.semestre}` : "Não informado"} />
-                <InfoCard label="Atraso financeiro" value={data.dias_atraso_boleto != null ? `${data.dias_atraso_boleto} dias` : "Não informado"} />
-                <InfoCard label="Status financeiro" value={displayValue(data.status_financeiro)} />
+                {canSensitive && <><InfoCard label="Atraso financeiro" value={data.dias_atraso_boleto != null ? `${data.dias_atraso_boleto} dias` : "Não informado"} />
+                <InfoCard label="Status financeiro" value={displayValue(data.status_financeiro)} /></>}
               </div>
             </section>
 
-            <section id="student-academic" className="scroll-mt-24 rounded-[10px] border border-[#E4E7EC] bg-white p-5" aria-label="Dados acadêmicos">
-              <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-[#667085]" /><h2 className="text-[15px] font-semibold text-[#111827]">Acadêmico</h2></div>
-              <p className="mt-1 text-[12px] text-[#667085]">Dados recebidos da instituição. Informações não integradas permanecem indisponíveis.</p>
+            <section id="student-academic" className="scroll-mt-24 rounded-[10px] border border-[var(--color-border)] bg-white p-5" aria-label="Dados acadêmicos">
+              <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Acadêmico</h2></div>
+              <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Dados recebidos da instituição. Informações não integradas permanecem indisponíveis.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <InfoCard label="Programa / curso" value={displayValue(data.curso)} />
                 <InfoCard label="Campus" value={displayValue(data.campus)} />
@@ -346,81 +268,81 @@ export default function StudentDetailPage() {
                 <InfoCard label="Turma" value={displayValue(data.turma)} />
                 <InfoCard label="Forma de ingresso" value={displayValue(data.forma_ingresso)} />
                 <InfoCard label="Matrícula" value={displayValue(data.matricula)} />
-                <InfoCard label="Engajamento" value={data.engagement_score != null ? String(data.engagement_score) : "Não informado"} />
+                {canSensitive && <InfoCard label="Engajamento" value={data.engagement_score != null ? String(data.engagement_score) : "Não informado"} />}
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Frequência e presença</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[#111827]">{data.presenca_percentual != null ? `${data.presenca_percentual}%` : "Não informado"}</p><p className="mt-1 text-[12px] text-[#667085]">Presença agregada informada pela instituição; histórico por disciplina ainda não disponível.</p></div>
-                <div className="rounded-lg border border-[#E4E7EC] p-4"><p className="text-[13px] font-semibold">Notas e avaliações</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[#111827]">{data.nota_media != null ? String(data.nota_media) : "Não informado"}</p><p className="mt-1 text-[12px] text-[#667085]">Média informada pela instituição · {data.reprovacoes != null ? `${data.reprovacoes} reprovações` : "reprovações não informadas"}. Histórico por disciplina ainda não disponível.</p></div>
-              </div>
+              {canSensitive && <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-[var(--color-border)] p-4"><p className="text-[13px] font-semibold">Frequência e presença</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[var(--color-ink)]">{data.presenca_percentual != null ? `${data.presenca_percentual}%` : "Não informado"}</p><p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Presença agregada informada pela instituição; histórico por disciplina ainda não disponível.</p></div>
+                <div className="rounded-lg border border-[var(--color-border)] p-4"><p className="text-[13px] font-semibold">Notas e avaliações</p><p className="mt-2 text-[20px] font-semibold tabular-nums text-[var(--color-ink)]">{data.nota_media != null ? String(data.nota_media) : "Não informado"}</p><p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Média informada pela instituição · {data.reprovacoes != null ? `${data.reprovacoes} reprovações` : "reprovações não informadas"}. Histórico por disciplina ainda não disponível.</p></div>
+              </div>}
             </section>
 
-            <NativeAcademicPanel studentId={id} />
+            {canSensitive && me.data?.available_features?.academic_catalog === true && <NativeAcademicPanel studentId={id} />}
 
-            <section id="student-finance" className="scroll-mt-24 rounded-[10px] border border-[#E4E7EC] bg-white p-5" aria-label="Dados financeiros">
-              <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-[#667085]" /><h2 className="text-[15px] font-semibold text-[#111827]">Financeiro</h2></div>
-              <p className="mt-1 text-[12px] text-[#667085]">Resumo financeiro informado pela fonte de dados, não um extrato transacional ou confirmação de pagamento.</p>
+            {canSensitive && <section id="student-finance" className="scroll-mt-24 rounded-[10px] border border-[var(--color-border)] bg-white p-5" aria-label="Dados financeiros">
+              <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Financeiro</h2></div>
+              <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Resumo financeiro informado pela fonte de dados, não um extrato transacional ou confirmação de pagamento.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <InfoCard label="Saldo informado" value={data.saldo_devedor != null && Number.isFinite(data.saldo_devedor) ? new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"}).format(data.saldo_devedor) : "Não informado"} />
                 <InfoCard label="Dias em atraso" value={data.dias_atraso_boleto != null ? String(data.dias_atraso_boleto) : "Não informado"} />
                 <InfoCard label="Status financeiro" value={displayValue(data.status_financeiro)} />
               </div>
-              <div className="mt-4 overflow-hidden rounded-lg border border-[#E4E7EC]">
-                <div className="grid grid-cols-3 border-b border-[#E4E7EC] bg-[#F9FAFB] px-4 py-3 text-[11px] font-medium text-[#667085]"><span>Obrigação / parcela</span><span>Vencimento</span><span>Pagamento</span></div>
-                <p className="px-4 py-6 text-center text-[12px] text-[#667085]">Faturas, parcelas e pagamentos ainda não estão disponíveis como registros verificados nesta ficha.</p>
+              <div className="mt-4 overflow-hidden rounded-lg border border-[var(--color-border)]">
+                <div className="grid grid-cols-3 border-b border-[var(--color-border)] bg-[#F9FAFB] px-4 py-3 text-[11px] font-medium text-[var(--color-slate-600)]"><span>Obrigação / parcela</span><span>Vencimento</span><span>Pagamento</span></div>
+                <p className="px-4 py-6 text-center text-[12px] text-[var(--color-slate-600)]">Faturas, parcelas e pagamentos ainda não estão disponíveis como registros verificados nesta ficha.</p>
               </div>
-              <div className="mt-3 rounded-lg border border-[#E4E7EC] px-4 py-4"><p className="text-[13px] font-semibold text-[#111827]">Acordos e negociações</p><p className="mt-1 text-[12px] text-[#667085]">Sem integração homologada para consultar acordos vinculados a este aluno.</p></div>
-            </section>
+              <div className="mt-3 rounded-lg border border-[var(--color-border)] px-4 py-4"><p className="text-[13px] font-semibold text-[var(--color-ink)]">Acordos e negociações</p><p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Sem integração homologada para consultar acordos vinculados a este aluno.</p></div>
+            </section>}
 
-            <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5" aria-label="Atributos adicionais">
-              <div className="flex items-center gap-2"><UserRound className="h-4 w-4 text-[#667085]" /><h2 className="text-[15px] font-semibold text-[#111827]">Campos personalizados</h2></div>
+            {canSensitive && <section className="rounded-[10px] border border-[var(--color-border)] bg-white p-5" aria-label="Atributos adicionais">
+              <div className="flex items-center gap-2"><UserRound className="h-4 w-4 text-[var(--color-slate-600)]" /><h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Campos personalizados</h2></div>
               {Object.entries(data.behavior_properties?.custom_properties ?? {}).length > 0 ? (
                 <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                   {Object.entries(data.behavior_properties?.custom_properties ?? {}).map(([key, value]) => (
-                    <div key={key} className="rounded-lg border border-[#E4E7EC] px-3 py-2"><dt className="text-[11px] text-[#667085]">{key.replaceAll("_", " ")}</dt><dd className="mt-1 break-words text-[13px] font-medium text-[#111827]">{value == null ? "Não informado" : String(value)}</dd></div>
+                    <div key={key} className="rounded-lg border border-[var(--color-border)] px-3 py-2"><dt className="text-[11px] text-[var(--color-slate-600)]">{key.replaceAll("_", " ")}</dt><dd className="mt-1 break-words text-[13px] font-medium text-[var(--color-ink)]">{value == null ? "Não informado" : String(value)}</dd></div>
                   ))}
                 </dl>
-              ) : <p className="mt-3 text-[12px] text-[#667085]">Nenhum campo personalizado disponível na fonte atual.</p>}
-            </section>
+              ) : <p className="mt-3 text-[12px] text-[var(--color-slate-600)]">Nenhum campo personalizado disponível na fonte atual.</p>}
+            </section>}
 
-            <section id="student-activity" className="scroll-mt-24" aria-label="Atividade do aluno">
-              <StudentWorkTimeline studentId={id} />
-            </section>
+            {canSensitive && <section id="student-activity" className="scroll-mt-24" aria-label="Atividade do aluno">
+              <StudentRecordActivity studentId={id} canView={canSensitive} />
+            </section>}
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
+            {canSensitive && <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
               <div className="space-y-4">
-                <section id="risk-analysis" className="scroll-mt-24 rounded-xl border border-[#E5E7EB] bg-white p-5">
-                  <h2 className="text-[15px] font-semibold text-[#111827]">Análise de risco</h2>
-                  <p className="mt-1 text-[12px] text-[#667085]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
+                <section id="risk-analysis" className="scroll-mt-24 rounded-xl border border-[var(--color-border)] bg-white p-5">
+                  <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Análise de risco</h2>
+                  <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">O sinal indica a direção da saída bruta do estimador. Não representa pontos adicionados ao score final nem prova causalidade.</p>
                   {explanationMetadata?.available && (
-                    <p className="mt-2 text-[11px] text-[#98A2B3]">
+                    <p className="mt-2 text-[11px] text-[var(--color-muted)]">
                       SHAP · modelo {explanationMetadata.model_scope || "não informado"} · versão {explanationMetadata.model_version || "não informada"}
                     </p>
                   )}
                   {summaryText ? (
                     <p className="mt-4 text-[13px] leading-relaxed text-[#344054]">{summaryText}</p>
                   ) : (
-                    <p className="mt-4 rounded-lg bg-[#F8FAFC] px-3 py-3 text-[13px] text-[#667085]">Explicação detalhada indisponível para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">Explicação detalhada indisponível para este aluno.</p>
                   )}
                   {factors.length > 0 ? (
                     <ul className="mt-4 space-y-2">
                       {factors.map((factor, index) => (
-                        <li key={`${factor}-${index}`} className="flex items-center gap-3 rounded-lg border border-[#E5E7EB] px-3.5 py-3">
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#EFF6FF] text-[11px] font-semibold text-[#266DF0]">
+                        <li key={`${factor}-${index}`} className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] px-3.5 py-3">
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[var(--color-blue-tint)] text-[11px] font-semibold text-[var(--color-blue)]">
                             {String(index + 1).padStart(2, "0")}
                           </span>
-                          <span className="text-[13px] font-medium text-[#111827]">{factor}</span>
+                          <span className="text-[13px] font-medium text-[var(--color-ink)]">{factor}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    !summaryText && <p className="mt-3 text-[12px] text-[#98A2B3]">Nenhum fator de negócio disponível nesta avaliação.</p>
+                    !summaryText && <p className="mt-3 text-[12px] text-[var(--color-muted)]">Nenhum fator de negócio disponível nesta avaliação.</p>
                   )}
                 </section>
 
                 {scoreBreakdown && (
-                  <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-                    <h2 className="text-[15px] font-semibold text-[#111827]">Composição do score</h2>
-                    <p className="mt-1 text-[12px] text-[#667085]">
+                  <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
+                    <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Composição do score</h2>
+                    <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
                       Componentes apresentados separadamente. Os pontos das regras e os ajustes dinâmicos não são contribuições SHAP.
                     </p>
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -433,9 +355,9 @@ export default function StudentDetailPage() {
                 )}
 
                 {ruleAdjustments.length > 0 && (
-                  <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-                    <h2 className="text-[15px] font-semibold text-[#111827]">Regras acionadas</h2>
-                    <p className="mt-1 text-[12px] text-[#667085]">
+                  <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
+                    <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Regras acionadas</h2>
+                    <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
                       Cada item mostra a condição observada e o ajuste solicitado pela regra.
                     </p>
                     <ul className="mt-4 space-y-2">
@@ -448,15 +370,15 @@ export default function StudentDetailPage() {
                         const field = typeof evidence.field === "string" ? evidence.field : null;
                         const recommendation = businessText(typeof rule.recommendation === "string" ? rule.recommendation : null);
                         return (
-                          <li key={String(rule.flag || index)} className="rounded-lg border border-[#E5E7EB] px-3.5 py-3">
+                          <li key={String(rule.flag || index)} className="rounded-lg border border-[var(--color-border)] px-3.5 py-3">
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <p className="text-[13px] font-semibold text-[#111827]">{businessText(String(rule.description || rule.flag || "Regra aplicada"))}</p>
+                              <p className="text-[13px] font-semibold text-[var(--color-ink)]">{businessText(String(rule.description || rule.flag || "Regra aplicada"))}</p>
                               <span className="shrink-0 rounded-md bg-[#FFF7ED] px-2 py-1 text-[11px] font-semibold tabular-nums text-[#9A3412]">
                                 +{displayValue(typeof rule.delta_points === "number" ? rule.delta_points : null)} pts
                               </span>
                             </div>
                             {field && observed != null && (
-                              <p className="mt-1.5 text-[12px] text-[#667085]">
+                              <p className="mt-1.5 text-[12px] text-[var(--color-slate-600)]">
                                 Evidência: {field} = {String(observed)}
                                 {threshold != null ? ` · limite ${String(evidence.operator || "")} ${String(threshold)}` : ""}
                               </p>
@@ -475,16 +397,16 @@ export default function StudentDetailPage() {
                   </p>
                 )}
 
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-                  <h2 className="text-[15px] font-semibold text-[#111827]">Sugestões operacionais</h2>
-                  <p className="mt-1 text-[12px] text-[#667085]">Sugestões retornadas pelo sistema — não são decisões automáticas nem comprovação de resultado.</p>
+                <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
+                  <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Sugestões operacionais</h2>
+                  <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Sugestões retornadas pelo sistema — não são decisões automáticas nem comprovação de resultado.</p>
                   {actions.length === 0 ? (
-                    <p className="mt-4 rounded-lg bg-[#F8FAFC] px-3 py-3 text-[13px] text-[#667085]">Nenhuma sugestão operacional disponível para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">Nenhuma sugestão operacional disponível para este aluno.</p>
                   ) : (
                     <ol className="mt-4 space-y-2">
                       {actions.map((action, index) => (
-                        <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-3.5 py-3 text-[13px] leading-relaxed text-[#344054]">
-                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[#266DF0] ring-1 ring-[#E5E7EB]">{index + 1}</span>
+                        <li key={`${index}-${action}`} className="flex items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-3 text-[13px] leading-relaxed text-[#344054]">
+                          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-semibold text-[var(--color-blue)] ring-1 ring-[var(--color-border)]">{index + 1}</span>
                           {action}
                         </li>
                       ))}
@@ -494,66 +416,66 @@ export default function StudentDetailPage() {
               </div>
 
               <div className="space-y-4">
-                <section id="student-communication" className={cn("scroll-mt-24 rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[#E5E7EB] bg-white")}>
+                <section id="student-communication" className={cn("scroll-mt-24 rounded-xl border p-5", data.communication_opt_out ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-[var(--color-border)] bg-white")}>
                   <div className="flex items-start gap-3">
-                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[#EFF6FF] text-[#266DF0]")}>
+                    <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", data.communication_opt_out ? "bg-white text-[#B42318]" : "bg-[var(--color-blue-tint)] text-[var(--color-blue)]")}>
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[#111827]">Comunicação</h2>
-                      <p className="mt-1 text-[12px] leading-relaxed text-[#667085]">
+                      <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Comunicação</h2>
+                      <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-slate-600)]">
                         {data.communication_opt_out ? "Opt-out ativo — não contatar automaticamente." : "Sem opt-out global registrado. A autorização por canal e finalidade deve ser verificada antes de qualquer contato."}
                       </p>
                     </div>
                   </div>
                   <button
                     type="button"
-                    disabled={preferenceMutation.isPending}
+                    disabled={preferenceMutation.isPending || !canEdit || typeof data.communication_opt_out !== "boolean"}
                     onClick={() => preferenceMutation.mutate(!data.communication_opt_out)}
                     className={cn(
-                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0] disabled:opacity-60",
-                      data.communication_opt_out ? "bg-[#266DF0] text-white hover:bg-[#1F5DD1]" : "border border-[#E5E7EB] bg-white text-[#111827] hover:bg-[#F8FAFC]"
+                      "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] disabled:opacity-60",
+                      data.communication_opt_out ? "bg-[var(--color-blue)] text-white hover:bg-[#1F5DD1]" : "border border-[var(--color-border)] bg-white text-[var(--color-ink)] hover:bg-[var(--color-panel)]"
                     )}
                   >
                     {preferenceMutation.isPending ? "Salvando…" : data.communication_opt_out ? "Revogar opt-out" : "Registrar opt-out"}
                   </button>
                 </section>
 
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
                   <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#EFF6FF] text-[#266DF0]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--color-blue-tint)] text-[var(--color-blue)]">
                       <MessageSquareText className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[#111827]">Preparar contato</h2>
-                      <p className="mt-1 text-[12px] text-[#667085]">Gera a prévia da mensagem sem enviar.</p>
+                      <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Preparar contato</h2>
+                      <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Gera a prévia da mensagem sem enviar.</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => void loadPreview()}
                     disabled={loadingPreview}
-                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#266DF0] text-[13px] font-semibold text-white transition hover:bg-[#1F5DD1] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
+                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-blue)] text-[13px] font-semibold text-white transition hover:bg-[#1F5DD1] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {loadingPreview ? "Preparando…" : "Gerar prévia da mensagem"}
                   </button>
                   {preview && (
-                    <div className="mt-4 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] p-4">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">Prévia</p>
+                    <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">Prévia</p>
                       <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-[#344054]">{preview}</p>
                     </div>
                   )}
                 </section>
 
-                <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+                <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
                   <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8FAFC] text-[#667085]">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--color-panel)] text-[var(--color-slate-600)]">
                       <History className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-[15px] font-semibold text-[#111827]">Contatos (retenção)</h2>
-                      <p className="mt-1 text-[12px] text-[#667085]">Logs de retenção. Status de envio não confirma permanência.</p>
+                      <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Contatos (retenção)</h2>
+                      <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">Logs de retenção. Status de envio não confirma permanência.</p>
                     </div>
                   </div>
                   {logs.isLoading && (
@@ -562,9 +484,9 @@ export default function StudentDetailPage() {
                       <Skeleton className="h-14 w-full rounded-lg" />
                     </div>
                   )}
-                  {logs.isError && <p className="mt-4 text-[12px] text-[#667085]">Histórico de contatos indisponível no momento.</p>}
+                  {logs.isError && <p className="mt-4 text-[12px] text-[var(--color-slate-600)]">Histórico de contatos indisponível no momento.</p>}
                   {!logs.isLoading && !logs.isError && (logs.data?.logs?.length ?? 0) === 0 && (
-                    <p className="mt-4 rounded-lg bg-[#F8FAFC] px-3 py-3 text-[13px] text-[#667085]">Nenhum contato de retenção registrado para este aluno.</p>
+                    <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">Nenhum contato de retenção registrado para este aluno.</p>
                   )}
                   {!logs.isLoading && !logs.isError && (logs.data?.logs?.length ?? 0) > 0 && (
                     <ul className="mt-4 space-y-2">
@@ -572,12 +494,12 @@ export default function StudentDetailPage() {
                         const visibleStatus = log.status === "dry_run" ? "dry_run" : log.delivery_status || log.status;
                         const label = STATUS_LABELS[visibleStatus] || visibleStatus.replaceAll("_", " ");
                         return (
-                          <li key={log.id} className="rounded-lg border border-[#E5E7EB] px-3 py-2.5">
+                          <li key={log.id} className="rounded-lg border border-[var(--color-border)] px-3 py-2.5">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[12px] font-semibold capitalize text-[#111827]">{log.channel || "Canal não informado"}</span>
-                              <span className="rounded-full bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-medium text-[#667085]">{label}</span>
+                              <span className="text-[12px] font-semibold capitalize text-[var(--color-ink)]">{log.channel || "Canal não informado"}</span>
+                              <span className="rounded-full bg-[var(--color-panel)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-slate-600)]">{label}</span>
                             </div>
-                            <p className="mt-1 text-[11px] text-[#98A2B3]">
+                            <p className="mt-1 text-[11px] text-[var(--color-muted)]">
                               {formatDateTime(log.created_at) || "Data indisponível"}
                               {log.campaign_id ? ` · Campanha ${log.campaign_id}` : ""}
                             </p>
@@ -588,8 +510,9 @@ export default function StudentDetailPage() {
                   )}
                 </section>
               </div>
-            </div>
-          </>
+            </div>}
+              </div>
+            </RecordPage>
         )}
       </main>
     </>

@@ -73,7 +73,6 @@ export function ObjectDataTable<T extends { id: string }>({
         const active = sort?.key === field.key;
         return <button type="button" disabled={!field.sortable}
           aria-label={field.sortable ? "Ordenar por " + field.title : field.title}
-          aria-sort={active ? sort.desc ? "descending" : "ascending" : "none"}
           onClick={() => onSortChange(!active ? { key: field.key, desc: false }
             : !sort?.desc ? { key: field.key, desc: true } : null)}
           className={cn("flex max-w-full items-center gap-1.5 truncate text-left text-[11px] font-semibold",
@@ -132,7 +131,8 @@ export function ObjectDataTable<T extends { id: string }>({
       <thead className="sticky top-0 z-[1] bg-[var(--color-panel)]">
         {table.getHeaderGroups().map(group => <tr key={group.id}>
           {group.headers.map(header => <th key={header.id}
-            scope="col" style={{ width: header.getSize() }}
+            scope="col" aria-sort={header.column.getCanSort() ? header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : "none" : undefined}
+            style={{ width: header.getSize() }}
             className="group h-10 border-b border-r border-[var(--color-border)] px-3 text-[11px] font-medium text-[var(--color-slate-600)] last:border-r-0">
             {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
           </th>)}

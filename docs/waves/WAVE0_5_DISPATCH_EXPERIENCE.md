@@ -5,7 +5,7 @@
 - Repositório: `jvrm831720/mira-ies`.
 - Base da branch: `main` em `208ec56091cdc5be606c60cc94e8942bc105dc3c` (Wave 0.3 já integrada).
 - Branch: `feat/product-design-wave-0-5-dispatch`.
-- Trabalho paralelo: PR #174 (Record Experience) **ainda aberta**, Data Hub 0.4 em outra IA. Não editar `/campanhas/page.tsx`, `/disparos/importacoes`, `/conectores`, `/importar`, `/importacoes`, `components/record`, `components/object-index`, `components/workflows`, Composio, migrations, workers nem motor de execução.
+- Trabalho paralelo: PR #174 (Record Experience) **mesclada em `main` antes da reconciliação desta branch**, Data Hub 0.4 em outra IA. Não editar `/campanhas/page.tsx`, `/disparos/importacoes`, `/conectores`, `/importar`, `/importacoes`, `components/record`, `components/object-index`, `components/workflows`, Composio, migrations, workers nem motor de execução.
 - A MIRA **não possui isolamento entre merge e publicação**: Render `mira-api-testes` em `main` com `autoDeploy=yes`/commit e start command que tenta `alembic upgrade head`. Vercel publica `main` como `production`; `.github/workflows/deploy-cloudflare.yml` também tem `push: main` para `frontend/**`. **Não mesclar sem gate de release verificado.**
 - Nenhuma alteração de ambiente, envio real, gatilho de worker, banco, migration ou deploy feita nesta Wave.
 
@@ -42,7 +42,7 @@ Backend revisado: `dispatch.py`, `dispatch_providers.py`, `dispatch_integrations
 - **`/disparos`**: MIRA Operação, navegação interna, visão executiva usando métricas reais, priorização de campanhas, verificação de heartbeat do worker.
 - **Campanhas de Dispatch**: índice usando `ObjectDataTable` da Wave 0.1, seleção e filtro local sobre a amostra claramente identificada. Propostas continuam em `/campanhas`, não se fundem ao índice de objetos operacionais.
 - **Campaign Builder**: 5 telas (objetivo, origem/audiência, canal/modelo, regras, revisão). Somente cria **rascunho** via POST real quando o usuário tem `campaigns.create`, fonte permitida, modelo aprovado, finalidade compatível e confirmação explícita. Nunca cria audiência fictícia, aprovação, agendamento nem envio.
-- **Campaign Detail**: drawer contextual acessível, lazy-load de detalhe, itens e tentativas, respostas reais sob demanda, identificação de proposta vinculada pelo `origin_proposal_id`. Sem acesso indevido a observações internas, `subject_ref` ou `last_error` brutos na UI.
+- **Campaign Detail**: adaptador para os componentes compartilhados da Wave 0.2: `RecordDrawer`, `RecordProperties`, `RecordSections`, `RecordActivity` e `RecordRelations`. Lazy-load de detalhe, itens e tentativas, respostas reais sob demanda, vínculo de origem apenas pelo `origin_proposal_id` (sem inferência). Sem exposição de observações internas, `subject_ref` ou `last_error` brutos na UI.
 - **Control Center**: listas de operações e métricas reais, escolha de campanha, estados de fila/erro/worker e navegação ao drawer. Sem polling agressivo nem ações de execução por engano.
 - **Biblioteca `/disparos/modelos`**: pesquisa, filtros por finalidade/canal/estado e preview sem interpolar dados pessoais. Gestão existente preservada em `/disparos/modelos/gerenciar`.
 - **Provedores `/disparos/provedores`**: diferenças entre configurado, última verificação, ativo e operacional não confirmado. Gestão existente preservada em `/disparos/provedores/gerenciar`.
@@ -52,7 +52,7 @@ Backend revisado: `dispatch.py`, `dispatch_providers.py`, `dispatch_integrations
 
 ## E7 — Dependências futuras
 
-- PR #174 Record Experience deve ser integrada antes de substituir o drawer isolado de Dispatch por `RecordDrawer`.
+- PR #174 Record Experience foi integrada durante o desenvolvimento desta Wave. O drawer Dispatch passou a reutilizar os componentes de Record Experience, sem modificar arquivos da Wave 0.2.
 - Wave 0.4 Data Hub deverá fornecer fontes homologadas/selecionáveis e prévia autoritativa de elegibilidade, sem criar outra importação.
 - API atual de campanhas retorna **50 por padrão**, no máximo 100 e sem `total`/offset. API de detalhe retorna até 100 itens; a UI informa que filtros e paginação locais se aplicam apenas à amostra.
 - Não há API segura de contagem de elegíveis sem estágio/autorização. Builder apresenta **A verificar** e não calcula globais a partir de client-side rows.
@@ -72,8 +72,8 @@ Backend revisado: `dispatch.py`, `dispatch_providers.py`, `dispatch_integrations
 
 ## E9–E10 — Gate final
 
-1. PR da branch isolada para revisão.
-2. CI final completo aprovado no exato HEAD.
+1. PR #177 da branch isolada para revisão; branch reconciliada à `main` após a integração #174.
+2. CI final completo no exato HEAD reconciliado (conferir execução do GitHub Actions após push).
 3. Confirmar ausência de conflitos e mudanças concorrentes em Record/Data Hub.
 4. **Merge condicionado ao controle de releases**. Render atualmente segue `main` com autoDeploy por commit e start com Alembic; Vercel e Cloudflare também acompanham `main`. **Nenhum merge em `main` sem isolamento verificável**. Não mudar serviços de produção sem autorização expressa.
 
