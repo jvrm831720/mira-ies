@@ -262,8 +262,9 @@ class ClassIndexRequest(ViewSpec):
     offset: int = Field(default=0, ge=0)
 
 
-@router.post("/classes/index")
+@router.post("/{resource}/index")
 async def class_index(
+    resource: CatalogResource,
     body: ClassIndexRequest,
     auth: AuthContext = Depends(require_permission("students.sensitive.view")),
     db: AsyncSession = Depends(get_db),
@@ -271,13 +272,15 @@ async def class_index(
     _enabled()
     _human(auth)
     await _require_ies(db, auth)
-    validate_view("academic_classes", body)
-    fields = {key: getattr(AcademicClass, key) for key in (
-        "code", "status", "subject_id", "term_id", "teacher_id",
-    )}
-    conditions = [AcademicClass.tenant_id == auth.tenant_id]
+    validate_view("academic_" + resource, body)
+    model, name, code = CATALOG_LISTS[resource]
+    fields = ({"name": name, "code": code, "status": model.status}
+              if resource != "classes" else {key: getattr(model, key) for key in (
+                  "code", "status", "subject_id", "term_id", "teacher_id",
+              )})
+    conditions = [model.tenant_id == auth.tenant_id]
     if body.active_only:
-        conditions.append(AcademicClass.status == "active")
+        conditions.append(model.status == "active")
     if search := body.query.strip():
         conditions.append(or_(*(cast(column, String).icontains(search, autoescape=True)
                                 for column in fields.values())))
@@ -299,14 +302,14 @@ async def class_index(
                 conditions.append(column.istartswith(value, autoescape=True))
             case "in":
                 conditions.append(column.in_([str(item) for item in spec.value]))
-    sort = fields[body.sort.key] if body.sort else AcademicClass.code
+    sort = fields[body.sort.key] if body.sort else code
     order = sort.desc() if body.sort and body.sort.desc else sort.asc()
     total = (await db.execute(
-        select(func.count()).select_from(AcademicClass).where(*conditions)
+        select(func.count()).select_from(model).where(*conditions)
     )).scalar_one()
     rows = (await db.execute(
-        select(AcademicClass.id, *fields.values()).where(*conditions)
-        .order_by(order.nulls_last(), AcademicClass.id).offset(body.offset).limit(body.page_size)
+        select(model.id, *(column.label(key) for key, column in fields.items())).where(*conditions)
+        .order_by(order.nulls_last(), model.id).offset(body.offset).limit(body.page_size)
     )).mappings().all()
     return {"items": [dict(row) for row in rows], "total": total}
 
