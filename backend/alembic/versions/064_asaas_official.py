@@ -85,6 +85,10 @@ def upgrade():
     op.create_index("ix_mira_asaas_application_tenant","mira_asaas_webhook_applications",["tenant_id","applied_at"])
     for name in ("mira_asaas_customer_bindings","mira_asaas_charges","mira_asaas_webhook_events","mira_asaas_webhook_applications"):
         protect(name)
+    # Shared issuing-account callback; allow lookup ONLY in token-verified transaction.
+    op.execute("""CREATE POLICY mira_asaas_charges_webhook_lookup
+      ON mira_asaas_charges FOR SELECT
+      USING (current_setting('app.asaas_webhook_authenticated',true)='yes')""")
     op.get_bind().exec_driver_sql("""
       CREATE FUNCTION mira_asaas_resolve_payment(p_id text)
       RETURNS TABLE(resolved_tenant uuid, resolved_charge uuid)
