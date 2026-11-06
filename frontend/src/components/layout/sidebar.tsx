@@ -30,7 +30,7 @@ const sidebarSections: Array<{ id: string; label: string; paths: string[] }> = [
   { id: "records", label: "Registros", paths: ["/alunos", "/academico", "/cobranca"] },
   { id: "lists", label: "Listas e jornadas", paths: ["/alunos/grupos", "/campanhas", "/retencao", "/academico/jornadas", "/academico/servicos"] },
   { id: "operations", label: "Operação", paths: ["/disparos", "/retencao/logs"] },
-  { id: "data", label: "Dados", paths: ["/dados", "/conectores", "/conectores/financeiro", "/importar", "/importacoes"] },
+  { id: "data", label: "Dados", paths: ["/apps", "/dados", "/conectores", "/conectores/financeiro", "/importar", "/importacoes"] },
 ];
 const quickPaths = ["/", "/trabalho", "/monitoramento", "/resultados", "/workflows"];
 

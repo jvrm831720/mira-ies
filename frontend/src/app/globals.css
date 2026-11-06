@@ -1859,3 +1859,30 @@ textarea {
   --mira-onboarding-type-11: 11px;
   --mira-onboarding-type-10: 10px;
 }
+
+
+/* MIRA Apps & Integrations — isolated dark catalog palette, no global shell changes. */
+:root {
+  --mira-apps-dark: #101112;
+  --mira-apps-card: #141517;
+  --mira-apps-border: #2b2d31;
+  --mira-apps-hover: #1b1c1f;
+  --mira-apps-chip: #212327;
+  --mira-apps-muted: #9da0a8;
+  --mira-apps-white: #f2f3f5;
+  --mira-apps-blue: #266df0;
+  --mira-apps-blue-light: #a7c8ff;
+  --mira-apps-blue-soft: #152845;
+  --mira-apps-ok: #99dfb7;
+  --mira-apps-ok-bg: #16241b;
+  --mira-apps-ok-border: #274a34;
+  --mira-apps-warn: #edb282;
+  --mira-apps-warn-border: #65442f;
+  --mira-apps-backdrop: #000000bb;
+  --mira-apps-green: #159949;
+  --mira-apps-red: #d83d46;
+  --mira-apps-orange: #c87529;
+  --mira-apps-purple: #7655bc;
+  --mira-apps-cyan: #49c3d8;
+  --mira-apps-icon-gray: #34363a;
+}
