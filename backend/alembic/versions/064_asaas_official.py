@@ -70,12 +70,12 @@ def upgrade():
     op.create_index("ix_mira_asaas_charge_tenant_created","mira_asaas_charges",["tenant_id","created_at"])
     op.create_index("ix_mira_asaas_charge_payment_lookup","mira_asaas_charges",["environment","asaas_payment_id"])
     op.create_table("mira_asaas_webhook_events",
-        pk(),tenant(),ref("charge_id"),column("event_id",120),column("event_type"),
+        pk(),tenant(),ref("charge_id"),column("environment",16),column("event_id",120),column("event_type"),
         column("payment_id"),sa.Column("split_id",sa.String(100)),
         column("payload_sha256",64),
         sa.Column("received_at",sa.DateTime(timezone=True),nullable=False,server_default=sa.func.now()),
         unique_tenant("uq_mira_asaas_event_tenant_id"),
-        sa.UniqueConstraint("event_id",name="uq_mira_asaas_event_global_id"),
+        sa.UniqueConstraint("environment","event_id",name="uq_mira_asaas_event_global_id"),
         sa.ForeignKeyConstraint(["tenant_id","charge_id"],["mira_asaas_charges.tenant_id","mira_asaas_charges.id"],name="fk_mira_asaas_event_charge_tenant"))
     op.create_index("ix_mira_asaas_event_pending","mira_asaas_webhook_events",["tenant_id","received_at"])
     op.create_table("mira_asaas_webhook_applications",

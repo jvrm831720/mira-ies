@@ -83,6 +83,7 @@ async def ingest(db: AsyncSession, *, raw: bytes, token: str) -> dict:
                      {"id": "asaas:webhook:" + event["event_id"]})
     existing = (await db.execute(select(AsaasWebhookEvent).where(
         AsaasWebhookEvent.tenant_id == tenant_id,
+        AsaasWebhookEvent.environment == gateway.environment(),
         AsaasWebhookEvent.event_id == event["event_id"],
     ))).scalar_one_or_none()
     if existing is not None:
@@ -91,7 +92,7 @@ async def ingest(db: AsyncSession, *, raw: bytes, token: str) -> dict:
         return {"received": True, "duplicate": True, "tenant_id": tenant_id}
     db.add(AsaasWebhookEvent(
         tenant_id=tenant_id, charge_id=charge_id,
-        event_id=event["event_id"], event_type=event["event_type"],
+        environment=gateway.environment(), event_id=event["event_id"], event_type=event["event_type"],
         payment_id=event["payment_id"], split_id=event["split_id"],
         payload_sha256=event["sha256"],
     ))

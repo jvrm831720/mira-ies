@@ -86,13 +86,14 @@ class AsaasWebhookEvent(Base):
     __tablename__ = "mira_asaas_webhook_events"
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_asaas_event_tenant_id"),
-        UniqueConstraint("event_id", name="uq_mira_asaas_event_global_id"),
+        UniqueConstraint("environment", "event_id", name="uq_mira_asaas_event_global_id"),
         ForeignKeyConstraint(["tenant_id", "charge_id"], ["mira_asaas_charges.tenant_id", "mira_asaas_charges.id"], name="fk_mira_asaas_event_charge_tenant"),
         Index("ix_mira_asaas_event_pending", "tenant_id", "received_at"),
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
     charge_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    environment: Mapped[str] = mapped_column(String(16), nullable=False)
     event_id: Mapped[str] = mapped_column(String(120), nullable=False)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
     payment_id: Mapped[str] = mapped_column(String(80), nullable=False)
