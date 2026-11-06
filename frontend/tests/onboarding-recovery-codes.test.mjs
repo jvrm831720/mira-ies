@@ -26,7 +26,8 @@ test("copy is inside codes card; continuation is a separate primary action requi
   const card = component.slice(cardStart, footerStart);
   const footer = component.slice(footerStart);
   assert.match(card, /mira-flow-recovery-copy/);
-  assert.match(card, /navigator\.clipboard\.writeText\(codes\.join\("\\n"\)\)/);
+  assert.match(card, /onClick=\{\(\) => void copyAll\(\)\}/);
+  assert.match(component, /navigator\.clipboard\.writeText\(codes\.join\("\\n"\)\)/);
   assert.doesNotMatch(card, /mira-flow-recovery-continue/);
   assert.match(footer, /type="checkbox"/);
   assert.match(footer, /checked=\{acknowledged\}/);
