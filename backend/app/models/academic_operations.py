@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     Boolean, CheckConstraint, Date, DateTime, ForeignKey,
-    ForeignKeyConstraint, Index, Integer, Numeric, String, Text,
+    ForeignKeyConstraint, Index, Integer, Numeric, String,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID

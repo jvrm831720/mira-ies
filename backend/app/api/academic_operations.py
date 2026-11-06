@@ -967,8 +967,8 @@ async def _class_roster(db: AsyncSession, tenant_id: str, class_id: UUID | str):
         "assessments": [{"id": a.id, "title": a.title, "code": a.code,
                          "max_score": str(a.max_score), "publication_status": a.publication_status}
                         for a in assessments],
-        "lessons": [{"id": l.id, "topic": l.topic, "starts_at": l.starts_at.isoformat(),
-                     "publication_status": l.publication_status} for l in lessons],
+        "lessons": [{"id": lesson.id, "topic": lesson.topic, "starts_at": lesson.starts_at.isoformat(),
+                     "publication_status": lesson.publication_status} for lesson in lessons],
         "grades": [{"assessment_id": g.assessment_id, "student_id": g.student_id,
                     "score": str(g.score), "publication_status": g.publication_status}
                    for g in grades],
@@ -997,7 +997,7 @@ async def _evaluate_class(db: AsyncSession, tenant_id: str, class_id: UUID | str
         return {"ready": False, "reason": "Turma sem alunos matriculados.", "items": []}
     if not assessments or any(a["publication_status"] != "published" for a in assessments):
         return {"ready": False, "reason": "Publique todas as avaliações antes do fechamento.", "items": []}
-    if not lessons or any(l["publication_status"] != "published" for l in lessons):
+    if not lessons or any(lesson["publication_status"] != "published" for lesson in lessons):
         return {"ready": False, "reason": "Publique todas as aulas antes do fechamento.", "items": []}
     grades = {(g["assessment_id"], g["student_id"]): g for g in content["grades"]}
     presence = {(a["lesson_id"], a["student_id"]): a["status"] for a in content["attendance"]}
