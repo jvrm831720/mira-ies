@@ -112,9 +112,26 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
                               auth=owner_auth, db=db_session)
     assert shared["scope"] == "workspace" and shared["revision"] == 2
 
+    await identity(db_session, tenant_a_id, owner)
+    persisted = (await db_session.execute(select(
+        ObjectView.scope, ObjectView.is_sensitive
+    ).where(ObjectView.id == view_id))).one()
+    assert persisted.scope == "workspace" and not persisted.is_sensitive, (
+        "A configuração pública precisa permanecer não sensível ao compartilhar."
+    )
     await identity(db_session, tenant_a_id, peer)
     peer_views = (await list_views("students", auth=peer_auth, db=db_session))["views"]
-    assert [v["id"] for v in peer_views] == [view_id]
+    peer_session = (await db_session.execute(text("""
+        SELECT current_setting('app.tenant_id', true),
+               current_setting('app.user_id', true),
+               current_setting('app.view_sensitive', true)
+    """))).one()
+    visible = (await db_session.execute(select(
+        ObjectView.id, ObjectView.scope, ObjectView.is_sensitive
+    ).where(ObjectView.id == view_id))).all()
+    assert [v["id"] for v in peer_views] == [view_id], (
+        f"Contexto RLS: {tuple(peer_session)!r}; linhas visíveis: {visible!r}"
+    )
     assert not peer_views[0]["can_edit"] and not peer_views[0]["can_share"]
     await favorite_view(uuid4_from(view_id), auth=peer_auth, db=db_session)
     await identity(db_session, tenant_a_id, peer)
