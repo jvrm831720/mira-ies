@@ -34,11 +34,35 @@ def response(path: str, page_path: str) -> object:
                 "dashboard.view", "students.view", "students.sensitive.view", "audit.view",
                 "campaigns.view", "campaigns.create", "campaigns.edit", "campaigns.approve",
                 "access.operator", "access.coordinator", "members.view", "data.view",
+                *(["settings.manage"] if page_path == "/apps" else []),
             ],
             "features": {
                 "academic_catalog": True, "academic_services": True, "academic_operations": True
             },
         }
+    if page_path == "/apps":
+        if path.endswith("/connectors"):
+            return {"count": 3, "connectors": [
+                {"id":"jacad","name":"JACAD","category":"academic"},
+                {"id":"sponte","name":"Sponte","category":"academic"},
+                {"id":"moodle","name":"Moodle","category":"academic"},
+            ]}
+        if path.endswith("/integrations/jacad"):
+            return {"configured": True, "status":"connected", "enabled": True}
+        if path.endswith("/integrations/sponte"):
+            return {"configured": False, "status":"disconnected", "enabled": False}
+        if path.endswith("/integrations/composio/catalog"):
+            return {"source":"catalog_fixture", "total":4,"items":[
+                {"slug":"gmail","name":"Gmail","enabled":True},
+                {"slug":"outlook","name":"Outlook","enabled":False},
+                {"slug":"slack","name":"Slack","enabled":False},
+                {"slug":"googlecalendar","name":"Google Calendar","enabled":True},
+            ]}
+        if path.endswith("/integrations/composio/connections"):
+            return {"total":2,"items":[
+                {"id":"one","toolkit_slug":"gmail","status":"active","connected_account_id":"one"},
+                {"id":"two","toolkit_slug":"slack","status":"revoked","connected_account_id":"two","disconnected_at":NOW},
+            ]}
     if path.endswith("/org/workspaces"):
         return {"current_tenant_id": TENANT, "workspaces": []}
     if path.endswith("/org/members"):
@@ -134,6 +158,7 @@ async def capture() -> None:
                 ("/campanhas", "Campanhas inteligentes", "01-campanhas.png"),
                 ("/trabalho", "Central de trabalho", "02-central-de-trabalho.png"),
                 ("/cobranca", "Cobrança", "03-cobranca.png"),
+                ("/apps", "Apps e integrações", "04-apps-integracoes.png"),
             ]:
                 context = await browser.new_context(
                     viewport={"width": 1440, "height": 960}, device_scale_factor=1, locale="pt-BR",

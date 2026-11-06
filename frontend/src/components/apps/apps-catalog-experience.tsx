@@ -27,7 +27,7 @@ const tone:Record<string,string> = {
  gray:"bg-[var(--mira-apps-icon-gray)] text-[var(--mira-apps-white)]",
 };
 function State({ item }: { item: CatalogApp }) {
- const isConnected=item.status==="connected"||item.status==="configured";
+ const isConnected=item.status==="connected";
  return <span className={"inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs leading-none " +
   (isConnected?"border-[var(--mira-apps-ok-border)] bg-[var(--mira-apps-ok-bg)] text-[var(--mira-apps-ok)]":
    item.status==="error"?"border-[var(--mira-apps-warn-border)] text-[var(--mira-apps-warn)]":
@@ -135,7 +135,7 @@ export function AppsCatalogExperience() {
      <span className="ml-auto rounded-full bg-[var(--mira-apps-chip)] px-3 py-2 text-xs text-[var(--mira-apps-muted)]">{rows.length} no catálogo</span>
     </div>
     {partial && <p role="status" className="mt-5 rounded-lg border border-[var(--mira-apps-border)] p-3 text-xs text-[var(--mira-apps-muted)]">
-      Parte do catálogo está temporariamente indisponível. As integrações nativas continuam visíveis.
+      Parte do catálogo está temporariamente indisponível. Os aplicativos conhecidos continuam visíveis para consulta, sem presumir disponibilidade.
      </p>}
     {!canManage && <p className="mt-4 text-xs text-[var(--mira-apps-muted)]">Você está visualizando as integrações acessíveis ao seu perfil. Consulte um administrador para gerenciar conexões.</p>}
     {loading ? <div role="status" className="mt-9 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

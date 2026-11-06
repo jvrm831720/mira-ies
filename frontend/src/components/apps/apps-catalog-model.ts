@@ -1,5 +1,5 @@
 export type AppsCategory = "Comunicação" | "Acadêmico" | "Financeiro" | "Produtividade" | "IA" | "Outros";
-export type AppsStatus = "connected" | "configured" | "available" | "inactive" | "error";
+export type AppsStatus = "connected" | "configured" | "available" | "inactive" | "error" | "request";
 export type CatalogApp = {
   id: string;
   slug: string;
@@ -36,6 +36,41 @@ const editorial: Record<string, { name: string; description: string; category: A
   openai: { name: "OpenAI", description: "Assistentes e automações", category: "IA", initials: "AI", color: "gray", rank: 14 },
   googlesheets: { name: "Google Sheets", description: "Planilhas e análise", category: "Produtividade", initials: "▤", color: "green", rank: 15 },
 };
+/**
+ * Discoverable MIRA registry assembled from the already-curated integration taxonomy.
+ * Appearance here is not an entitlement, credential, provider health or connected account.
+ * Dynamic catalog entries supersede these editorial placeholders when available.
+ */
+const moreEditorial: Array<[string,string,AppsCategory,string]> = [
+  ["microsoftteams","Microsoft Teams","Comunicação","Mensagens e reuniões"],
+  ["zoom","Zoom","Comunicação","Videoconferências"],["zoomchat","Zoom Team Chat","Comunicação","Colaboração por mensagens"],
+  ["aircall","Aircall","Comunicação","Telefonia empresarial"],
+  ["hubspot","HubSpot","Outros","CRM e relacionamento"],["salesforce","Salesforce","Outros","Gestão de clientes"],
+  ["pipedrive","Pipedrive","Outros","Funil comercial"],["dynamics365","Dynamics 365","Outros","CRM corporativo"],
+  ["onedrive","OneDrive","Produtividade","Armazenamento de arquivos"],["sharepoint","SharePoint","Produtividade","Documentos e equipes"],
+  ["dropbox","Dropbox","Produtividade","Arquivos compartilhados"],
+  ["excel","Microsoft Excel","Produtividade","Planilhas e relatórios"],["airtable","Airtable","Produtividade","Bases organizadas"],
+  ["zendesk","Zendesk","Outros","Central de suporte"],["freshdesk","Freshdesk","Outros","Atendimento"],
+  ["intercom","Intercom","Comunicação","Conversas e atendimento"],["zohodesk","Zoho Desk","Outros","Tickets e solicitações"],
+  ["asana","Asana","Produtividade","Projetos e tarefas"],["trello","Trello","Produtividade","Quadros e atividades"],
+  ["clickup","ClickUp","Produtividade","Gestão de trabalho"],["notion","Notion","Produtividade","Documentos e conhecimento"],
+  ["calendly","Calendly","Produtividade","Agendamentos"],["cal","Cal.com","Produtividade","Agendamentos"],
+  ["mailchimp","Mailchimp","Comunicação","E-mail marketing"],["brevo","Brevo","Comunicação","Comunicação multicanal"],
+  ["activecampaign","ActiveCampaign","Comunicação","Automação de marketing"],
+  ["customerio","Customer.io","Comunicação","Engajamento e relacionamento"],
+  ["xero","Xero","Financeiro","Contabilidade"],["zohobooks","Zoho Books","Financeiro","Gestão contábil"],
+  ["freshbooks","FreshBooks","Financeiro","Gestão financeira"],
+  ["netsuite","Oracle NetSuite","Financeiro","ERP financeiro"],
+  ["sageintacct","Sage Intacct","Financeiro","Finanças corporativas"],
+  ["odoo","Odoo","Financeiro","ERP empresarial"],["erpnext","ERPNext","Financeiro","Gestão empresarial"],
+  ["stripe","Stripe","Financeiro","Pagamentos"],
+  ["gvcollege","GVcollege","Acadêmico","Gestão acadêmica"],["totvsrm","TOTVS RM","Acadêmico","Gestão institucional"],
+  ["gvdasa","GVDASA","Acadêmico","Sistema educacional"],["wpensar","WPensar","Acadêmico","Gestão educacional"],
+];
+for (const [id,name,category,description] of moreEditorial) {
+  if (!editorial[id]) editorial[id] = {name,description:description||"Integração com sua operação",category,initials:name.slice(0,1).toUpperCase(),color:"gray",rank:1000};
+}
+
 export function normalizeAppKey(value: string): string {
   const clean = value.toLocaleLowerCase("en-US").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
   const aliases: Record<string, string> = { microsoftoutlook:"outlook", outlook365:"outlook", sophiaapi:"sophia" };
@@ -65,6 +100,15 @@ export function unifyAppsCatalog(
   evidence: Partial<Record<"jacad"|"sponte", NativeEvidence | undefined>> = {},
 ): CatalogApp[] {
   const apps = new Map<string,CatalogApp>();
+  // Catalog entries are invitations to explore, never invented active connections.
+  for (const [id,info] of Object.entries(editorial)) {
+    apps.set(id, {
+      id,slug:id,name:info.name,description:info.description,category:info.category,
+      initials:info.initials,color:info.color,
+      status:"request",statusText:"Sob consulta",
+      native:false,external:false,route:"/dados",
+    });
+  }
   for (const source of natives) {
     const key=normalizeAppKey(source.id);
     const info=editorial[key];
@@ -95,12 +139,14 @@ export function unifyAppsCatalog(
       native:false,external:true,route:"/dados",
       connectedAccountName:active?.display_name||undefined,
     };
-    apps.set(key,existing ? {
+    // Remote catalog confirmation overrides editorial discovery metadata.
+    // Native configuration evidence takes precedence over remote listing state.
+    apps.set(key, existing?.native ? {
       ...base,...existing,external:true,native:true,
-      status:existing.status==="available" ? state.status : existing.status,
-      statusText:existing.status==="available" ? state.statusText : existing.statusText,
+      status:existing.status==="available" || existing.status==="request" ? state.status : existing.status,
+      statusText:existing.status==="available" || existing.status==="request" ? state.statusText : existing.statusText,
       connectedAccountName:base.connectedAccountName,
-    }:base);
+    } : base);
   }
   return [...apps.values()].sort((a,b)=>{
     const rankA=editorial[a.id]?.rank??10000,rankB=editorial[b.id]?.rank??10000;
@@ -111,7 +157,7 @@ export function filterAppsCatalog(rows: CatalogApp[], query: string, category: s
  const search=query.trim().toLocaleLowerCase("pt-BR");
  return rows.filter(item=>
   (!category || category==="Todos"||item.category===category) &&
-  (tab!=="Conectados" || ["connected","configured"].includes(item.status)) &&
+  (tab!=="Conectados" || item.status==="connected") &&
   (!search || [item.name,item.description,item.category].some(s=>s.toLocaleLowerCase("pt-BR").includes(search)))
  ).sort((a,b)=>tab==="Conectados" ? a.name.localeCompare(b.name,"pt-BR") : 0);
 }
