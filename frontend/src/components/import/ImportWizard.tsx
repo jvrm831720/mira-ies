@@ -415,7 +415,7 @@ export function ImportWizard({ multiOnly = false }: { multiOnly?: boolean } = {}
                   <div className="max-h-80 space-y-2 overflow-y-auto">
                     {preview.columns.map((column) => (
                       <div key={column.key} className="grid gap-2 rounded-xl border px-3 py-2.5 sm:grid-cols-2">
-                        <div><p className="text-sm font-medium">{column.key}</p><p className="text-[11px] text-muted-foreground">Coluna do arquivo</p></div>
+                        <div><p className="text-sm font-medium">{column.key}</p><p className="text-[length:var(--type-caption)] text-muted-foreground">Coluna do arquivo</p></div>
                         <select value={mapping[column.key] || ""} onChange={(e) => setMapping((m) => ({ ...m, [column.key]: e.target.value }))}
                           className="h-9 rounded-lg border bg-white px-2 text-xs" aria-label={`Mapear ${column.key}`}>
                           <option value="">— ignorar —</option>

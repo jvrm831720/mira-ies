@@ -260,58 +260,58 @@ export default function StudentPortalPage() {
   }
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center bg-[#F9FAFB] text-[#667085]">
+    return <main className="flex min-h-screen items-center justify-center bg-[var(--color-source-f9fafb)] text-[var(--color-legacy-667085)]">
       <Loader2 className="mr-3 h-5 w-5 animate-spin" /> Verificando acesso seguro…
     </main>;
   }
 
   if (!student) {
-    return <div className="min-h-screen bg-[#F8FAFC] text-[#101828]">
+    return <div className="min-h-screen bg-[var(--color-legacy-f8fafc)] text-[var(--color-legacy-101828)]">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-7">
-        <span className="text-[24px] font-bold tracking-[-0.08em]">mira<span className="text-[#2563EB]">.</span></span>
-        <span className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-[11px] text-[#667085]">
+        <span className="text-2xl font-bold tracking-[-0.08em]">mira<span className="text-[var(--color-legacy-2563eb)]">.</span></span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-legacy-e5e7eb)] bg-white px-3 py-1.5 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
           <ShieldCheck className="h-3.5 w-3.5" /> Acesso estudantil
         </span>
       </header>
       <main className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-10 md:grid-cols-2 md:pt-24">
         <div>
-          <div className="mb-5 inline-flex items-center gap-2 rounded-md bg-[#EDF3FF] px-3 py-2 text-[11px] font-semibold text-[#2563EB]">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-md bg-[var(--color-legacy-edf3ff)] px-3 py-2 text-[length:var(--type-caption)] font-semibold text-[var(--color-legacy-2563eb)]">
             <GraduationCap className="h-4 w-4" /> PORTAL DO ALUNO
           </div>
-          <h1 className="max-w-[480px] text-[38px] font-semibold leading-[1.12] tracking-[-0.05em] md:text-[53px]">
+          <h1 className="max-w-[480px] text-[length:var(--type-size-38)] font-semibold leading-[1.12] tracking-[-0.05em] md:text-[length:var(--type-size-53)]">
             Sua jornada acadêmica, em um só lugar.
           </h1>
-          <p className="mt-6 max-w-[450px] text-[15px] leading-7 text-[#667085]">
+          <p className="mt-6 max-w-[450px] text-[length:var(--type-body-comfort)] leading-7 text-[var(--color-legacy-667085)]">
             Consulte seu vínculo institucional, frequência, avaliações e informações
             financeiras disponíveis, com privacidade e clareza.
           </p>
-          <div className="mt-9 flex items-center gap-3 text-[12px] text-[#667085]">
-            <LockKeyhole className="h-4 w-4 text-[#2563EB]" /> Somente os seus dados. Nenhuma cobrança automática.
+          <div className="mt-9 flex items-center gap-3 text-xs text-[var(--color-legacy-667085)]">
+            <LockKeyhole className="h-4 w-4 text-[var(--color-legacy-2563eb)]" /> Somente os seus dados. Nenhuma cobrança automática.
           </div>
         </div>
-        <section className="rounded-2xl border border-[#E4E7EC] bg-white p-7 shadow-[0_16px_48px_rgba(16,24,40,0.05)] md:p-9">
-          <div className="mb-7 flex h-11 w-11 items-center justify-center rounded-xl border border-[#DCE8FF] bg-[#F5F8FF] text-[#2563EB]">
+        <section className="rounded-2xl border border-[var(--color-line)] bg-white p-7 shadow-[0_16px_48px_rgba(16,24,40,0.05)] md:p-9">
+          <div className="mb-7 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-legacy-dce8ff)] bg-[var(--color-legacy-f5f8ff)] text-[var(--color-legacy-2563eb)]">
             <LockKeyhole className="h-5 w-5" />
           </div>
-          <h2 className="text-[21px] font-semibold tracking-[-0.025em]">Entrar no Portal do Aluno</h2>
-          <p className="mt-2 text-[13px] leading-6 text-[#667085]">
+          <h2 className="text-[length:var(--type-size-21)] font-semibold tracking-[-0.025em]">Entrar no Portal do Aluno</h2>
+          <p className="mt-2 text-[length:var(--type-body-compact)] leading-6 text-[var(--color-legacy-667085)]">
             Informe o código individual fornecido pela sua instituição. Ele tem validade limitada
             e só pode ser usado uma vez.
           </p>
           <form onSubmit={claim} className="mt-7 space-y-5">
             <div>
-              <label htmlFor="portal-token" className="mb-2 block text-[12px] font-semibold text-[#344054]">Código de acesso</label>
+              <label htmlFor="portal-token" className="mb-2 block text-xs font-semibold text-[var(--color-legacy-344054)]">Código de acesso</label>
               <input id="portal-token" type="password" autoComplete="off" required
                 value={token} onChange={(e) => setToken(e.target.value)}
                 placeholder="Cole seu código de convite"
-                className="h-12 w-full rounded-lg border border-[#D0D5DD] px-4 text-[13px] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#D6E4FF]" />
+                className="h-12 w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] px-4 text-[length:var(--type-body-compact)] outline-none focus:border-[var(--color-legacy-2563eb)] focus:ring-2 focus:ring-[var(--color-legacy-d6e4ff)]" />
             </div>
-            {error && <p role="alert" className="flex gap-2 rounded-lg bg-[#FFF5F5] p-3 text-[12px] text-[#B42318]"><AlertCircle className="h-4 w-4 shrink-0" /> {error}</p>}
-            <button type="submit" disabled={busy} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#101828] text-[13px] font-semibold text-white transition hover:bg-[#344054] disabled:opacity-50">
+            {error && <p role="alert" className="flex gap-2 rounded-lg bg-[var(--color-legacy-fff5f5)] p-3 text-xs text-[var(--color-legacy-b42318)]"><AlertCircle className="h-4 w-4 shrink-0" /> {error}</p>}
+            <button type="submit" disabled={busy} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-legacy-101828)] text-[length:var(--type-body-compact)] font-semibold text-white transition hover:bg-[var(--color-legacy-344054)] disabled:opacity-50">
               {busy ? "Validando convite…" : "Acessar portal"} <ArrowRight className="h-4 w-4" />
             </button>
           </form>
-          <p className="mt-7 border-t border-[#E4E7EC] pt-5 text-[11px] leading-5 text-[#98A2B3]">
+          <p className="mt-7 border-t border-[var(--color-line)] pt-5 text-[length:var(--type-caption)] leading-5 text-[var(--color-legacy-98a2b3)]">
             Esta primeira versão depende de habilitação institucional. Não compartilhe
             seu código com outras pessoas.
           </p>
@@ -336,52 +336,52 @@ export default function StudentPortalPage() {
 
   const field = (label: string, item: string | number | null | undefined) => (
     <div key={label} className="min-w-0 py-3">
-      <dt className="text-[11px] font-medium text-[#75777C]">{label}</dt>
-      <dd className="mt-1 break-words text-[13px] font-semibold text-[#101112]">{value(item)}</dd>
+      <dt className="text-[length:var(--type-caption)] font-medium text-[var(--color-muted)]">{label}</dt>
+      <dd className="mt-1 break-words text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">{value(item)}</dd>
     </div>
   );
 
   const viewHeader = (eyebrow: string, title: string, description: string) => (
     <header className="mb-7">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[#75777C]">{eyebrow}</p>
-      <h1 className="mt-2 text-[25px] font-semibold tracking-[-0.035em] text-[#101112] sm:text-[29px]">{title}</h1>
-      <p className="mt-2 max-w-[660px] text-[13px] leading-6 text-[#505967]">{description}</p>
+      <p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.09em] text-[var(--color-muted)]">{eyebrow}</p>
+      <h1 className="mt-2 text-[length:var(--type-size-25)] font-semibold tracking-[-0.035em] text-[var(--color-ink)] sm:text-[length:var(--type-size-29)]">{title}</h1>
+      <p className="mt-2 max-w-[660px] text-[length:var(--type-body-compact)] leading-6 text-[var(--color-slate-600)]">{description}</p>
     </header>
   );
 
   const recordsPanel = (title: string) => (
-    <section aria-label={title} className="overflow-hidden rounded-xl border border-[#E6E7EA] bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6E7EA] px-4 py-4 sm:px-6">
+    <section aria-label={title} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-4 sm:px-6">
         <div>
-          <h2 className="text-[14px] font-semibold">{title}</h2>
-          <p className="mt-1 text-[11px] text-[#75777C]">Registros associados à sua matrícula, enviados pela instituição.</p>
+          <h2 className="text-sm font-semibold">{title}</h2>
+          <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Registros associados à sua matrícula, enviados pela instituição.</p>
         </div>
         {(activeSection === "disciplines") && <div role="group" aria-label="Tipo de registro" className="flex gap-1">
           {sections.filter(s => s.id === "assessment" || s.id === "attendance").map(section =>
             <button key={section.id} type="button" aria-pressed={tab === section.id} onClick={() => setTab(section.id)}
-              className={`rounded-lg px-3 py-2 text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-[#266DF0] ${tab === section.id ? "bg-[#EFF4FF] text-[#1E58C7]" : "text-[#505967] hover:bg-[#F8F9FA]"}`}>{section.label}</button>)}
+              className={`rounded-lg px-3 py-2 text-[length:var(--type-caption)] font-medium focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] ${tab === section.id ? "bg-[var(--color-source-eff4ff)] text-[var(--color-legacy-1e58c7)]" : "text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]"}`}>{section.label}</button>)}
         </div>}
       </div>
-      {tab === "fee" && <p className="mx-4 mt-4 rounded-lg border border-[#FEE0C8] bg-[#FFF8F1] p-3 text-[11px] leading-5 text-[#7A3C14] sm:mx-6">
+      {tab === "fee" && <p className="mx-4 mt-4 rounded-lg border border-[var(--color-peach-tint-border)] bg-[var(--color-legacy-fff8f1)] p-3 text-[length:var(--type-caption)] leading-5 text-[var(--color-legacy-7a3c14)] sm:mx-6">
         Estes são snapshots não conciliados. Não representam quitação, dívida exigível ou confirmação de pagamento.
       </p>}
       <div className="min-h-[110px]">
-        {recordsLoading && <p role="status" className="flex items-center gap-2 p-6 text-[12px] text-[#505967]"><Loader2 className="h-4 w-4 animate-spin" /> Consultando registros…</p>}
-        {!recordsLoading && recordsError && <div role="alert" className="m-4 rounded-lg bg-[#FFF6F6] p-4 text-[12px] text-[#772322]">
+        {recordsLoading && <p role="status" className="flex items-center gap-2 p-6 text-xs text-[var(--color-slate-600)]"><Loader2 className="h-4 w-4 animate-spin" /> Consultando registros…</p>}
+        {!recordsLoading && recordsError && <div role="alert" className="m-4 rounded-lg bg-[var(--color-legacy-fff6f6)] p-4 text-xs text-[var(--color-red)]">
           {recordsError}
         </div>}
-        {!recordsLoading && !recordsError && records.length === 0 && <p className="p-7 text-[12px] leading-6 text-[#75777C]">Nenhum registro disponível nesta categoria. Ausência de dados não confirma situação regular nem irregular.</p>}
-        {!recordsLoading && !recordsError && records.length > 0 && <ul className="divide-y divide-[#EEEFF1]">
+        {!recordsLoading && !recordsError && records.length === 0 && <p className="p-7 text-xs leading-6 text-[var(--color-muted)]">Nenhum registro disponível nesta categoria. Ausência de dados não confirma situação regular nem irregular.</p>}
+        {!recordsLoading && !recordsError && records.length > 0 && <ul className="divide-y divide-[var(--color-border-subtle)]">
           {records.map(record => <li key={record.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 sm:px-6">
             <div className="min-w-0">
-              <p className="text-[12px] font-semibold text-[#101112]">{record.title}</p>
-              <p className="mt-1.5 text-[11px] leading-5 text-[#505967]">{recordDescription(record)}</p>
+              <p className="text-xs font-semibold text-[var(--color-ink)]">{record.title}</p>
+              <p className="mt-1.5 text-[length:var(--type-caption)] leading-5 text-[var(--color-slate-600)]">{recordDescription(record)}</p>
             </div>
-            {record.status && <span className="max-w-[220px] rounded-md border border-[#E6E7EA] bg-[#F8F9FA] px-2 py-1 text-[11px] text-[#505967]">{record.status}</span>}
+            {record.status && <span className="max-w-[220px] rounded-md border border-[var(--color-border)] bg-[var(--color-panel)] px-2 py-1 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">{record.status}</span>}
           </li>)}
         </ul>}
       </div>
-      <p className="border-t border-[#EEEFF1] px-4 py-2.5 text-[11px] text-[#75777C] sm:px-6">{current.label} · somente dados fornecidos pela instituição</p>
+      <p className="border-t border-[var(--color-border-subtle)] px-4 py-2.5 text-[length:var(--type-caption)] text-[var(--color-muted)] sm:px-6">{current.label} · somente dados fornecidos pela instituição</p>
     </section>
   );
 
@@ -391,34 +391,34 @@ export default function StudentPortalPage() {
     : extraRecords;
 
   const academicPanel = (title: string, description: string) => (
-    <section aria-label={title} className="overflow-hidden rounded-xl border border-[#E6E7EA] bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6E7EA] px-4 py-4 sm:px-6">
+    <section aria-label={title} className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-4 sm:px-6">
         <div>
-          <h2 className="text-[14px] font-semibold">{title}</h2>
-          <p className="mt-1 text-[11px] text-[#75777C]">{description}</p>
+          <h2 className="text-sm font-semibold">{title}</h2>
+          <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">{description}</p>
         </div>
         {activeSection === "calendar" && <div role="group" aria-label="Visão do calendário" className="flex gap-1">
           {([["calendar", "Eventos"], ["schedule", "Aulas"]] as [ExtraTab,string][]).map(([id,label]) =>
             <button type="button" key={id} onClick={() => setExtraTab(id)} aria-pressed={extraTab === id}
-              className={`rounded-lg px-3 py-2 text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-[#266DF0] ${extraTab === id ? "bg-[#EFF4FF] text-[#1E58C7]" : "text-[#505967] hover:bg-[#F8F9FA]"}`}>{label}</button>)}
+              className={`rounded-lg px-3 py-2 text-[length:var(--type-caption)] font-medium focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] ${extraTab === id ? "bg-[var(--color-source-eff4ff)] text-[var(--color-legacy-1e58c7)]" : "text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]"}`}>{label}</button>)}
         </div>}
         {activeSection === "disciplines" && <div role="group" aria-label="Desempenho por disciplina" className="flex gap-1">
           {([["report-card", "Notas"], ["attendance", "Frequência"]] as [ExtraTab,string][]).map(([id,label]) =>
             <button type="button" key={id} onClick={() => setExtraTab(id)} aria-pressed={extraTab === id}
-              className={`rounded-lg px-3 py-2 text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-[#266DF0] ${extraTab === id ? "bg-[#EFF4FF] text-[#1E58C7]" : "text-[#505967] hover:bg-[#F8F9FA]"}`}>{label}</button>)}
+              className={`rounded-lg px-3 py-2 text-[length:var(--type-caption)] font-medium focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] ${extraTab === id ? "bg-[var(--color-source-eff4ff)] text-[var(--color-legacy-1e58c7)]" : "text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]"}`}>{label}</button>)}
         </div>}
       </div>
-      {extraLoading ? <div role="status" className="flex items-center gap-2 p-6 text-[12px] text-[#505967]"><Loader2 className="h-4 w-4 animate-spin" /> Consultando registros publicados…</div>
-        : academicRows.length ? <ul className="divide-y divide-[#EEEFF1]">
+      {extraLoading ? <div role="status" className="flex items-center gap-2 p-6 text-xs text-[var(--color-slate-600)]"><Loader2 className="h-4 w-4 animate-spin" /> Consultando registros publicados…</div>
+        : academicRows.length ? <ul className="divide-y divide-[var(--color-border-subtle)]">
           {academicRows.map((item,index) => <li key={(item.id || item.class_id || "academic") + "-" + index} className="px-4 py-4 sm:px-6">
-            <p className="text-[12px] font-semibold">{academicTitle(extraTab, item)}</p>
-            <p className="mt-1.5 text-[11px] leading-5 text-[#505967]">{academicDescription(extraTab, item)}</p>
-            {item.teacher_name && <p className="mt-1 text-[11px] text-[#75777C]">Docente: {item.teacher_name}</p>}
+            <p className="text-xs font-semibold">{academicTitle(extraTab, item)}</p>
+            <p className="mt-1.5 text-[length:var(--type-caption)] leading-5 text-[var(--color-slate-600)]">{academicDescription(extraTab, item)}</p>
+            {item.teacher_name && <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Docente: {item.teacher_name}</p>}
           </li>)}
-        </ul> : <p className="p-7 text-[12px] leading-6 text-[#75777C]">{extraMessage || (activeSection === "home" ? "Nenhuma próxima aula publicada foi encontrada." : "Nenhuma informação publicada nesta seção.")}</p>}
-      {extraMessage && academicRows.length > 0 && <p className="border-t border-[#E6E7EA] px-4 py-3 text-[11px] text-[#505967] sm:px-6">{extraMessage}</p>}
-      {extraTab === "report-card" && <p className="border-t border-[#EEEFF1] px-4 py-3 text-[11px] text-[#75777C] sm:px-6">Somente notas publicadas. Resultados finais dependem de homologação institucional.</p>}
-      {extraTab === "attendance" && <p className="border-t border-[#EEEFF1] px-4 py-3 text-[11px] text-[#75777C] sm:px-6">Aulas sem chamada não são contadas como presença.</p>}
+        </ul> : <p className="p-7 text-xs leading-6 text-[var(--color-muted)]">{extraMessage || (activeSection === "home" ? "Nenhuma próxima aula publicada foi encontrada." : "Nenhuma informação publicada nesta seção.")}</p>}
+      {extraMessage && academicRows.length > 0 && <p className="border-t border-[var(--color-border)] px-4 py-3 text-[length:var(--type-caption)] text-[var(--color-slate-600)] sm:px-6">{extraMessage}</p>}
+      {extraTab === "report-card" && <p className="border-t border-[var(--color-border-subtle)] px-4 py-3 text-[length:var(--type-caption)] text-[var(--color-muted)] sm:px-6">Somente notas publicadas. Resultados finais dependem de homologação institucional.</p>}
+      {extraTab === "attendance" && <p className="border-t border-[var(--color-border-subtle)] px-4 py-3 text-[length:var(--type-caption)] text-[var(--color-muted)] sm:px-6">Aulas sem chamada não são contadas como presença.</p>}
     </section>
   );
 
@@ -428,9 +428,9 @@ export default function StudentPortalPage() {
     {activeSection === "home" && <>
       {viewHeader(student.institution, "Olá, " + (student.name.split(" ")[0] || "estudante") + ".",
         "Sua vida acadêmica, solicitações e informações importantes em um só lugar.")}
-      <section className="rounded-xl border border-[#E6E7EA] bg-white px-5 py-4 sm:px-6" aria-label="Seu resumo">
-        <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-[#266DF0]" /><h2 className="text-[14px] font-semibold">Seu vínculo acadêmico</h2></div>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 border-t border-[#EEEFF1] sm:grid-cols-4">
+      <section className="rounded-xl border border-[var(--color-border)] bg-white px-5 py-4 sm:px-6" aria-label="Seu resumo">
+        <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-[var(--color-blue)]" /><h2 className="text-sm font-semibold">Seu vínculo acadêmico</h2></div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 border-t border-[var(--color-border-subtle)] sm:grid-cols-4">
           {field("Curso", student.course)}
           {field("Matrícula", student.registration)}
           {field("Situação acadêmica", student.academic_status)}
@@ -441,39 +441,39 @@ export default function StudentPortalPage() {
       </section>
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
         <div>{academicPanel("Próximas aulas", "Somente aulas futuras com data confirmada pelo sistema acadêmico.")}</div>
-        <section aria-label="Acesso rápido" className="self-start rounded-xl border border-[#E6E7EA] bg-[#F8F9FA] p-5">
-          <h2 className="text-[14px] font-semibold">O que você precisa fazer?</h2>
-          <p className="mt-2 text-[12px] leading-5 text-[#505967]">Acesse seu histórico ou acompanhe um pedido sem procurar por diferentes portais.</p>
+        <section aria-label="Acesso rápido" className="self-start rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5">
+          <h2 className="text-sm font-semibold">O que você precisa fazer?</h2>
+          <p className="mt-2 text-xs leading-5 text-[var(--color-slate-600)]">Acesse seu histórico ou acompanhe um pedido sem procurar por diferentes portais.</p>
           <div className="mt-4 space-y-2">
             {([["journey", "Ver minha jornada"], ["requests", "Acompanhar solicitações"], ["financial", "Consultar financeiro"]] as [PortalSection,string][]).map(([id,label]) =>
-              <button key={id} type="button" onClick={() => navigate(id)} className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#E6E7EA] bg-white px-3 py-3 text-left text-[12px] font-medium hover:border-[#B6CDFE] focus-visible:ring-2 focus-visible:ring-[#266DF0]">
-                {label}<ArrowRight className="h-4 w-4 text-[#75777C]" />
+              <button key={id} type="button" onClick={() => navigate(id)} className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] bg-white px-3 py-3 text-left text-xs font-medium hover:border-[var(--color-legacy-b6cdfe)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
+                {label}<ArrowRight className="h-4 w-4 text-[var(--color-muted)]" />
               </button>)}
           </div>
-          <div className="mt-5 border-t border-[#E6E7EA] pt-4">
-            <h3 className="text-[12px] font-semibold">Solicitações recentes</h3>
+          <div className="mt-5 border-t border-[var(--color-border)] pt-4">
+            <h3 className="text-xs font-semibold">Solicitações recentes</h3>
             {recentRequests === null
-              ? <p className="mt-2 text-[11px] leading-5 text-[#75777C]">Informações de solicitações ainda não disponíveis nesta consulta.</p>
+              ? <p className="mt-2 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">Informações de solicitações ainda não disponíveis nesta consulta.</p>
               : recentRequests.length === 0
-                ? <p className="mt-2 text-[11px] text-[#75777C]">Nenhuma solicitação registrada.</p>
-                : <ul className="mt-2 divide-y divide-[#E6E7EA]">
+                ? <p className="mt-2 text-[length:var(--type-caption)] text-[var(--color-muted)]">Nenhuma solicitação registrada.</p>
+                : <ul className="mt-2 divide-y divide-[var(--color-border)]">
                   {recentRequests.map(request => <li key={request.id} className="py-2">
-                    <p className="truncate text-[11px] font-medium" title={request.subject}>{request.subject}</p>
-                    <span className={"mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-[10px] " + serviceStatusTone(request.status)}>{serviceStatusLabel(request.status)}</span>
+                    <p className="truncate text-[length:var(--type-caption)] font-medium" title={request.subject}>{request.subject}</p>
+                    <span className={"mt-1 inline-flex rounded-md border px-1.5 py-0.5 text-[length:var(--type-overline)] " + serviceStatusTone(request.status)}>{serviceStatusLabel(request.status)}</span>
                   </li>)}
                 </ul>}
             <button type="button" onClick={() => navigate("requests")}
-              className="mt-3 text-[11px] font-semibold text-[#266DF0] hover:underline focus-visible:ring-2 focus-visible:ring-[#266DF0]">
+              className="mt-3 text-[length:var(--type-caption)] font-semibold text-[var(--color-blue)] hover:underline focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
               Ver todas as solicitações
             </button>
           </div>
         </section>
       </div>
-      <p className="mt-4 text-[11px] leading-5 text-[#75777C]">Notas, frequência e valores não informados permanecem desconhecidos — não são tratados como situação regular.</p>
+      <p className="mt-4 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">Notas, frequência e valores não informados permanecem desconhecidos — não são tratados como situação regular.</p>
     </>}
     {activeSection === "journey" && <>
       {viewHeader("Vida acadêmica", "Minha jornada", "Acompanhe seu vínculo, os períodos cursados e a situação das solicitações de matrícula.")}
-      <section className="mb-5 rounded-xl border border-[#E6E7EA] px-5 py-3 sm:px-6">
+      <section className="mb-5 rounded-xl border border-[var(--color-border)] px-5 py-3 sm:px-6">
         <dl className="grid grid-cols-2 gap-x-4 sm:grid-cols-4">
           {field("Curso", student.course)}
           {field("Matrícula", student.registration)}
@@ -514,9 +514,9 @@ export default function StudentPortalPage() {
     </>}
     {activeSection === "account" && <>
       {viewHeader("Privacidade", "Minha conta", "Consulte os dados vinculados à sua sessão estudantil e encerre o acesso com segurança.")}
-      <section className="rounded-xl border border-[#E6E7EA] p-5 sm:p-6">
-        <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#266DF0]" /><h2 className="text-[14px] font-semibold">Identidade acadêmica</h2></div>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 border-t border-[#EEEFF1] sm:grid-cols-3">
+      <section className="rounded-xl border border-[var(--color-border)] p-5 sm:p-6">
+        <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[var(--color-blue)]" /><h2 className="text-sm font-semibold">Identidade acadêmica</h2></div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 border-t border-[var(--color-border-subtle)] sm:grid-cols-3">
           {field("Nome", student.name)}
           {field("Instituição", student.institution)}
           {field("Matrícula", student.registration)}
@@ -524,13 +524,13 @@ export default function StudentPortalPage() {
           {field("Turma", student.class_name)}
           {field("Unidade", student.campus)}
         </dl>
-        <p className="mt-3 border-t border-[#EEEFF1] pt-4 text-[11px] leading-5 text-[#505967]">O Portal apresenta apenas dados da sessão estudantil. Para corrigir informações cadastrais, procure sua instituição.</p>
-        <button type="button" onClick={() => void logout()} disabled={busy} className="mt-5 inline-flex items-center gap-2 rounded-lg border border-[#E6E7EA] px-4 py-2.5 text-[12px] font-medium hover:bg-[#F8F9FA] focus-visible:ring-2 focus-visible:ring-[#266DF0] disabled:opacity-50">
+        <p className="mt-3 border-t border-[var(--color-border-subtle)] pt-4 text-[length:var(--type-caption)] leading-5 text-[var(--color-slate-600)]">O Portal apresenta apenas dados da sessão estudantil. Para corrigir informações cadastrais, procure sua instituição.</p>
+        <button type="button" onClick={() => void logout()} disabled={busy} className="mt-5 inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-xs font-medium hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] disabled:opacity-50">
           <LogOut className="h-4 w-4" /> Encerrar sessão
         </button>
       </section>
     </>}
-    <footer className="mt-9 flex items-start gap-2 border-t border-[#EEEFF1] pt-5 text-[11px] leading-5 text-[#75777C]">
+    <footer className="mt-9 flex items-start gap-2 border-t border-[var(--color-border-subtle)] pt-5 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">
       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
       Seus dados são vinculados à sessão individual. Nenhum indicador interno de risco é exibido neste portal.
     </footer>

@@ -11,7 +11,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-[var(--radius-pill)] px-2.5 py-1 text-[11px] font-semibold tracking-wide",
+        "inline-flex items-center rounded-[var(--radius-pill)] px-2.5 py-1 text-[length:var(--type-caption)] font-semibold tracking-wide",
         className
       )}
     >
@@ -23,11 +23,11 @@ export function Badge({
 export function RiskBadge({ level }: { level?: string | null }) {
   const styles =
     level === "critico"
-      ? "bg-[#fff0ed] text-[#b84336] ring-1 ring-[#f9d8d2]"
+      ? "bg-[var(--color-legacy-fff0ed)] text-[var(--color-legacy-b84336)] ring-1 ring-[var(--color-legacy-f9d8d2)]"
       : level === "medio"
-        ? "bg-[#eef0ff] text-[#3848b5] ring-1 ring-[#dce0ff]"
+        ? "bg-[var(--color-legacy-eef0ff)] text-[var(--color-legacy-3848b5)] ring-1 ring-[var(--color-legacy-dce0ff)]"
         : level === "baixo"
-          ? "bg-[#edf0fb] text-[#29399f] ring-1 ring-[#dfe4f8]"
+          ? "bg-[var(--color-legacy-edf0fb)] text-[var(--brand-blue)] ring-1 ring-[var(--color-legacy-dfe4f8)]"
           : "bg-slate-100 text-slate-600 ring-1 ring-slate-200";
 
   return <Badge className={styles}>{riskLabel(level)}</Badge>;

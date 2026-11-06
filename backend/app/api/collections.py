@@ -5,7 +5,7 @@ This API does not create agreements, change debts, execute payments or dispatch.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthContext, require_permission
@@ -35,6 +35,9 @@ def _serialize(row: dict) -> dict:
 async def list_collection_cases(
     q: str = Query("", max_length=160),
     status: str | None = Query(None, pattern="^(open|paid|disputed|agreement|cancelled|unknown)$"),
+    statuses: str | None = None,
+    sort: str = "updated_at",
+    desc: bool = True,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
     auth: AuthContext = Depends(require_permission("audit.view")),
@@ -52,16 +55,34 @@ async def list_collection_cases(
         needle = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         where.append("(external_ref ILIKE :pattern OR subject_ref ILIKE :pattern)")
         params["pattern"] = f"%{needle}%"
+    if statuses is not None:
+        if len(statuses) > 120:
+            raise HTTPException(status_code=422, detail="Filtro de estado extenso.")
+        choices = set(statuses.split(",")) if statuses else set()
+        valid = {"open", "paid", "disputed", "agreement", "cancelled", "unknown"}
+        if not choices or len(choices) > 6 or not choices.issubset(valid):
+            raise HTTPException(status_code=422, detail="Estados inválidos.")
+        where.append("status IN :statuses")
+        params["statuses"] = tuple(choices)
+    ordering = {"updated_at": "updated_at", "external_ref": "external_ref",
+                "status": "status", "balance": "balance", "source": "source"}
+    if sort not in ordering:
+        raise HTTPException(status_code=422, detail="Ordenação inválida.")
+    order_clause = f"{ordering[sort]} {'DESC' if desc else 'ASC'}, id DESC"
     criteria = " AND ".join(where)
+    count_sql = text(f"SELECT count(*) FROM dispatch_obligations WHERE {criteria}")
+    if statuses is not None: count_sql = count_sql.bindparams(bindparam("statuses", expanding=True))
     count = (await db.execute(
-        text(f"SELECT count(*) FROM dispatch_obligations WHERE {criteria}"), params
+        count_sql, params
     )).scalar_one()
-    rows = (await db.execute(text(f"""
+    rows_sql = text(f"""
         SELECT id,external_ref,subject_type,subject_ref,status,balance,source,
                source_version,evidence_ref,verified_at,updated_at
         FROM dispatch_obligations WHERE {criteria}
-        ORDER BY updated_at DESC,id DESC LIMIT :limit OFFSET :offset
-    """), params)).mappings().all()
+        ORDER BY {order_clause} LIMIT :limit OFFSET :offset
+    """)
+    if statuses is not None: rows_sql = rows_sql.bindparams(bindparam("statuses", expanding=True))
+    rows = (await db.execute(rows_sql, params)).mappings().all()
     return {
         "items": [_serialize(dict(row)) for row in rows],
         "total": count, "offset": offset, "limit": limit,

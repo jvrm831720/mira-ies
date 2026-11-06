@@ -9,7 +9,7 @@ export function RecordSections({ sections, initialId, className }: {
   const [selected, setSelected] = useState(initialId || sections[0]?.id || "");
   const ref = useRef<HTMLDivElement>(null);
   const active = sections.find(section => section.id === selected) || sections[0];
-  if (!active) return <p className="p-4 text-[12px] text-[var(--color-muted)]">Sem seções disponíveis.</p>;
+  if (!active) return <p className="p-4 text-xs text-[var(--color-muted)]">Sem seções disponíveis.</p>;
   return <div className={cn("min-w-0",className)}>
     <div ref={ref} role="tablist" aria-label="Seções do registro" className="flex items-center gap-1 overflow-x-auto border-b border-[var(--color-border)]"
       onKeyDown={event => {
@@ -25,7 +25,7 @@ export function RecordSections({ sections, initialId, className }: {
         aria-controls={"record-panel-"+section.id} aria-selected={section.id===active.id}
         tabIndex={section.id===active.id?0:-1}
         onClick={()=>setSelected(section.id)}
-        className={cn("shrink-0 border-b-2 px-3 py-3 text-[12px] font-medium transition-colors duration-[var(--motion-standard)] focus-visible:outline-offset-[-3px]",
+        className={cn("shrink-0 border-b-2 px-3 py-3 text-xs font-medium transition-colors duration-[var(--motion-standard)] focus-visible:outline-offset-[-3px]",
           section.id===active.id?"border-[var(--color-ink)] text-[var(--color-ink)]":"border-transparent text-[var(--color-slate-600)] hover:text-[var(--color-ink)]")}>
         {section.label}
       </button>)}

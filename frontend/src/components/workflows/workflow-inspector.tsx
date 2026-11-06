@@ -39,7 +39,7 @@ export function WorkflowInspector({
     setError(""); setSuccess("");
   }, [record]);
 
-  if (!node) return <aside aria-label="Propriedades do bloco" className="rounded-xl border border-[#E6E8EC] bg-white p-5 text-sm text-[#747A86]">Selecione um bloco do fluxo para consultar suas propriedades.</aside>;
+  if (!node) return <aside aria-label="Propriedades do bloco" className="rounded-xl border border-[var(--color-legacy-e6e8ec)] bg-white p-5 text-sm text-[var(--color-legacy-747a86)]">Selecione um bloco do fluxo para consultar suas propriedades.</aside>;
 
   const canPersist = node.id === "proposal" && mayEditProposal(record, canEdit);
   async function save() {
@@ -67,74 +67,74 @@ export function WorkflowInspector({
   }
 
   return (
-    <aside aria-label="Propriedades do bloco" className="min-w-0 overflow-hidden rounded-xl border border-[#E7E9EE] bg-white">
-      <div className="border-b border-[#EDF0F2] px-5 py-4">
+    <aside aria-label="Propriedades do bloco" className="min-w-0 overflow-hidden rounded-xl border border-[var(--color-legacy-e7e9ee)] bg-white">
+      <div className="border-b border-[var(--color-legacy-edf0f2)] px-5 py-4">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.11em] text-[#8A929E]">Propriedades do bloco</span>
-          <span className="rounded-md bg-[#F3F5F8] px-2 py-1 text-[10px] text-[#626975]"> {canPersist ? "Persistível" : "Somente leitura"} </span>
+          <span className="text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.11em] text-[var(--color-legacy-8a929e)]">Propriedades do bloco</span>
+          <span className="rounded-md bg-[var(--color-legacy-f3f5f8)] px-2 py-1 text-[length:var(--type-overline)] text-[var(--color-legacy-626975)]"> {canPersist ? "Persistível" : "Somente leitura"} </span>
         </div>
-        <h2 className="text-[15px] font-semibold tracking-tight text-[#181B21]">{node.title}</h2>
-        <p className="mt-1 text-xs leading-5 text-[#737B87]">{node.description}</p>
+        <h2 className="text-[length:var(--type-body-comfort)] font-semibold tracking-tight text-[var(--color-legacy-181b21)]">{node.title}</h2>
+        <p className="mt-1 text-xs leading-5 text-[var(--color-legacy-737b87)]">{node.description}</p>
       </div>
       <div className="space-y-5 p-5">
-        <div className="rounded-lg border border-[#EDF0F2] bg-[#FAFBFC] p-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-[#343B45]">
-            {node.state === "verified" ? <CheckCircle2 className="h-4 w-4 text-[#287347]" /> : <LockKeyhole className="h-4 w-4 text-[#848B95]" />}
+        <div className="rounded-lg border border-[var(--color-legacy-edf0f2)] bg-[var(--color-legacy-fafbfc)] p-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-[var(--color-legacy-343b45)]">
+            {node.state === "verified" ? <CheckCircle2 className="h-4 w-4 text-[var(--color-legacy-287347)]" /> : <LockKeyhole className="h-4 w-4 text-[var(--color-legacy-848b95)]" />}
             {stateNames[node.state]}
           </div>
-          <p className="mt-1.5 text-[11px] text-[#717984]">Evidência: {node.source}</p>
+          <p className="mt-1.5 text-[length:var(--type-caption)] text-[var(--color-legacy-717984)]">Evidência: {node.source}</p>
         </div>
         <div>
-          <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.09em] text-[#818A96]">Dados verificados</h3>
+          <h3 className="mb-3 text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.09em] text-[var(--color-legacy-818a96)]">Dados verificados</h3>
           <dl className="space-y-3">
             {node.details.map(item => (
-              <div key={item.label} className="border-b border-[#F0F1F4] pb-2 last:border-0">
-                <dt className="text-[11px] text-[#858C97]">{item.label}</dt>
-                <dd className="mt-1 break-words text-[12px] font-medium leading-5 text-[#262A31]">{item.value}</dd>
+              <div key={item.label} className="border-b border-[var(--color-legacy-f0f1f4)] pb-2 last:border-0">
+                <dt className="text-[length:var(--type-caption)] text-[var(--color-legacy-858c97)]">{item.label}</dt>
+                <dd className="mt-1 break-words text-xs font-medium leading-5 text-[var(--color-legacy-262a31)]">{item.value}</dd>
               </div>
             ))}
           </dl>
         </div>
-        <div className="border-t border-[#EEF0F3] pt-4">
-          <h3 className="flex items-center gap-2 text-xs font-semibold text-[#353943]"><ShieldCheck className="h-4 w-4 text-[#727A88]" /> Permissão da etapa</h3>
-          <p className="mt-2 rounded-md bg-[#F6F8FA] px-2 py-1.5 font-mono text-[11px] text-[#3F4753]">{node.requiredPermission}</p>
-          <p className="mt-2 text-[11px] leading-5 text-[#818994]">
+        <div className="border-t border-[var(--color-legacy-eef0f3)] pt-4">
+          <h3 className="flex items-center gap-2 text-xs font-semibold text-[var(--color-legacy-353943)]"><ShieldCheck className="h-4 w-4 text-[var(--color-legacy-727a88)]" /> Permissão da etapa</h3>
+          <p className="mt-2 rounded-md bg-[var(--color-legacy-f6f8fa)] px-2 py-1.5 font-mono text-[length:var(--type-caption)] text-[var(--color-legacy-3f4753)]">{node.requiredPermission}</p>
+          <p className="mt-2 text-[length:var(--type-caption)] leading-5 text-[var(--color-legacy-818994)]">
             {permissions.includes(node.requiredPermission) ? "Concedida na sessão do workspace. O serviço valida novamente ao receber a ação." : "Não concedida nesta sessão ou indisponível. Nada pode ser executado aqui."}
           </p>
         </div>
         {canPersist && record.kind === "proposal" && (
-          <form onSubmit={event => { event.preventDefault(); void save(); }} className="space-y-3 border-t border-[#EEF0F3] pt-4">
+          <form onSubmit={event => { event.preventDefault(); void save(); }} className="space-y-3 border-t border-[var(--color-legacy-eef0f3)] pt-4">
             <div>
-              <p className="text-[12px] font-semibold text-[#222730]">Editar configuração persistível</p>
-              <p className="mt-1 text-[11px] leading-5 text-[#7B828D]">Somente proposta em rascunho/ajustes. A API controla MFA, versão e segregação de funções.</p>
+              <p className="text-xs font-semibold text-[var(--color-legacy-222730)]">Editar configuração persistível</p>
+              <p className="mt-1 text-[length:var(--type-caption)] leading-5 text-[var(--color-legacy-7b828d)]">Somente proposta em rascunho/ajustes. A API controla MFA, versão e segregação de funções.</p>
             </div>
-            <label className="block text-[11px] font-medium text-[#59616C]">Título
+            <label className="block text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-59616c)]">Título
               <input name="title" required minLength={3} maxLength={160} value={title} onChange={e => setTitle(e.target.value)}
-                className="mt-1 w-full rounded-md border border-[#DCE1E7] px-3 py-2 text-xs text-[#20242B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]" />
+                className="mt-1 w-full rounded-md border border-[var(--color-legacy-dce1e7)] px-3 py-2 text-xs text-[var(--color-legacy-20242b)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-legacy-2563eb)]" />
             </label>
-            <label className="block text-[11px] font-medium text-[#59616C]">Objetivo
+            <label className="block text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-59616c)]">Objetivo
               <textarea name="objective" required minLength={3} maxLength={4000} rows={3} value={objective} onChange={e => setObjective(e.target.value)}
-                className="mt-1 w-full resize-y rounded-md border border-[#DCE1E7] px-3 py-2 text-xs text-[#20242B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]" />
+                className="mt-1 w-full resize-y rounded-md border border-[var(--color-legacy-dce1e7)] px-3 py-2 text-xs text-[var(--color-legacy-20242b)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-legacy-2563eb)]" />
             </label>
-            <label className="block text-[11px] font-medium text-[#59616C]">Estratégia
+            <label className="block text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-59616c)]">Estratégia
               <textarea name="strategy" required minLength={3} maxLength={4000} rows={3} value={strategy} onChange={e => setStrategy(e.target.value)}
-                className="mt-1 w-full resize-y rounded-md border border-[#DCE1E7] px-3 py-2 text-xs text-[#20242B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]" />
+                className="mt-1 w-full resize-y rounded-md border border-[var(--color-legacy-dce1e7)] px-3 py-2 text-xs text-[var(--color-legacy-20242b)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-legacy-2563eb)]" />
             </label>
-            <label className="block text-[11px] font-medium text-[#59616C]">Brief de comunicação
+            <label className="block text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-59616c)]">Brief de comunicação
               <textarea name="brief" required minLength={3} maxLength={8000} rows={3} value={messageBrief} onChange={e => setMessageBrief(e.target.value)}
-                className="mt-1 w-full resize-y rounded-md border border-[#DCE1E7] px-3 py-2 text-xs text-[#20242B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]" />
+                className="mt-1 w-full resize-y rounded-md border border-[var(--color-legacy-dce1e7)] px-3 py-2 text-xs text-[var(--color-legacy-20242b)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-legacy-2563eb)]" />
             </label>
-            {error && <p role="alert" className="text-xs text-[#B3261E]">{error}</p>}
-            {success && <p role="status" className="text-xs text-[#276749]">{success}</p>}
-            <button type="submit" disabled={saving} className="w-full rounded-lg bg-[#202124] px-3 py-2.5 text-xs font-semibold text-white hover:bg-black disabled:opacity-40">
+            {error && <p role="alert" className="text-xs text-[var(--color-legacy-b3261e)]">{error}</p>}
+            {success && <p role="status" className="text-xs text-[var(--color-legacy-276749)]">{success}</p>}
+            <button type="submit" disabled={saving} className="w-full rounded-lg bg-[var(--color-legacy-202124)] px-3 py-2.5 text-xs font-semibold text-white hover:bg-black disabled:opacity-40">
               {saving ? "Salvando..." : "Salvar na proposta"}
             </button>
           </form>
         )}
-        <div className="border-t border-[#EEF0F3] pt-4">
-          <p className="mb-3 text-[11px] text-[#868D99]">Operações críticas continuam no fluxo institucional existente.</p>
+        <div className="border-t border-[var(--color-legacy-eef0f3)] pt-4">
+          <p className="mb-3 text-[length:var(--type-caption)] text-[var(--color-legacy-868d99)]">Operações críticas continuam no fluxo institucional existente.</p>
           <Link href={record.kind === "proposal" ? "/campanhas" : "/disparos"}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2563EB] hover:underline">
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-legacy-2563eb)] hover:underline">
             Abrir operação original <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>

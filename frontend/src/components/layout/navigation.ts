@@ -96,7 +96,11 @@ export function getVisibleNavigation(me: OrgMeResponse | null | undefined): Navi
   return allGroups.map(group => ({
     ...group,
     items: group.items.filter(item => {
-      if (item.profile && item.profile !== profile) return false;
+      // Education workspaces may also enable the native billing/collections module.
+      // Require an explicit billing entitlement; do not assume it from institution type.
+      const educationBilling = item.href === "/cobranca" && profile === "education"
+        && Array.isArray(enabled) && enabled.includes("billing");
+      if (item.profile && item.profile !== profile && !educationBilling) return false;
       if (!hasNavigationPermission(me, item.permission)) return false;
       if (item.feature && me.available_features?.[item.feature] !== true) return false;
       const moduleKey = item.module === "operations" ? (profile === "education" ? "permanence" : "billing") : item.module;
