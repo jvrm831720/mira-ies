@@ -111,7 +111,7 @@ export function ObjectFilterBuilder<T>({ fields, filters, onChange, onClose }: P
         className="mt-1 h-9 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] px-2 text-xs" />
     </label>}
     <p className="text-[length:var(--type-caption)] text-[var(--color-muted)]">Aplicado a todos os registros via servidor quando disponível. Até 8 filtros combinados com E.</p>
-    {validationError && <p role="alert" className="text-xs text-[var(--color-red)]">{validationError}</p>
+    {validationError && <p role="alert" className="text-xs text-[var(--color-red)]">{validationError}</p>}
     <button type="button" disabled={!field || filters.length >= 8}
       onClick={apply}
       className="flex h-9 w-full items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-ink)] text-xs font-medium text-white disabled:opacity-40">
