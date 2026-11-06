@@ -22,6 +22,7 @@ from app.api.native_academic import PortalIdentity, _portal_action, _portal_iden
 from app.api.student_services import _enabled, _human, _request_json
 from app.core.auth import AuthContext, require_permission
 from app.db.session import get_db
+from app.services.student_service_visibility import student_visible_event_note
 from app.models.auth import User
 from app.models.organization import Membership
 from app.models.student_services import (
@@ -214,7 +215,7 @@ async def _detail(db: AsyncSession, row: StudentServiceRequest, *, staff: bool) 
         "request": _queue_json(row) if staff else _request_json(row),
         "events": [{
             "id": e.id, "status": e.status, "actor_type": e.actor_type,
-            "note": e.note, "occurred_at": _stamp(e.occurred_at),
+            "note": e.note if staff else student_visible_event_note(e.actor_type, e.note), "occurred_at": _stamp(e.occurred_at),
         } for e in events],
         "comments": [{
             "id": c.id, "actor_type": c.actor_type, "body": c.body,
