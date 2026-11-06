@@ -1,3 +1,19 @@
+export function plausiblePublicWebsite(value) {
+  const trimmed = (value || "").trim();
+  if (!trimmed || /\s/.test(trimmed)) return false;
+  try {
+    const parsed = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : "https://" + trimmed);
+    const host = parsed.hostname.toLowerCase();
+    return ["http:", "https:"].includes(parsed.protocol) &&
+      !parsed.username && !parsed.password &&
+      host.includes(".") && host.length >= 5 &&
+      !["localhost", "localhost.localdomain"].includes(host) &&
+      !host.endsWith(".local") && !host.endsWith(".internal") &&
+      !host.endsWith(".test") &&
+      (parsed.port === "" || parsed.port === "80" || parsed.port === "443");
+  } catch { return false; }
+}
+
 const PERSONAL_DOMAINS = new Set([
   "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "hotmail.com.br",
   "live.com", "live.com.br", "yahoo.com", "yahoo.com.br", "icloud.com",
