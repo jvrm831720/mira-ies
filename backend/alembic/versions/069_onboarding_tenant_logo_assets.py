@@ -1,13 +1,13 @@
 """Persist bounded workspace logos during verified onboarding.
 
-Revision ID: 069_onboarding_tenant_logo_assets
+Revision ID: 069_onboarding_logo
 Revises: 068_academic_object_views
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "069_onboarding_tenant_logo_assets"
+revision = "069_onboarding_logo"
 down_revision = "068_academic_object_views"
 branch_labels = None
 depends_on = None
