@@ -408,14 +408,14 @@ export function ConversationalOnboarding() {
                 </div>
                 <div className="mira-flow-message" key={step}>
                   <h1 ref={headingRef} tabIndex={-1}>
-                    {step === "workspace" ? "Criar seu workspace" :
+                    {step === "workspace" ? <TypingText text="Criar seu workspace" /> :
                       step === "description" ? (publicCompanyDescription(enrichment) ? "Encontramos informações sobre sua empresa." : "Conte um pouco sobre sua empresa.") :
                       step === "name" ? "E como você prefere que te chamem?" :
                       step === "integrations" ? (form.firstName || "Agora") + ", vamos falar das suas ferramentas." :
                       "Seu workspace está quase pronto."}
                   </h1>
                   <p>
-                    {step === "workspace" ? "Revise os dados da sua organização. Você poderá ajustar as informações mais tarde." :
+                    {step === "workspace" ? "Qual é o site da sua organização? Vamos encontrar os dados automaticamente." :
                       step === "description" ? "Esta descrição ajuda a entender a operação. Confirme ou edite antes de continuar." :
                       step === "name" ? "Assim, podemos deixar sua experiência mais pessoal, sem formulários longos." :
                       step === "integrations" ? "Indique os sistemas que já utiliza. As conexões são configuradas depois, com sua autorização." :
@@ -426,56 +426,72 @@ export function ConversationalOnboarding() {
                 <div className="mira-flow-interaction" key={"card-" + step}>
                   {step === "workspace" && (
                     <>
-                      <div className="mira-flow-card-heading">Detalhes do workspace</div>
-                      {searchWarning && <p className="mira-flow-inline-notice" role="status">{searchWarning}</p>}
-                      <div className="mira-flow-logo-upload">
-                        <Icon />
-                        <div>
-                          <label htmlFor="mira-flow-logo">Adicionar logotipo</label>
-                          <input id="mira-flow-logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => chooseLogo(event.target.files?.[0])} />
-                          <p>Prévia local. O envio definitivo será feito em Configurações.</p>
-                        </div>
-                      </div>
+                      <div className="mira-flow-card-heading">Vamos conhecer sua organização</div>
                       <div className="mira-flow-fields">
-                        <InputField id="org-name" label="Nome da organização">
-                          <input id="org-name" autoFocus required maxLength={255} placeholder="Nome da sua empresa" value={form.organizationName} onChange={(e) => update("organizationName", e.target.value)} />
+                        <InputField id="org-site" label="Site da organização"
+                          note="A pesquisa em fontes públicas é uma sugestão, não uma prova de vínculo.">
+                          <input id="org-site" autoFocus type="text" inputMode="url" autoComplete="url" maxLength={255}
+                            placeholder={domain ? "https://" + domain : "https://suaorganizacao.edu.br"}
+                            value={form.website} onChange={event => updateWebsite(event.target.value)} />
                         </InputField>
-                        <div className="mira-flow-two-fields">
-                          <InputField id="org-trade" label="Nome de exibição">
-                            <input id="org-trade" maxLength={255} placeholder="Opcional" value={form.tradeName} onChange={(e) => update("tradeName", e.target.value)} />
-                          </InputField>
-                          <InputField id="org-cnpj" label="CNPJ">
-                            <input id="org-cnpj" inputMode="numeric" placeholder="00.000.000/0000-00" value={maskCnpj(form.cnpj)} onChange={(e) => { update("cnpj", e.target.value.replace(/\D/g, "").slice(0, 14)); setSuggestion(null); }} />
-                          </InputField>
-                        </div>
-                        {form.cnpj.replace(/\D/g, "").length === 14 && (
-                          <button type="button" className="mira-flow-inline-action" onClick={() => void consultCnpj()} disabled={lookupBusy}>
-                            {lookupBusy ? "Consultando cadastro…" : "Consultar dados cadastrais"}
-                          </button>
-                        )}
-                        {suggestion && (
-                          <div className="mira-flow-suggestion" role="status">
-                            <strong>Dados encontrados para revisão</strong>
-                            <p>{suggestion.legal_name || "Sem razão social"} · {suggestion.status || "Situação não informada"}</p>
-                            <button type="button" onClick={acceptSuggestion}>Aplicar sugestão</button>
+
+                        {!siteRevealed && <div className="mira-flow-site-progress" role="status" aria-live="polite">
+                          {siteStatus === "searching" ? <>
+                            <SearchingOrb />
+                            <div>
+                              <strong>Buscando {form.website.trim()}…</strong>
+                              <p>Consultando o site, CNPJ, cadastro público e logotipo.</p>
+                            </div>
+                          </> : <div>
+                            <strong>Primeiro, informe o site da sua organização.</strong>
+                            <p>Quando o endereço estiver completo, a pesquisa começa automaticamente.</p>
+                          </div>}
+                        </div>}
+                        {!siteRevealed && <button type="button" className="mira-flow-inline-action mira-flow-skip-site"
+                          onClick={skipWebsite} disabled={siteStatus === "searching"}>
+                          Minha organização não tem site
+                        </button>}
+                        {siteRevealed && <div className="mira-flow-discovered">
+                          {searchWarning && <p className="mira-flow-inline-notice" role="status">{searchWarning}</p>}
+                          {siteStatus === "done" && <p className="mira-flow-discovery-success" role="status">
+                            <CheckCircle2 size={15} /> Site consultado. Confira os dados sugeridos.
+                          </p>}
+                          <div className="mira-flow-logo-upload">
+                            <Icon />
+                            <div>
+                              <label htmlFor="mira-flow-logo">Logotipo do workspace</label>
+                              <input id="mira-flow-logo" type="file" accept="image/png,image/jpeg,image/webp"
+                                onChange={event => chooseLogo(event.target.files?.[0])} />
+                              <p>{logoDataUrl ? "Imagem selecionada. Será salva no workspace ao concluir." :
+                                logoPreview ? "Ícone sugerido pelo site. Envie uma imagem para substituir." :
+                                "PNG, JPG ou WebP (até 2 MB). Será salvo no workspace."}</p>
+                            </div>
                           </div>
-                        )}
-                        <InputField id="org-site" label="Site da organização" note="A descoberta por domínio é apenas uma sugestão, não prova de vínculo.">
-                          <input id="org-site" type="text" maxLength={255} placeholder="https://suaempresa.com.br" value={form.website} onChange={(e) => update("website", e.target.value)} />
-                        </InputField>
-                        {form.website.trim() && (
-                          <button type="button" className="mira-flow-inline-action" onClick={() => void consultWebsite()} disabled={lookupBusy}>
-                            {lookupBusy ? "Consultando site…" : "Consultar informações do site"}
-                          </button>
-                        )}
-                        <div className="mira-flow-field">
-                          <p className="mira-flow-static-label">Tipo de operação</p>
-                          <div className="mira-flow-profiles" role="group" aria-label="Tipo de operação disponível">
-                            <span className="mira-flow-profile-selected"><GraduationCap size={15} /> Educação <Check size={15} /></span>
-                            <span className="mira-flow-profile-unavailable">Cobrança <small>Em preparação</small></span>
-                            <span className="mira-flow-profile-unavailable">Outro <small>Em preparação</small></span>
+                          <InputField id="org-name" label="Nome da organização">
+                            <input id="org-name" required maxLength={255} placeholder="Razão social ou nome institucional"
+                              value={form.organizationName} onChange={event => update("organizationName", event.target.value)} />
+                          </InputField>
+                          <div className="mira-flow-two-fields">
+                            <InputField id="org-trade" label="Nome de exibição">
+                              <input id="org-trade" maxLength={255} placeholder="Nome do workspace"
+                                value={form.tradeName} onChange={event => update("tradeName", event.target.value)} />
+                            </InputField>
+                            <InputField id="org-cnpj" label="CNPJ">
+                              <input id="org-cnpj" inputMode="numeric" placeholder="00.000.000/0000-00"
+                                value={maskCnpj(form.cnpj)}
+                                onChange={event => update("cnpj", event.target.value.replace(/\D/g, "").slice(0, 14))} />
+                            </InputField>
                           </div>
-                        </div>
+                          <p className="mira-flow-note">O CNPJ pode ser identificado no rodapé do site e verificado em fonte pública. Revise antes de continuar.</p>
+                          <div className="mira-flow-field">
+                            <p className="mira-flow-static-label">Tipo de operação</p>
+                            <div className="mira-flow-profiles" role="group" aria-label="Tipo de operação disponível">
+                              <span className="mira-flow-profile-selected"><GraduationCap size={15} /> Educação <Check size={15} /></span>
+                              <span className="mira-flow-profile-unavailable">Cobrança <small>Módulo adicional</small></span>
+                              <span className="mira-flow-profile-unavailable">Outro <small>Em preparação</small></span>
+                            </div>
+                          </div>
+                        </div>}
                       </div>
                     </>
                   )}
@@ -540,13 +556,13 @@ export function ConversationalOnboarding() {
 
                   {error && <p className="mira-flow-error" role="alert">{error}</p>}
                   <div className="mira-flow-card-actions">
-                    <button type="button" className="mira-flow-back" onClick={back} disabled={busy || lookupBusy}><ArrowLeft size={14} /> Voltar</button>
+                    <button type="button" className="mira-flow-back" onClick={back} disabled={busy || siteStatus === "searching"}><ArrowLeft size={14} /> Voltar</button>
                     {step === "trial" ? (
                       <button type="button" className="mira-flow-primary" disabled={busy} onClick={() => void finish()}>
                         {busy ? "Criando…" : "Criar workspace"} <ArrowRight size={14} />
                       </button>
                     ) : (
-                      <button type="button" className="mira-flow-primary" disabled={busy || lookupBusy} onClick={next}>
+                      <button type="button" className="mira-flow-primary" disabled={busy || siteStatus === "searching" || (step === "workspace" && !siteRevealed)} onClick={next}>
                         {step === "integrations" && !form.dataSources.length ? "Fazer isso depois" : "Confirmar"} <ArrowRight size={14} />
                       </button>
                     )}
