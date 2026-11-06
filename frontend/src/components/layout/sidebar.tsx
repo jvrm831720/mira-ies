@@ -79,6 +79,8 @@ const groups: NavGroup[] = [
     links: [
       { href: "/academico", label: "Gestão acadêmica", icon: BookOpenCheck,
         keywords: "cursos professores disciplinas turmas notas aulas calendário boletim" },
+      { href: "/academico/jornadas", label: "Jornadas acadêmicas", icon: BookOpenCheck,
+        keywords: "matrícula rematrícula currículo grade curricular oferta notas frequência histórico regras" },
       { href: "/academico/servicos", label: "Serviços acadêmicos", icon: FileClock,
         keywords: "solicitações alunos protocolos aprovação responsáveis prazos documentos anexos" },
     ],

@@ -10,7 +10,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import (
-    CheckConstraint, Date, DateTime, ForeignKey,
+    Boolean, CheckConstraint, Date, DateTime, ForeignKey,
     ForeignKeyConstraint, Index, Integer, Numeric, String, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -94,6 +94,8 @@ class AcademicClass(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_class_tenant_id"),
         UniqueConstraint("tenant_id", "code", "term_id", name="uq_mira_class_code_term"),
+        CheckConstraint("capacity IS NULL OR capacity BETWEEN 1 AND 10000", name="ck_mira_academic_class_capacity"),
+        ForeignKeyConstraint(["tenant_id", "policy_version"], ["mira_academic_policies.tenant_id", "mira_academic_policies.version"], name="fk_mira_class_policy_version_tenant"),
         ForeignKeyConstraint(["tenant_id", "subject_id"], ["mira_academic_subjects.tenant_id", "mira_academic_subjects.id"],
                              name="fk_mira_class_subject_tenant", ondelete="RESTRICT"),
         ForeignKeyConstraint(["tenant_id", "term_id"], ["mira_academic_terms.tenant_id", "mira_academic_terms.id"],
@@ -110,6 +112,9 @@ class AcademicClass(Base):
     code: Mapped[str] = mapped_column(String(60), nullable=False)
     campus: Mapped[str | None] = mapped_column(String(120))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="planned")
+    capacity: Mapped[int | None] = mapped_column(Integer)
+    enrollment_open: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    policy_version: Mapped[int | None] = mapped_column(Integer)
 
 
 class AcademicClassEnrollment(Base):
