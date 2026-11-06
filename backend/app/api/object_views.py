@@ -19,11 +19,12 @@ from app.db.session import get_db
 from app.models.object_view import ObjectView
 
 router = APIRouter(prefix="/object-views", tags=["Object Index / Saved Views"])
-ObjectKey = Literal["students", "campaigns", "academic_classes", "academic_programs", "academic_subjects", "academic_teachers", "academic_terms"]
+ObjectKey = Literal["students", "campaigns", "academic_classes", "academic_programs", "academic_subjects", "academic_teachers", "academic_terms", "collections"]
 Op = Literal["eq", "neq", "contains", "not_contains", "starts_with", "gt", "lt", "between", "in", "before", "after", "empty"]
 ALLOWED = {
     "students": {"nome": "text", "matricula": "text", "curso": "text",
                  "risk_level": "choice", "risk_score": "number", "created_at": "date", "follow_up": "display"},
+    "collections": {"external_ref": "text", "status": "choice", "balance": "number", "source": "text", "updated_at": "date"},
     "campaigns": {"title": "text", "status": "choice", "objective": "text",
                   "audience_total": "number", "recommended_channels": "display", "created_at": "date"},
     "academic_classes": {"code": "text", "status": "choice", "subject_id": "text", "term_id": "text", "teacher_id": "text"},
@@ -32,7 +33,7 @@ for key in ['academic_programs', 'academic_subjects', 'academic_teachers', 'acad
     ALLOWED[key] = {"name": "text", "code": "text", "status": "choice"}
 
 OPS = {"text": {"eq", "neq", "contains", "not_contains", "starts_with", "empty"}, "choice": {"eq", "neq", "in", "empty"}, "number": {"eq", "gt", "lt", "between", "empty"}, "date": {"before", "after", "between", "empty"}}
-PERMISSION = {"students": "students.view", "campaigns": "campaigns.view", "academic_classes": "students.sensitive.view"}
+PERMISSION = {"students": "students.view", "campaigns": "campaigns.view", "academic_classes": "students.sensitive.view", "collections": "audit.view"}
 
 for key in ['academic_programs', 'academic_subjects', 'academic_teachers', 'academic_terms']:
     PERMISSION[key] = "students.sensitive.view"
