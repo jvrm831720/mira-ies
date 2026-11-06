@@ -158,6 +158,11 @@ async def test_verified_email_can_provision_organization_once(client, db_session
     assert membership.origin == "self_service_onboarding"
     assert {item.module_key for item in entitlements} == {"permanence", "data", "workspace", "mira_plan"}
     assert organization.onboarding_profile["data_sources"] == ["totvs_rm", "moodle"]
+    from sqlalchemy import text
+    await db_session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant.id},
+    )
     logo = (await db_session.execute(
         select(TenantLogoAsset).where(TenantLogoAsset.tenant_id == tenant.id)
     )).scalar_one()
