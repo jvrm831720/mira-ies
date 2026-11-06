@@ -6,6 +6,7 @@ import {
   Check, ChevronDown, ChevronRight, Filter, Layers, Plus, RefreshCw, Search, X,
 } from "@/components/ui/icons";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import {
   createSavedObjectView, deleteSavedObjectView, listSavedObjectViews, updateSavedObjectView,
@@ -172,6 +173,7 @@ export function ObjectIndex<T extends { id: string }>({
       setViewName("");
       setActiveSavedId(view.id);
       setMenu(null);
+      toast.success("Visualização salva.");
       void queryClient.invalidateQueries({ queryKey: ["object-views", userTenant, userId, objectKey] });
     }).catch(e => setViewError(e instanceof Error ? e.message : "Não foi possível salvar."));
   }
@@ -186,6 +188,7 @@ export function ObjectIndex<T extends { id: string }>({
     void removeSaved.mutateAsync(activeSaved.id).then(() => {
       setActiveSavedId(null);
       switchView("todos");
+      toast.success("Visualização excluída.");
     }).catch(e => setViewError(e instanceof Error ? e.message : "Falha ao excluir."));
   }
 

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/icons";
 import { Header } from "@/components/layout/header";
 import { CriticalList } from "@/components/risk/critical-list";
+import { hasNavigationPermission } from "@/components/layout/navigation";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { StudentDrawer } from "@/components/students/student-drawer";
 import { api } from "@/lib/api";
@@ -29,6 +30,7 @@ export default function CommandCenterPage() {
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
   const summary = useQuery({ queryKey: ["risk-summary"], queryFn: () => api.riskSummary() });
   const workSummary = useQuery({
     queryKey: ["retention-work-summary"],
@@ -490,6 +492,7 @@ export default function CommandCenterPage() {
               aria-label="Prioridade e atividade"
             >
               <CriticalList
+                showExplanations={hasNavigationPermission(me.data, "students.sensitive.view")}
                 students={critical.data?.students.map(item => ({
           ...item, ...(students.data?.students.find(row => row.id === item.id) || {}),
         }))}

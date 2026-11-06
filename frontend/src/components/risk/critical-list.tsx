@@ -12,10 +12,12 @@ export function CriticalList({
   students,
   loading,
   onSelect,
+  showExplanations = false,
 }: {
   students?: StudentRisk[];
   loading?: boolean;
   onSelect?: (id: string) => void;
+  showExplanations?: boolean;
 }) {
   return (
     <Card className="border-[var(--color-border)] shadow-none">
@@ -71,7 +73,7 @@ export function CriticalList({
                   {s.matricula}
                   {s.curso ? ` · ${s.curso}` : ""}
                 </p>
-                {s.shap_top_factors?.top_3?.length ? <div className="mt-2 flex flex-wrap gap-1" aria-label="Principais fatores explicativos">
+                {showExplanations && s.shap_top_factors?.top_3?.length ? <div className="mt-2 flex flex-wrap gap-1" aria-label="Principais fatores explicativos">
                   {s.shap_top_factors.top_3.slice(0, 3).map((factor, index) => {
                     const label = businessSignalText(factor.label) || businessSignalText(factor.feature);
                     return label ? <span key={index} className="rounded-[var(--radius-md)] border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-1.5 py-0.5 text-[11px] text-[var(--color-ink)]">{label}</span> : null;

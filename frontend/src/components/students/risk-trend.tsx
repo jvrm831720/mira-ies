@@ -13,7 +13,7 @@ export function comparableRiskDelta(recent?: RiskHistoryAssessment, previous?: R
 
 export function RiskScoreTrend({ score, movement }: { score?: number | null; movement?: RiskMovement }) {
   if (typeof score !== "number" || !Number.isFinite(score)) return <span title="Score não calculado">—</span>;
-  const delta = movement && !["mudanca_modelo", "sem_historico_comparavel"].includes(movement.change_type)
+  const delta = movement && Math.abs(movement.current_score - score) < 0.01 && !["mudanca_modelo", "sem_historico_comparavel"].includes(movement.change_type)
     ? movement.delta : null;
   return <span className="inline-flex items-center gap-2 font-mono text-[12px] tabular-nums">
     <span>{Math.round(score)}</span>
