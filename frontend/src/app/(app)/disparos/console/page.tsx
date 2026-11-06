@@ -98,10 +98,9 @@ export default function DispatchConsolePage() {
       setShowCreate(false);
       setShowIndividual(false);
     }
-    if (params.get("mode") === "individual" && studentId) {
+    if (params.get("mode") === "individual") {
       // Never trigger an action automatically based on a query string.
-      setIndividualSubjectType("student");
-      setIndividualSubjectRef(studentId);
+      if (studentId) { setIndividualSubjectType("student"); setIndividualSubjectRef(studentId); }
       setShowIndividual(true);
       setShowCreate(false);
     }
