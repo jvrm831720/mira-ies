@@ -110,6 +110,7 @@ export default function AsaasWorkspacePaymentsPage() {
     <div className="min-h-screen bg-[#F9FAFB]">
       <Header title="Recebimentos" subtitle="Asaas Split Payment — destino financeiro único por workspace" />
       <main className="mx-auto max-w-[1000px] space-y-5 px-5 py-7 md:px-8">
+        <div className="flex justify-end"><Link href="/conectores/financeiro/pagamentos/operacoes" className="text-[12px] font-semibold text-[#2563EB] hover:underline">Operações de cobrança e conciliação Asaas</Link></div>
         <Link href="/conectores/financeiro" className="text-[12px] font-medium text-[#667085] hover:text-[#2563EB]">
           Fontes financeiras / Recebimentos
         </Link>
