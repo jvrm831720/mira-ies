@@ -84,7 +84,9 @@ def financial_key(observation: FinanceObservation) -> str:
     # Correlated obligations from multiple integrations are one financial debt.
     # The key is tenant-bound and student-bound, not provider-bound.
     if observation.correlation_key:
-        identity = "correlated:" + str(observation.student_id) + ":" + observation.correlation_key
+        due = getattr(observation, "due_at", None)
+        period = due.date().isoformat() if due else "unknown_due"
+        identity = "correlated:" + str(observation.student_id) + ":" + observation.correlation_key + ":" + period
     else:
         identity = "source:" + str(observation.profile_id) + ":" + observation.external_id
     return hashlib.sha256((str(observation.tenant_id) + ":" + identity).encode()).hexdigest()
@@ -103,8 +105,8 @@ async def prepare_charge(
     ))).scalar_one_or_none()
     if observation is None:
         raise AsaasFlowDenied("Obrigação não encontrada.")
-    if mode == "production" and not observation.correlation_key:
-        raise AsaasFlowDenied("Cobrança real exige chave de obrigação única e revisada entre integrações.")
+    if mode == "production" and (not observation.correlation_key or observation.due_at is None):
+        raise AsaasFlowDenied("Cobrança real exige chave e vencimento únicos da obrigação, validados entre integrações.")
     key = financial_key(observation)
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k,0))"),
                      {"k": "asaas:charge:" + tenant_id + ":" + key})
