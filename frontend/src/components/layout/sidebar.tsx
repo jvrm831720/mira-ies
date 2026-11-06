@@ -281,7 +281,7 @@ export function Sidebar() {
         </div>
       </aside>
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen}
-        groups={visibleGroups} tenantId={me.data?.tenant_id} loading={me.isLoading} error={me.isError} />
+        groups={visibleGroups} tenantId={me.data?.tenant_id} userId={me.data?.user_id} loading={me.isLoading} error={me.isError} />
     </>
   );
 }
