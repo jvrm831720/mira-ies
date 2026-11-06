@@ -12,7 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1111,3 +1111,41 @@ async def portal_transcript(
 ):
     _enabled()
     return await _transcript(db, identity.tenant_id, identity.student.id)
+
+
+@portal_router.get("/terms")
+async def portal_terms(
+    identity: PortalIdentity = Depends(_portal_identity),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    items = (await db.execute(select(AcademicTerm).where(
+        AcademicTerm.tenant_id == identity.tenant_id,
+        AcademicTerm.status.in_(("planned", "active")),
+        AcademicTerm.ends_on >= _now().date(),
+    ).order_by(AcademicTerm.starts_on).limit(30))).scalars().all()
+    return {"items": [{"id": item.id, "code": item.code, "label": item.label,
+                       "starts_on": item.starts_on.isoformat(),
+                       "ends_on": item.ends_on.isoformat()} for item in items]}
+
+
+@institution_router.get("/students/search")
+async def search_students(
+    q: str,
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    term = q.strip()
+    if len(term) < 2 or len(term) > 80:
+        raise HTTPException(status_code=422, detail="Busque por 2 a 80 caracteres.")
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = "%" + escaped + "%"
+    rows = (await db.execute(select(Student.id, Student.nome, Student.matricula).where(
+        Student.tenant_id == auth.tenant_id,
+        Student.is_active.is_(True),
+        or_(Student.nome.ilike(pattern, escape="\\"),
+            Student.matricula.ilike(pattern, escape="\\")),
+    ).order_by(Student.nome).limit(25))).all()
+    return {"items": [{"id": sid, "name": name, "registration": registration}
+                      for sid, name, registration in rows], "limit": 25}
