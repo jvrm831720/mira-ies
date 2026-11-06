@@ -109,7 +109,7 @@ export function ConversationalOnboarding() {
       try {
         const draft = JSON.parse(saved) as { step?: Step | "trial"; form?: Partial<FormData>; siteRevealed?: boolean };
         if (draft.form) setForm({ ...EMPTY, ...draft.form });
-        const recoveredStep = draft.step === "provision" ? "provision" : draft.step;
+        const recoveredStep = draft.step === "trial" ? "provision" : draft.step;
         if (recoveredStep && STEPS.includes(recoveredStep)) setStep(recoveredStep);
         if (draft.siteRevealed) { setSiteRevealed(true); setSiteStatus("manual"); }
       } catch { window.sessionStorage.removeItem("mira_onboarding_draft_v3:" + email); }
