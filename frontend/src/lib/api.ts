@@ -698,6 +698,23 @@ export const api = {
       connected_at?: string | null; disconnected_at?: string | null;
     }> }>("/api/v1/integrations/composio/connections"),
 
+  composioOnboardingAuthOptions: () =>
+    request<{ total: number; items: Array<{
+      toolkit_slug: string; auth_config_id: string; auth_scheme: string;
+    }> }>("/api/v1/integrations/composio/onboarding/auth-options"),
+
+  startComposioOnboardingConnection: (body: { toolkit_slug: string; auth_config_id: string }) =>
+    request<{ redirect_url: string; state: string; expires_at: string }>(
+      "/api/v1/integrations/composio/onboarding/connections/start",
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+
+  completeComposioOnboardingConnection: (body: { state: string; connected_account_id: string }) =>
+    request<{ ok: boolean; toolkit_slug: string }>(
+      "/api/v1/integrations/composio/connections/complete",
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+
   listConnectors: () =>
     request<{
       count: number;
