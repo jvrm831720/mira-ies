@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +32,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { loadGroupMemberIds } from "@/lib/retention-audience";
+import { RETENTION_SELECTION_KEY, parseRetentionSelection } from "@/lib/retention-selection";
+import { hasNavigationPermission } from "@/components/layout/navigation";
 import type { RiskLevel, RetentionCampaignOpportunity, RetentionRunResult } from "@/types/api";
 
 const steps = [
@@ -81,8 +83,33 @@ function PlanningPanel({
   const [dryRun, setDryRun] = useState(true);
   const [selectedGroups, setSelectedGroups] = useState<string[]>(groupFromUrl ? [groupFromUrl] : []);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const fromStudentSelection = searchParams.get("source") === "selection";
+  const [selectionReady, setSelectionReady] = useState(!fromStudentSelection);
+  const [selectionError, setSelectionError] = useState("");
+  const selectionConsumed = useRef(false);
+  const currentUser = useQuery({ queryKey: ["org-me"], queryFn: api.me, staleTime: 60_000, retry: false });
   const [audienceLoading, setAudienceLoading] = useState(false);
   const [intelligentSelection, setIntelligentSelection] = useState<RetentionCampaignOpportunity | null>(null);
+
+  useEffect(() => {
+    if (!fromStudentSelection || selectionConsumed.current || currentUser.isLoading) return;
+    selectionConsumed.current = true;
+    const value = window.sessionStorage.getItem(RETENTION_SELECTION_KEY);
+    window.sessionStorage.removeItem(RETENTION_SELECTION_KEY);
+    const data = parseRetentionSelection(value, currentUser.data?.tenant_id, currentUser.data?.user_id);
+    if (!data || currentUser.isError ||
+      !hasNavigationPermission(currentUser.data, "campaigns.create") ||
+      !hasNavigationPermission(currentUser.data, "students.sensitive.view")) {
+      setSelectionReady(false);
+      setSelectionError("A seleção expirou ou não pertence a este usuário e workspace. Escolha novamente os alunos.");
+      return;
+    }
+    setCampaign(data.campaign);
+    setSelectedIds(data.ids);
+    setDryRun(true);
+    setSelectionReady(true);
+    setSelectionError("");
+  }, [fromStudentSelection, currentUser.data, currentUser.isLoading, currentUser.isError]);
 
   const summaryQuery = useQuery({ queryKey: ["student-groups", "summary"], queryFn: () => api.studentGroupsSummary() });
   const opportunitiesQuery = useQuery({
@@ -133,6 +160,14 @@ function PlanningPanel({
 
   return (
     <div className="space-y-5">
+      {fromStudentSelection && selectionError ? <div role="alert"
+        className="rounded-[var(--radius-md)] border border-[var(--color-red-tint-border)] bg-[var(--color-red-tint)] px-4 py-3 text-[12px] text-[var(--color-red)]">
+        {selectionError} <Link href="/alunos" className="font-semibold underline">Voltar à lista</Link>
+      </div> : null}
+      {fromStudentSelection && selectionReady && selectedIds.length > 0 ? <div role="status"
+        className="rounded-[var(--radius-md)] border border-[var(--color-blue-tint-border)] bg-[var(--color-blue-tint)] px-4 py-3 text-[12px] text-[var(--color-ink)]">
+        {selectedIds.length} aluno(s) da lista carregados para planejamento. Nenhum envio foi realizado.
+      </div> : null}
       <Card className="overflow-hidden">
         <CardHeader className="border-b bg-[#FCFCFD]">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -177,7 +212,7 @@ function PlanningPanel({
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={dryRun} onChange={(event) => setDryRun(event.target.checked)} /><span><span className="font-semibold text-foreground">Dry-run recomendado</span><br />Simula a execução sem enviar mensagens reais.</span></label>
-            <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => onNavigate("aprovar")}><FileCheck2 className="mr-2 h-4 w-4" />Ver aprovações</Button><Button disabled={running || (!campaign.trim() && source === "manual")} onClick={() => void onRun({ levels, studentIds: selectedIds, campaign, dryRun, channels })}>{running ? "Preparando…" : dryRun ? "Simular intervenção" : "Executar intervenção"}<ChevronRight className="ml-2 h-4 w-4" /></Button></div>
+            <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => onNavigate("aprovar")}><FileCheck2 className="mr-2 h-4 w-4" />Ver aprovações</Button><Button disabled={running || (fromStudentSelection && !selectionReady) || (!campaign.trim() && source === "manual")} onClick={() => void onRun({ levels, studentIds: selectedIds, campaign, dryRun, channels })}>{running ? "Preparando…" : dryRun ? "Simular intervenção" : "Executar intervenção"}<ChevronRight className="ml-2 h-4 w-4" /></Button></div>
           </div>
         </CardContent>
       </Card>
