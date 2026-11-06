@@ -74,6 +74,7 @@ def test_invalid_metadata_and_sensitive_fields_fail_closed():
 async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_factory):
     tenant_a, _ = await tenant_factory(slug="wave3-views-a")
     tenant_b, _ = await tenant_factory(slug="wave3-views-b")
+    tenant_a_id, tenant_b_id = tenant_a.id, tenant_b.id
     users = []
     for tenant, suffix in ((tenant_a, "owner"), (tenant_a, "peer"), (tenant_b, "outside")):
         user = User(
@@ -85,8 +86,8 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
         await db_session.commit()
         users.append(user.id)
     owner, peer, outsider = users
-    await identity(db_session, tenant_a.id, owner)
-    owner_auth = context(tenant_a.id, owner)
+    await identity(db_session, tenant_a_id, owner)
+    owner_auth = context(tenant_a_id, owner)
 
     created = await create_view(personal_view(), auth=owner_auth, db=db_session)
     view_id = created["id"]
@@ -94,38 +95,38 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
     assert created["revision"] == 1 and created["version"] == 1
     assert created["can_share"]
     assert created["schema_status"] in ("current", "upgraded")
-    await identity(db_session, tenant_a.id, owner)
+    await identity(db_session, tenant_a_id, owner)
     assert len((await list_revisions(uuid4_from(view_id), auth=owner_auth, db=db_session))["revisions"]) == 1
 
-    await identity(db_session, tenant_a.id, peer)
-    peer_auth = context(tenant_a.id, peer, role="viewer")
+    await identity(db_session, tenant_a_id, peer)
+    peer_auth = context(tenant_a_id, peer, role="viewer")
     assert (await list_views("students", auth=peer_auth, db=db_session))["views"] == []
     raw = (await db_session.execute(select(ObjectView).where(ObjectView.id == view_id))).scalars().all()
     assert raw == [], "A view pessoal não deve vazar pelo SQL com RLS."
 
-    await identity(db_session, tenant_a.id, owner)
+    await identity(db_session, tenant_a_id, owner)
     shared = await share_view(uuid4_from(view_id),
                               ShareView(scope="workspace", expected_revision=1),
                               auth=owner_auth, db=db_session)
     assert shared["scope"] == "workspace" and shared["revision"] == 2
 
-    await identity(db_session, tenant_a.id, peer)
+    await identity(db_session, tenant_a_id, peer)
     peer_views = (await list_views("students", auth=peer_auth, db=db_session))["views"]
     assert [v["id"] for v in peer_views] == [view_id]
     assert not peer_views[0]["can_edit"] and not peer_views[0]["can_share"]
     await favorite_view(uuid4_from(view_id), auth=peer_auth, db=db_session)
-    await identity(db_session, tenant_a.id, peer)
+    await identity(db_session, tenant_a_id, peer)
     own = (await list_views("students", auth=peer_auth, db=db_session))["views"]
     assert own[0]["favorite"]
     await unfavorite_view(uuid4_from(view_id), auth=peer_auth, db=db_session)
-    await identity(db_session, tenant_a.id, peer)
+    await identity(db_session, tenant_a_id, peer)
     assert not (await list_views("students", auth=peer_auth, db=db_session))["views"][0]["favorite"]
 
     copy = await duplicate_view(uuid4_from(view_id), DuplicateView(name="Versão da equipe"),
                                 auth=peer_auth, db=db_session)
     assert copy["scope"] == "personal" and copy["owner_user_id"] == peer
     assert copy["id"] != view_id and copy["revision"] == 1
-    await identity(db_session, tenant_a.id, peer)
+    await identity(db_session, tenant_a_id, peer)
     with pytest.raises(HTTPException) as exc:
         await update_view(uuid4_from(view_id),
                           UpdateView(name="Editar colega", expected_revision=2,
@@ -133,38 +134,38 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
                           auth=peer_auth, db=db_session)
     assert exc.value.status_code == 404
 
-    await identity(db_session, tenant_b.id, outsider)
-    outsider_auth = context(tenant_b.id, outsider)
+    await identity(db_session, tenant_b_id, outsider)
+    outsider_auth = context(tenant_b_id, outsider)
     assert (await list_views("students", auth=outsider_auth, db=db_session))["views"] == []
     with pytest.raises(HTTPException) as exc:
         await get_view(uuid4_from(view_id), auth=outsider_auth, db=db_session)
     assert exc.value.status_code == 404
 
-    await identity(db_session, tenant_a.id, owner)
+    await identity(db_session, tenant_a_id, owner)
     changed = await update_view(uuid4_from(view_id), UpdateView(
         name="Nova visão", config=ViewSpec(
             columns=["nome", "curso"], property_labels={"curso": "Programa"},
         ), expected_revision=2), auth=owner_auth, db=db_session)
     assert changed["revision"] == 3
     assert changed["config"]["property_labels"]["curso"] == "Programa"
-    await identity(db_session, tenant_a.id, owner)
+    await identity(db_session, tenant_a_id, owner)
     with pytest.raises(HTTPException) as exc:
         await update_view(uuid4_from(view_id), UpdateView(
             name="Dados obsoletos", config=ViewSpec(columns=["nome"]), expected_revision=2),
             auth=owner_auth, db=db_session)
     assert exc.value.status_code == 409
     await db_session.rollback()
-    await identity(db_session, tenant_a.id, owner)
+    await identity(db_session, tenant_a_id, owner)
 
     revisions = (await list_revisions(uuid4_from(view_id), auth=owner_auth, db=db_session))["revisions"]
     assert [item["revision"] for item in revisions] == [3, 2, 1]
-    await identity(db_session, tenant_a.id, owner)
+    await identity(db_session, tenant_a_id, owner)
     restored = await restore_view(uuid4_from(view_id), RestoreView(
         revision=1, expected_revision=3), auth=owner_auth, db=db_session)
     assert restored["revision"] == 4 and restored["name"] == "Risco zero"
     assert restored["scope"] == "personal"
     assert restored["config"]["property_labels"] == {}
-    await identity(db_session, tenant_a.id, owner)
+    await identity(db_session, tenant_a_id, owner)
     history = (await db_session.execute(select(ObjectViewRevision).where(
         ObjectViewRevision.view_id == view_id))).scalars().all()
     assert len(history) == 4
