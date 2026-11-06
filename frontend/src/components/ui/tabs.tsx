@@ -31,7 +31,7 @@ export function Tabs({ items, value, onValueChange, className }: TabsProps) {
         target.focus();
         const id = target.dataset.tabId;
         if (id) onValueChange(id);
-      }
+      }}
       className={cn(
         "inline-flex flex-wrap gap-1 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-panel)] p-1",
         className
