@@ -1,7 +1,7 @@
 import type { LucideIcon } from "@/components/ui/icons";
 import {
   Activity, BarChart3, BookOpenCheck, BriefcaseBusiness, CreditCard,
-  Database, FileClock, FileUp, House, MessageCircle, Settings2,
+  Database, FileClock, FileUp, House, MessageCircle, Plug, Settings2,
   ShieldCheck, Users, Workflow,
 } from "@/components/ui/icons";
 import type { OrgMeResponse } from "@/lib/api";
@@ -51,6 +51,7 @@ const allGroups: NavigationGroup[] = [
     { href: "/academico/servicos", label: "Serviços acadêmicos", icon: FileClock, profile: "education", permission: "students.sensitive.view", module: "permanence", feature: "academic_services", keywords: "solicitações protocolos documentos" },
   ] },
   { id: "data", label: "Dados", items: [
+    { href: "/apps", label: "Apps e integrações", icon: Plug, permission: "data.view", module: "data", keywords: "apps aplicativos conectados conectar ferramentas integrações catálogo" },
     { href: "/dados", label: "Data Hub", icon: Database, permission: "data.view", module: "data", keywords: "dados conexões sincronizações catálogo qualidade importações" },
     { href: "/conectores", label: "Integrações", icon: Database, permission: "data.view", module: "data", keywords: "fontes sistemas Composio" },
     { href: "/conectores/financeiro", label: "Fontes financeiras", icon: CreditCard, permission: "data.view", module: "data", keywords: "conciliação ERP financeiras" },
