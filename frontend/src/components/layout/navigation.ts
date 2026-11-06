@@ -6,8 +6,7 @@ import {
 } from "@/components/ui/icons";
 import type { OrgMeResponse } from "@/lib/api";
 
-/** Wave 0: only routes that already exist in the authenticated workspace.
- * Collections, contacts and agreements are intentionally absent until built. */
+/** Navigation contains only implemented and permission-gated workspace routes. */
 export type NavigationItem = {
   href: string;
   label: string;
@@ -30,6 +29,9 @@ const allGroups: NavigationGroup[] = [
   { id: "people", label: "Alunos", items: [
     { href: "/alunos", label: "Alunos", icon: Users, profile: "education", permission: "students.view", module: "permanence", keywords: "estudantes ficha histórico" },
     { href: "/alunos/grupos", label: "Grupos e segmentos", icon: BookOpenCheck, profile: "education", permission: "students.view", module: "permanence", keywords: "listas classificação segmentos" },
+  ] },
+  { id: "collections", label: "Cobrança", items: [
+    { href: "/cobranca", label: "Casos financeiros", icon: CreditCard, profile: "collection", permission: "audit.view", module: "billing", keywords: "carteiras obrigações casos pagamentos cobrança" },
   ] },
   { id: "intelligence", label: "Inteligência", items: [
     { href: "/monitoramento", label: "Monitoramento", icon: Activity, profile: "education", permission: "students.sensitive.view", module: "permanence", keywords: "risco sinais permanência" },

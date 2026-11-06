@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type ObjectKind = "students" | "campaigns" | "academic_classes";
+export type ObjectKind = "students" | "campaigns" | "academic_classes" | "academic_programs" | "academic_subjects" | "academic_teachers" | "academic_terms";
 export type PropertyType = "text" | "number" | "currency" | "percentage" | "date" |
   "datetime" | "status" | "select" | "multiselect" | "person" | "reference" | "boolean" | "identifier";
 
