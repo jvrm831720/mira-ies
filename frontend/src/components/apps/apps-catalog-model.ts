@@ -92,7 +92,7 @@ export function isRemoteConnected(account: AccountEvidence) {
 }
 export function mergeAppCatalog(
   listed: LiveApp[] | undefined, native: NativeEntry[] | undefined, accounts: AccountEvidence[] | undefined,
-  knownState: { jacad?: boolean; sponte?: boolean } = {},
+  knownState: { jacad?: boolean | "connected"; sponte?: boolean | "connected" } = {},
 ): AppEntry[] {
   const entries=new Map(editorialCatalog.map(x=>[x.id,{...x}]));
   const ensure=(id:string,name:string,description:string,category:AppCategory,kind:AppEntry["kind"])=>{
@@ -114,7 +114,7 @@ export function mergeAppCatalog(
   }
   for(const [key,configured] of Object.entries(knownState)){
     const item=entries.get(key);
-    if(item && configured)item.status="configured";
+    if(item && configured)item.status=configured==="connected"?"connected":"configured";
   }
   for(const account of accounts||[]){
     if(!isRemoteConnected(account))continue;
@@ -131,6 +131,6 @@ export function filterApps(items:AppEntry[],query:string,category:string,view:st
  const q=query.trim().toLocaleLowerCase("pt-BR");
  const filtered=items.filter(item=>(category==="Todos"||item.category===category)
    && (!q||[item.name,item.description,item.category].some(x=>x.toLocaleLowerCase("pt-BR").includes(q)))
-   && (view!=="connected"||item.status==="connected"||item.status==="configured"));
+   && (view!=="connected"||item.status==="connected"));
  return view==="popular" ? filtered.slice(0,24):filtered;
 }
