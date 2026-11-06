@@ -234,7 +234,7 @@ export function DataHubExperience() {
            composioConnections.isError ? <div role="alert" className="p-5 text-xs text-[#AC3327]">Conexões Composio indisponíveis. Verifique a configuração do serviço.</div> :
            connectedComposioAccounts.length === 0 ? <Empty message="Nenhuma conta Composio registrada no workspace." /> :
            <div className="divide-y divide-[#EDF0F2]">{connectedComposioAccounts.map(account => <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-             <div><p className="text-xs font-medium text-[#282F39]">{account.display_name || account.toolkit_slug}</p><p className="mt-1 text-[11px] text-[#818A96]">{account.toolkit_slug} · Conta local {account.connected_account_id}</p></div>
+             <div><p className="text-xs font-medium text-[#282F39]">{account.display_name || account.toolkit_slug}</p><p className="mt-1 text-[11px] text-[#818A96]">{account.toolkit_slug} · Registrada em <Time value={account.connected_at} /></p></div>
              <Status state={account.status === "active" ? { key: "configured", label: "Ativa (local)", tone: "blue" } :
                account.status === "revoked" ? { key: "disabled", label: "Revogada", tone: "neutral" } :
                account.status === "expired" ? { key: "disconnected", label: "Expirada", tone: "amber" } :
@@ -265,13 +265,14 @@ export function DataHubExperience() {
           {composioCatalog.isLoading ? <Empty message="Consultando o catálogo Composio..." /> :
            composioCatalog.isError ? <div role="alert" className="px-5 py-6 text-xs text-[#A53E2E]">Catálogo Composio indisponível ou não configurado.</div> :
            remoteCatalogItems.length === 0 ? <Empty message="Nenhuma ferramenta remota encontrada." /> :
-           <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">{remoteCatalogItems.map(item => <article key={item.slug} className="rounded-lg border border-[#E6E7EA] p-4">
+           <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">{remoteCatalogItems.slice(0, 60).map(item => <article key={item.slug} className="rounded-lg border border-[#E6E7EA] p-4">
              <div className="flex items-start justify-between gap-2"><span className="rounded-lg bg-[#F5F6F8] p-2"><Plug size={17} aria-hidden /></span><Status state={item.enabled ? {key:"configured",label:"Política habilitada",tone:"blue"} : {key:"disabled",label:"Política desabilitada",tone:"neutral"}} /></div>
              <h4 className="mt-3 text-xs font-semibold text-[#2B323B]">{item.name}</h4><p className="mt-1 text-[11px] text-[#8A939E]">{categoryLabel(item.category || item.categories?.[0])}</p>
              <p className="mt-2 text-[11px] leading-5 text-[#7F8893]">{item.description || "Nenhuma descrição fornecida pelo provedor."}</p>
              <p className="mt-3 border-t border-[#EDF0F2] pt-2 text-[10px] text-[#89919B]">{item.selected_tool_slugs?.length || 0} ferramenta(s) selecionada(s) nesta política</p>
            </article>)}</div>}
         </div>}
+        {canManageIntegrations && remoteCatalogItems.length > 60 && <p className="border-t border-[#EDF0F2] px-5 py-3 text-[11px] text-[#7D8591]">Exibindo os primeiros 60 de {remoteCatalogItems.length} toolkits. Refine a pesquisa para localizar outros itens.</p>}
         <div className="border-t border-[#EDF0F2] bg-[#FAFAFB] px-5 py-3 text-[11px] text-[#818A96]">Ferramentas Composio são regidas por catálogo, allowlist, OAuth e políticas específicas; não há execução genérica neste catálogo.</div>
       </Panel>}
 
