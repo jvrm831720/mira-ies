@@ -44,7 +44,8 @@ test("collection-only workspace and unknown custom roles remain permission gated
 
 test("Attio-style sidebar keeps existing functional contracts instead of fake controls", () => {
   const sidebar = file("sidebar.tsx");
-  assert.match(sidebar, /bg-\[#0B0C0D\]/);
+  assert.match(sidebar, /bg-\[var\(--mira-sidebar-bg\)\]/);
+  assert.match(file("../../app/globals.css"), /--mira-sidebar-bg: #0B0C0D;/);
   assert.match(sidebar, /md:w-\[275px\]/);
   assert.match(sidebar, /getVisibleNavigation\(me\.data\)/);
   assert.match(sidebar, /switcher\.mutate\(item\)/);
