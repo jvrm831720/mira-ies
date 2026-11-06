@@ -17,19 +17,24 @@ import { ObjectFilterBuilder } from "./object-filter-builder";
 import type { ObjectDefaultView, ObjectField, ObjectFilter, ObjectKind, ObjectSort, ObjectViewSpec } from "./object-index-types";
 import { defaultViewSpec, validateObjectView } from "./object-index-types";
 import { matchesObjectFilters } from "./object-index-utils";
+import { activeSorts, pageSelection, sortObjectRows, verifiedCount } from "./object-index-experience";
 
 export type ObjectIndexState = {
   query: string;
   view: string;
   filters: ObjectFilter[];
   sort: ObjectSort | null;
+  sorts?: ObjectSort[];
+  density?: "compact" | "comfortable";
+  pinned?: string[];
+  columnWidths?: Record<string, number>;
   columns: string[];
   pageIndex: number;
   pageSize: 25 | 50 | 100;
 };
 export function initialObjectIndexState<T>(fields: ObjectField<T>[], view = "todos"): ObjectIndexState {
   const spec = defaultViewSpec(fields);
-  return { query: "", view, filters: [], sort: null, columns: spec.columns, pageIndex: 0, pageSize: 50 };
+  return { query: "", view, filters: [], sort: null, sorts: [], density: "comfortable", pinned: [], columnWidths: {}, columns: spec.columns, pageIndex: 0, pageSize: 50 };
 }
 
 export type ObjectIndexProps<T extends { id: string }> = {
@@ -43,6 +48,7 @@ export type ObjectIndexProps<T extends { id: string }> = {
   defaultViews?: ObjectDefaultView[];
   remote?: boolean;
   total?: number;
+  hasMore?: boolean;
   partial?: boolean;
   loading?: boolean;
   error?: boolean;
@@ -62,7 +68,7 @@ type OpenMenu = "filter" | "sort" | "columns" | "views" | null;
 export function ObjectIndex<T extends { id: string }>({
   objectKey, title, description, fields, rows, state, onStateChange,
   defaultViews = [{ id: "todos", title: "Todos" }],
-  remote = false, total, partial = false, loading = false, error = false,
+  remote = false, total, hasMore, partial = false, loading = false, error = false,
   onRetry, onRefresh, refreshing, onOpen, actions, emptyTitle, emptyAction, selectionActions, extra,
 }: ObjectIndexProps<T>) {
   const queryClient = useQueryClient();
@@ -97,6 +103,10 @@ export function ObjectIndex<T extends { id: string }>({
   const menuRef = useRef<HTMLDivElement>(null);
   const query = useDeferredValue(state.query);
   const fieldMap = useMemo(() => new Map(fields.map(field => [field.key, field])), [fields]);
+  const sorts = activeSorts(state);
+  const density = state.density === "compact" ? "compact" : "comfortable";
+  const pinned = (state.pinned || []).filter(key => state.columns.includes(key) && fields.some(field => field.key === key));
+  const widths = state.columnWidths || {};
   const activeSaved = saved.data?.views.find(item => item.id === activeSavedId);
   const visibleFields = useMemo(() => fields.filter(field => field.primary || state.columns.includes(field.key))
     .sort((a,b) => state.columns.indexOf(a.key) - state.columns.indexOf(b.key)), [fields, state.columns]);
@@ -116,51 +126,46 @@ export function ObjectIndex<T extends { id: string }>({
         return val != null && String(val).toLocaleLowerCase("pt-BR").includes(q);
       })) && matchesObjectFilters(row, fields, state.filters);
     });
-    if (state.sort) {
-      const field = fieldMap.get(state.sort.key);
-      if (field?.sortable) {
-        result = [...result].sort((a, b) => {
-          const aa = field.getValue(a), bb = field.getValue(b);
-          if (aa == null && bb == null) return a.id.localeCompare(b.id);
-          if (aa == null) return 1;
-          if (bb == null) return -1;
-          const diff = typeof aa === "number" && typeof bb === "number"
-            ? aa - bb : String(aa).localeCompare(String(bb), "pt-BR", { numeric: true });
-          return state.sort?.desc ? -diff : diff;
-        });
-      }
-    }
+    result = sortObjectRows(result, fields, activeSorts(state));
     return result;
-  }, [remote, rows, query, state.filters, state.sort, state.view, defaultViews, fields, fieldMap]);
+  }, [remote, rows, query, state.filters, state.sort, state.sorts, state.view, defaultViews, fields, fieldMap]);
 
-  const count = remote ? (total ?? rows.length) : matches.length;
+  const exactTotal = remote ? verifiedCount(true, partial, total) : matches.length;
   const visibleRows = remote ? matches : matches.slice(state.pageIndex * state.pageSize, (state.pageIndex + 1) * state.pageSize);
-  const pageCount = Math.max(1, Math.ceil(count / state.pageSize));
-  const selectedRows = visibleRows.filter(row => selected[row.id]);
+  const pageCount = exactTotal == null ? null : Math.max(1, Math.ceil(exactTotal / state.pageSize));
+  const selectedRows = pageSelection(visibleRows, selected);
   const selectedCount = selectedRows.length;
   const savedLabel = activeSaved?.name || defaultViews.find(view => view.id === state.view)?.title || "Todos";
   const effectiveViewSpec = validateObjectView(fields, {
-    version: 1, filters: state.filters, sort: state.sort, columns: state.columns, page_size: state.pageSize,
+    version: 1, filters: state.filters, sort: sorts[0] || null, sorts,
+    density, pinned, columnWidths: widths, columns: state.columns, page_size: state.pageSize,
   });
 
   function change(patch: Partial<ObjectIndexState>, resetPage = true) {
-    setSelected({});
+    if (resetPage || patch.pageIndex !== undefined || patch.pageSize !== undefined) setSelected({});
     onStateChange({ ...state, ...patch, pageIndex: resetPage ? 0 : (patch.pageIndex ?? state.pageIndex) });
+  }
+  function changeSorts(next: ObjectSort[]) {
+    change({ sort: next[0] || null, sorts: next.slice(0, 3) });
   }
   function switchView(id: string, savedId: string | null = null) {
     setMenu(null);
     setSelected({});
     setActiveSavedId(savedId);
     if (!savedId) {
-      change({ view: id, query: "", filters: [], sort: null, columns: fields.map(field => field.key) });
+      change({ view: id, query: "", filters: [], sort: null, sorts: [], columns: fields.map(field => field.key) });
       return;
     }
     const view = saved.data?.views.find(item => item.id === savedId);
     if (!view) return;
     const spec = validateObjectView(fields, view.config);
-    change({ view: "todos", query: "", filters: spec.filters, sort: spec.sort, columns: spec.columns, pageSize: spec.page_size });
+    change({ view: "todos", query: "", filters: spec.filters, sort: spec.sort,
+      sorts: spec.sorts || (spec.sort ? [spec.sort] : []),
+      density: spec.density || "comfortable", pinned: spec.pinned || [],
+      columnWidths: spec.columnWidths || {}, columns: spec.columns, pageSize: spec.page_size });
   }
-  function updateColumns(columns: string[]) { change({ columns }); }
+  function updateColumns(columns: string[]) { change({ columns, pinned: pinned.filter(key => columns.includes(key)) }, false); }
+  function updatePresentation(patch: Partial<ObjectIndexState>) { change(patch, false); }
   function saveView(action: "new" | "rename") {
     const name = viewName.trim();
     if (name.length < 2) { setViewError("Informe pelo menos 2 caracteres."); return; }
@@ -192,6 +197,10 @@ export function ObjectIndex<T extends { id: string }>({
     }).catch(e => setViewError(e instanceof Error ? e.message : "Falha ao excluir."));
   }
 
+  // Never retain a previous page or workspace selection, even when record IDs overlap.
+  useEffect(() => { setSelected({}); }, [objectKey, userTenant, userId, state.pageIndex, state.pageSize,
+    state.query, state.view, state.filters, state.sort, state.sorts]);
+
   useEffect(() => {
     function keydown(event: KeyboardEvent) { if (event.key === "Escape") { setMenu(null); setEditingView(null); } }
     function click(event: MouseEvent) { if (!menuRef.current?.contains(event.target as Node)) setMenu(null); }
@@ -206,8 +215,8 @@ export function ObjectIndex<T extends { id: string }>({
         <div className="flex items-center gap-2.5">
           <Layers className="h-[18px] w-[18px] text-[var(--color-slate-600)]" aria-hidden="true" />
           <h1 className="truncate text-lg font-semibold tracking-[-0.025em]">{title}</h1>
-          {!loading && typeof total === "number" && <span className="text-[length:var(--type-caption)] tabular-nums text-[var(--color-muted)]">
-            {total.toLocaleString("pt-BR")}
+          {!loading && !partial && exactTotal !== null && <span className="text-[length:var(--type-caption)] tabular-nums text-[var(--color-muted)]">
+            {exactTotal?.toLocaleString("pt-BR")}
           </span>}
         </div>
         {description && <p className="mt-1 text-xs text-[var(--color-slate-600)]">{description}</p>}
@@ -294,21 +303,50 @@ export function ObjectIndex<T extends { id: string }>({
           className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-xs text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
           Ordenar <ChevronDown className="h-3 w-3" />
         </button>
-        {menu === "sort" && <div className="absolute right-0 top-[calc(100%+5px)] z-30 w-[210px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-2 shadow-[var(--shadow-overlay)]">
-          <button type="button" onClick={() => { change({ sort: null }); setMenu(null); }} className="w-full px-2 py-1.5 text-left text-xs hover:bg-[var(--color-panel)]">Ordem padrão</button>
-          {fields.filter(field => field.sortable).map(field => <div key={field.key} className="flex items-center gap-1">
-            <span className="min-w-0 flex-1 truncate px-2 text-xs">{field.title}</span>
-            {([false, true] as const).map(desc => <button key={String(desc)} type="button"
-              aria-label={"Ordenar " + field.title + (desc ? " decrescente" : " crescente")}
-              onClick={() => { change({ sort: { key: field.key, desc } }); setMenu(null); }}
-              className={cn("rounded-md px-1.5 py-1 text-[length:var(--type-caption)] hover:bg-[var(--color-panel)]", state.sort?.key === field.key && state.sort.desc === desc && "bg-[var(--color-blue-tint)] text-[var(--color-blue)]")}>
-              {desc ? "↓" : "↑"}
-            </button>)}
+        {menu === "sort" && <div role="group" aria-label="Ordenações aplicadas"
+          className="absolute right-0 top-[calc(100%+5px)] z-30 w-[285px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-3 shadow-[var(--shadow-overlay)]">
+          <p className="mb-2 text-xs font-semibold">Ordenação múltipla</p>
+          {sorts.length === 0 && <p className="mb-2 text-xs text-[var(--color-muted)]">Ordem padrão do servidor</p>}
+          {sorts.map((item, index) => <div key={item.key} className="mb-2 flex items-center gap-2">
+            <span className="w-4 shrink-0 text-[11px] tabular-nums text-[var(--color-muted)]">{index + 1}</span>
+            <span className="min-w-0 flex-1 truncate text-xs">{fields.find(field => field.key === item.key)?.title || item.key}</span>
+            <button type="button" aria-label={"Inverter " + item.key} className="rounded border px-2 py-1 text-xs"
+              onClick={() => changeSorts(sorts.map(sort => sort.key === item.key ? { ...sort, desc: !sort.desc } : sort))}>
+              {item.desc ? "↓" : "↑"}
+            </button>
+            <button type="button" aria-label={"Remover " + item.key} className="rounded px-1 text-[var(--color-muted)]"
+              onClick={() => changeSorts(sorts.filter(sort => sort.key !== item.key))}><X className="h-3 w-3" /></button>
           </div>)}
+          <label className="block text-xs text-[var(--color-muted)]">Adicionar critério (até 3)
+            <select aria-label="Adicionar ordenação" value="" disabled={sorts.length >= 3}
+              onChange={event => {
+                const value = event.target.value;
+                if (value && !sorts.some(sort => sort.key === value)) changeSorts([...sorts, { key: value, desc: false }]);
+              }} className="mt-1 h-9 w-full rounded border border-[var(--color-border)] bg-white px-2 text-xs">
+              <option value="">Selecionar coluna…</option>
+              {fields.filter(field => field.sortable && !sorts.some(sort => sort.key === field.key))
+                .map(field => <option key={field.key} value={field.key}>{field.title}</option>)}
+            </select>
+          </label>
+          <div className="mt-2 flex justify-between">
+            <button type="button" className="text-xs text-[var(--color-slate-600)] hover:underline"
+              onClick={() => changeSorts([])}>Limpar ordenações</button>
+            <button type="button" className="text-xs font-semibold text-[var(--color-blue)]"
+              onClick={() => setMenu(null)}>Concluir</button>
+          </div>
         </div>}
       </div>
+      <label className="flex h-9 items-center gap-1.5 text-xs text-[var(--color-slate-600)]">
+        Densidade
+        <select value={density} aria-label="Densidade da tabela" onChange={event =>
+          updatePresentation({ density: event.target.value as "compact" | "comfortable" })}
+          className="h-9 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-2 text-xs">
+          <option value="comfortable">Confortável</option>
+          <option value="compact">Compacta</option>
+        </select>
+      </label>
       <div className="relative">
-        <button type="button" aria-expanded={menu === "columns"} onClick={() => setMenu(menu === "columns" ? null : "columns")}
+        <button type="button" aria-expanded={menu === "columns" onClick={() => setMenu(menu === "columns" ? null : "columns")}
           className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-xs text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
           Propriedades <ChevronDown className="h-3 w-3" />
         </button>
@@ -379,15 +417,21 @@ export function ObjectIndex<T extends { id: string }>({
       </div>}
       <ObjectDataTable records={visibleRows} fields={visibleFields}
         visible={state.columns} onVisibleChange={updateColumns}
-        sort={state.sort} onSortChange={sort => change({ sort })}
-        manualSorting selected={selected} onSelectedChange={setSelected}
+        sorts={sorts} onSortsChange={changeSorts}
+        density={density} pinned={pinned} onPinnedChange={next => updatePresentation({ pinned: next })}
+        columnWidths={widths} onWidthsChange={next => updatePresentation({ columnWidths: next })}
+        selected={selected} onSelectedChange={setSelected}
         onOpen={onOpen} loading={loading}
         emptyText={emptyTitle || (state.query || state.filters.length ? "Nenhum registro corresponde aos filtros." : "Nenhum registro disponível.")}
         emptyAction={emptyAction} />
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--color-border)] px-4 py-3 text-[length:var(--type-caption)] text-[var(--color-slate-600)] sm:px-6">
         <span className="tabular-nums">{loading ? "Carregando…" : remote
-          ? count ? ((state.pageIndex * state.pageSize) + 1) + "–" + ((state.pageIndex * state.pageSize) + visibleRows.length) + " de " + count.toLocaleString("pt-BR") : "0 registros"
-          : count + " registro(s)" + (partial ? " na prévia" : "")}</span>
+          ? exactTotal === null
+            ? visibleRows.length + " registros nesta página · total não verificado"
+            : exactTotal > 0
+              ? ((state.pageIndex * state.pageSize) + 1) + "–" + ((state.pageIndex * state.pageSize) + visibleRows.length) + " de " + exactTotal.toLocaleString("pt-BR")
+              : "0 registros"
+          : matches.length + " registro(s)" + (partial ? " na prévia" : "")}</span>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5">
             Por página
@@ -403,8 +447,8 @@ export function ObjectIndex<T extends { id: string }>({
             className="grid h-8 w-8 place-items-center rounded-[var(--radius-md)] border border-[var(--color-border)] disabled:opacity-40">
             <ChevronRight className="h-3.5 w-3.5 rotate-180" />
           </button>
-          <span className="tabular-nums">{state.pageIndex + 1} / {pageCount}</span>
-          <button type="button" disabled={state.pageIndex + 1 >= pageCount || loading}
+          <span className="tabular-nums">{state.pageIndex + 1}{pageCount === null ? "" : " / " + pageCount}</span>
+          <button type="button" disabled={loading || (pageCount === null ? hasMore !== true : state.pageIndex + 1 >= pageCount)}
             onClick={() => change({ pageIndex: state.pageIndex + 1 }, false)}
             aria-label="Próxima página"
             className="grid h-8 w-8 place-items-center rounded-[var(--radius-md)] border border-[var(--color-border)] disabled:opacity-40">

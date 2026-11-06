@@ -2,7 +2,7 @@ import type { ObjectField, ObjectDefaultView, ObjectFilter } from "@/components/
 import type { ObjectIndexState } from "@/components/object-index/object-index";
 
 /** Wave 1: presentation-only URL state. No record payload or authorization data is stored here. */
-const KEYS = ["v", "q", "f", "sort", "cols", "page", "size", "record"] as const;
+const KEYS = ["v", "q", "f", "sort", "sorts", "cols", "page", "size", "record", "density", "pinned", "widths"] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FILTER_OPERATORS = new Set([
   "eq", "neq", "contains", "not_contains", "starts_with", "gt", "lt",
@@ -72,12 +72,38 @@ export function readObjectIndexState<T>(
   if (["asc", "desc"].includes(direction) && fields.some(field => field.key === sortKey && field.sortable)) {
     state.sort = { key: sortKey, desc: direction === "desc" };
   }
+  const rawSorts = search.get("sorts") || "";
+  if (rawSorts.length <= 256 && rawSorts) {
+    const parsedSorts = rawSorts.split(",").slice(0, 3).map(term => term.split(":"));
+    const seen = new Set<string>();
+    state.sorts = parsedSorts.filter(([key, dir]) => {
+      if (seen.has(key) || !["asc", "desc"].includes(dir) || !fields.some(field => field.key === key && field.sortable)) return false;
+      seen.add(key);
+      return true;
+    }).map(([key, dir]) => ({ key, desc: dir === "desc" }));
+    state.sort = state.sorts[0] || null;
+  } else state.sorts = state.sort ? [state.sort] : [];
   const columns = search.get("cols");
   if (columns !== null && columns.length <= 800) {
     const permitted = new Set(fields.map(field => field.key));
     const list = [...new Set(columns.split(",").filter(key => permitted.has(key)))];
     for (const field of fields) if (field.primary && !list.includes(field.key)) list.unshift(field.key);
     if (list.length) state.columns = list;
+  }
+  state.density = search.get("density") === "compact" ? "compact" : "comfortable";
+  const permitted = new Set(fields.map(field => field.key));
+  state.pinned = [...new Set((search.get("pinned") || "").split(",").filter(key =>
+    permitted.has(key) && state.columns.includes(key)))].slice(0, 3);
+  const rawWidths = search.get("widths");
+  if (rawWidths && rawWidths.length <= 1500) {
+    try {
+      const parsed: unknown = JSON.parse(rawWidths);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        state.columnWidths = Object.fromEntries(Object.entries(parsed).filter(([key, width]) =>
+          permitted.has(key) && state.columns.includes(key) && typeof width === "number" &&
+          Number.isFinite(width) && width >= 100 && width <= 640));
+      }
+    } catch { /* Invalid widths do not affect navigation. */ }
   }
   const page = Number(search.get("page"));
   if (Number.isInteger(page) && page >= 0 && page <= 10000) state.pageIndex = page;
@@ -100,9 +126,19 @@ export function buildIndexHref(
     const filters = JSON.stringify(state.filters.slice(0, 8));
     if (filters.length <= 2000) params.set("f", filters);
   }
-  if (state.sort) params.set("sort", state.sort.key + ":" + (state.sort.desc ? "desc" : "asc"));
+  const sorts = state.sorts?.length ? state.sorts : state.sort ? [state.sort] : [];
+  if (sorts.length) {
+    params.set("sorts", sorts.slice(0, 3).map(item => item.key + ":" + (item.desc ? "desc" : "asc")).join(","));
+    params.set("sort", sorts[0].key + ":" + (sorts[0].desc ? "desc" : "asc"));
+  }
   if (state.columns.length && state.columns.join(",").length <= 800) {
     params.set("cols", state.columns.join(","));
+  }
+  if (state.density === "compact") params.set("density", "compact");
+  if (state.pinned?.length) params.set("pinned", state.pinned.slice(0, 3).join(","));
+  if (state.columnWidths && Object.keys(state.columnWidths).length) {
+    const encoded = JSON.stringify(state.columnWidths);
+    if (encoded.length <= 1500) params.set("widths", encoded);
   }
   if (state.pageIndex > 0) params.set("page", String(Math.min(state.pageIndex, 10000)));
   if (state.pageSize !== 50) params.set("size", String(state.pageSize));
