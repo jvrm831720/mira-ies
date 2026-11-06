@@ -162,12 +162,14 @@ async def update_view(view_id: UUID, body: UpdateView, auth: AuthContext = Depen
         raise HTTPException(status_code=422, detail="Nome inválido.")
     row.config = body.config.model_dump()
     try:
+        await db.flush()
+        await db.refresh(row)
+        payload = serialize(row)
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(status_code=409, detail="Já existe uma visualização com esse nome.") from exc
-    await db.refresh(row)
-    return serialize(row)
+    return payload
 
 @router.delete("/{view_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_view(view_id: UUID, auth: AuthContext = Depends(get_current_tenant), db: AsyncSession = Depends(get_db)):
