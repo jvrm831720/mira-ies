@@ -34,6 +34,7 @@ export function AppsCatalogExperience() {
  const [tab,setTab]=useState<Tab>("Mais usados");
  const [category,setCategory]=useState<(typeof categories)[number]>("Todos");
  const [query,setQuery]=useState("");
+ const [limit,setLimit]=useState(32);
  const [selected,setSelected]=useState<CatalogApp|null>(null);
  const [requestOpen,setRequestOpen]=useState(false);
  const [requestName,setRequestName]=useState("");
@@ -70,6 +71,7 @@ export function AppsCatalogExperience() {
   {jacad:jacad.data,sponte:sponte.data},
  ),[nativeCatalog.data,externalCatalog.data,accounts.data,jacad.data,sponte.data]);
  const visible=useMemo(()=>filterAppsCatalog(rows,query,category,tab),[rows,query,category,tab]);
+ const shown=visible.slice(0,limit);
  const partial=canManage && externalCatalog.isError;
  const loading=nativeCatalog.isLoading && !nativeCatalog.data;
 
@@ -108,7 +110,7 @@ export function AppsCatalogExperience() {
    : me.isError || !canRead ? <div role="alert" className="mt-10 rounded-xl border border-[var(--mira-apps-border)] p-6 text-sm">Você não tem permissão para consultar apps e integrações neste workspace.</div>
    : <>
     <div role="tablist" aria-label="Explorar apps" className="mt-7 flex flex-wrap gap-2 border-b border-[var(--mira-apps-border)]">
-     {tabs.map(value=><button key={value} role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}
+     {tabs.map(value=><button key={value} role="tab" aria-selected={tab===value} onClick={()=>{setTab(value);setLimit(32);}}
        className={"relative min-h-11 rounded-t-lg px-4 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-[var(--mira-apps-blue)] "+
          (tab===value?"bg-[var(--mira-apps-chip)] text-[var(--mira-apps-white)] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-[var(--mira-apps-blue)]":"text-[var(--mira-apps-muted)] hover:text-[var(--mira-apps-white)]")}>{value}</button>)}
     </div>
@@ -116,11 +118,11 @@ export function AppsCatalogExperience() {
      <label className="relative min-w-[220px] flex-1 sm:max-w-[355px]">
       <span className="sr-only">Buscar apps</span>
       <Search className="absolute left-3 top-2.5 text-[var(--mira-apps-muted)]" size={17} aria-hidden="true"/>
-      <input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar apps"
+      <input type="search" value={query} onChange={event=>{setQuery(event.target.value);setLimit(32);}} placeholder="Buscar apps"
        className="h-10 w-full rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-dark)] pl-10 pr-3 text-sm text-[var(--mira-apps-white)] placeholder:text-[var(--mira-apps-muted)] focus:border-[var(--mira-apps-blue)] focus:outline-none"/>
      </label>
      <div role="group" aria-label="Filtrar por categoria" className="flex flex-wrap gap-2">
-      {categories.map(value=><button key={value} type="button" aria-pressed={category===value} onClick={()=>setCategory(value)}
+      {categories.map(value=><button key={value} type="button" aria-pressed={category===value} onClick={()=>{setCategory(value);setLimit(32);}}
        className={"rounded-full border px-3 py-2 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)] "+
         (category===value?"border-[var(--mira-apps-blue)] bg-[var(--mira-apps-blue-soft)] text-[var(--mira-apps-blue-light)]":"border-[var(--mira-apps-border)] text-[var(--mira-apps-muted)] hover:border-[var(--mira-apps-muted)] hover:text-[var(--mira-apps-white)]")}>{value}</button>)}
      </div>
@@ -136,7 +138,7 @@ export function AppsCatalogExperience() {
      <div role="alert" className="mt-9 rounded-xl border border-[var(--mira-apps-border)] p-6 text-sm">Não foi possível carregar o catálogo. <button type="button" onClick={refresh} className="underline">Tentar novamente</button></div> :
      visible.length===0 ? <div className="mt-9 rounded-xl border border-[var(--mira-apps-border)] px-5 py-16 text-center text-sm text-[var(--mira-apps-muted)]">Nenhum app encontrado com os filtros selecionados.</div> :
      <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-      {visible.map(item=><button key={item.id} type="button" onClick={()=>setSelected(item)}
+      {shown.map(item=><button key={item.id} type="button" onClick={()=>setSelected(item)}
        aria-label={"Abrir detalhes de "+item.name}
        className="group flex min-h-[142px] flex-col justify-between rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)] p-4 text-left transition-[border-color,background-color,transform] duration-150 hover:-translate-y-0.5 hover:border-[var(--mira-apps-blue)] hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)] motion-reduce:transform-none">
        <span className="flex min-w-0 items-center gap-3">
@@ -151,6 +153,7 @@ export function AppsCatalogExperience() {
        </span>
       </button>)}
      </div>}
+    {visible.length>shown.length && <div className="mt-6 flex justify-center"><button type="button" onClick={()=>setLimit(value=>value+32)} className="rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-chip)] px-5 py-2.5 text-sm font-medium hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)]">Mostrar mais ({shown.length} de {visible.length})</button></div>}
     <p className="mt-6 text-xs leading-5 text-[var(--mira-apps-muted)]">O catálogo mostra ferramentas reconhecidas pela MIRA. Disponibilidade, autorização e conexão ativa são verificações distintas. Nenhuma integração é ativada automaticamente.</p>
    </>}
   </main>
