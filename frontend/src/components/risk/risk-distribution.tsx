@@ -20,17 +20,17 @@ export function RiskDistribution({ data, loading }: { data?: RiskSummary; loadin
     const end = denominator ? (cursor / denominator) * 100 : 0;
     return `${item.color} ${start}% ${end}%`;
   });
-  if (unscored > 0 && denominator > 0) stops.push(`#e7e9f1 ${(cursor / denominator) * 100}% 100%`);
-  const ring = denominator && stops.length ? `conic-gradient(${stops.join(", ")})` : "conic-gradient(#e7e9f1 0% 100%)";
+  if (unscored > 0 && denominator > 0) stops.push(`var(--color-legacy-e7e9f1) ${(cursor / denominator) * 100}% 100%`);
+  const ring = denominator && stops.length ? `conic-gradient(${stops.join(", ")})` : "conic-gradient(var(--color-legacy-e7e9f1) 0% 100%)";
 
   return (
     <Card className="h-full overflow-hidden">
       <CardHeader className="flex-row items-start justify-between space-y-0 border-b border-black/[0.06] pb-4">
         <div>
-          <CardTitle className="text-[17px] tracking-[-0.03em]">Panorama de risco</CardTitle>
+          <CardTitle className="text-[length:var(--type-heading-compact)] tracking-[-0.03em]">Panorama de risco</CardTitle>
           <CardDescription className="mt-1">Distribuição dos alunos por faixa de risco</CardDescription>
         </div>
-        <span className="rounded-full bg-[rgba(64,80,205,0.1)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--brand-indigo)]">Agora</span>
+        <span className="rounded-full bg-[rgba(64,80,205,0.1)] px-2.5 py-1 text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.12em] text-[var(--brand-indigo)]">Agora</span>
       </CardHeader>
       <CardContent className="flex flex-col gap-7 pt-4 sm:flex-row sm:items-center sm:gap-9">
         <div className="relative mx-auto grid h-40 w-40 shrink-0 place-items-center sm:mx-0" role="img" aria-label={`Distribuição de risco: ${values.map((item) => `${item.label} ${item.value}`).join(", ")}${unscored ? `, sem score ${unscored}` : ""}`}>
@@ -40,9 +40,9 @@ export function RiskDistribution({ data, loading }: { data?: RiskSummary; loadin
             {loading ? (
               <div className="mx-auto h-8 w-14 animate-pulse rounded bg-muted" />
             ) : (
-              <p className="text-[30px] font-semibold leading-none tracking-[-0.05em] tabular-nums">{total.toLocaleString("pt-BR")}</p>
+              <p className="text-3xl font-semibold leading-none tracking-[-0.05em] tabular-nums">{total.toLocaleString("pt-BR")}</p>
             )}
-            <p className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">com score</p>
+            <p className="mt-1.5 text-[length:var(--type-overline)] font-medium uppercase tracking-[0.12em] text-muted-foreground">com score</p>
           </div>
         </div>
         <div className="min-w-0 flex-1 space-y-3">

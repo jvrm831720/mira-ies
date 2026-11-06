@@ -62,16 +62,16 @@ export function GroupRetentionCta({
   const listHref = "/alunos?group=" + encodeURIComponent(groupId);
 
   return (
-    <section className="rounded-xl border border-[#BFDBFE] bg-[#F8FAFC] p-5">
+    <section className="rounded-xl border border-[var(--color-source-bfdbfe)] bg-[var(--color-legacy-f8fafc)] p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <MessageSquareText className="h-4 w-4 text-[#2563EB]" />
-            <h2 className="text-[15px] font-semibold text-[#111827]">Usar como público</h2>
+            <MessageSquareText className="h-4 w-4 text-[var(--color-legacy-2563eb)]" />
+            <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-legacy-111827)]">Usar como público</h2>
           </div>
-          <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-[#667085]">
+          <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--color-legacy-667085)]">
             Abra a retenção com este grupo pré-selecionado. A primeira execução parte em{" "}
-            <strong className="font-semibold text-[#344054]">dry-run</strong> (simulação). Opt-out e
+            <strong className="font-semibold text-[var(--color-legacy-344054)]">dry-run</strong> (simulação). Opt-out e
             anti-spam continuam valendo.
             {typeof memberCount === "number"
               ? ` · ${memberCount.toLocaleString("pt-BR")} alunos no grupo (métrica da avaliação).`
@@ -81,7 +81,7 @@ export function GroupRetentionCta({
         <div className="flex shrink-0 flex-wrap gap-2">
           <Link
             href={listHref}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#344054] transition hover:bg-white"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--color-legacy-e5e7eb)] bg-white px-3.5 text-[length:var(--type-body-compact)] font-medium text-[var(--color-legacy-344054)] transition hover:bg-white"
           >
             <Users className="h-3.5 w-3.5" />
             Ver na lista de alunos
@@ -93,13 +93,13 @@ export function GroupRetentionCta({
               setRunning(true);
               dryRun.mutate();
             }}
-            className="inline-flex h-10 items-center rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#344054] transition hover:bg-[#F8FAFC] disabled:opacity-60"
+            className="inline-flex h-10 items-center rounded-lg border border-[var(--color-legacy-e5e7eb)] bg-white px-3.5 text-[length:var(--type-body-compact)] font-medium text-[var(--color-legacy-344054)] transition hover:bg-[var(--color-legacy-f8fafc)] disabled:opacity-60"
           >
             {running ? "Enfileirando…" : "Dry-run rápido (até 100)"}
           </button>
           <Link
             href={retentionHref}
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#2563EB] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1D4ED8]"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-legacy-2563eb)] px-4 text-[length:var(--type-body-compact)] font-semibold text-white transition hover:bg-[var(--color-legacy-1d4ed8)]"
           >
             Usar na retenção
             <ArrowRight className="h-3.5 w-3.5" />

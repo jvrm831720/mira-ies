@@ -23,10 +23,10 @@ export function CriticalList({
     <Card className="border-[var(--color-border)] shadow-none">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 border-b border-[var(--color-border)] pb-4">
         <div>
-          <CardTitle className="text-[15px] tracking-[-0.02em] text-[var(--color-ink)]">
+          <CardTitle className="text-[length:var(--type-body-comfort)] tracking-[-0.02em] text-[var(--color-ink)]">
             {copy.criticalNow}
           </CardTitle>
-          <CardDescription className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+          <CardDescription className="mt-1 text-xs text-[var(--color-slate-600)]">
             Comece por quem combina maior risco e maior urgência.
           </CardDescription>
         </div>
@@ -64,7 +64,7 @@ export function CriticalList({
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-[13px] font-semibold text-[var(--color-ink)]">
+                  <p className="truncate text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">
                     {s.nome || "Sem nome"}
                   </p>
                   <RiskBadge level={s.risk_level} />
@@ -76,7 +76,7 @@ export function CriticalList({
                 {showExplanations && s.shap_top_factors?.top_3?.length ? <div className="mt-2 flex flex-wrap gap-1" aria-label="Principais fatores explicativos">
                   {s.shap_top_factors.top_3.slice(0, 3).map((factor, index) => {
                     const label = businessSignalText(factor.label) || businessSignalText(factor.feature);
-                    return label ? <span key={index} className="rounded-[var(--radius-md)] border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-1.5 py-0.5 text-[11px] text-[var(--color-ink)]">{label}</span> : null;
+                    return label ? <span key={index} className="rounded-[var(--radius-md)] border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-1.5 py-0.5 text-[length:var(--type-caption)] text-[var(--color-ink)]">{label}</span> : null;
                   })}
                 </div> : null}
               </div>
@@ -84,7 +84,7 @@ export function CriticalList({
                 <p className="text-lg font-semibold tracking-[-0.04em] tabular-nums text-[var(--color-ink)]">
                   {formatScore(s.risk_score)}
                 </p>
-                <p className="text-[11px] text-[var(--color-muted)]">score</p>
+                <p className="text-[length:var(--type-caption)] text-[var(--color-muted)]">score</p>
               </div>
               <ChevronRight className="h-4 w-4 shrink-0 text-[var(--color-border)] transition group-hover:translate-x-0.5 group-hover:text-[var(--color-blue)]" />
             </button>

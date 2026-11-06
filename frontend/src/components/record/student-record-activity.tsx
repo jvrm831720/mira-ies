@@ -10,9 +10,9 @@ export function StudentRecordActivity({studentId,canView}:{studentId:string;canV
     queryFn:()=>workApi.getTimeline(studentId,100),
     enabled:Boolean(studentId)&&canView,retry:false,staleTime:30_000,
   });
-  if(!canView)return <p className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-panel)] p-4 text-[12px] text-[var(--color-slate-600)]">Histórico restrito ao perfil autorizado.</p>;
+  if(!canView)return <p className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-panel)] p-4 text-xs text-[var(--color-slate-600)]">Histórico restrito ao perfil autorizado.</p>;
   if(q.isLoading)return <div role="status" aria-label="Carregando atividades" className="space-y-2"><Skeleton className="h-16 w-full"/><Skeleton className="h-16 w-full"/></div>;
-  if(q.isError)return <div role="alert" className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-4 text-[12px] text-[var(--color-slate-600)]">
+  if(q.isError)return <div role="alert" className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-4 text-xs text-[var(--color-slate-600)]">
     Não foi possível consultar a atividade registrada.
     <button type="button" className="ml-2 font-medium text-[var(--color-blue)]" onClick={()=>void q.refetch()}>Tentar novamente</button>
   </div>;
