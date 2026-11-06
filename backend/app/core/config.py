@@ -43,6 +43,18 @@ class Settings(BaseSettings):
     student_payments_sandbox_hmac_secret: str | None = None
     # Issuer account wallet ID; recipient must be another Asaas wallet.
     student_payments_asaas_issuer_wallet_id: str | None = None
+    # Official Asaas API. Credentials do not imply permission to execute.
+    asaas_mode: str = "sandbox"
+    asaas_sandbox_issuer_wallet_id: str | None = None
+    asaas_production_issuer_wallet_id: str | None = None
+    asaas_sandbox_enabled: bool = False
+    asaas_production_enabled: bool = False
+    asaas_wallet_review_enabled: bool = False
+    asaas_sandbox_api_key: str | None = None
+    asaas_production_api_key: str | None = None
+    asaas_sandbox_webhook_token: str | None = None
+    asaas_production_webhook_token: str | None = None
+    asaas_worker_secret: str | None = None
     student_finance_composio_enabled: bool = False
     student_finance_composio_read_tools: str = ""
     student_document_attestation_enabled: bool = False
