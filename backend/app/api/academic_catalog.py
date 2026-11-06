@@ -95,7 +95,6 @@ class ClassInput(BaseModel):
     campus: str | None = Field(default=None, max_length=120)
     status: Literal["planned", "active", "completed", "cancelled"] = "planned"
     capacity: int | None = Field(default=None, ge=1, le=10000)
-    enrollment_open: bool = False
 
 
 class EnrollmentInput(BaseModel):

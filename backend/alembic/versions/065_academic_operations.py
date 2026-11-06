@@ -70,6 +70,7 @@ def upgrade():
         sa.Column("published_at", sa.DateTime(timezone=True)),
         sa.UniqueConstraint("tenant_id", "id", name="uq_mira_academic_policy_tenant_id"),
         sa.UniqueConstraint("tenant_id", "version", name="uq_mira_academic_policy_version"),
+        sa.CheckConstraint("status IN ('draft','published')", name="ck_mira_academic_policy_status"),
         sa.CheckConstraint("passing_percent BETWEEN 0 AND 100", name="ck_mira_academic_policy_grade"),
         sa.CheckConstraint("min_attendance_percent BETWEEN 0 AND 100", name="ck_mira_academic_policy_attendance"),
         sa.CheckConstraint("max_classes_per_term BETWEEN 1 AND 30", name="ck_mira_academic_policy_class_limit"),
@@ -90,6 +91,7 @@ def upgrade():
         sa.Column("published_at", sa.DateTime(timezone=True)),
         sa.UniqueConstraint("tenant_id", "id", name="uq_mira_academic_curriculum_tenant_id"),
         sa.UniqueConstraint("tenant_id", "program_id", "code", name="uq_mira_academic_curriculum_code"),
+        sa.CheckConstraint("status IN ('draft','published')", name="ck_mira_academic_curriculum_status"),
         fk("program_id", "mira_academic_programs", "fk_mira_curriculum_program_tenant"),
     )
     op.create_table(
@@ -218,9 +220,24 @@ def upgrade():
     op.get_bind().exec_driver_sql("""
         CREATE FUNCTION mira_academic_curriculum_item_guard() RETURNS trigger AS $w6item$
         BEGIN
+            IF TG_OP = 'INSERT' THEN
+                IF EXISTS (SELECT 1 FROM mira_academic_curricula
+                           WHERE tenant_id = NEW.tenant_id
+                             AND id = NEW.curriculum_id AND status = 'published') THEN
+                    RAISE EXCEPTION 'cannot append to a published curriculum';
+                END IF;
+                RETURN NEW;
+            END IF;
             IF EXISTS (SELECT 1 FROM mira_academic_curricula WHERE tenant_id = OLD.tenant_id
                        AND id = OLD.curriculum_id AND status = 'published') THEN
                 RAISE EXCEPTION 'cannot change a published curriculum';
+            END IF;
+            IF TG_OP = 'UPDATE' AND EXISTS (
+                SELECT 1 FROM mira_academic_curricula
+                WHERE tenant_id = NEW.tenant_id
+                  AND id = NEW.curriculum_id AND status = 'published'
+            ) THEN
+                RAISE EXCEPTION 'cannot move an item to a published curriculum';
             END IF;
             IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
             RETURN NEW;
@@ -228,7 +245,7 @@ def upgrade():
         $w6item$ LANGUAGE plpgsql
     """)
     op.execute("""CREATE TRIGGER mira_academic_curriculum_item_guard
-        BEFORE UPDATE OR DELETE ON mira_academic_curriculum_items
+        BEFORE INSERT OR UPDATE OR DELETE ON mira_academic_curriculum_items
         FOR EACH ROW EXECUTE FUNCTION mira_academic_curriculum_item_guard()""")
 
 

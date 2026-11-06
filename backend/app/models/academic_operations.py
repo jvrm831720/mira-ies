@@ -29,6 +29,7 @@ class AcademicPolicy(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_academic_policy_tenant_id"),
         UniqueConstraint("tenant_id", "version", name="uq_mira_academic_policy_version"),
+        CheckConstraint("status IN ('draft','published')", name="ck_mira_academic_policy_status"),
         CheckConstraint("passing_percent BETWEEN 0 AND 100", name="ck_mira_academic_policy_grade"),
         CheckConstraint("min_attendance_percent BETWEEN 0 AND 100", name="ck_mira_academic_policy_attendance"),
         CheckConstraint("max_classes_per_term BETWEEN 1 AND 30", name="ck_mira_academic_policy_class_limit"),
@@ -55,6 +56,7 @@ class AcademicCurriculum(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_academic_curriculum_tenant_id"),
         UniqueConstraint("tenant_id", "program_id", "code", name="uq_mira_academic_curriculum_code"),
+        CheckConstraint("status IN ('draft','published')", name="ck_mira_academic_curriculum_status"),
         ForeignKeyConstraint(["tenant_id", "program_id"], ["mira_academic_programs.tenant_id", "mira_academic_programs.id"], name="fk_mira_curriculum_program_tenant"),
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
