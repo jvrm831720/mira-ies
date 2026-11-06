@@ -55,48 +55,6 @@ jobs:
               ALTER ROLE mira_test_runner LOGIN PASSWORD 'mira_test_runner_secret'
                 NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
             END IF;
-            IF EXISTS (
-              SELECT 1 FROM (VALUES
-                ('mira_academic_policies'),
-                ('mira_academic_curricula'),
-                ('mira_academic_curriculum_items'),
-                ('mira_academic_student_programs'),
-                ('mira_academic_enrollment_requests'),
-                ('mira_academic_enrollment_request_classes'),
-                ('mira_academic_class_outcomes'),
-                ('mira_academic_operation_events')
-              ) AS required(table_name)
-              LEFT JOIN pg_class cls ON cls.relname = required.table_name
-              LEFT JOIN pg_namespace ns ON ns.oid = cls.relnamespace AND ns.nspname = 'public'
-              WHERE cls.oid IS NULL OR ns.oid IS NULL
-                OR NOT cls.relrowsecurity OR NOT cls.relforcerowsecurity
-                OR NOT EXISTS (
-                  SELECT 1 FROM pg_policies p
-                  WHERE p.schemaname = 'public' AND p.tablename = required.table_name
-                    AND p.policyname = required.table_name || '_tenant_access'
-                )
-            ) THEN
-              RAISE EXCEPTION 'Wave 6 tenant RLS/FORCE RLS controls missing';
-            END IF;
-            IF (
-              SELECT count(*) FROM pg_trigger
-              WHERE tgname IN (
-                'mira_academic_policies_guard',
-                'mira_academic_curricula_guard',
-                'mira_academic_class_outcomes_guard',
-                'mira_academic_operation_events_guard',
-                'mira_academic_curriculum_item_guard'
-              ) AND NOT tgisinternal
-            ) <> 5 THEN
-              RAISE EXCEPTION 'Wave 6 immutable policy/curriculum/outcome/audit triggers missing';
-            END IF;
-            IF NOT EXISTS (
-              SELECT 1 FROM pg_constraint
-              WHERE conname='fk_mira_outcome_class_enrollment_tenant'
-                AND contype='f'
-            ) THEN
-              RAISE EXCEPTION 'Wave 6 final outcome must be bound to real class enrollment';
-            END IF;
           END
           $mira$;
           ALTER DATABASE beacon_test OWNER TO mira_test_runner;
@@ -318,6 +276,49 @@ jobs:
               ) AND NOT tgisinternal
             ) <> 2 THEN
               RAISE EXCEPTION 'Wave 4D immutable payment ledger trigger missing';
+            END IF;
+            -- Wave 6 schema checks are intentionally post-migration.
+            IF EXISTS (
+              SELECT 1 FROM (VALUES
+                ('mira_academic_policies'),
+                ('mira_academic_curricula'),
+                ('mira_academic_curriculum_items'),
+                ('mira_academic_student_programs'),
+                ('mira_academic_enrollment_requests'),
+                ('mira_academic_enrollment_request_classes'),
+                ('mira_academic_class_outcomes'),
+                ('mira_academic_operation_events')
+              ) AS required(table_name)
+              LEFT JOIN pg_class cls ON cls.relname = required.table_name
+              LEFT JOIN pg_namespace ns ON ns.oid = cls.relnamespace AND ns.nspname = 'public'
+              WHERE cls.oid IS NULL OR ns.oid IS NULL
+                OR NOT cls.relrowsecurity OR NOT cls.relforcerowsecurity
+                OR NOT EXISTS (
+                  SELECT 1 FROM pg_policies p
+                  WHERE p.schemaname = 'public' AND p.tablename = required.table_name
+                    AND p.policyname = required.table_name || '_tenant_access'
+                )
+            ) THEN
+              RAISE EXCEPTION 'Wave 6 tenant RLS/FORCE RLS controls missing';
+            END IF;
+            IF (
+              SELECT count(*) FROM pg_trigger
+              WHERE tgname IN (
+                'mira_academic_policies_guard',
+                'mira_academic_curricula_guard',
+                'mira_academic_class_outcomes_guard',
+                'mira_academic_operation_events_guard',
+                'mira_academic_curriculum_item_guard'
+              ) AND NOT tgisinternal
+            ) <> 5 THEN
+              RAISE EXCEPTION 'Wave 6 immutable policy/curriculum/outcome/audit triggers missing';
+            END IF;
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_constraint
+              WHERE conname='fk_mira_outcome_class_enrollment_tenant'
+                AND contype='f'
+            ) THEN
+              RAISE EXCEPTION 'Wave 6 final outcome must be bound to real class enrollment';
             END IF;
           END
           $mira$;
