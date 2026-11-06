@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { StudentServicesPanel } from "./student-services-panel";
 import { AcademicOperationsPanel } from "./academic-operations-panel";
+import { PortalShell, type PortalSection } from "./components/portal-shell";
 import {
   ArrowRight, BookOpen, CheckCircle2, GraduationCap, LockKeyhole,
   LogOut, ShieldCheck, Wallet, CalendarDays, AlertCircle, Loader2,
@@ -139,6 +140,7 @@ export default function StudentPortalPage() {
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [token, setToken] = useState("");
   const [tab, setTab] = useState<RecordKind>("enrollment");
+  const [activeSection, setActiveSection] = useState<PortalSection>("home");
   const [records, setRecords] = useState<AcademicRecord[]>([]);
   const [extraTab, setExtraTab] = useState<ExtraTab>("schedule");
   const [extraRecords, setExtraRecords] = useState<AcademicItem[]>([]);
@@ -302,166 +304,194 @@ export default function StudentPortalPage() {
   }
 
   const current = sections.find((section) => section.id === tab)!;
-  return <div className="min-h-screen bg-[#F9FAFB] text-[#101828]">
-    <header className="border-b border-[#E4E7EC] bg-white">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-5">
-        <div className="flex items-center gap-3">
-          <span className="text-[23px] font-bold tracking-[-0.08em]">mira<span className="text-[#2563EB]">.</span></span>
-          <span className="mx-2 h-5 w-px bg-[#E4E7EC]" />
-          <span className="text-[12px] font-semibold text-[#344054]">Portal do Aluno</span>
-        </div>
-        <button type="button" disabled={busy} onClick={() => void logout()}
-          className="inline-flex items-center gap-2 rounded-lg border border-[#E4E7EC] px-3 py-2 text-[12px] font-semibold text-[#667085] hover:bg-[#F9FAFB]">
-          <LogOut className="h-4 w-4" /> Sair
-        </button>
-      </div>
+
+  function navigate(next: PortalSection) {
+    setActiveSection(next);
+    setRecordsError(null);
+    if (next === "home") setExtraTab("schedule");
+    if (next === "journey") setTab("enrollment");
+    if (next === "disciplines") { setTab("assessment"); setExtraTab("report-card"); }
+    if (next === "calendar") setExtraTab("calendar");
+    if (next === "financial") setTab("fee");
+    // Changing sections never changes the student identity or authorizations.
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  const field = (label: string, item: string | number | null | undefined) => (
+    <div key={label} className="min-w-0 py-3">
+      <dt className="text-[11px] font-medium text-[#75777C]">{label}</dt>
+      <dd className="mt-1 break-words text-[13px] font-semibold text-[#101112]">{value(item)}</dd>
+    </div>
+  );
+
+  const viewHeader = (eyebrow: string, title: string, description: string) => (
+    <header className="mb-7">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[#75777C]">{eyebrow}</p>
+      <h1 className="mt-2 text-[25px] font-semibold tracking-[-0.035em] text-[#101112] sm:text-[29px]">{title}</h1>
+      <p className="mt-2 max-w-[660px] text-[13px] leading-6 text-[#505967]">{description}</p>
     </header>
-    <main className="mx-auto max-w-6xl space-y-7 px-5 py-9 md:py-14">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+  );
+
+  const recordsPanel = (title: string) => (
+    <section aria-label={title} className="overflow-hidden rounded-xl border border-[#E6E7EA] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6E7EA] px-4 py-4 sm:px-6">
         <div>
-          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">{student.institution}</div>
-          <h1 className="text-[30px] font-semibold tracking-[-0.045em] md:text-[37px]">Olá, {student.name.split(" ")[0]}.</h1>
-          <p className="mt-2 text-[13px] text-[#667085]">Acompanhe suas informações acadêmicas disponíveis na instituição.</p>
+          <h2 className="text-[14px] font-semibold">{title}</h2>
+          <p className="mt-1 text-[11px] text-[#75777C]">Registros associados à sua matrícula, enviados pela instituição.</p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-lg border border-[#D1FADF] bg-[#ECFDF3] px-3 py-2 text-[11px] font-medium text-[#067647]">
-          <CheckCircle2 className="h-4 w-4" /> Sessão individual
-        </span>
+        {(activeSection === "disciplines") && <div role="group" aria-label="Tipo de registro" className="flex gap-1">
+          {sections.filter(s => s.id === "assessment" || s.id === "attendance").map(section =>
+            <button key={section.id} type="button" aria-pressed={tab === section.id} onClick={() => setTab(section.id)}
+              className={`rounded-lg px-3 py-2 text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-[#266DF0] ${tab === section.id ? "bg-[#EFF4FF] text-[#1E58C7]" : "text-[#505967] hover:bg-[#F8F9FA]"}`}>{section.label}</button>)}
+        </div>}
       </div>
-
-      <section className="grid gap-3 md:grid-cols-3" aria-label="Resumo acadêmico">
-        {[
-          ["Curso", value(student.course)],
-          ["Matrícula", student.registration],
-          ["Semestre", student.semester != null ? student.semester + "º" : "Não informado"],
-          ["Unidade", value(student.campus)],
-          ["Presença agregada", student.attendance_percentage != null
-            ? student.attendance_percentage + "%" : "Não informado"],
-          ["Média acadêmica", student.grade_average != null
-            ? String(student.grade_average) : "Não informado"],
-        ].map(([label, item]) =>
-          <div key={label} className="rounded-xl border border-[#E4E7EC] bg-white p-5">
-            <p className="text-[11px] text-[#667085]">{label}</p>
-            <p className="mt-3 break-words text-[14px] font-semibold text-[#101828]">{item}</p>
-          </div>
-        )}
-      </section>
-      <p className="-mt-4 text-[11px] text-[#98A2B3]">
-        Frequência e média são resumos informados pela instituição; dados ausentes não representam situação favorável.
-      </p>
-
-      <div className="overflow-hidden rounded-xl border border-[#E4E7EC] bg-white">
-        <div className="border-b border-[#E4E7EC] p-5 md:p-7">
-          <div className="flex items-center gap-3">
-            <GraduationCap className="h-5 w-5 text-[#2563EB]" />
-            <div>
-              <h2 className="text-[16px] font-semibold">Registros da instituição</h2>
-              <p className="mt-1 text-[12px] text-[#98A2B3]">Informações recebidas e registradas pela equipe acadêmica.</p>
+      {tab === "fee" && <p className="mx-4 mt-4 rounded-lg border border-[#FEE0C8] bg-[#FFF8F1] p-3 text-[11px] leading-5 text-[#7A3C14] sm:mx-6">
+        Estes são snapshots não conciliados. Não representam quitação, dívida exigível ou confirmação de pagamento.
+      </p>}
+      <div className="min-h-[110px]">
+        {recordsLoading && <p role="status" className="flex items-center gap-2 p-6 text-[12px] text-[#505967]"><Loader2 className="h-4 w-4 animate-spin" /> Consultando registros…</p>}
+        {!recordsLoading && recordsError && <div role="alert" className="m-4 rounded-lg bg-[#FFF6F6] p-4 text-[12px] text-[#772322]">
+          {recordsError}
+        </div>}
+        {!recordsLoading && !recordsError && records.length === 0 && <p className="p-7 text-[12px] leading-6 text-[#75777C]">Nenhum registro disponível nesta categoria. Ausência de dados não confirma situação regular nem irregular.</p>}
+        {!recordsLoading && !recordsError && records.length > 0 && <ul className="divide-y divide-[#EEEFF1]">
+          {records.map(record => <li key={record.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 sm:px-6">
+            <div className="min-w-0">
+              <p className="text-[12px] font-semibold text-[#101112]">{record.title}</p>
+              <p className="mt-1.5 text-[11px] leading-5 text-[#505967]">{recordDescription(record)}</p>
             </div>
-          </div>
-        </div>
-        <div role="tablist" aria-label="Registros acadêmicos" className="flex flex-wrap gap-2 border-b border-[#E4E7EC] px-5 pt-3 md:px-7">
-          {sections.map(({ id, label, icon: Icon }) =>
-            <button key={id} type="button" role="tab" aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className={"inline-flex items-center gap-2 border-b-2 px-3 py-3 text-[12px] font-semibold transition " +
-                (tab === id ? "border-[#2563EB] text-[#2563EB]" : "border-transparent text-[#667085] hover:text-[#344054]")}>
-              <Icon className="h-4 w-4" /> {label}
-            </button>
-          )}
-        </div>
-        <div className="min-h-[220px] p-5 md:p-7">
-          <h3 className="mb-4 text-[13px] font-semibold">{current.label}</h3>
-          {tab === "fee" && <p className="mb-5 rounded-lg border border-[#FEDF89] bg-[#FFFAEB] px-4 py-3 text-[11px] leading-5 text-[#93370D]">
-            Os valores são informações de origem ainda não conciliadas e não comprovam
-            pagamento, quitação ou dívida exigível. Para esclarecimentos, consulte sua instituição.
-          </p>}
-          {recordsLoading && <div className="flex items-center gap-2 text-[12px] text-[#667085]"><Loader2 className="h-4 w-4 animate-spin" /> Consultando registros…</div>}
-          {!recordsLoading && recordsError && <p role="alert" className="rounded-lg bg-[#FFF5F5] p-4 text-[12px] text-[#B42318]">{recordsError}</p>}
-          {!recordsLoading && !recordsError && records.length === 0 &&
-            <div className="rounded-lg bg-[#F9FAFB] px-6 py-9 text-center">
-              <p className="text-[13px] font-medium text-[#344054]">Nenhum registro disponível nesta categoria.</p>
-              <p className="mt-2 text-[11px] text-[#98A2B3]">A ausência de dados não significa uma situação favorável ou desfavorável.</p>
-            </div>}
-          {!recordsLoading && !recordsError && records.length > 0 &&
-            <ul className="divide-y divide-[#EAECF0] rounded-lg border border-[#EAECF0]">
-              {records.map((record) => <li key={record.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
-                <div>
-                  <strong className="text-[12px] text-[#344054]">{record.title}</strong>
-                  <p className="mt-1.5 text-[11px] text-[#98A2B3]">{recordDescription(record)}</p>
-                </div>
-                <span className="rounded-md bg-[#F2F4F7] px-2.5 py-1 text-[11px] text-[#475467]">{value(record.status)}</span>
-              </li>)}
-            </ul>}
-        </div>
+            {record.status && <span className="max-w-[220px] rounded-md border border-[#E6E7EA] bg-[#F8F9FA] px-2 py-1 text-[11px] text-[#505967]">{record.status}</span>}
+          </li>)}
+        </ul>}
       </div>
-      <section className="overflow-hidden rounded-xl border border-[#E4E7EC] bg-white">
-        <div className="flex items-center gap-2 border-b border-[#E4E7EC] p-5 md:p-7">
-          <CalendarDays className="h-5 w-5 text-[#2563EB]" />
-          <div>
-            <h2 className="text-[16px] font-semibold">Vida acadêmica</h2>
-            <p className="mt-1 text-[12px] text-[#98A2B3]">Dados publicados e autorizados pela sua instituição.</p>
-          </div>
+      <p className="border-t border-[#EEEFF1] px-4 py-2.5 text-[11px] text-[#75777C] sm:px-6">{current.label} · somente dados fornecidos pela instituição</p>
+    </section>
+  );
+
+  const academicPanel = (title: string, description: string) => (
+    <section aria-label={title} className="overflow-hidden rounded-xl border border-[#E6E7EA] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6E7EA] px-4 py-4 sm:px-6">
+        <div>
+          <h2 className="text-[14px] font-semibold">{title}</h2>
+          <p className="mt-1 text-[11px] text-[#75777C]">{description}</p>
         </div>
-        <div role="tablist" aria-label="Vida acadêmica" className="flex flex-wrap gap-2 border-b border-[#E4E7EC] px-5 pt-3 md:px-7">
-          {([
-            ["schedule", "Horários"],
-            ["calendar", "Calendário"],
-            ["attendance", "Frequência por aula"],
-            ["report-card", "Boletim"],
-          ] as [ExtraTab,string][]).map(([key,label]) =>
-            <button type="button" key={key} role="tab" aria-selected={extraTab === key}
-              onClick={() => setExtraTab(key)}
-              className={"border-b-2 px-3 py-3 text-[12px] font-semibold " +
-                (extraTab === key ? "border-[#2563EB] text-[#2563EB]" : "border-transparent text-[#667085] hover:text-[#344054]")}>
-              {label}
-            </button>)}
-        </div>
-        <div className="min-h-[190px] p-5 md:p-7">
-          {extraLoading && <p className="flex items-center gap-2 text-[12px] text-[#667085]">
-            <Loader2 className="h-4 w-4 animate-spin" /> Consultando dados publicados…
-          </p>}
-          {!extraLoading && extraRecords.length === 0 &&
-            <p className="rounded-lg bg-[#F9FAFB] p-5 text-[12px] text-[#667085]">
-              {extraMessage || "Nenhum registro publicado disponível nesta seção."}
-            </p>}
-          {!extraLoading && extraRecords.length > 0 &&
-            <ul className="divide-y divide-[#EAECF0] rounded-lg border border-[#EAECF0]">
-              {extraRecords.map((item,index) => <li key={(item.id || item.class_id || "academic") + "-" + index}
-                className="flex flex-wrap justify-between gap-3 px-4 py-4">
-                <div>
-                  <p className="text-[12px] font-semibold text-[#344054]">{academicTitle(extraTab, item)}</p>
-                  <p className="mt-2 text-[11px] text-[#667085]">{academicDescription(extraTab, item)}</p>
-                  {extraTab === "schedule" && item.teacher_name &&
-                    <p className="mt-1 text-[11px] text-[#98A2B3]">Docente: {item.teacher_name}</p>}
-                </div>
-              </li>)}
-            </ul>}
-          {extraMessage && extraRecords.length > 0 &&
-            <p className="mt-4 text-[11px] leading-5 text-[#667085]">{extraMessage}</p>}
-          {extraTab === "report-card" &&
-            <p className="mt-4 text-[11px] leading-5 text-[#667085]">
-              Apenas notas liberadas pela instituição. A MIRA não calcula média final
-              sem a regra acadêmica homologada.
-            </p>}
-          {extraTab === "attendance" &&
-            <p className="mt-4 text-[11px] leading-5 text-[#667085]">
-              Aulas e chamadas sem registro não são presumidas como presença.
-            </p>}
-        </div>
+        {activeSection === "calendar" && <div role="group" aria-label="Visão do calendário" className="flex gap-1">
+          {([["calendar", "Eventos"], ["schedule", "Aulas"]] as [ExtraTab,string][]).map(([id,label]) =>
+            <button type="button" key={id} onClick={() => setExtraTab(id)} aria-pressed={extraTab === id}
+              className={`rounded-lg px-3 py-2 text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-[#266DF0] ${extraTab === id ? "bg-[#EFF4FF] text-[#1E58C7]" : "text-[#505967] hover:bg-[#F8F9FA]"}`}>{label}</button>)}
+        </div>}
+        {activeSection === "disciplines" && <div role="group" aria-label="Desempenho por disciplina" className="flex gap-1">
+          {([["report-card", "Notas"], ["attendance", "Frequência"]] as [ExtraTab,string][]).map(([id,label]) =>
+            <button type="button" key={id} onClick={() => setExtraTab(id)} aria-pressed={extraTab === id}
+              className={`rounded-lg px-3 py-2 text-[11px] font-medium focus-visible:ring-2 focus-visible:ring-[#266DF0] ${extraTab === id ? "bg-[#EFF4FF] text-[#1E58C7]" : "text-[#505967] hover:bg-[#F8F9FA]"}`}>{label}</button>)}
+        </div>}
+      </div>
+      {extraLoading ? <div role="status" className="flex items-center gap-2 p-6 text-[12px] text-[#505967]"><Loader2 className="h-4 w-4 animate-spin" /> Consultando registros publicados…</div>
+        : extraRecords.length ? <ul className="divide-y divide-[#EEEFF1]">
+          {extraRecords.map((item,index) => <li key={(item.id || item.class_id || "academic") + "-" + index} className="px-4 py-4 sm:px-6">
+            <p className="text-[12px] font-semibold">{academicTitle(extraTab, item)}</p>
+            <p className="mt-1.5 text-[11px] leading-5 text-[#505967]">{academicDescription(extraTab, item)}</p>
+            {item.teacher_name && <p className="mt-1 text-[11px] text-[#75777C]">Docente: {item.teacher_name}</p>}
+          </li>)}
+        </ul> : <p className="p-7 text-[12px] leading-6 text-[#75777C]">{extraMessage || "Nenhuma informação publicada nesta seção."}</p>}
+      {extraMessage && extraRecords.length > 0 && <p className="border-t border-[#E6E7EA] px-4 py-3 text-[11px] text-[#505967] sm:px-6">{extraMessage}</p>}
+      {extraTab === "report-card" && <p className="border-t border-[#EEEFF1] px-4 py-3 text-[11px] text-[#75777C] sm:px-6">Somente notas publicadas. Resultados finais dependem de homologação institucional.</p>}
+      {extraTab === "attendance" && <p className="border-t border-[#EEEFF1] px-4 py-3 text-[11px] text-[#75777C] sm:px-6">Aulas sem chamada não são contadas como presença.</p>}
+    </section>
+  );
+
+  return <PortalShell section={activeSection} onNavigate={navigate}
+    institution={student.institution} studentName={student.name}
+    busy={busy} onLogout={() => void logout()}>
+    {activeSection === "home" && <>
+      {viewHeader(student.institution, "Olá, " + (student.name.split(" ")[0] || "estudante") + ".",
+        "Sua vida acadêmica, solicitações e informações importantes em um só lugar.")}
+      <section className="rounded-xl border border-[#E6E7EA] bg-white px-5 py-4 sm:px-6" aria-label="Seu resumo">
+        <div className="flex items-center gap-2"><GraduationCap className="h-4 w-4 text-[#266DF0]" /><h2 className="text-[14px] font-semibold">Seu vínculo acadêmico</h2></div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 border-t border-[#EEEFF1] sm:grid-cols-4">
+          {field("Curso", student.course)}
+          {field("Matrícula", student.registration)}
+          {field("Situação acadêmica", student.academic_status)}
+          {field("Semestre", student.semester != null ? student.semester + "º" : null)}
+        </dl>
       </section>
-
-      <AcademicOperationsPanel />
-
-      <StudentServicesPanel />
-
-      <div className="flex items-start gap-3 rounded-xl border border-[#E4E7EC] bg-white p-5">
-        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#2563EB]" />
-        <p className="text-[12px] leading-6 text-[#667085]">
-          Seu portal exibe apenas informações associadas à sua matrícula.
-          Indicadores internos de risco, campanhas e dados de outros estudantes não são disponibilizados.
-          As informações podem ser atualizadas pela instituição.
-        </p>
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
+        <div>{academicPanel("Próximas aulas registradas", "Informações publicadas pela instituição, quando disponíveis.")}</div>
+        <section aria-label="Acesso rápido" className="self-start rounded-xl border border-[#E6E7EA] bg-[#F8F9FA] p-5">
+          <h2 className="text-[14px] font-semibold">O que você precisa fazer?</h2>
+          <p className="mt-2 text-[12px] leading-5 text-[#505967]">Acesse seu histórico ou acompanhe um pedido sem procurar por diferentes portais.</p>
+          <div className="mt-4 space-y-2">
+            {([["journey", "Ver minha jornada"], ["requests", "Acompanhar solicitações"], ["financial", "Consultar financeiro"]] as [PortalSection,string][]).map(([id,label]) =>
+              <button key={id} type="button" onClick={() => navigate(id)} className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#E6E7EA] bg-white px-3 py-3 text-left text-[12px] font-medium hover:border-[#B6CDFE] focus-visible:ring-2 focus-visible:ring-[#266DF0]">
+                {label}<ArrowRight className="h-4 w-4 text-[#75777C]" />
+              </button>)}
+          </div>
+        </section>
       </div>
-    </main>
-  </div>;
+      <p className="mt-4 text-[11px] leading-5 text-[#75777C]">Notas, frequência e valores não informados permanecem desconhecidos — não são tratados como situação regular.</p>
+    </>}
+    {activeSection === "journey" && <>
+      {viewHeader("Vida acadêmica", "Minha jornada", "Acompanhe seu vínculo, os períodos cursados e a situação das solicitações de matrícula.")}
+      <section className="mb-5 rounded-xl border border-[#E6E7EA] px-5 py-3 sm:px-6">
+        <dl className="grid grid-cols-2 gap-x-4 sm:grid-cols-4">
+          {field("Curso", student.course)}
+          {field("Matrícula", student.registration)}
+          {field("Campus", student.campus)}
+          {field("Situação", student.academic_status)}
+        </dl>
+      </section>
+      <div className="space-y-5">
+        {recordsPanel("Matrículas registradas")}
+        <AcademicOperationsPanel />
+      </div>
+    </>}
+    {activeSection === "disciplines" && <>
+      {viewHeader("Ensino", "Disciplinas e desempenho", "Consulte avaliações, notas publicadas e frequência, sem confundir registros parciais com resultados finais.")}
+      <div className="space-y-5">
+        {academicPanel("Resultados publicados", "Informações oficiais disponibilizadas pelo sistema acadêmico.")}
+        {recordsPanel("Registros adicionais da instituição")}
+      </div>
+    </>}
+    {activeSection === "calendar" && <>
+      {viewHeader("Organização", "Calendário acadêmico", "Encontre aulas e eventos institucionais registrados, com horários e locais quando informados.")}
+      {academicPanel("Agenda acadêmica", "Selecione eventos ou aulas para consultar a lista cronológica.")}
+    </>}
+    {activeSection === "requests" && <>
+      {viewHeader("Secretaria", "Solicitações", "Registre requerimentos, acompanhe decisões e troque mensagens somente nos canais autorizados.")}
+      <StudentServicesPanel key="requests" initialView="requests" standalone />
+    </>}
+    {activeSection === "documents" && <>
+      {viewHeader("Secretaria", "Documentos", "Consulte documentos disponibilizados e verifique sua integridade quando o serviço estiver habilitado.")}
+      <StudentServicesPanel key="documents" initialView="documents" standalone />
+    </>}
+    {activeSection === "financial" && <>
+      {viewHeader("Pagamentos", "Financeiro", "Acompanhe registros informativos e cobranças oficiais, sem confundir tentativas e confirmações de pagamento.")}
+      <div className="space-y-5">
+        <StudentServicesPanel key="financial" initialView="financial" standalone />
+        {recordsPanel("Outros registros financeiros da instituição")}
+      </div>
+    </>}
+    {activeSection === "account" && <>
+      {viewHeader("Privacidade", "Minha conta", "Consulte os dados vinculados à sua sessão estudantil e encerre o acesso com segurança.")}
+      <section className="rounded-xl border border-[#E6E7EA] p-5 sm:p-6">
+        <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#266DF0]" /><h2 className="text-[14px] font-semibold">Identidade acadêmica</h2></div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 border-t border-[#EEEFF1] sm:grid-cols-3">
+          {field("Nome", student.name)}
+          {field("Instituição", student.institution)}
+          {field("Matrícula", student.registration)}
+          {field("Curso", student.course)}
+          {field("Turma", student.class_name)}
+          {field("Unidade", student.campus)}
+        </dl>
+        <p className="mt-3 border-t border-[#EEEFF1] pt-4 text-[11px] leading-5 text-[#505967]">O Portal apresenta apenas dados da sessão estudantil. Para corrigir informações cadastrais, procure sua instituição.</p>
+        <button type="button" onClick={() => void logout()} disabled={busy} className="mt-5 inline-flex items-center gap-2 rounded-lg border border-[#E6E7EA] px-4 py-2.5 text-[12px] font-medium hover:bg-[#F8F9FA] focus-visible:ring-2 focus-visible:ring-[#266DF0] disabled:opacity-50">
+          <LogOut className="h-4 w-4" /> Encerrar sessão
+        </button>
+      </section>
+    </>}
+    <footer className="mt-9 flex items-start gap-2 border-t border-[#EEEFF1] pt-5 text-[11px] leading-5 text-[#75777C]">
+      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+      Seus dados são vinculados à sessão individual. Nenhum indicador interno de risco é exibido neste portal.
+    </footer>
+  </PortalShell>;
 }
