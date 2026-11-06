@@ -534,3 +534,269 @@ async def portal_offers(
         _missing()
     await _row(db, AcademicTerm, identity.tenant_id, term_id)
     return await _offers(db, identity.tenant_id, program, str(term_id))
+
+
+async def _validate_classes(
+    db: AsyncSession, tenant_id: str, program: AcademicStudentProgram,
+    term_id: str, class_ids: list[UUID | str],
+    policy: AcademicPolicy, *, lock: bool,
+):
+    if len(class_ids) != len(set(map(str, class_ids))) or len(class_ids) > policy.max_classes_per_term:
+        raise HTTPException(status_code=422, detail="Quantidade ou seleção de turmas inválida.")
+    curriculum = await _row(db, AcademicCurriculum, tenant_id, program.curriculum_id)
+    if curriculum.status != "published":
+        _conflict("Currículo ainda não publicado.")
+    items = (await db.execute(select(AcademicCurriculumItem).where(
+        AcademicCurriculumItem.tenant_id == tenant_id,
+        AcademicCurriculumItem.curriculum_id == curriculum.id,
+    ))).scalars().all()
+    requirements = {item.subject_id: item.prerequisite_subject_id for item in items}
+    q = select(AcademicClass).where(
+        AcademicClass.tenant_id == tenant_id,
+        AcademicClass.id.in_(list(map(str, class_ids))),
+        AcademicClass.term_id == term_id,
+    ).order_by(AcademicClass.id)
+    if lock:
+        q = q.with_for_update()
+    classes = (await db.execute(q)).scalars().all()
+    if len(classes) != len(class_ids):
+        _conflict("Uma ou mais turmas pertencem a outra oferta ou não existem.")
+    subjects = set()
+    for cls in classes:
+        if cls.subject_id not in requirements:
+            _conflict("Turma não pertence à grade curricular do aluno.")
+        if cls.subject_id in subjects:
+            _conflict("Não é permitido cursar duas ofertas da mesma disciplina.")
+        subjects.add(cls.subject_id)
+        if cls.status != "active" or not cls.enrollment_open:
+            _conflict("Oferta encerrada ou não publicada para matrícula.")
+    # Prerequisites require an immutable passed outcome for the exact student.
+    required_subjects = {requirements[s] for s in subjects if requirements[s]}
+    if required_subjects:
+        passed = (await db.execute(
+            select(AcademicClass.subject_id)
+            .join(AcademicClassOutcome, and_(
+                AcademicClassOutcome.tenant_id == AcademicClass.tenant_id,
+                AcademicClassOutcome.class_id == AcademicClass.id,
+            ))
+            .where(AcademicClassOutcome.tenant_id == tenant_id,
+                   AcademicClassOutcome.student_id == program.student_id,
+                   AcademicClassOutcome.result == "passed",
+                   AcademicClass.subject_id.in_(required_subjects))
+        )).scalars().all()
+        if not required_subjects.issubset(set(passed)):
+            _conflict("Pré-requisito não concluído com aproveitamento confirmado.")
+    # Repeating a passed subject is not supported in the standard workflow.
+    if subjects:
+        previously_passed = (await db.execute(
+            select(AcademicClass.subject_id)
+            .join(AcademicClassOutcome, and_(
+                AcademicClassOutcome.tenant_id == AcademicClass.tenant_id,
+                AcademicClassOutcome.class_id == AcademicClass.id,
+            ))
+            .where(AcademicClassOutcome.tenant_id == tenant_id,
+                   AcademicClassOutcome.student_id == program.student_id,
+                   AcademicClassOutcome.result == "passed",
+                   AcademicClass.subject_id.in_(subjects))
+        )).scalars().all()
+        if previously_passed:
+            _conflict("Disciplina já concluída com aprovação. Use requerimento para exceções.")
+    # Prevent duplicate subject placements in same term even across class IDs.
+    active = (await db.execute(
+        select(AcademicClass.subject_id)
+        .join(AcademicClassEnrollment, and_(
+            AcademicClassEnrollment.tenant_id == AcademicClass.tenant_id,
+            AcademicClassEnrollment.class_id == AcademicClass.id,
+        ))
+        .where(AcademicClassEnrollment.tenant_id == tenant_id,
+               AcademicClassEnrollment.student_id == program.student_id,
+               AcademicClassEnrollment.status.in_(("enrolled", "completed")),
+               AcademicClass.term_id == term_id)
+    )).scalars().all()
+    if set(active) & subjects:
+        _conflict("Disciplina já vinculada ao aluno neste período.")
+    for cls in classes:
+        if cls.capacity is not None:
+            occupied = (await db.execute(select(func.count()).select_from(
+                AcademicClassEnrollment).where(
+                AcademicClassEnrollment.tenant_id == tenant_id,
+                AcademicClassEnrollment.class_id == cls.id,
+                AcademicClassEnrollment.status.in_(("enrolled", "completed")),
+            ))).scalar_one()
+            if occupied >= cls.capacity:
+                _conflict("Turma sem vagas disponíveis.")
+    return classes
+
+
+async def _submit_enrollment(
+    db: AsyncSession, tenant_id: str, actor: str, user_id: str | None,
+    student_program_id: UUID, term_id: UUID, ids: list[UUID], *,
+    student_id: str | None = None,
+):
+    _enabled()
+    # Program row lock makes repeated submissions for the same student sequential.
+    program = await _row(db, AcademicStudentProgram, tenant_id, student_program_id, lock=True)
+    if student_id is not None and program.student_id != student_id:
+        _missing()
+    if program.status != "active":
+        _conflict("Vínculo com curso inativo.")
+    term = await _row(db, AcademicTerm, tenant_id, term_id)
+    if term.ends_on < _now().date() or term.status not in ("planned", "active"):
+        _conflict("Período acadêmico encerrado ou cancelado.")
+    policy = await _policy(db, tenant_id)
+    if not enrollment_in_window(policy, _now().date()):
+        _conflict("A janela institucional de matrícula está fechada.")
+    prior = (await db.execute(select(func.count()).select_from(AcademicEnrollmentRequest).where(
+        AcademicEnrollmentRequest.tenant_id == tenant_id,
+        AcademicEnrollmentRequest.student_program_id == program.id,
+        AcademicEnrollmentRequest.status == "approved",
+    ))).scalar_one()
+    kind = "reenrollment" if prior else "enrollment"
+    if kind == "reenrollment" and not policy.allow_reenrollment:
+        _conflict("Rematrícula não habilitada nas regras publicadas.")
+    await _validate_classes(db, tenant_id, program, term.id, ids, policy, lock=False)
+    existing = (await db.execute(select(AcademicEnrollmentRequest).where(
+        AcademicEnrollmentRequest.tenant_id == tenant_id,
+        AcademicEnrollmentRequest.student_program_id == program.id,
+        AcademicEnrollmentRequest.term_id == term.id,
+    ))).scalar_one_or_none()
+    if existing:
+        _conflict("Já existe um pedido para este aluno/curso/período. Utilize um requerimento de revisão.")
+    row = AcademicEnrollmentRequest(
+        tenant_id=tenant_id, student_program_id=program.id, term_id=term.id,
+        kind=kind, requested_by=actor, requested_by_user_id=user_id,
+        policy_snapshot=policy_snapshot(policy),
+    )
+    db.add(row)
+    await db.flush()
+    for class_id in ids:
+        db.add(AcademicEnrollmentRequestClass(
+            tenant_id=tenant_id, request_id=row.id, class_id=str(class_id),
+        ))
+    _event(db, tenant_id, actor, user_id, "enrollment_requested", "enrollment_request", row.id,
+           {"kind": kind, "classes": len(ids), "policy_version": policy.version})
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Pedido duplicado ou vínculos inválidos.") from exc
+    return {**_request_json(row), "class_ids": list(map(str, ids))}
+
+
+@institution_router.post("/enrollment-requests", status_code=201)
+async def staff_request_enrollment(
+    body: EnrollmentInput,
+    auth: AuthContext = Depends(require_permission("students.edit")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    return await _submit_enrollment(
+        db, auth.tenant_id, "staff", auth.user_id,
+        body.student_program_id, body.term_id, body.class_ids,
+    )
+
+
+@portal_router.post("/enrollment-requests", status_code=201)
+async def portal_request_enrollment(
+    body: EnrollmentInput, request: Request,
+    identity: PortalIdentity = Depends(_portal_identity),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    _portal_action(request)
+    return await _submit_enrollment(
+        db, identity.tenant_id, "student", None,
+        body.student_program_id, body.term_id, body.class_ids,
+        student_id=identity.student.id,
+    )
+
+
+async def _requests(db: AsyncSession, tenant_id: str, *, student_id=None, status=None):
+    q = (select(AcademicEnrollmentRequest, AcademicStudentProgram.student_id)
+        .join(AcademicStudentProgram, and_(
+            AcademicStudentProgram.tenant_id == AcademicEnrollmentRequest.tenant_id,
+            AcademicStudentProgram.id == AcademicEnrollmentRequest.student_program_id,
+        ))
+        .where(AcademicEnrollmentRequest.tenant_id == tenant_id))
+    if student_id:
+        q = q.where(AcademicStudentProgram.student_id == student_id)
+    if status:
+        q = q.where(AcademicEnrollmentRequest.status == status)
+    rows = (await db.execute(q.order_by(
+        AcademicEnrollmentRequest.submitted_at.desc(), AcademicEnrollmentRequest.id.desc(),
+    ).limit(200))).all()
+    result = []
+    for r, student in rows:
+        classes = (await db.execute(select(AcademicEnrollmentRequestClass.class_id).where(
+            AcademicEnrollmentRequestClass.tenant_id == tenant_id,
+            AcademicEnrollmentRequestClass.request_id == r.id,
+        ))).scalars().all()
+        result.append({**_request_json(r), "student_id": student, "class_ids": list(classes)})
+    return {"items": result, "limit": 200}
+
+
+@institution_router.get("/enrollment-requests")
+async def staff_enrollment_requests(
+    status: Literal["submitted", "approved", "rejected"] | None = None,
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    return await _requests(db, auth.tenant_id, status=status)
+
+
+@portal_router.get("/enrollment-requests")
+async def portal_enrollment_requests(
+    identity: PortalIdentity = Depends(_portal_identity),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    return await _requests(db, identity.tenant_id, student_id=identity.student.id)
+
+
+@institution_router.post("/enrollment-requests/{request_id}/decide")
+async def decide_enrollment(
+    request_id: UUID, body: DecisionInput,
+    auth: AuthContext = Depends(require_permission("critical.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    req = await _row(db, AcademicEnrollmentRequest, auth.tenant_id, request_id, lock=True)
+    if req.status != "submitted":
+        _conflict("Este pedido já recebeu uma decisão.")
+    program = await _row(db, AcademicStudentProgram, auth.tenant_id, req.student_program_id, lock=True)
+    if program.status != "active":
+        _conflict("Vínculo acadêmico inativo.")
+    if body.approve:
+        current_policy = await _policy(db, auth.tenant_id)
+        if current_policy.version != req.policy_snapshot.get("version"):
+            _conflict("Política institucional alterada após o pedido. Solicite revisão.")
+        if not enrollment_in_window(current_policy, _now().date()):
+            _conflict("A janela de matrícula está encerrada.")
+        chosen = (await db.execute(select(AcademicEnrollmentRequestClass.class_id).where(
+            AcademicEnrollmentRequestClass.tenant_id == auth.tenant_id,
+            AcademicEnrollmentRequestClass.request_id == req.id,
+        ))).scalars().all()
+        classes = await _validate_classes(
+            db, auth.tenant_id, program, req.term_id,
+            list(chosen), current_policy, lock=True,
+        )
+        for cls in classes:
+            db.add(AcademicClassEnrollment(
+                tenant_id=auth.tenant_id, class_id=cls.id,
+                student_id=program.student_id, status="enrolled",
+                enrolled_on=_now().date(),
+            ))
+    req.status = "approved" if body.approve else "rejected"
+    req.decided_by_user_id = auth.user_id
+    req.decided_at = _now()
+    req.decision_note = body.note.strip()
+    _event(db, auth.tenant_id, "staff", auth.user_id,
+           "enrollment_" + req.status, "enrollment_request", req.id,
+           {"classes": len(chosen) if body.approve else 0, "policy_version": req.policy_snapshot.get("version")})
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Conflito de vagas ou matrícula. Reavalie o pedido.") from exc
+    return _request_json(req)
