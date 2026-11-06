@@ -58,15 +58,15 @@ test("a risk change is only displayed for comparable model/semantics", () => {
 test("product light colors use one Tailwind token system", () => {
   const tailwind = source("../tailwind.config.ts");
   const css = source("../src/app/globals.css");
-  assert.doesNotMatch(tailwind, /hsl\\(var\\(--/);
-  assert.doesNotMatch(css, /--primary:\\s*233\\s+56%\\s+53%/);
-  assert.match(tailwind, /primary:\\s*\\{\\s*DEFAULT:\\s*"var\\(--color-ink\\)"/);
+  assert.doesNotMatch(tailwind, /hsl\(var\(--/);
+  assert.doesNotMatch(css, /--primary:\s*233\s+56%\s+53%/);
+  assert.match(tailwind, /primary:\s*\{\s*DEFAULT:\s*"var\(--color-ink\)"/);
 });
 
 test("retention handoff never defaults to a real send", () => {
   const selection = source("../src/lib/retention-selection.ts");
   const planner = source("../src/app/(app)/retencao/page.tsx");
-  assert.match(selection, /MAX_AGE_MS = 10 \\* 60 \\* 1000/);
-  assert.match(planner, /setDryRun\\(true\\)/);
+  assert.match(selection, /MAX_AGE_MS = 10 \* 60 \* 1000/);
+  assert.match(planner, /setDryRun\(true\)/);
   assert.match(planner, /parseRetentionSelection/);
 });
