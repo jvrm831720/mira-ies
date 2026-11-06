@@ -88,6 +88,11 @@ def test_charge_payload_uses_only_single_100_percent_net_split():
     assert body["value"] == 100.5
     assert "apiKey" not in body and "recipient" not in body
     assert gateway.verify_payment_response(remote(c), c) == c.asaas_payment_id
+    bare = remote(c)
+    bare.pop("split")
+    assert gateway.verify_payment_response(bare, c, strict=False) == c.asaas_payment_id
+    with pytest.raises(gateway.GatewayInconclusive):
+        gateway.verify_payment_response(bare, c, strict=True)
 
 
 @pytest.mark.parametrize("change", [

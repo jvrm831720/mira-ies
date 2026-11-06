@@ -74,6 +74,7 @@ class AsaasCharge(Base):
     provider_payment_status: Mapped[str] = mapped_column(String(28), nullable=False, default="UNKNOWN")
     provider_split_status: Mapped[str] = mapped_column(String(28), nullable=False, default="UNKNOWN")
     provider_split_id: Mapped[str | None] = mapped_column(String(80))
+    split_configuration_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     payment_received_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     split_settled_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     reconciliation_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

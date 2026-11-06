@@ -50,6 +50,7 @@ def upgrade():
         sa.Column("provider_payment_status",sa.String(28),nullable=False,server_default="UNKNOWN"),
         sa.Column("provider_split_status",sa.String(28),nullable=False,server_default="UNKNOWN"),
         sa.Column("provider_split_id",sa.String(80)),
+        sa.Column("split_configuration_verified",sa.Boolean(),nullable=False,server_default=sa.false()),
         sa.Column("payment_received_verified",sa.Boolean(),nullable=False,server_default=sa.false()),
         sa.Column("split_settled_verified",sa.Boolean(),nullable=False,server_default=sa.false()),
         sa.Column("reconciliation_required",sa.Boolean(),nullable=False,server_default=sa.false()),

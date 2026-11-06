@@ -43,6 +43,7 @@ def present(row: AsaasCharge) -> dict:
         "creation_state": row.creation_state,
         "payment_status": row.provider_payment_status,
         "split_status": row.provider_split_status,
+        "split_configuration_verified": row.split_configuration_verified,
         "payment_received_verified": row.payment_received_verified,
         "split_settled_verified": row.split_settled_verified,
         "needs_review": row.reconciliation_required,
@@ -234,6 +235,7 @@ async def submit_charge(db: AsyncSession, *, tenant_id: str, charge_id: str,
         await db.commit()
         raise AsaasFlowDenied("Cobrança criada mas Split ou dados não confirmados; reconciliação necessária.") from None
     row.asaas_payment_id = found_id
+    row.split_configuration_verified = True
     row.creation_state = "created"
     row.provider_payment_status = str(remote.get("status", "UNKNOWN"))[:28]
     row.updated_at = datetime.now(timezone.utc)
@@ -262,6 +264,18 @@ async def reconcile_charge(db: AsyncSession, *, tenant_id: str, charge_id: str) 
         charge.asaas_payment_id = gateway.verify_payment_response(matches[0], charge, strict=False)
     remote = await gateway.request("GET", "/payments/" + charge.asaas_payment_id)
     gateway.verify_payment_response(remote, charge, strict=False)
+    # Use the official lean endpoint to prove the split configuration even
+    # when the payment is not yet paid (paid-splits list may still be empty).
+    lean = await gateway.request("GET", "/lean/payments/" + charge.asaas_payment_id)
+    try:
+        gateway.verify_payment_response(lean, charge, strict=True)
+    except gateway.GatewayInconclusive:
+        charge.split_configuration_verified = False
+        charge.creation_state = "review"
+        charge.reconciliation_required = True
+        await db.commit()
+        raise AsaasFlowDenied("Split da IES não confirmado no Asaas; cobrança bloqueada.") from None
+    charge.split_configuration_verified = True
     status = str(remote.get("status", "UNKNOWN")).upper()[:28]
     charge.provider_payment_status = status
     charge.payment_received_verified = status == "RECEIVED"
@@ -301,10 +315,15 @@ async def reconcile_charge(db: AsyncSession, *, tenant_id: str, charge_id: str) 
 async def issue_payment_instructions(db: AsyncSession, *, tenant_id: str,
                                      student_id: str, charge_id: str) -> dict:
     charge = await get_charge(db, tenant_id, charge_id)
-    if charge.student_id != student_id or charge.creation_state != "created":
+    if (charge.student_id != student_id or charge.creation_state != "created"
+            or not charge.split_configuration_verified):
         raise AsaasFlowDenied("Instruções indisponíveis para este aluno.")
     if charge.environment != gateway.environment():
         raise AsaasFlowDenied("Ambiente de cobrança divergente.")
+    # Recheck the split at read time: a stale approved snapshot must never
+    # expose a payable QR code if the recipient changed in Asaas.
+    lean = await gateway.request("GET", "/lean/payments/" + charge.asaas_payment_id)
+    gateway.verify_payment_response(lean, charge, strict=True)
     return await gateway.payment_instructions(charge.asaas_payment_id, charge.method)
 
 
