@@ -346,7 +346,7 @@ export function ObjectIndex<T extends { id: string }>({
         </select>
       </label>
       <div className="relative">
-        <button type="button" aria-expanded={menu === "columns" onClick={() => setMenu(menu === "columns" ? null : "columns")}
+        <button type="button" aria-expanded={menu === "columns"} onClick={() => setMenu(menu === "columns" ? null : "columns")}
           className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-2.5 text-xs text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]">
           Propriedades <ChevronDown className="h-3 w-3" />
         </button>
