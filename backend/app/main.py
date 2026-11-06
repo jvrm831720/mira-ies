@@ -13,7 +13,7 @@ from app.api import (
     retention_campaigns, retention_campaign_execution, retention_campaign_intelligence, retention_campaign_proposal_workflow, control_center_auth,
     control_center_admin, mira_admin, work_activities, student_work_timeline, composio,
     signals, student_groups, totvs_rm_operations, connector_destinations, tenant_rbac, omie, onboarding,
-    smart_import, custom_fields, native_academic, academic_catalog, academic_portal, student_services, student_service_operations, student_finance_composio, student_document_attestation, finance_reconciliation, student_payments, dispatch, dispatch_integrations, dispatch_interventions, dispatch_providers, dispatch_native_webhooks, dispatch_source_keys, dispatch_composio,
+    smart_import, custom_fields, native_academic, academic_catalog, academic_portal, academic_operations, student_services, student_service_operations, student_finance_composio, student_document_attestation, finance_reconciliation, student_payments, dispatch, dispatch_integrations, dispatch_interventions, dispatch_providers, dispatch_native_webhooks, dispatch_source_keys, dispatch_composio,
 )
 from app.db.session import init_db, apply_runtime_schema_patches, SchemaPatchError
 from app.ml.model import load_model
@@ -159,6 +159,8 @@ app.include_router(native_academic.router, prefix="/api/v1")
 app.include_router(native_academic.portal_router, prefix="/api/v1")
 app.include_router(academic_catalog.router, prefix="/api/v1")
 app.include_router(academic_portal.router, prefix="/api/v1")
+app.include_router(academic_operations.institution_router, prefix="/api/v1")
+app.include_router(academic_operations.portal_router, prefix="/api/v1")
 app.include_router(student_services.portal_router, prefix="/api/v1")
 app.include_router(student_services.institution_router, prefix="/api/v1")
 app.include_router(student_service_operations.portal_router, prefix="/api/v1")

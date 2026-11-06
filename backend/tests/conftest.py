@@ -75,6 +75,7 @@ async def _prepare_test_database():
     import app.models.student  # noqa: F401
     import app.models.native_academic  # noqa: F401
     import app.models.academic_catalog  # noqa: F401
+    import app.models.academic_operations  # noqa: F401
     import app.models.student_services  # noqa: F401
     import app.models.financial_composio  # noqa: F401
     import app.models.finance_reconciliation  # noqa: F401

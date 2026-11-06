@@ -94,6 +94,8 @@ class ClassInput(BaseModel):
     code: str = Field(min_length=1, max_length=60)
     campus: str | None = Field(default=None, max_length=120)
     status: Literal["planned", "active", "completed", "cancelled"] = "planned"
+    capacity: int | None = Field(default=None, ge=1, le=10000)
+    enrollment_open: bool = False
 
 
 class EnrollmentInput(BaseModel):
@@ -273,6 +275,11 @@ async def create_catalog_batch(
     _enabled()
     _human(auth)
     await _require_ies(db, auth)
+    if get_settings().native_academic_operations_enabled and (body.enrollments or body.grades or body.attendance):
+        raise HTTPException(
+            status_code=409,
+            detail="Use a operação acadêmica versionada para matrícula, notas e frequência.",
+        )
     counts = {}
     try:
         for key, model in TABLE_MODELS:
