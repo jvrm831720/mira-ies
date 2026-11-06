@@ -14,6 +14,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   groups: NavigationGroup[];
   tenantId?: string;
+  userId?: string;
   loading?: boolean;
   error?: boolean;
 };
@@ -25,7 +26,7 @@ const QUICK_ACTIONS = [
   { href: "/resultados", label: "Consultar permanência", category: "Ação rápida", icon: ArrowRight, terms: "resultados permanencia relatorio" },
 ];
 
-export function CommandPalette({ open, onOpenChange, groups, tenantId, loading, error }: Props) {
+export function CommandPalette({ open, onOpenChange, groups, tenantId, userId, loading, error }: Props) {
   const router = useRouter();
   const labelId = useId();
   const listId = useId();
@@ -44,9 +45,9 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, loading, 
   }, [query]);
 
   const studentResults = useQuery({
-    queryKey: ["command-students", tenantId, debouncedQuery],
+    queryKey: ["command-students", tenantId, userId, debouncedQuery],
     queryFn: () => listStudentIndex({ limit: 8, offset: 0, q: debouncedQuery, sort: "name_asc", view: "todos" }),
-    enabled: open && !!tenantId && canSearchStudents && debouncedQuery.length >= 2 && !loading && !error,
+    enabled: open && !!tenantId && !!userId && canSearchStudents && debouncedQuery.length >= 2 && !loading && !error,
     staleTime: 20_000,
     retry: false,
   });
