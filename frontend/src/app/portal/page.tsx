@@ -113,8 +113,8 @@ function formatTimestamp(raw?: string): string {
 function academicDescription(tab: ExtraTab, item: AcademicItem): string {
   if (tab === "report-card") return "Nota: " + value(item.score) + " / " + value(item.max_score) + " · " + value(item.term_label);
   if (tab === "attendance") return (
-    "Presentes: " + (item.present ?? 0) + " · Faltas registradas: " + (item.absent ?? 0) +
-    " · Justificadas: " + (item.excused ?? 0) + " · Sem registro: " + (item.unrecorded ?? 0)
+    "Presentes: " + value(item.present) + " · Faltas registradas: " + value(item.absent) +
+    " · Justificadas: " + value(item.excused) + " · Sem registro: " + value(item.unrecorded)
   );
   return formatTimestamp(item.starts_at) + (item.room || item.location ? " · " + (item.room || item.location) : "");
 }
