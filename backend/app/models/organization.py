@@ -75,6 +75,7 @@ class Membership(Base):
     __tablename__ = "mira_memberships"
     __table_args__ = (
         UniqueConstraint("user_id", "tenant_id", name="uq_mira_memberships_user_tenant"),
+        UniqueConstraint("tenant_id", "id", name="uq_mira_memberships_tenant_id_id"),
         CheckConstraint(
             "status IN ('active', 'invited', 'suspended', 'left')",
             name="ck_mira_memberships_status",
