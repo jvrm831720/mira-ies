@@ -1,12 +1,13 @@
 "use client";
 
+import { AcademicCatalogTable } from "@/components/academic/academic-catalog-table";
 import { AcademicNavigation } from "@/components/academic/academic-navigation";
 
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BookOpen, CalendarDays, CheckCircle2, GraduationCap, Loader2,
-  Plus, ShieldCheck, Users, X,
+  CheckCircle2, Loader2,
+  Plus, ShieldCheck, X,
 } from "@/components/ui/icons";
 import { Dialog } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
@@ -311,41 +312,14 @@ export default function AcademicManagementPage() {
 
       <div className="grid gap-5 lg:grid-cols-[1fr_370px]">
         <section className="space-y-5">
-          <div className="rounded-xl border border-[#E4E7EC] bg-white p-5">
-            <div className="flex items-center justify-between">
-              <div><h2 className="text-[14px] font-semibold">Estrutura de ensino</h2>
-                <p className="mt-1 text-[11px] text-[#98A2B3]">Cursos, disciplinas e turmas registrados</p></div>
-              <GraduationCap className="h-5 w-5 text-[#2563EB]"/>
-            </div>
-            <div className="mt-5 divide-y divide-[#EAECF0]">
-              {overview.data.programs.length === 0 && <p className="py-8 text-center text-[12px] text-[#667085]">
-                Nenhum curso cadastrado. Crie o primeiro curso para organizar a grade curricular.
-              </p>}
-              {overview.data.programs.map(program => <div key={program.id} className="flex items-center justify-between gap-3 py-3">
-                <div><p className="text-[12px] font-semibold text-[#344054]">{pretty(program)}</p>
-                  <p className="mt-1 text-[11px] text-[#98A2B3]">Código {program.code}</p></div>
-                <span className="rounded-md bg-[#F2F4F7] px-2.5 py-1 text-[11px] text-[#667085]">{program.status}</span>
-              </div>)}
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-[#EAECF0] pt-4">
-              <div><BookOpen className="mb-2 h-4 w-4 text-[#667085]"/>
-                <p className="text-[12px] font-semibold">{overview.data.subjects.length} disciplinas na prévia</p></div>
-              <div><Users className="mb-2 h-4 w-4 text-[#667085]"/>
-                <p className="text-[12px] font-semibold">{overview.data.classes.length} turmas na prévia</p></div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-[#E4E7EC] bg-white p-5">
-            <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-[#2563EB]"/>
-              <h2 className="text-[14px] font-semibold">Períodos letivos</h2></div>
-            <div className="mt-5 divide-y divide-[#EAECF0]">
-              {overview.data.terms.length === 0 && <p className="py-6 text-[12px] text-[#667085]">Nenhum período letivo cadastrado.</p>}
-              {overview.data.terms.map(term=><div key={term.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div><p className="text-[12px] font-semibold">{pretty(term)}</p>
-                  <p className="mt-1 text-[11px] text-[#98A2B3]">{term.code}</p></div>
-                <span className="rounded bg-[#F2F4F7] px-2 py-1 text-[11px] text-[#667085]">{term.status}</span>
-              </div>)}
-            </div>
-          </div>
+          <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:programs`}
+            title="Cursos" records={overview.data.programs} total={overview.data.counts.programs} />
+          <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:subjects`}
+            title="Disciplinas" records={overview.data.subjects} total={overview.data.counts.subjects} />
+          <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:teachers`}
+            title="Professores" records={overview.data.teachers} total={overview.data.counts.teachers} />
+          <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:terms`}
+            title="Períodos letivos" records={overview.data.terms} total={overview.data.counts.terms} />
           {canPublish && <div className="rounded-xl border border-[#E4E7EC] bg-white p-5">
             <h2 className="text-[14px] font-semibold">Publicações pendentes</h2>
             <p className="mt-1 text-[11px] text-[#98A2B3]">Aulas, eventos, avaliações e notas exigem aprovação explícita.</p>
