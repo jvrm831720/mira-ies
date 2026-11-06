@@ -147,9 +147,9 @@ export default function LoginPage() {
                   <form onSubmit={requestCode} className="space-y-4">
                     <div className="space-y-2">
                       <label htmlFor="email" className="auth-login-label">E-mail de trabalho</label>
-                      <Input id="email" type="email" autoComplete="email" placeholder="Digite seu e-mail de trabalho" value={email} onChange={(event) => setEmail(event.target.value)} required className="auth-login-input h-12 rounded-lg px-4 text-[14px]" />
+                      <Input id="email" type="email" autoComplete="email" placeholder="Digite seu e-mail de trabalho" value={email} onChange={(event) => setEmail(event.target.value)} required className="auth-login-input h-12 rounded-lg px-4 text-sm" />
                     </div>
-                    <Button type="submit" disabled={loading} className="auth-login-primary h-12 w-full rounded-lg text-[14px] font-medium">
+                    <Button type="submit" disabled={loading} className="auth-login-primary h-12 w-full rounded-lg text-sm font-medium">
                       {loading ? "Enviando…" : "Continuar com e-mail"}
                     </Button>
                     <p className="auth-login-terms">

@@ -61,11 +61,11 @@ export function ComparabilityBadge({
     <span
       title={info.detail}
       className={cn(
-        "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
-        info.tone === "ok" && "bg-[#ECFDF3] text-[#027A48]",
-        info.tone === "model" && "bg-[#F4F3FF] text-[#5925DC]",
-        info.tone === "muted" && "bg-[#F2F4F7] text-[#475467]",
-        info.tone === "warn" && "bg-[#FFFAEB] text-[#B54708]",
+        "inline-flex rounded-full px-2 py-0.5 text-[length:var(--type-overline)] font-semibold",
+        info.tone === "ok" && "bg-[var(--color-source-ecfdf3)] text-[var(--color-source-027a48)]",
+        info.tone === "model" && "bg-[var(--color-legacy-f4f3ff)] text-[var(--color-legacy-5925dc)]",
+        info.tone === "muted" && "bg-[var(--color-legacy-f2f4f7)] text-[var(--color-legacy-475467)]",
+        info.tone === "warn" && "bg-[var(--color-source-fffaeb)] text-[var(--color-source-b54708)]",
         className
       )}
     >
@@ -84,12 +84,12 @@ export function ModelVersionCell({
   previousSemantics?: string | null;
 }) {
   return (
-    <div className="text-[11px] leading-snug text-[#475467]">
-      <p className="font-medium text-[#344054]">
+    <div className="text-[length:var(--type-caption)] leading-snug text-[var(--color-legacy-475467)]">
+      <p className="font-medium text-[var(--color-legacy-344054)]">
         {current?.trim() ? "v" + current.trim() : "versão n/d"}
       </p>
       {previous?.trim() && previous !== current ? (
-        <p className="mt-0.5 text-[10px] text-[#98A2B3]">antes: v{previous.trim()}</p>
+        <p className="mt-0.5 text-[length:var(--type-overline)] text-[var(--color-legacy-98a2b3)]">antes: v{previous.trim()}</p>
       ) : null}
     </div>
   );
@@ -97,7 +97,7 @@ export function ModelVersionCell({
 
 export function AssessmentModelLine({ a }: { a: RiskHistoryAssessment }) {
   return (
-    <p className="mt-1 text-[10px] leading-relaxed text-[#667085]">
+    <p className="mt-1 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-legacy-667085)]">
       {formatModelLabel({
         model_version: a.model_version,
         model_scope: a.model_scope,

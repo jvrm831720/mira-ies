@@ -40,13 +40,13 @@ export function AcademicCatalogSelector({ id, label, resource, required, value, 
     <input type="search" aria-label={`Buscar opções para ${label}`} placeholder="Buscar opções"
       value={search} maxLength={180}
       onChange={event => { setSearch(event.target.value); setOffset(0); }}
-      className="h-9 w-full rounded-lg border border-[#D0D5DD] px-2 text-xs" />
+      className="h-9 w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] px-2 text-xs" />
     <select id={id} required={required} value={value}
       onChange={event => {
         setChosen(items.find(item => item.id === event.target.value) ?? selected);
         onChange(event.target.value);
       }}
-      className="h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-2 text-xs">
+      className="h-10 w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white px-2 text-xs">
       <option value="">Selecionar</option>
       {selected && !items.some(item => item.id === selected.id) &&
         <option value={selected.id}>{selected.name}</option>}

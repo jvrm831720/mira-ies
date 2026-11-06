@@ -62,11 +62,12 @@ async function request<T>(path: string): Promise<T> {
 }
 
 export const collectionsApi = {
-  cases: ({ q = "", status = "", limit = 25, offset = 0 }: {
-    q?: string; status?: string; limit?: number; offset?: number;
+  cases: ({ q = "", status = "", statuses, sort = "updated_at", desc = true, limit = 25, offset = 0 }: {
+    q?: string; status?: string; statuses?: string[]; sort?: string; desc?: boolean; limit?: number; offset?: number;
   }): Promise<CollectionCasesPage> => {
-    const params = new URLSearchParams({ q, limit: String(limit), offset: String(offset) });
+    const params = new URLSearchParams({ q, limit: String(limit), offset: String(offset), sort, desc: String(desc) });
     if (status) params.set("status", status);
+    if (statuses?.length) params.set("statuses", statuses.join(","));
     return request<CollectionCasesPage>(`/cases?${params.toString()}`);
   },
   detail: (id: string): Promise<CollectionCaseDetail> =>

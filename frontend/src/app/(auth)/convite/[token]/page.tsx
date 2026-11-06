@@ -109,10 +109,10 @@ export default function AcceptInvitePage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_#eef0ff,_#f8f9fc_55%)] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_var(--color-legacy-eef0ff),_#f8f9fc_55%)] p-4">
       <Card className="w-full max-w-md border-border/80 shadow-soft">
         <CardHeader>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-primary">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 text-[length:var(--type-caption)] font-medium text-primary">
             <ShieldCheck className="h-3.5 w-3.5" /> Convite Mira
           </div>
           <CardTitle>Ative seu acesso</CardTitle>

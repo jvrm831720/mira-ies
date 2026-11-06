@@ -7,9 +7,9 @@ import { asaasApi, type AsaasCharge } from "@/lib/asaas-official-api";
 import { financeApi, type FinanceProfile } from "@/lib/finance-reconciliation-api";
 import { studentPaymentsApi, type FinancialObservation } from "@/lib/student-payments-api";
 
-const input = "w-full rounded-lg border border-[#D0D5DD] bg-white px-3 py-2 text-[12px] outline-none focus:border-[#2563EB]";
-const btn = "rounded-lg bg-[#101828] px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-40";
-const outline = "rounded-lg border border-[#D0D5DD] px-4 py-2 text-[12px] font-semibold text-[#344054] disabled:opacity-40";
+const input = "w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white px-3 py-2 text-xs outline-none focus:border-[var(--color-legacy-2563eb)]";
+const btn = "rounded-lg bg-[var(--color-legacy-101828)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40";
+const outline = "rounded-lg border border-[var(--color-legacy-d0d5dd)] px-4 py-2 text-xs font-semibold text-[var(--color-legacy-344054)] disabled:opacity-40";
 const brl = (value: string) => new Intl.NumberFormat("pt-BR", {style: "currency",currency: "BRL"}).format(Number(value));
 const states = (c: AsaasCharge) => c.needs_review ? "Exige revisão"
   : c.split_settled_verified ? "Split liquidado na IES"
@@ -69,45 +69,45 @@ export default function AsaasOperationsPage() {
     await execute(()=>asaasApi.prepare(observationId,method,dueDate),
       "Preparação gravada. A emissão exige outra confirmação.");
   }
-  return <div className="min-h-screen bg-[#F9FAFB]">
+  return <div className="min-h-screen bg-[var(--color-source-f9fafb)]">
     <Header title="Operações Asaas" subtitle="Emissão autorizada e conciliação do Split Payment da IES"/>
     <main className="mx-auto max-w-[1140px] space-y-5 px-5 py-7 md:px-8">
-      <Link href="/conectores/financeiro/pagamentos" className="text-[12px] text-[#667085]">Recebimentos / Operações</Link>
-      <div className="rounded-xl border border-[#EAECF0] bg-white p-5">
+      <Link href="/conectores/financeiro/pagamentos" className="text-xs text-[var(--color-legacy-667085)]">Recebimentos / Operações</Link>
+      <div className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
         <div className="flex justify-between gap-3">
-          <strong className="text-[14px] text-[#101828]">Integração oficial Asaas</strong>
-          <span className="text-[11px] text-[#667085]">Ambiente: {environment}</span>
+          <strong className="text-sm text-[var(--color-legacy-101828)]">Integração oficial Asaas</strong>
+          <span className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Ambiente: {environment}</span>
         </div>
-        <p className="mt-2 text-[12px] leading-5 text-[#667085]">
+        <p className="mt-2 text-xs leading-5 text-[var(--color-legacy-667085)]">
           A IES recebe 100% do líquido. O envio exige autorização institucional e não é repetido após timeout.
           Um pagamento recebido não significa que o Split foi liquidado.
         </p>
       </div>
-      {error&&<p role="alert" className="rounded-lg border border-red-200 bg-white p-3 text-[12px] text-red-700">{error}</p>}
-      {notice&&<p role="status" className="rounded-lg border border-[#EAECF0] bg-white p-3 text-[12px]">{notice}</p>}
+      {error&&<p role="alert" className="rounded-lg border border-red-200 bg-white p-3 text-xs text-red-700">{error}</p>}
+      {notice&&<p role="status" className="rounded-lg border border-[var(--color-legacy-eaecf0)] bg-white p-3 text-xs">{notice}</p>}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
           ["Cobranças",charges.length],
           ["Aguardam aprovação",charges.filter(c=>c.creation_state==="prepared").length],
           ["Pagamentos recebidos",charges.filter(c=>c.payment_received_verified).length],
           ["Splits liquidados",charges.filter(c=>c.split_settled_verified).length],
-        ].map(([name,value])=><div key={name} className="rounded-xl border border-[#EAECF0] bg-white p-4">
-          <p className="text-[11px] text-[#667085]">{name}</p>
-          <p className="mt-1 text-[24px] font-semibold tabular-nums">{value}</p>
+        ].map(([name,value])=><div key={name} className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-4">
+          <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{name}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
         </div>)}
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-          <h2 className="text-[15px] font-semibold">Preparar cobrança</h2>
-          <p className="mt-1 text-[12px] text-[#667085]">O valor vem da obrigação, nunca do formulário.</p>
+        <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+          <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Preparar cobrança</h2>
+          <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">O valor vem da obrigação, nunca do formulário.</p>
           <form onSubmit={prepare} className="mt-4 space-y-3">
-            <label className="block text-[12px]">Origem financeira
+            <label className="block text-xs">Origem financeira
               <select className={"mt-1 "+input} value={sourceId} onChange={e=>{setSourceId(e.target.value);setObservationId("");}}>
                 <option value="">Selecione</option>
                 {sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
-            <label className="block text-[12px]">Obrigação
+            <label className="block text-xs">Obrigação
               <select className={"mt-1 "+input} value={observationId} onChange={e=>setObservationId(e.target.value)}>
                 <option value="">Selecione</option>
                 {observations.filter(o=>["open","overdue","partially_paid"].includes(o.canonical_state)).map(o=>
@@ -115,21 +115,21 @@ export default function AsaasOperationsPage() {
               </select>
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-[12px]">Método
+              <label className="text-xs">Método
                 <select className={"mt-1 "+input} value={method} onChange={e=>setMethod(e.target.value as "pix"|"boleto")}>
                   <option value="pix">Pix</option><option value="boleto">Boleto</option>
                 </select>
               </label>
-              <label className="text-[12px]">Vencimento
+              <label className="text-xs">Vencimento
                 <input className={"mt-1 "+input} type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} required />
               </label>
             </div>
             <button className={btn} disabled={busy||!enabled||!observationId||!dueDate}>Preparar sem emitir</button>
           </form>
         </section>
-        <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-          <h2 className="text-[15px] font-semibold">Homologação da carteira recebedora</h2>
-          <p className="mt-1 text-[12px] leading-5 text-[#667085]">
+        <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+          <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Homologação da carteira recebedora</h2>
+          <p className="mt-1 text-xs leading-5 text-[var(--color-legacy-667085)]">
             Após conferência externa da titularidade na Asaas, outro operador registra a referência de aprovação.
             A instituição só configura sua carteira na tela anterior.
           </p>
@@ -141,18 +141,18 @@ export default function AsaasOperationsPage() {
           </button>
         </section>
       </div>
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[15px] font-semibold">Cobranças</h2>
-        {charges.length===0&&<p className="mt-3 text-[12px] text-[#667085]">Nenhuma cobrança preparada.</p>}
-        <div className="mt-3 divide-y divide-[#EAECF0]">{charges.map(charge=>
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Cobranças</h2>
+        {charges.length===0&&<p className="mt-3 text-xs text-[var(--color-legacy-667085)]">Nenhuma cobrança preparada.</p>}
+        <div className="mt-3 divide-y divide-[var(--color-legacy-eaecf0)]">{charges.map(charge=>
           <div key={charge.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
             <div>
-              <p className="text-[13px] font-semibold">{brl(charge.amount)} · {charge.method.toUpperCase()}</p>
-              <p className="mt-1 text-[11px] text-[#667085]">{states(charge)} · {charge.environment}</p>
+              <p className="text-[length:var(--type-body-compact)] font-semibold">{brl(charge.amount)} · {charge.method.toUpperCase()}</p>
+              <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{states(charge)} · {charge.environment}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {charge.creation_state==="prepared"?<>
-                <label className="flex gap-2 text-[11px]"><input type="checkbox"
+                <label className="flex gap-2 text-[length:var(--type-caption)]"><input type="checkbox"
                   checked={confirmId===charge.id} onChange={e=>setConfirmId(e.target.checked?charge.id:null)}/>Confirmar emissão</label>
                 <button className={btn} disabled={busy||!enabled||confirmId!==charge.id}
                   onClick={()=>void execute(()=>asaasApi.issue(charge.id),"Cobrança emitida; confirme o estado na Asaas.")}>Autorizar emissão</button>
@@ -161,10 +161,10 @@ export default function AsaasOperationsPage() {
             </div>
           </div>)}</div>
       </section>
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[15px] font-semibold">Eventos da Asaas</h2>
-        {events.slice(0,25).map(e=><p key={e.event_id} className="mt-2 text-[11px] text-[#667085]">{e.event_type} · {e.event_id.slice(0,10)}</p>)}
-        {events.length===0&&<p className="mt-3 text-[12px] text-[#667085]">Sem eventos recebidos.</p>}
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-[length:var(--type-body-comfort)] font-semibold">Eventos da Asaas</h2>
+        {events.slice(0,25).map(e=><p key={e.event_id} className="mt-2 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{e.event_type} · {e.event_id.slice(0,10)}</p>)}
+        {events.length===0&&<p className="mt-3 text-xs text-[var(--color-legacy-667085)]">Sem eventos recebidos.</p>}
       </section>
     </main>
   </div>;

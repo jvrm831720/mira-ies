@@ -10,25 +10,25 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
       label: "Risco crítico",
       value: s?.critico ?? 0,
       icon: AlertTriangle,
-      accent: "text-[#F97066]",
+      accent: "text-[var(--color-legacy-f97066)]",
     },
     {
       label: "Risco médio",
       value: s?.medio ?? 0,
       icon: Activity,
-      accent: "text-[#FDB022]",
+      accent: "text-[var(--color-legacy-fdb022)]",
     },
     {
       label: "Risco baixo",
       value: s?.baixo ?? 0,
       icon: CheckCircle2,
-      accent: "text-[#32D583]",
+      accent: "text-[var(--color-legacy-32d583)]",
     },
     {
       label: "Total pontuados",
       value: data?.total_scored ?? (s ? s.baixo + s.medio + s.critico : 0),
       icon: Users,
-      accent: "text-[#7C8DB5]",
+      accent: "text-[var(--color-legacy-7c8db5)]",
     },
   ];
 
@@ -38,10 +38,10 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
         <article
           key={item.label}
           data-mira-card="true"
-          className="rounded-xl border border-[var(--overview-border,#292d33)] bg-[var(--overview-surface,#121417)] p-4"
+          className="rounded-xl border border-[var(--overview-border,var(--color-legacy-292d33))] bg-[var(--overview-surface,var(--color-legacy-121417))] p-4"
         >
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--overview-subtle,#777f8a)]">
+            <p className="text-[length:var(--type-caption)] font-medium uppercase tracking-[0.08em] text-[var(--overview-subtle,var(--color-legacy-777f8a))]">
               {item.label}
             </p>
             <item.icon className={cn("h-4 w-4", item.accent)} />
@@ -49,7 +49,7 @@ export function KpiCards({ data, loading }: { data?: RiskSummary; loading?: bool
           {loading ? (
             <Skeleton className="mt-3 h-8 w-16 bg-white/10" />
           ) : (
-            <p className="mt-3 text-[28px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[var(--overview-text,#f8fafc)]">
+            <p className="mt-3 text-[length:var(--type-display-medium)] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[var(--overview-text,var(--color-legacy-f8fafc))]">
               {item.value?.toLocaleString("pt-BR")}
             </p>
           )}

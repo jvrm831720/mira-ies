@@ -100,11 +100,11 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
   const hasVolume = totalSent > 0 || (summary?.unique_students_contacted ?? 0) > 0;
 
   return (
-    <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+    <section className="rounded-xl border border-[var(--color-legacy-e5e7eb)] bg-white p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-[14px] font-semibold text-[#101828]">Analytics de retenção</h2>
-          <p className="mt-1 text-[11px] text-[#667085]">
+          <h2 className="text-sm font-semibold text-[var(--color-legacy-101828)]">Analytics de retenção</h2>
+          <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
             Agregados de InterventionLog no tenant autenticado · últimos{" "}
             {data?.period_days ?? days} dias
             {data?.generated_at
@@ -112,7 +112,7 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
               : ""}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF8FF] px-2.5 py-1 text-[10px] font-medium text-[#175CD3]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-legacy-eff8ff)] px-2.5 py-1 text-[length:var(--type-overline)] font-medium text-[var(--color-legacy-175cd3)]">
           <MessageSquare className="h-3 w-3" />
           GET /agents/retention/analytics
         </span>
@@ -129,7 +129,7 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
       {query.isError && (
         <div
           role="alert"
-          className="rounded-lg border border-[#FECDCA] bg-[#FEF3F2] p-4 text-[12px] text-[#B42318]"
+          className="rounded-lg border border-[var(--color-legacy-fecdca)] bg-[var(--color-red-tint)] p-4 text-xs text-[var(--color-legacy-b42318)]"
         >
           Não foi possível carregar o analytics de retenção. Verifique permissões e disponibilidade da
           API.
@@ -137,9 +137,9 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
       )}
 
       {!query.isLoading && !query.isError && data && !hasVolume && (
-        <div className="rounded-lg bg-[#F8FAFC] p-6 text-center">
-          <p className="text-[13px] font-semibold text-[#344054]">Sem intervenções no período</p>
-          <p className="mt-1 text-[12px] text-[#667085]">
+        <div className="rounded-lg bg-[var(--color-legacy-f8fafc)] p-6 text-center">
+          <p className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-344054)]">Sem intervenções no período</p>
+          <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">
             Não há registros de InterventionLog com status sent nos últimos{" "}
             {data.period_days ?? days} dias para este tenant. Isso não indica estabilidade do risco.
           </p>
@@ -173,19 +173,19 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
           </div>
 
           {(summary?.estimated_cost_brl_total != null || data.cost_note) && (
-            <p className="text-[11px] text-[#667085]">
+            <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
               Custo estimado no período:{" "}
-              <strong className="text-[#344054]">
+              <strong className="text-[var(--color-legacy-344054)]">
                 {moneyLabel(summary?.estimated_cost_brl_total)}
               </strong>
               {data.cost_note ? ` · ${data.cost_note}` : " · baseado na configuração de custo por canal"}
             </p>
           )}
 
-          <div className="rounded-lg border border-[#FEDF89] bg-[#FFFAEB] p-3">
+          <div className="rounded-lg border border-[var(--color-source-fedf89)] bg-[var(--color-source-fffaeb)] p-3">
             <div className="flex items-start gap-2">
-              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#B54708]" />
-              <div className="text-[11px] leading-relaxed text-[#93370D]">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-source-b54708)]" />
+              <div className="text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-93370d)]">
                 <p className="font-semibold">Leitura correta dos indicadores</p>
                 <ul className="mt-1 list-disc space-y-0.5 pl-4">
                   <li>
@@ -204,7 +204,7 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
                   </li>
                 </ul>
                 {data.attribution_note && (
-                  <p className="mt-2 text-[#B54708]">{data.attribution_note}</p>
+                  <p className="mt-2 text-[var(--color-source-b54708)]">{data.attribution_note}</p>
                 )}
               </div>
             </div>
@@ -212,10 +212,10 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
 
           {channelKeys.length > 0 && (
             <div>
-              <h3 className="mb-3 text-[12px] font-semibold text-[#344054]">Por canal</h3>
+              <h3 className="mb-3 text-xs font-semibold text-[var(--color-legacy-344054)]">Por canal</h3>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left text-[12px]">
-                  <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
+                <table className="w-full min-w-[720px] text-left text-xs">
+                  <thead className="bg-[var(--color-source-f9fafb)] text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.05em] text-[var(--color-legacy-667085)]">
                     <tr>
                       <th className="px-3 py-2">Canal</th>
                       <th className="px-3 py-2">Mensagens</th>
@@ -227,12 +227,12 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
                       <th className="px-3 py-2">Custo est.</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#EAECF0]">
+                  <tbody className="divide-y divide-[var(--color-legacy-eaecf0)]">
                     {channelKeys.map((key) => {
                       const ch = channels![key];
                       return (
                         <tr key={key}>
-                          <td className="px-3 py-2.5 font-medium text-[#101828]">
+                          <td className="px-3 py-2.5 font-medium text-[var(--color-legacy-101828)]">
                             {CHANNEL_LABEL[key]}
                           </td>
                           <td className="px-3 py-2.5 tabular-nums">{numLabel(ch.messages_sent)}</td>
@@ -258,7 +258,7 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-[10px] text-[#667085]">
+              <p className="mt-2 text-[length:var(--type-overline)] text-[var(--color-legacy-667085)]">
                 Taxas de entrega/engajamento/bounce usam o denominador de mensagens do canal no
                 período (backend). Latência média, quando disponível, vem de ProviderCallMetric.
               </p>
@@ -269,16 +269,16 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
                   const max = Math.max(...channelKeys.map((k) => channels![k].messages_sent ?? 0), 1);
                   const width = Math.round((sent / max) * 100);
                   return (
-                    <div key={key} className="flex items-center gap-3 text-[11px]">
-                      <span className="w-16 shrink-0 text-[#475467]">{CHANNEL_LABEL[key]}</span>
-                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#F2F4F7]">
+                    <div key={key} className="flex items-center gap-3 text-[length:var(--type-caption)]">
+                      <span className="w-16 shrink-0 text-[var(--color-legacy-475467)]">{CHANNEL_LABEL[key]}</span>
+                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[var(--color-legacy-f2f4f7)]">
                         <div
-                          className="h-full rounded-full bg-[#2563EB]"
+                          className="h-full rounded-full bg-[var(--color-legacy-2563eb)]"
                           style={{ width: `${width}%` }}
                           title={`${sent} mensagens`}
                         />
                       </div>
-                      <span className="w-10 shrink-0 text-right tabular-nums text-[#344054]">
+                      <span className="w-10 shrink-0 text-right tabular-nums text-[var(--color-legacy-344054)]">
                         {sent}
                       </span>
                     </div>
@@ -290,18 +290,18 @@ export function RetentionAnalyticsPanel({ days }: { days: number }) {
 
           {Array.isArray(data.providers) && data.providers.length > 0 && (
             <div>
-              <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Provedores (latência)</h3>
-              <ul className="space-y-1.5 text-[12px] text-[#475467]">
+              <h3 className="mb-2 text-xs font-semibold text-[var(--color-legacy-344054)]">Provedores (latência)</h3>
+              <ul className="space-y-1.5 text-xs text-[var(--color-legacy-475467)]">
                 {data.providers.map((p, idx) => (
                   <li
                     key={`${p.channel}-${p.provider}-${idx}`}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#EAECF0] px-3 py-2"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--color-legacy-eaecf0)] px-3 py-2"
                   >
                     <span>
-                      <strong className="text-[#101828]">{p.provider || "—"}</strong>
-                      <span className="text-[#667085]"> · {p.channel || "canal n/d"}</span>
+                      <strong className="text-[var(--color-legacy-101828)]">{p.provider || "—"}</strong>
+                      <span className="text-[var(--color-legacy-667085)]"> · {p.channel || "canal n/d"}</span>
                     </span>
-                    <span className="tabular-nums text-[11px]">
+                    <span className="tabular-nums text-[length:var(--type-caption)]">
                       {p.attempts != null ? `${numLabel(p.attempts)} tentativas` : ""}
                       {p.average_latency_ms != null
                         ? ` · ${Math.round(p.average_latency_ms)} ms méd.`
@@ -335,9 +335,9 @@ function Stat({
   const normalCls = "border-gray-200";
   return (
     <div className={cn(base, caution ? cautionCls : normalCls)}>
-      <p className="text-[11px] font-medium text-[#667085]">{label}</p>
-      <p className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-[#101828]">{value}</p>
-      <p className="mt-1 text-[10px] leading-relaxed text-[#667085]">{hint}</p>
+      <p className="text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-667085)]">{label}</p>
+      <p className="mt-2 text-[length:var(--type-heading-medium)] font-semibold tracking-[-0.03em] text-[var(--color-legacy-101828)]">{value}</p>
+      <p className="mt-1 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-legacy-667085)]">{hint}</p>
     </div>
   );
 }

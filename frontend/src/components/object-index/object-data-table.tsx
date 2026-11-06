@@ -75,7 +75,7 @@ export function ObjectDataTable<T extends { id: string }>({
           aria-label={field.sortable ? "Ordenar por " + field.title : field.title}
           onClick={() => onSortChange(!active ? { key: field.key, desc: false }
             : !sort?.desc ? { key: field.key, desc: true } : null)}
-          className={cn("flex max-w-full items-center gap-1.5 truncate text-left text-[11px] font-semibold",
+          className={cn("flex max-w-full items-center gap-1.5 truncate text-left text-[length:var(--type-caption)] font-semibold",
             field.sortable && "cursor-pointer hover:text-[var(--color-ink)]",
             active && "text-[var(--color-ink)]")}>
           <span className="truncate">{field.title}</span>
@@ -84,7 +84,7 @@ export function ObjectDataTable<T extends { id: string }>({
       },
       cell: ({ row }) => field.primary && onOpen
         ? <button type="button" onClick={() => onOpen(row.original)}
-            className="max-w-full truncate text-left text-[12px] font-semibold text-[var(--color-ink)] hover:text-[var(--color-blue)] focus-visible:rounded focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
+            className="max-w-full truncate text-left text-xs font-semibold text-[var(--color-ink)] hover:text-[var(--color-blue)] focus-visible:rounded focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
             <PropertyCell field={field} record={row.original} />
           </button>
         : <PropertyCell field={field} record={row.original} />,
@@ -123,7 +123,7 @@ export function ObjectDataTable<T extends { id: string }>({
   </div>;
 
   if (!records.length) return <div className="flex min-h-40 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-    <p className="text-[13px] font-medium text-[var(--color-slate-600)]">{emptyText}</p>{emptyAction}
+    <p className="text-[length:var(--type-body-compact)] font-medium text-[var(--color-slate-600)]">{emptyText}</p>{emptyAction}
   </div>;
 
   return <div className="w-full overflow-x-auto" role="region" tabIndex={0} aria-label="Tabela de registros; role para navegar horizontalmente">
@@ -133,7 +133,7 @@ export function ObjectDataTable<T extends { id: string }>({
           {group.headers.map(header => <th key={header.id}
             scope="col" aria-sort={header.column.getCanSort() ? header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : "none" : undefined}
             style={{ width: header.getSize() }}
-            className="group h-10 border-b border-r border-[var(--color-border)] px-3 text-[11px] font-medium text-[var(--color-slate-600)] last:border-r-0">
+            className="group h-10 border-b border-r border-[var(--color-border)] px-3 text-[length:var(--type-caption)] font-medium text-[var(--color-slate-600)] last:border-r-0">
             {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
           </th>)}
         </tr>)}
@@ -144,7 +144,7 @@ export function ObjectDataTable<T extends { id: string }>({
           className={cn("h-11 border-b transition-colors duration-[var(--motion-standard)] hover:bg-[var(--color-panel)] motion-reduce:transition-none",
             row.getIsSelected() && "bg-[var(--color-blue-tint)]/50")}>
           {row.getVisibleCells().map(cell => <td key={cell.id} style={{ width: cell.column.getSize() }}
-            className="h-11 max-w-0 overflow-hidden border-b border-[var(--color-border-subtle)] px-3 text-[12px] text-[var(--color-slate-600)]">
+            className="h-11 max-w-0 overflow-hidden border-b border-[var(--color-border-subtle)] px-3 text-xs text-[var(--color-slate-600)]">
             {flexRender(cell.column.columnDef.cell, cell.getContext())}
           </td>)}
         </tr>)}

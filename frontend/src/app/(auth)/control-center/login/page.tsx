@@ -97,12 +97,12 @@ export default function ControlCenterLoginPage() {
     <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center justify-center">
         <div className="grid w-full overflow-hidden rounded-[2rem] border border-black/5 bg-white shadow-[0_28px_100px_rgba(27,31,48,0.12)] lg:min-h-[640px] lg:grid-cols-[0.95fr_1.05fr]">
-          <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#17191d] p-10 text-white lg:flex xl:p-14">
-            <div className="absolute -right-24 -top-20 h-80 w-80 rounded-full bg-[#4050cd]/40 blur-3xl" />
-            <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-[#f47769]/20 blur-3xl" />
+          <aside className="relative hidden flex-col justify-between overflow-hidden bg-[var(--brand-midnight)] p-10 text-white lg:flex xl:p-14">
+            <div className="absolute -right-24 -top-20 h-80 w-80 rounded-full bg-[var(--brand-indigo)]/40 blur-3xl" />
+            <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-[var(--brand-coral)]/20 blur-3xl" />
             <div className="relative">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#4050cd]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[var(--brand-indigo)]">
                   <Fingerprint size={24} strokeWidth={2.3} />
                 </div>
                 <div>
@@ -111,7 +111,7 @@ export default function ControlCenterLoginPage() {
                 </div>
               </div>
               <div className="mt-24 max-w-md">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#aeb7ff]">Acesso interno</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-legacy-aeb7ff)]">Acesso interno</p>
                 <h1 className="mt-5 text-4xl font-semibold leading-[1.12] tracking-tight xl:text-5xl">
                   Controle operacional. Segurança em cada acesso.
                 </h1>
@@ -129,7 +129,7 @@ export default function ControlCenterLoginPage() {
           <section className="flex items-center justify-center p-6 sm:p-10 lg:p-12 xl:p-16">
             <div className="w-full max-w-md">
               <div className="mb-10 flex items-center gap-3 lg:hidden">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#4050cd] text-white">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--brand-indigo)] text-white">
                   <Fingerprint size={24} />
                 </div>
                 <div>
@@ -139,10 +139,10 @@ export default function ControlCenterLoginPage() {
               </div>
 
                             <>
-                  <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef0ff] text-[#4050cd]">
+                  <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--color-legacy-eef0ff)] text-[var(--brand-indigo)]">
                     {step === "credentials" ? <KeyRound size={23} /> : <ShieldCheck size={23} />}
                   </div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#4050cd]">
+                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--brand-indigo)]">
                     {step === "credentials" ? "Área restrita" : "Verificação de segurança"}
                   </p>
                   <h2 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-950">
@@ -171,17 +171,17 @@ export default function ControlCenterLoginPage() {
                         <label htmlFor="admin-email" className="mb-2 block text-sm font-medium text-neutral-800">E-mail administrativo</label>
                         <div className="relative">
                           <Mail size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-                          <input id="admin-email" type="email" autoComplete="username" required maxLength={255} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="voce@empresa.com.br" className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm outline-none transition placeholder:text-neutral-400 focus:border-[#4050cd] focus:ring-4 focus:ring-[#4050cd]/10" />
+                          <input id="admin-email" type="email" autoComplete="username" required maxLength={255} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="voce@empresa.com.br" className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm outline-none transition placeholder:text-neutral-400 focus:border-[var(--brand-indigo)] focus:ring-4 focus:ring-[var(--brand-indigo)]/10" />
                         </div>
                       </div>
                       <div>
                         <label htmlFor="admin-password" className="mb-2 block text-sm font-medium text-neutral-800">Senha</label>
                         <div className="relative">
                           <LockKeyhole size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-                          <input id="admin-password" type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={(event) => setPassword(event.target.value)} className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[#4050cd] focus:ring-4 focus:ring-[#4050cd]/10" />
+                          <input id="admin-password" type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={(event) => setPassword(event.target.value)} className="h-12 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-4 text-sm outline-none transition focus:border-[var(--brand-indigo)] focus:ring-4 focus:ring-[var(--brand-indigo)]/10" />
                         </div>
                       </div>
-                      <button type="submit" disabled={loading} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#4050cd] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3442b5] disabled:cursor-not-allowed disabled:opacity-60">
+                      <button type="submit" disabled={loading} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-indigo)] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--color-legacy-3442b5)] disabled:cursor-not-allowed disabled:opacity-60">
                         {loading ? <><LoaderCircle size={17} className="animate-spin" /> Validando...</> : <>Continuar com segurança <ArrowLeft size={17} className="rotate-180" /></>}
                       </button>
                     </form>
@@ -189,10 +189,10 @@ export default function ControlCenterLoginPage() {
                     <form className="mt-7 space-y-5" onSubmit={submitCode}>
                       <div>
                         <label htmlFor="mfa-code" className="mb-2 block text-sm font-medium text-neutral-800">Código de verificação</label>
-                        <input id="mfa-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} required autoFocus value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" aria-describedby="mfa-hint" className="h-14 w-full rounded-xl border border-neutral-200 bg-white px-4 text-center font-mono text-2xl tracking-[0.45em] outline-none transition placeholder:text-neutral-300 focus:border-[#4050cd] focus:ring-4 focus:ring-[#4050cd]/10" />
+                        <input id="mfa-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} required autoFocus value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" aria-describedby="mfa-hint" className="h-14 w-full rounded-xl border border-neutral-200 bg-white px-4 text-center font-mono text-2xl tracking-[0.45em] outline-none transition placeholder:text-neutral-300 focus:border-[var(--brand-indigo)] focus:ring-4 focus:ring-[var(--brand-indigo)]/10" />
                         <p id="mfa-hint" className="mt-2 text-xs leading-5 text-neutral-500">O código expira em 5 minutos e só pode ser usado uma vez.</p>
                       </div>
-                      <button type="submit" disabled={loading || code.length !== 6} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#4050cd] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#3442b5] disabled:cursor-not-allowed disabled:opacity-60">
+                      <button type="submit" disabled={loading || code.length !== 6} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--brand-indigo)] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--color-legacy-3442b5)] disabled:cursor-not-allowed disabled:opacity-60">
                         {loading ? <><LoaderCircle size={17} className="animate-spin" /> Verificando...</> : <><ShieldCheck size={17} /> Verificar código</>}
                       </button>
                       <button type="button" disabled={loading} onClick={restart} className="w-full rounded-full px-4 py-3 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900">

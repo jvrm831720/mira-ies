@@ -49,7 +49,7 @@ function ResetPasswordForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7f7f5] p-4 md:p-8">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--color-legacy-f7f7f5)] p-4 md:p-8">
       <div className="w-full max-w-[460px]">
         <div className="mb-8 flex justify-center">
           <div className="rounded-xl bg-white px-4 py-3">

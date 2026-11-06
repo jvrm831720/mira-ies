@@ -144,8 +144,8 @@ export function SmartImportWizard() {
           </div>
         </dl>
         <div className="mt-5 flex gap-4 text-sm">
-          <a href="/importar" className="text-[#4050CD] underline">Nova importação</a>
-          <a href="/importacoes" className="text-[#4050CD] underline">Ver histórico</a>
+          <a href="/importar" className="text-[var(--brand-indigo)] underline">Nova importação</a>
+          <a href="/importacoes" className="text-[var(--brand-indigo)] underline">Ver histórico</a>
         </div>
         {result.scoring && (
           <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${result.scoring.error ? "bg-amber-50 text-amber-800" : "bg-slate-50 text-slate-700"}`}>
@@ -184,7 +184,7 @@ export function SmartImportWizard() {
           type="button"
           disabled={busy || !confirmed || !mappingValidated || preview.key_stats.valid < 1 || Object.values(draft).filter((field) => field === "matricula").length !== 1}
           onClick={() => void confirmImport()}
-          className="rounded-lg bg-[#4050CD] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-lg bg-[var(--brand-indigo)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {busy ? "Importando…" : "Confirmar importação"}
         </button>
@@ -214,7 +214,7 @@ export function SmartImportWizard() {
                   <td className="py-2 pr-4 font-medium text-slate-800">
                     {header}
                     {isKey && (
-                      <span className="ml-2 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#4050CD]">
+                      <span className="ml-2 rounded bg-blue-50 px-1.5 py-0.5 text-[length:var(--type-overline)] font-semibold uppercase text-[var(--brand-indigo)]">
                         chave
                       </span>
                     )}
@@ -247,7 +247,7 @@ export function SmartImportWizard() {
                       <button
                         type="button"
                         onClick={() => setCreatingFor(header)}
-                        className="mt-1 text-xs font-medium text-[#4050CD]"
+                        className="mt-1 text-xs font-medium text-[var(--brand-indigo)]"
                       >
                         + criar campo customizado
                       </button>
@@ -297,8 +297,8 @@ export function SmartImportWizard() {
         Confirmo que posso importar estes dados para a instituição e revisei os campos e alertas.
       </label>
       <div className="mt-4 flex flex-wrap gap-4 text-xs">
-        <a href="/importar/multiplos" className="text-[#4050CD] underline">Importar múltiplas bases</a>
-        <a href="/importacoes" className="text-[#4050CD] underline">Histórico de importações</a>
+        <a href="/importar/multiplos" className="text-[var(--brand-indigo)] underline">Importar múltiplas bases</a>
+        <a href="/importacoes" className="text-[var(--brand-indigo)] underline">Histórico de importações</a>
       </div>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
     </section>
@@ -366,7 +366,7 @@ function CreateFieldInline({
               is_pii: isPii,
             })
           }
-          className="rounded-md bg-[#4050CD] px-3 py-1.5 text-xs font-medium text-white"
+          className="rounded-md bg-[var(--brand-indigo)] px-3 py-1.5 text-xs font-medium text-white"
         >
           Criar e mapear
         </button>

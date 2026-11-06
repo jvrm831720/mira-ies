@@ -38,7 +38,7 @@ const statusLabel: Record<string, string> = {
   passed: "Aprovado", failed: "Reprovado",
 };
 const date = (value: string) => new Date(value).toLocaleDateString("pt-BR");
-const fieldStyle = "h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] text-[#344054] outline-none focus:border-[#2563EB]";
+const fieldStyle = "h-10 w-full rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white px-3 text-xs text-[var(--color-legacy-344054)] outline-none focus:border-[var(--color-legacy-2563eb)]";
 
 export function AcademicOperationsPanel() {
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -105,110 +105,110 @@ export function AcademicOperationsPanel() {
     finally{setBusy(false);}
   }
 
-  return <section aria-label="Matrícula e histórico acadêmico" className="overflow-hidden rounded-xl border border-[#E4E7EC] bg-white">
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAECF0] px-6 py-5">
+  return <section aria-label="Matrícula e histórico acadêmico" className="overflow-hidden rounded-xl border border-[var(--color-line)] bg-white">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-legacy-eaecf0)] px-6 py-5">
       <div>
-        <h2 className="text-[17px] font-semibold">Sua jornada acadêmica</h2>
-        <p className="mt-1 text-[12px] text-[#667085]">Matrículas por período, ofertas de disciplinas e histórico finalizado.</p>
+        <h2 className="text-[length:var(--type-heading-compact)] font-semibold">Sua jornada acadêmica</h2>
+        <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">Matrículas por período, ofertas de disciplinas e histórico finalizado.</p>
       </div>
-      <button type="button" onClick={()=>void refresh()} className="flex items-center gap-1.5 rounded-lg border border-[#EAECF0] px-3 py-2 text-[11px] text-[#475467] hover:bg-[#F9FAFB]">
+      <button type="button" onClick={()=>void refresh()} className="flex items-center gap-1.5 rounded-lg border border-[var(--color-legacy-eaecf0)] px-3 py-2 text-[length:var(--type-caption)] text-[var(--color-legacy-475467)] hover:bg-[var(--color-source-f9fafb)]">
         <RefreshCw className="h-3.5 w-3.5" /> Atualizar
       </button>
     </div>
-    <div className="flex gap-1.5 border-b border-[#EAECF0] px-5 pt-2">
+    <div className="flex gap-1.5 border-b border-[var(--color-legacy-eaecf0)] px-5 pt-2">
       {([["enrollment","Matrícula e rematrícula",GraduationCap],["transcript","Histórico acadêmico",FileText]] as const).map(([id,label,Icon])=>
         <button type="button" key={id} onClick={()=>setActive(id)}
-          className={"flex items-center gap-2 border-b-2 px-3 py-3 text-[12px] font-semibold " +
-            (active===id?"border-[#2563EB] text-[#2563EB]":"border-transparent text-[#667085]")}>
+          className={"flex items-center gap-2 border-b-2 px-3 py-3 text-xs font-semibold " +
+            (active===id?"border-[var(--color-legacy-2563eb)] text-[var(--color-legacy-2563eb)]":"border-transparent text-[var(--color-legacy-667085)]")}>
           <Icon className="h-4 w-4"/>{label}
         </button>)}
     </div>
     <div className="space-y-5 p-6">
-      {loading && <p className="flex items-center gap-2 text-[12px] text-[#667085]"><Loader2 className="h-4 w-4 animate-spin"/> Consultando informações…</p>}
-      {failure && <p role="alert" className="rounded-lg bg-[#FFF4F3] p-3 text-[12px] text-[#B42318]">{failure}</p>}
-      {message && <p role="status" className="rounded-lg bg-[#EEF7F1] p-3 text-[12px] text-[#027A48]">{message}</p>}
-      {!loading&&!available&&<p className="text-[12px] text-[#667085]">
+      {loading && <p className="flex items-center gap-2 text-xs text-[var(--color-legacy-667085)]"><Loader2 className="h-4 w-4 animate-spin"/> Consultando informações…</p>}
+      {failure && <p role="alert" className="rounded-lg bg-[var(--color-legacy-fff4f3)] p-3 text-xs text-[var(--color-legacy-b42318)]">{failure}</p>}
+      {message && <p role="status" className="rounded-lg bg-[var(--color-legacy-eef7f1)] p-3 text-xs text-[var(--color-source-027a48)]">{message}</p>}
+      {!loading&&!available&&<p className="text-xs text-[var(--color-legacy-667085)]">
         Essa etapa depende da habilitação institucional. Outros serviços do portal continuam disponíveis.
       </p>}
       {!loading&&available&&active==="enrollment"&&<>
-        {!programs.length&&<div className="rounded-lg bg-[#F8FAFC] px-4 py-5 text-[12px] text-[#667085]">
+        {!programs.length&&<div className="rounded-lg bg-[var(--color-legacy-f8fafc)] px-4 py-5 text-xs text-[var(--color-legacy-667085)]">
           Sua instituição ainda não registrou um vínculo com curso e currículo publicado. Entre em contato com a secretaria.
         </div>}
         {!!programs.length&&<div className="grid gap-3 md:grid-cols-2">
-          <label className="text-[11px] font-medium text-[#475467]">Curso
+          <label className="text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-475467)]">Curso
             <select className={fieldStyle+" mt-1"} value={programId} onChange={e=>setProgramId(e.target.value)}>
               {programs.map(p=><option key={p.id} value={p.id}>{p.program_name} · {p.curriculum_label}</option>)}
             </select>
           </label>
-          <label className="text-[11px] font-medium text-[#475467]">Período acadêmico
+          <label className="text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-475467)]">Período acadêmico
             <select className={fieldStyle+" mt-1"} value={termId} onChange={e=>setTermId(e.target.value)}>
               <option value="">Selecionar período</option>
               {terms.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
             </select>
           </label>
         </div>}
-        {current?.status!=="active"&&current&&<p className="rounded-lg bg-[#FFFAEB] p-3 text-[11px] text-[#92400E]">
+        {current?.status!=="active"&&current&&<p className="rounded-lg bg-[var(--color-source-fffaeb)] p-3 text-[length:var(--type-caption)] text-[var(--color-legacy-92400e)]">
           Vínculo não ativo. Solicite regularização acadêmica à secretaria.
         </p>}
         {programs.length>0&&termId&&current?.status==="active"&&<div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-[12px] font-semibold">Disciplinas ofertadas</h3>
-            <span className="text-[11px] text-[#98A2B3]">{selected.length} selecionadas</span>
+            <h3 className="text-xs font-semibold">Disciplinas ofertadas</h3>
+            <span className="text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">{selected.length} selecionadas</span>
           </div>
-          {!offers.length&&<p className="rounded-lg border border-[#EAECF0] p-5 text-[12px] text-[#667085]">Nenhuma oferta aberta para este período.</p>}
-          <div className="divide-y divide-[#EAECF0] overflow-hidden rounded-lg border border-[#EAECF0]">
-            {offers.map(o=><label key={o.id} className="flex cursor-pointer items-center gap-3 p-3 hover:bg-[#F9FAFB]">
+          {!offers.length&&<p className="rounded-lg border border-[var(--color-legacy-eaecf0)] p-5 text-xs text-[var(--color-legacy-667085)]">Nenhuma oferta aberta para este período.</p>}
+          <div className="divide-y divide-[var(--color-legacy-eaecf0)] overflow-hidden rounded-lg border border-[var(--color-legacy-eaecf0)]">
+            {offers.map(o=><label key={o.id} className="flex cursor-pointer items-center gap-3 p-3 hover:bg-[var(--color-source-f9fafb)]">
               <input type="checkbox" checked={selected.includes(o.id)} disabled={!o.available}
                 onChange={e=>setSelected(v=>e.target.checked?[...v,o.id]:v.filter(x=>x!==o.id))}
-                className="h-4 w-4 accent-[#2563EB]" />
+                className="h-4 w-4 accent-[var(--color-legacy-2563eb)]" />
               <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-semibold text-[#344054]">{o.subject_name}</span>
-                <span className="mt-1 block text-[11px] text-[#85858B]">{o.code} · Etapa {o.period_number}</span>
+                <span className="block text-xs font-semibold text-[var(--color-legacy-344054)]">{o.subject_name}</span>
+                <span className="mt-1 block text-[length:var(--type-caption)] text-[var(--color-legacy-85858b)]">{o.code} · Etapa {o.period_number}</span>
               </span>
-              <span className={"text-[11px] "+(o.available?"text-[#667085]":"text-[#B42318]")}>
+              <span className={"text-[length:var(--type-caption)] "+(o.available?"text-[var(--color-legacy-667085)]":"text-[var(--color-legacy-b42318)]")}>
                 {o.capacity===null?"Vagas sem limite informado":o.available?o.capacity-o.occupied+" vagas":"Lotada"}
               </span>
             </label>)}
           </div>
           <button type="button" onClick={()=>void submit()} disabled={busy||!selected.length||hasSubmittedForTerm}
-            className="rounded-lg bg-[#202124] px-4 py-2.5 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+            className="rounded-lg bg-[var(--color-legacy-202124)] px-4 py-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
             {busy?"Registrando…":"Solicitar matrícula nas disciplinas"}
           </button>
-          <p className="text-[11px] leading-5 text-[#85858B]">
+          <p className="text-[length:var(--type-caption)] leading-5 text-[var(--color-legacy-85858b)]">
             A seleção não reserva vaga automaticamente. A instituição valida currículo, pré-requisitos, disponibilidade e regras antes da aprovação.
           </p>
         </div>}
-        <div className="border-t border-[#EAECF0] pt-4">
-          <h3 className="mb-3 text-[12px] font-semibold">Acompanhar solicitações{awaiting?" · pendentes":""}</h3>
-          {requests.length===0&&<p className="text-[12px] text-[#98A2B3]">Nenhuma matrícula solicitada ainda.</p>}
-          {requests.map(r=><article key={r.id} className="mb-2 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-[#EAECF0] p-3">
-            <div><p className="text-[12px] font-semibold">{statusLabel[r.kind]||r.kind} · {date(r.submitted_at)}</p>
-              <p className="mt-1 text-[11px] text-[#667085]">{r.class_ids.length} disciplina(s) solicitada(s)</p>
-              {r.decision_note&&<p className="mt-1 text-[11px] text-[#475467]">Decisão: {r.decision_note}</p>}
+        <div className="border-t border-[var(--color-legacy-eaecf0)] pt-4">
+          <h3 className="mb-3 text-xs font-semibold">Acompanhar solicitações{awaiting?" · pendentes":""}</h3>
+          {requests.length===0&&<p className="text-xs text-[var(--color-legacy-98a2b3)]">Nenhuma matrícula solicitada ainda.</p>}
+          {requests.map(r=><article key={r.id} className="mb-2 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-[var(--color-legacy-eaecf0)] p-3">
+            <div><p className="text-xs font-semibold">{statusLabel[r.kind]||r.kind} · {date(r.submitted_at)}</p>
+              <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{r.class_ids.length} disciplina(s) solicitada(s)</p>
+              {r.decision_note&&<p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-475467)]">Decisão: {r.decision_note}</p>}
             </div>
-            <span className={"rounded-lg px-2 py-1 text-[11px] font-medium "+
-              (r.status==="approved"?"bg-[#ECFDF3] text-[#027A48]":r.status==="rejected"?"bg-[#FEF3F2] text-[#B42318]":"bg-[#EFF4FF] text-[#175CD3]")}>
+            <span className={"rounded-lg px-2 py-1 text-[length:var(--type-caption)] font-medium "+
+              (r.status==="approved"?"bg-[var(--color-source-ecfdf3)] text-[var(--color-source-027a48)]":r.status==="rejected"?"bg-[var(--color-red-tint)] text-[var(--color-legacy-b42318)]":"bg-[var(--color-source-eff4ff)] text-[var(--color-legacy-175cd3)]")}>
               {statusLabel[r.status]||r.status}
             </span>
           </article>)}
-          <p className="mt-3 text-[11px] text-[#667085]">Para contestar uma decisão ou pedir exceção curricular, abra um requerimento em Serviços do aluno → Revisão acadêmica.</p>
+          <p className="mt-3 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Para contestar uma decisão ou pedir exceção curricular, abra um requerimento em Serviços do aluno → Revisão acadêmica.</p>
         </div>
       </>}
       {!loading&&available&&active==="transcript"&&<>
-        <div className="flex items-center gap-2 text-[11px] text-[#667085]"><BookOpen className="h-4 w-4"/> Somente disciplinas encerradas com avaliação e chamada verificadas.</div>
-        {!transcript.length&&<p className="rounded-lg bg-[#F9FAFB] p-5 text-[12px] text-[#667085]">Nenhum resultado finalizado disponível.</p>}
-        <div className="divide-y divide-[#EAECF0] overflow-hidden rounded-lg border border-[#EAECF0]">
+        <div className="flex items-center gap-2 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]"><BookOpen className="h-4 w-4"/> Somente disciplinas encerradas com avaliação e chamada verificadas.</div>
+        {!transcript.length&&<p className="rounded-lg bg-[var(--color-source-f9fafb)] p-5 text-xs text-[var(--color-legacy-667085)]">Nenhum resultado finalizado disponível.</p>}
+        <div className="divide-y divide-[var(--color-legacy-eaecf0)] overflow-hidden rounded-lg border border-[var(--color-legacy-eaecf0)]">
           {transcript.map((item,i)=><div key={i} className="flex flex-wrap items-center justify-between gap-3 p-4">
-            <div><p className="text-[12px] font-semibold text-[#344054]">{item.subject_name}</p>
-              <p className="mt-1 text-[11px] text-[#667085]"><Clock3 className="mr-1 inline h-3 w-3"/>{item.term_label} · Nota {item.grade_percent}% · Frequência {item.attendance_percent}%</p>
-              <p className="mt-1 text-[10px] text-[#98A2B3]">Regra institucional v{item.policy_version}</p>
+            <div><p className="text-xs font-semibold text-[var(--color-legacy-344054)]">{item.subject_name}</p>
+              <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]"><Clock3 className="mr-1 inline h-3 w-3"/>{item.term_label} · Nota {item.grade_percent}% · Frequência {item.attendance_percent}%</p>
+              <p className="mt-1 text-[length:var(--type-overline)] text-[var(--color-legacy-98a2b3)]">Regra institucional v{item.policy_version}</p>
             </div>
-            <span className={item.result==="passed"?"text-[12px] font-semibold text-[#027A48]":"text-[12px] font-semibold text-[#B42318]"}>
+            <span className={item.result==="passed"?"text-xs font-semibold text-[var(--color-source-027a48)]":"text-xs font-semibold text-[var(--color-legacy-b42318)]"}>
               {item.result==="passed"&&<CheckCircle2 className="mr-1 inline h-3.5 w-3.5"/>}{statusLabel[item.result]||item.result}
             </span>
           </div>)}
         </div>
-        <p className="text-[11px] leading-5 text-[#98A2B3]">Este histórico é uma visualização operacional. Para documentos oficiais, acesse Serviços do aluno e solicite emissão.</p>
+        <p className="text-[length:var(--type-caption)] leading-5 text-[var(--color-legacy-98a2b3)]">Este histórico é uma visualização operacional. Para documentos oficiais, acesse Serviços do aluno e solicite emissão.</p>
       </>}
     </div>
   </section>;
