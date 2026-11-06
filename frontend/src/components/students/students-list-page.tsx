@@ -37,12 +37,12 @@ const STUDENT_FIELDS: ObjectField<ObjectIndexStudent>[] = [
     key: "nome", title: "Aluno", type: "person", primary: true, sortable: true,
     filterable: true, width: 290, getValue: row => row.nome,
     render: row => <span className="flex min-w-0 items-center gap-2.5">
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[var(--color-panel)] text-[10px] font-semibold text-[var(--color-slate-600)]">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[var(--color-panel)] text-[length:var(--type-overline)] font-semibold text-[var(--color-slate-600)]">
         {initials(row.nome)}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[12px] font-semibold text-[var(--color-ink)]">{row.nome || "Sem nome"}</span>
-        <span className="block truncate text-[10px] font-normal text-[var(--color-muted)]">{row.matricula || "Matrícula não informada"}</span>
+        <span className="block truncate text-xs font-semibold text-[var(--color-ink)]">{row.nome || "Sem nome"}</span>
+        <span className="block truncate text-[length:var(--type-overline)] font-normal text-[var(--color-muted)]">{row.matricula || "Matrícula não informada"}</span>
       </span>
     </span>,
   },
@@ -57,14 +57,14 @@ const STUDENT_FIELDS: ObjectField<ObjectIndexStudent>[] = [
       : <span className="mira-tag border-[var(--color-border)] bg-[var(--color-panel)] text-[var(--color-slate-600)]">Sem classificação</span> },
   { key: "risk_score", title: "Score", type: "number", width: 100, sortable: true,
     getValue: row => row.risk_score, filterable: true,
-    render: row => <span className="font-mono text-[12px] tabular-nums">
+    render: row => <span className="font-mono text-xs tabular-nums">
       {typeof row.risk_score === "number" && Number.isFinite(row.risk_score) ? Math.round(row.risk_score) : "—"}
     </span> },
   { key: "follow_up", title: "Acompanhamento", type: "text", width: 185,
     getValue: row => row.follow_up?.status || null,
-    render: row => <span className="block truncate text-[11px]">
+    render: row => <span className="block truncate text-[length:var(--type-caption)]">
       {followUpLabel(row.follow_up?.status)}
-      {row.follow_up?.created_at && <span className="block text-[10px] text-[var(--color-muted)]">{formatDate(row.follow_up.created_at)}</span>}
+      {row.follow_up?.created_at && <span className="block text-[length:var(--type-overline)] text-[var(--color-muted)]">{formatDate(row.follow_up.created_at)}</span>}
     </span> },
 ];
 
@@ -176,9 +176,9 @@ export function StudentsListPage() {
     if (validGroup) router.replace("/alunos/grupos/" + encodeURIComponent(validGroup));
   }, [router, validGroup]);
 
-  if (validGroup) return <main role="status" className="mira-page p-8 text-[13px] text-[var(--color-slate-600)]">Abrindo o grupo completo de alunos…</main>;
-  if (me.isLoading) return <main className="p-8 text-[13px] text-[var(--color-slate-600)]" role="status">Carregando permissões…</main>;
-  if (me.isError || !canView) return <main role="alert" className="mira-page p-8 text-[13px]">
+  if (validGroup) return <main role="status" className="mira-page p-8 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">Abrindo o grupo completo de alunos…</main>;
+  if (me.isLoading) return <main className="p-8 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]" role="status">Carregando permissões…</main>;
+  if (me.isError || !canView) return <main role="alert" className="mira-page p-8 text-[length:var(--type-body-compact)]">
     Não foi possível confirmar a autorização para consultar os alunos.
   </main>;
 
@@ -205,14 +205,14 @@ export function StudentsListPage() {
           setCampaignName("");
         }}>Criar campanha de retenção ({rows.length})</Button> : undefined}
         emptyAction={state.query || state.filters.length
-          ? <button type="button" className="text-[12px] font-medium text-[var(--color-blue)] hover:underline"
+          ? <button type="button" className="text-xs font-medium text-[var(--color-blue)] hover:underline"
               onClick={() => setState(initialObjectIndexState(STUDENT_FIELDS))}>Limpar busca e filtros</button>
-          : canImport ? <Link href="/importar" className="text-[12px] font-medium text-[var(--color-blue)] hover:underline">Importar alunos</Link> : null}
+          : canImport ? <Link href="/importar" className="text-xs font-medium text-[var(--color-blue)] hover:underline">Importar alunos</Link> : null}
         actions={<div className="flex items-center gap-2">
-          <Link href="/alunos/grupos" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[12px] font-medium text-[var(--color-ink)] hover:bg-[var(--color-panel)]">
+          <Link href="/alunos/grupos" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-xs font-medium text-[var(--color-ink)] hover:bg-[var(--color-panel)]">
             <Users className="h-3.5 w-3.5" /> Grupos
           </Link>
-          {canImport && <Link href="/importar" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-[12px] font-medium text-white hover:bg-[var(--color-ink-900)]">
+          {canImport && <Link href="/importar" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-xs font-medium text-white hover:bg-[var(--color-ink-900)]">
             <Upload className="h-3.5 w-3.5" /> Importar
           </Link>}
         </div>}
@@ -221,7 +221,7 @@ export function StudentsListPage() {
             loading={movementsQuery.isLoading} unavailable={movementsQuery.isError}
             truncated={Boolean(movementsQuery.data?.movements_truncated || movementsQuery.data?.temporal_data_truncated)}
             onOpen={setSelectedId} />}
-          {groupId && !validGroup && <p role="alert" className="p-3 text-[12px] text-[var(--color-red)]">O grupo indicado não foi reconhecido.</p>}
+          {groupId && !validGroup && <p role="alert" className="p-3 text-xs text-[var(--color-red)]">O grupo indicado não foi reconhecido.</p>}
         </>}
       />
     </main>
@@ -234,11 +234,11 @@ export function StudentsListPage() {
         event.preventDefault();
         prepareCampaign();
       }}>
-        <p className="text-[13px] text-[var(--color-slate-600)]">{campaignIds.length} aluno(s) selecionado(s) nesta página. O público será revisado na régua; consentimento e elegibilidade continuam sob controle do servidor.</p>
-        <label className="block text-[12px] font-medium text-[var(--color-ink)]">Nome de referência
+        <p className="text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">{campaignIds.length} aluno(s) selecionado(s) nesta página. O público será revisado na régua; consentimento e elegibilidade continuam sob controle do servidor.</p>
+        <label className="block text-xs font-medium text-[var(--color-ink)]">Nome de referência
           <input value={campaignName} onChange={event => setCampaignName(event.target.value)}
             minLength={3} maxLength={100} placeholder="Ex.: Acompanhamento de novembro" required
-            className="mt-1 h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 text-[13px] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]" />
+            className="mt-1 h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-canvas)] px-3 text-[length:var(--type-body-compact)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]" />
         </label>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => setCampaignIds([])}>Cancelar</Button>

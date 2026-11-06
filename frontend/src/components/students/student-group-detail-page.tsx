@@ -70,14 +70,14 @@ function MetricCard({
   hint?: string;
 }) {
   return (
-    <article className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
+    <article className="rounded-xl border border-[var(--color-legacy-e5e7eb)] bg-white p-4">
+      <p className="text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.08em] text-[var(--color-legacy-98a2b3)]">
         {label}
       </p>
-      <p className="mt-2 text-[25px] font-semibold tracking-[-0.04em] tabular-nums text-[#111827]">
+      <p className="mt-2 text-[length:var(--type-size-25)] font-semibold tracking-[-0.04em] tabular-nums text-[var(--color-legacy-111827)]">
         {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
       </p>
-      {hint ? <p className="mt-1 text-[11px] leading-relaxed text-[#667085]">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-667085)]">{hint}</p> : null}
     </article>
   );
 }
@@ -86,15 +86,15 @@ function SignalStatus({ status }: { status: StudentGroupState }) {
   const presentation = signalStatusPresentation(status);
   const toneClass =
     presentation.tone === "success"
-      ? "border-[#ABEFC6] bg-[#ECFDF3] text-[#067647]"
+      ? "border-[var(--color-source-abefc6)] bg-[var(--color-source-ecfdf3)] text-[var(--color-legacy-067647)]"
       : presentation.tone === "warning"
-        ? "border-[#FEDF89] bg-[#FFFAEB] text-[#B54708]"
-        : "border-[#E5E7EB] bg-[#F8FAFC] text-[#667085]";
+        ? "border-[var(--color-source-fedf89)] bg-[var(--color-source-fffaeb)] text-[var(--color-source-b54708)]"
+        : "border-[var(--color-legacy-e5e7eb)] bg-[var(--color-legacy-f8fafc)] text-[var(--color-legacy-667085)]";
 
   return (
     <span
       className={
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold " +
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[length:var(--type-overline)] font-semibold " +
         toneClass
       }
       title={presentation.explanation}
@@ -114,16 +114,16 @@ function ErrorPanel({
   onRetry: () => void;
 }) {
   return (
-    <div role="alert" className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-5">
+    <div role="alert" className="rounded-xl border border-[var(--color-legacy-fecdca)] bg-[var(--color-red-tint)] p-5">
       <div className="flex items-start gap-2.5">
-        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#B42318]" />
+        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-legacy-b42318)]" />
         <div>
-          <p className="text-[13px] font-semibold text-[#B42318]">{title}</p>
-          <p className="mt-1 text-[12px] leading-relaxed text-[#667085]">{message}</p>
+          <p className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-b42318)]">{title}</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--color-legacy-667085)]">{message}</p>
           <button
             type="button"
             onClick={onRetry}
-            className="mt-3 text-[12px] font-semibold text-[#B42318] underline underline-offset-4"
+            className="mt-3 text-xs font-semibold text-[var(--color-legacy-b42318)] underline underline-offset-4"
           >
             Tentar novamente
           </button>
@@ -185,7 +185,7 @@ export function StudentGroupDetailPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/alunos/grupos"
-            className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#667085] transition hover:text-[#2563EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+            className="inline-flex items-center gap-2 text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-667085)] transition hover:text-[var(--color-legacy-2563eb)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-legacy-2563eb)]"
           >
             <ArrowLeft className="h-4 w-4" />
             Voltar para grupos
@@ -195,7 +195,7 @@ export function StudentGroupDetailPage() {
               type="button"
               onClick={() => void detail.refetch()}
               disabled={detail.isFetching}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#111827] transition hover:bg-[#F8FAFC] disabled:opacity-60"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--color-legacy-e5e7eb)] bg-white px-3 text-xs font-medium text-[var(--color-legacy-111827)] transition hover:bg-[var(--color-legacy-f8fafc)] disabled:opacity-60"
             >
               <RefreshCw className={"h-3.5 w-3.5" + (detail.isFetching ? " animate-spin" : "")} />
               Atualizar avaliação
@@ -231,17 +231,17 @@ export function StudentGroupDetailPage() {
 
         {detail.data ? (
           <>
-            <section className="rounded-xl border border-[#E5E7EB] bg-white p-5 sm:p-6">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#2563EB]">
+            <section className="rounded-xl border border-[var(--color-legacy-e5e7eb)] bg-white p-5 sm:p-6">
+              <p className="text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.08em] text-[var(--color-legacy-2563eb)]">
                 Grupo virtual · Catálogo {detail.data.catalog_version}
               </p>
-              <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.04em] text-[#111827]">
+              <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--color-legacy-111827)]">
                 {detail.data.name}
               </h1>
-              <p className="mt-1.5 max-w-3xl text-[13px] leading-relaxed text-[#667085]">
+              <p className="mt-1.5 max-w-3xl text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-legacy-667085)]">
                 {detail.data.description}
               </p>
-              <p className="mt-4 text-[11px] text-[#98A2B3]">
+              <p className="mt-4 text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">
                 Avaliação dos detalhes: {formatDateTime(detail.data.evaluated_at)}
               </p>
             </section>
@@ -276,25 +276,25 @@ export function StudentGroupDetailPage() {
             </section>
 
             {detail.data.truncated ? (
-              <div className="flex items-start gap-2.5 rounded-xl border border-[#FEDF89] bg-[#FFFAEB] p-4">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#B54708]" />
-                <p className="text-[12px] leading-relaxed text-[#B54708]">
+              <div className="flex items-start gap-2.5 rounded-xl border border-[var(--color-source-fedf89)] bg-[var(--color-source-fffaeb)] p-4">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-source-b54708)]" />
+                <p className="text-xs leading-relaxed text-[var(--color-source-b54708)]">
                   A avaliação do grupo foi truncada. As métricas representam apenas os alunos
                   avaliados nesta resposta.
                 </p>
               </div>
             ) : null}
 
-            <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-              <h2 className="text-[15px] font-semibold text-[#111827]">Sinais utilizados</h2>
+            <section className="rounded-xl border border-[var(--color-legacy-e5e7eb)] bg-white p-5">
+              <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-legacy-111827)]">Sinais utilizados</h2>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {detail.data.signals_used.map((signal) => (
-                  <article key={signal.id} className="rounded-lg border border-[#E5E7EB] p-4">
-                    <h3 className="text-[13px] font-semibold text-[#111827]">{signal.name}</h3>
-                    <p className="mt-2 text-[12px] leading-relaxed text-[#667085]">
+                  <article key={signal.id} className="rounded-lg border border-[var(--color-legacy-e5e7eb)] p-4">
+                    <h3 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-111827)]">{signal.name}</h3>
+                    <p className="mt-2 text-xs leading-relaxed text-[var(--color-legacy-667085)]">
                       {signal.description}
                     </p>
-                    <p className="mt-2 break-words font-mono text-[11px] text-[#344054]">
+                    <p className="mt-2 break-words font-mono text-[length:var(--type-caption)] text-[var(--color-legacy-344054)]">
                       {signal.activation_rule}
                     </p>
                   </article>
@@ -303,14 +303,14 @@ export function StudentGroupDetailPage() {
             </section>
 
             {detail.data.limitations.length > 0 ? (
-              <section className="rounded-xl border border-[#E5E7EB] bg-white p-5">
+              <section className="rounded-xl border border-[var(--color-legacy-e5e7eb)] bg-white p-5">
                 <div className="flex items-start gap-2.5">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#667085]" />
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-legacy-667085)]" />
                   <div>
-                    <h2 className="text-[13px] font-semibold text-[#111827]">Limitações</h2>
+                    <h2 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-111827)]">Limitações</h2>
                     <ul className="mt-2 space-y-1.5">
                       {detail.data.limitations.map((limitation, index) => (
-                        <li key={index} className="text-[12px] leading-relaxed text-[#667085]">
+                        <li key={index} className="text-xs leading-relaxed text-[var(--color-legacy-667085)]">
                           {limitation}
                         </li>
                       ))}
@@ -321,19 +321,19 @@ export function StudentGroupDetailPage() {
             ) : null}
 
             <section className="space-y-4">
-              <div className="flex flex-col gap-2 border-b border-[#E5E7EB] pb-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="flex flex-col gap-2 border-b border-[var(--color-legacy-e5e7eb)] pb-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="text-[17px] font-semibold tracking-[-0.02em] text-[#111827]">
+                  <h2 className="text-[length:var(--type-heading-compact)] font-semibold tracking-[-0.02em] text-[var(--color-legacy-111827)]">
                     Alunos integrantes
                   </h2>
-                  <p className="mt-1 text-[12px] leading-relaxed text-[#667085]">
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--color-legacy-667085)]">
                     Somente alunos com resultado TRUE para este grupo.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={restartMembersQuery}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 text-[12px] font-medium text-[#111827]"
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--color-legacy-e5e7eb)] bg-white px-3 text-xs font-medium text-[var(--color-legacy-111827)]"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   Reiniciar lista
@@ -361,30 +361,30 @@ export function StudentGroupDetailPage() {
               ) : null}
 
               {!members.isLoading && listedMembers.length === 0 && !members.isError ? (
-                <div className="rounded-xl border border-dashed border-[#D0D5DD] bg-white px-5 py-10 text-center">
-                  <Users className="mx-auto h-7 w-7 text-[#98A2B3]" />
-                  <p className="mt-3 text-[14px] font-semibold text-[#111827]">Nenhum integrante TRUE</p>
+                <div className="rounded-xl border border-dashed border-[var(--color-legacy-d0d5dd)] bg-white px-5 py-10 text-center">
+                  <Users className="mx-auto h-7 w-7 text-[var(--color-legacy-98a2b3)]" />
+                  <p className="mt-3 text-sm font-semibold text-[var(--color-legacy-111827)]">Nenhum integrante TRUE</p>
                 </div>
               ) : null}
 
               {listedMembers.length > 0 ? (
-                <ul className="divide-y divide-[#F2F4F7] overflow-hidden rounded-xl border border-[#E5E7EB] bg-white">
+                <ul className="divide-y divide-[var(--color-legacy-f2f4f7)] overflow-hidden rounded-xl border border-[var(--color-legacy-e5e7eb)] bg-white">
                   {listedMembers.map((member) => (
                     <li key={member.student_id}>
                       <button
                         type="button"
                         onClick={() => setSelectedStudentId(member.student_id)}
-                        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-[#F8FAFC]"
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-[var(--color-legacy-f8fafc)]"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-[14px] font-semibold text-[#111827]">
+                          <p className="truncate text-sm font-semibold text-[var(--color-legacy-111827)]">
                             {member.name || member.student_id}
                           </p>
-                          <p className="mt-0.5 text-[11px] text-[#98A2B3]">{member.student_id}</p>
+                          <p className="mt-0.5 text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">{member.student_id}</p>
                         </div>
                         <Link
                           href={"/alunos/" + encodeURIComponent(member.student_id)}
-                          className="shrink-0 text-[12px] font-semibold text-[#2563EB] hover:underline"
+                          className="shrink-0 text-xs font-semibold text-[var(--color-legacy-2563eb)] hover:underline"
                           onClick={(e) => e.stopPropagation()}
                         >
                           Ficha
@@ -400,14 +400,14 @@ export function StudentGroupDetailPage() {
                   type="button"
                   disabled={members.isFetchingNextPage}
                   onClick={() => void members.fetchNextPage()}
-                  className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[13px] font-semibold text-[#344054] disabled:opacity-60"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-[var(--color-legacy-e5e7eb)] bg-white text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-344054)] disabled:opacity-60"
                 >
                   {members.isFetchingNextPage ? "Carregando…" : "Carregar mais integrantes"}
                 </button>
               ) : null}
 
               {cursorIssue ? (
-                <p className="text-[12px] text-[#B54708]">
+                <p className="text-xs text-[var(--color-source-b54708)]">
                   Continuação da lista interrompida ({cursorIssue}). Reinicie a lista se necessário.
                 </p>
               ) : null}

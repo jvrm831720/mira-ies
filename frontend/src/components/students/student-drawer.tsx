@@ -71,16 +71,16 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
   const groups=q.data?studentPropertyGroups(q.data,canSensitive):[];
   const sections=[
     {id:"summary",label:"Resumo da IA",content:me.isLoading||q.isLoading?<div role="status" className="space-y-3"><Skeleton className="h-20 w-full"/><Skeleton className="h-28 w-full"/></div>
-      : me.isError||!canRead?<p role="alert" className="text-[12px] text-[var(--color-red)]">Este perfil não tem acesso à ficha do aluno.</p>
-      : q.isError?<div role="alert" className="space-y-3 text-[12px] text-[var(--color-slate-600)]">Não foi possível abrir o aluno.
+      : me.isError||!canRead?<p role="alert" className="text-xs text-[var(--color-red)]">Este perfil não tem acesso à ficha do aluno.</p>
+      : q.isError?<div role="alert" className="space-y-3 text-xs text-[var(--color-slate-600)]">Não foi possível abrir o aluno.
           <button type="button" onClick={()=>void q.refetch()} className="ml-2 text-[var(--color-blue)]">Tentar novamente</button></div>
       : q.data?<div className="space-y-4">
         {canSensitive&&<div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3">
           <RiskBadge level={q.data.risk_level}/>
-          <p className="text-[11px] text-[var(--color-slate-600)]">Score: <span className="font-semibold tabular-nums text-[var(--color-ink)]">
+          <p className="text-[length:var(--type-caption)] text-[var(--color-slate-600)]">Score: <span className="font-semibold tabular-nums text-[var(--color-ink)]">
             {typeof q.data.risk_score==="number"&&Number.isFinite(q.data.risk_score)?Math.round(q.data.risk_score):"Não calculado"}
           </span></p>
-          {q.data.risk_score==null&&<p className="text-[11px] text-[var(--color-muted)]">Sem score não significa baixo risco.</p>}
+          {q.data.risk_score==null&&<p className="text-[length:var(--type-caption)] text-[var(--color-muted)]">Sem score não significa baixo risco.</p>}
           {studentId&&<StudentRiskTrend studentId={studentId}/>}
         </div>}
         {canSensitive&&<StudentRiskFactors student={q.data}/>}
@@ -89,7 +89,7 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
       </div>:null},
     {id:"academic",label:"Acadêmico e financeiro",content:canSensitive&&q.data
       ?<RecordProperties groups={groups.filter(group=>group.id==="academic"||group.id==="finance")} compact />
-      :<p className="rounded-[var(--radius-md)] bg-[var(--color-panel)] p-4 text-[12px] text-[var(--color-muted)]">Indicadores restritos ou indisponíveis.</p>},
+      :<p className="rounded-[var(--radius-md)] bg-[var(--color-panel)] p-4 text-xs text-[var(--color-muted)]">Indicadores restritos ou indisponíveis.</p>},
     {id:"activity",label:"Timeline de contatos",content:studentId?<StudentRecordActivity studentId={studentId} canView={canSensitive&&canRead}/>:null},
     {id:"campaigns",label:"Campanhas",content:studentId?<StudentCampaignsPanel studentId={studentId} canView={canRead&&canCampaigns&&canSensitive}/>:null},
     {id:"contact",label:"Contato",content:q.data&&canRead?<div className="space-y-4">
@@ -100,8 +100,8 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
       {q.data.communication_preferences&&typeof q.data.communication_opt_out==="boolean"
         ?<ConsentPreferencesPanel key={studentId} studentId={studentId!}
             globalOptOut={q.data.communication_opt_out} preferences={q.data.communication_preferences}/>
-        :<p role="status" className="text-[12px] text-[var(--color-muted)]">Preferências de comunicação não disponibilizadas pela origem. Nenhum canal é presumido como permitido.</p>}
-    </div>:<p className="text-[12px] text-[var(--color-muted)]">Sem acesso aos dados de contato.</p>},
+        :<p role="status" className="text-xs text-[var(--color-muted)]">Preferências de comunicação não disponibilizadas pela origem. Nenhum canal é presumido como permitido.</p>}
+    </div>:<p className="text-xs text-[var(--color-muted)]">Sem acesso aos dados de contato.</p>},
   ];
   return <RecordDrawer record={record} onClose={onClose}
     fullPageHref={canRead&&studentId?"/alunos/"+encodeURIComponent(studentId):undefined}
@@ -158,7 +158,7 @@ function ConsentPreferencesPanel({
         </span>
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-[var(--color-ink)]">Preferências de comunicação</h3>
-          <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-slate-600)]">
+          <p className="mt-1 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-slate-600)]">
             Defina quais canais e finalidades são permitidos para este aluno.
           </p>
         </div>
@@ -167,7 +167,7 @@ function ConsentPreferencesPanel({
         {!me.isLoading && !canEdit && (
           <p
             role="status"
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 text-[10px] leading-relaxed text-[var(--color-slate-600)]"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-slate-600)]"
           >
             Perfil somente leitura: é possível consultar preferências, mas não alterá-las.
           </p>
@@ -184,14 +184,14 @@ function ConsentPreferencesPanel({
             <span className="block text-xs font-semibold text-[var(--color-red)]">
               Bloqueio global de contato
             </span>
-            <span className="mt-1 block text-[10px] leading-relaxed text-[var(--color-red)]/80">
+            <span className="mt-1 block text-[length:var(--type-overline)] leading-relaxed text-[var(--color-red)]/80">
               Quando ativado, bloqueia todos os canais mesmo que estejam permitidos
               individualmente.
             </span>
           </span>
         </label>
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+          <p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
             Canais
           </p>
           {CHANNEL_OPTIONS.map(({ key, label, detail, icon: Icon }) => (
@@ -212,14 +212,14 @@ function ConsentPreferencesPanel({
                 <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-slate-600)]" />
                 <span>
                   <span className="block text-xs font-semibold text-[var(--color-ink)]">{label}</span>
-                  <span className="mt-0.5 block text-[10px] text-[var(--color-slate-600)]">{detail}</span>
+                  <span className="mt-0.5 block text-[length:var(--type-overline)] text-[var(--color-slate-600)]">{detail}</span>
                 </span>
               </span>
             </label>
           ))}
         </div>
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+          <p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
             Finalidades
           </p>
           {TOPIC_OPTIONS.map(({ key, label, detail }) => (
@@ -238,7 +238,7 @@ function ConsentPreferencesPanel({
               />
               <span>
                 <span className="block text-xs font-semibold text-[var(--color-ink)]">{label}</span>
-                <span className="mt-0.5 block text-[10px] text-[var(--color-slate-600)]">{detail}</span>
+                <span className="mt-0.5 block text-[length:var(--type-overline)] text-[var(--color-slate-600)]">{detail}</span>
               </span>
             </label>
           ))}
@@ -246,10 +246,10 @@ function ConsentPreferencesPanel({
         {audit.isLoading && <Skeleton className="h-16 w-full rounded-lg" />}
         {audit.data && audit.data.events.length > 0 && (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3">
-            <p className="text-[11px] font-semibold text-[var(--color-slate-600)]">Auditoria recente</p>
+            <p className="text-[length:var(--type-caption)] font-semibold text-[var(--color-slate-600)]">Auditoria recente</p>
             <ul className="mt-2 space-y-1.5">
               {audit.data.events.slice(0, 4).map((ev) => (
-                <li key={ev.id} className="text-[10px] leading-relaxed text-[var(--color-slate-600)]">
+                <li key={ev.id} className="text-[length:var(--type-overline)] leading-relaxed text-[var(--color-slate-600)]">
                   <span className="font-medium text-[var(--color-slate-600)]">
                     {formatAuditDate(ev.occurred_at)}
                   </span>

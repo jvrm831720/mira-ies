@@ -225,9 +225,9 @@ export function StudentIntelligencePanel({
           <div>
             <div className="flex items-center gap-2">
               <History className="h-4 w-4 text-[var(--color-blue)]" />
-              <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Histórico de risco</h2>
+              <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Histórico de risco</h2>
             </div>
-            <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+            <p className="mt-1 text-xs text-[var(--color-slate-600)]">
               Evolução das avaliações persistidas. Delta só é calculado entre avaliações com a
               mesma semântica e versão de modelo.
             </p>
@@ -243,7 +243,7 @@ export function StudentIntelligencePanel({
         ) : null}
 
         {historyQuery.isError ? (
-          <div className="mt-4 rounded-lg border border-[var(--color-red-tint-border)] bg-[var(--color-red-tint)] px-3 py-3 text-[13px] text-[var(--color-red)]">
+          <div className="mt-4 rounded-lg border border-[var(--color-red-tint-border)] bg-[var(--color-red-tint)] px-3 py-3 text-[length:var(--type-body-compact)] text-[var(--color-red)]">
             Não foi possível carregar o histórico de avaliações.
             <button
               type="button"
@@ -256,7 +256,7 @@ export function StudentIntelligencePanel({
         ) : null}
 
         {!historyQuery.isLoading && !historyQuery.isError && newestFirst.length === 0 ? (
-          <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">
+          <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">
             Ainda não há avaliações históricas para este aluno.
           </p>
         ) : null}
@@ -273,20 +273,20 @@ export function StudentIntelligencePanel({
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[14px] font-semibold tabular-nums text-[var(--color-ink)]">
+                      <span className="text-sm font-semibold tabular-nums text-[var(--color-ink)]">
                         {formatScore(item.score)}
                       </span>
                       <RiskBadge level={item.risk_level} />
-                      <span className="text-[11px] text-[var(--color-muted)]">
+                      <span className="text-[length:var(--type-caption)] text-[var(--color-muted)]">
                         {formatDateTime(item.evaluated_at)}
                       </span>
                     </div>
-                    <p className="mt-1 text-[11px] text-[var(--color-slate-600)]">
+                    <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">
                       Modelo {item.model_version || "—"} · semântica {item.score_semantics_version}
                       {item.score_basis === "legacy_adjusted" ? " · legado" : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 text-[12px] font-medium">
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
                     {delta != null && delta > 0 ? (
                       <TrendingUp className="h-3.5 w-3.5 text-[var(--color-red)]" />
                     ) : null}
@@ -310,7 +310,7 @@ export function StudentIntelligencePanel({
         ) : null}
 
         {historyQuery.data?.explanation_note ? (
-          <p className="mt-3 text-[11px] leading-relaxed text-[var(--color-muted)]">
+          <p className="mt-3 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-muted)]">
             {historyQuery.data.explanation_note}
           </p>
         ) : null}
@@ -319,9 +319,9 @@ export function StudentIntelligencePanel({
       <section className="rounded-xl border border-[var(--color-border)] bg-white p-5">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-[var(--color-blue)]" />
-          <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Sinais ativos</h2>
+          <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Sinais ativos</h2>
         </div>
-        <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+        <p className="mt-1 text-xs text-[var(--color-slate-600)]">
           Avaliação sob demanda. Ausência de score não significa baixo risco.
         </p>
 
@@ -333,7 +333,7 @@ export function StudentIntelligencePanel({
         ) : null}
 
         {signalsQuery.isError ? (
-          <div className="mt-4 rounded-lg border border-[var(--color-red-tint-border)] bg-[var(--color-red-tint)] px-3 py-3 text-[13px] text-[var(--color-red)]">
+          <div className="mt-4 rounded-lg border border-[var(--color-red-tint-border)] bg-[var(--color-red-tint)] px-3 py-3 text-[length:var(--type-body-compact)] text-[var(--color-red)]">
             Não foi possível avaliar os sinais.
             <button
               type="button"
@@ -349,7 +349,7 @@ export function StudentIntelligencePanel({
         !signalsQuery.isError &&
         activeSignals.length === 0 &&
         indeterminateSignals.length === 0 ? (
-          <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">
+          <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">
             Nenhum sinal operacional ativo neste momento.
           </p>
         ) : null}
@@ -364,7 +364,7 @@ export function StudentIntelligencePanel({
 
         {indeterminateSignals.length > 0 ? (
           <div className="mt-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
+            <p className="mb-2 text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.08em] text-[var(--color-muted)]">
               Dados insuficientes
             </p>
             <ul className="grid gap-2 sm:grid-cols-2">
@@ -376,7 +376,7 @@ export function StudentIntelligencePanel({
         ) : null}
 
         {signalsQuery.data?.evaluated_at ? (
-          <p className="mt-3 text-[11px] text-[var(--color-muted)]">
+          <p className="mt-3 text-[length:var(--type-caption)] text-[var(--color-muted)]">
             Avaliado em {formatDateTime(signalsQuery.data.evaluated_at)}
           </p>
         ) : null}
@@ -387,15 +387,15 @@ export function StudentIntelligencePanel({
           <div>
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-[var(--color-blue)]" />
-              <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Grupos do estudante</h2>
+              <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Grupos do estudante</h2>
             </div>
-            <p className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+            <p className="mt-1 text-xs text-[var(--color-slate-600)]">
               Pertencimento derivado dos sinais definitivamente ativos.
             </p>
           </div>
           <Link
             href="/alunos/grupos"
-            className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--color-blue)] hover:underline"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-blue)] hover:underline"
           >
             Ver todos os grupos
             <ArrowRight className="h-3.5 w-3.5" />
@@ -409,7 +409,7 @@ export function StudentIntelligencePanel({
         {!catalogQuery.isLoading &&
         !signalsQuery.isLoading &&
         membershipGroups.length === 0 ? (
-          <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[13px] text-[var(--color-slate-600)]">
+          <p className="mt-4 rounded-lg bg-[var(--color-panel)] px-3 py-3 text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">
             Este aluno não pertence a nenhum grupo com sinal definitivamente ativo.
           </p>
         ) : null}
@@ -420,7 +420,7 @@ export function StudentIntelligencePanel({
               <li key={group.id}>
                 <Link
                   href={`/alunos/grupos/${encodeURIComponent(group.id)}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-source-bfdbfe)] bg-[var(--color-source-eff6ff)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-blue)] transition hover:bg-[var(--color-source-dbeafe)]"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-source-bfdbfe)] bg-[var(--color-source-eff6ff)] px-3 py-1.5 text-xs font-semibold text-[var(--color-blue)] transition hover:bg-[var(--color-source-dbeafe)]"
                 >
                   {group.name}
                   <ArrowRight className="h-3 w-3" />
@@ -436,14 +436,14 @@ export function StudentIntelligencePanel({
           <div>
             <div className="flex items-center gap-2">
               <MessageSquareText className="h-4 w-4 text-[var(--color-blue)]" />
-              <h2 className="text-[15px] font-semibold text-[var(--color-ink)]">Próxima ação</h2>
+              <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-ink)]">Próxima ação</h2>
             </div>
-            <p className="mt-1 max-w-xl text-[12px] leading-relaxed text-[var(--color-slate-600)]">
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-[var(--color-slate-600)]">
               Enfileire uma intervenção simulada (dry-run) para este aluno ou abra a área de
               retenção.
             </p>
             {optOut ? (
-              <p className="mt-2 text-[12px] font-medium text-[var(--color-source-b54708)]">
+              <p className="mt-2 text-xs font-medium text-[var(--color-source-b54708)]">
                 Comunicação desabilitada por preferência do aluno.
               </p>
             ) : null}
@@ -451,7 +451,7 @@ export function StudentIntelligencePanel({
           <div className="flex shrink-0 flex-wrap gap-2">
             <Link
               href="/retencao"
-              className="inline-flex h-10 items-center rounded-lg border border-[var(--color-border)] bg-white px-3.5 text-[13px] font-medium text-[var(--color-slate-600)] transition hover:bg-white"
+              className="inline-flex h-10 items-center rounded-lg border border-[var(--color-border)] bg-white px-3.5 text-[length:var(--type-body-compact)] font-medium text-[var(--color-slate-600)] transition hover:bg-white"
             >
               Ir para retenção
             </Link>
@@ -459,7 +459,7 @@ export function StudentIntelligencePanel({
               type="button"
               disabled={enqueueing || Boolean(optOut)}
               onClick={handleEnqueue}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-blue)] px-4 text-[13px] font-semibold text-white transition hover:bg-[var(--color-blue)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-blue)] px-4 text-[length:var(--type-body-compact)] font-semibold text-white transition hover:bg-[var(--color-blue)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"
             >
               {enqueueing ? "Enfileirando…" : "Enfileirar intervenção (dry-run)"}
             </button>
@@ -498,16 +498,16 @@ function SignalCard({
           <Icon className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-[var(--color-ink)]">{name}</p>
+          <p className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">{name}</p>
           {signal.limitations?.[0] ? (
-            <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--color-slate-600)]">
+            <p className="mt-0.5 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-slate-600)]">
               {signal.limitations[0]}
             </p>
           ) : null}
           {groupId ? (
             <Link
               href={`/alunos/grupos/${encodeURIComponent(groupId)}`}
-              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-blue)] hover:underline"
+              className="mt-1.5 inline-flex items-center gap-1 text-[length:var(--type-caption)] font-semibold text-[var(--color-blue)] hover:underline"
             >
               Ver grupo
               <ArrowRight className="h-3 w-3" />
