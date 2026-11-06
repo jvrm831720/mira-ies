@@ -114,3 +114,20 @@ class AsaasWebhookApplication(Base):
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     provider_status: Mapped[str] = mapped_column(String(40), nullable=False)
     applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
+class AsaasDestinationReview(Base):
+    __tablename__ = "mira_asaas_destination_reviews"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "wallet_id", "wallet_version", "issuer_environment",
+                         name="uq_mira_asaas_destination_review_version"),
+        Index("ix_mira_asaas_destination_review_tenant", "tenant_id", "reviewed_at"),
+    )
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
+    wallet_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    wallet_version: Mapped[int] = mapped_column(nullable=False)
+    issuer_environment: Mapped[str] = mapped_column(String(16), nullable=False)
+    reviewer_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    reference_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)

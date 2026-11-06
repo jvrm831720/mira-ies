@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.asaas_live import (
-    AsaasCharge, AsaasCustomerBinding,
+    AsaasCharge, AsaasCustomerBinding, AsaasDestinationReview,
 )
 from app.models.finance_reconciliation import FinanceObservation
 from app.models.student import Student
@@ -319,6 +319,13 @@ async def verify_destination(db: AsyncSession, *, tenant_id: str,
     if target.status == "verified":
         raise AsaasFlowDenied("Destino já homologado.")
     # This action must be used ONLY after an out-of-band Asaas support/ownership check.
+    db.add(AsaasDestinationReview(
+        tenant_id=tenant_id, wallet_id=target.wallet_id,
+        wallet_version=target.version,
+        issuer_environment=gateway.environment(),
+        reviewer_id=reviewer_id,
+        reference_sha256=hashlib.sha256(evidence_reference.encode()).hexdigest(),
+    ))
     target.status = "verified"
     target.verified_environment = gateway.environment()
     target.verified_at = datetime.now(timezone.utc)

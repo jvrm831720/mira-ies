@@ -84,7 +84,15 @@ def upgrade():
         sa.UniqueConstraint("tenant_id","event_id",name="uq_mira_asaas_applied_event"),
         sa.ForeignKeyConstraint(["tenant_id","event_id"],["mira_asaas_webhook_events.tenant_id","mira_asaas_webhook_events.id"],name="fk_mira_asaas_application_event_tenant"))
     op.create_index("ix_mira_asaas_application_tenant","mira_asaas_webhook_applications",["tenant_id","applied_at"])
-    for name in ("mira_asaas_customer_bindings","mira_asaas_charges","mira_asaas_webhook_events","mira_asaas_webhook_applications"):
+
+    op.create_table("mira_asaas_destination_reviews",pk(),tenant(),
+        ref("wallet_id"),sa.Column("wallet_version",sa.Integer(),nullable=False),
+        column("issuer_environment",16),ref("reviewer_id"),column("reference_sha256",64),
+        sa.Column("reviewed_at",sa.DateTime(timezone=True),nullable=False,server_default=sa.func.now()),
+        sa.UniqueConstraint("tenant_id","wallet_id","wallet_version","issuer_environment",
+            name="uq_mira_asaas_destination_review_version"))
+    op.create_index("ix_mira_asaas_destination_review_tenant","mira_asaas_destination_reviews",["tenant_id","reviewed_at"])
+    for name in ("mira_asaas_customer_bindings","mira_asaas_charges","mira_asaas_webhook_events","mira_asaas_webhook_applications","mira_asaas_destination_reviews"):
         protect(name)
     # Shared issuing-account callback; allow lookup ONLY in token-verified transaction.
     op.execute("""CREATE POLICY mira_asaas_charges_webhook_lookup
@@ -105,7 +113,7 @@ def upgrade():
       BEGIN RAISE EXCEPTION 'Asaas webhook history is append-only'; END
       $audit$
     """)
-    for name in ("mira_asaas_webhook_events","mira_asaas_webhook_applications"):
+    for name in ("mira_asaas_webhook_events","mira_asaas_webhook_applications","mira_asaas_destination_reviews"):
         op.execute(f"""CREATE TRIGGER {name}_immutable BEFORE UPDATE OR DELETE ON {name}
           FOR EACH ROW EXECUTE FUNCTION mira_asaas_history_immutable()""")
 
@@ -115,5 +123,5 @@ def downgrade():
         op.execute(f"DROP TRIGGER IF EXISTS {name}_immutable ON {name}")
     op.execute("DROP FUNCTION IF EXISTS mira_asaas_history_immutable()")
     op.execute("DROP FUNCTION IF EXISTS mira_asaas_resolve_payment(text)")
-    for name in ("mira_asaas_webhook_applications","mira_asaas_webhook_events","mira_asaas_charges","mira_asaas_customer_bindings"):
+    for name in ("mira_asaas_destination_reviews","mira_asaas_webhook_applications","mira_asaas_webhook_events","mira_asaas_charges","mira_asaas_customer_bindings"):
         op.drop_table(name)
