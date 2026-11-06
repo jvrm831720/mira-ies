@@ -129,6 +129,10 @@ async def prepare_charge(
     ))).scalar_one_or_none()
     if student is None:
         raise AsaasFlowDenied("Aluno não ativo neste workspace.")
+    # Two distinct obligations for the same student must not race to
+    # create duplicate payer profiles at Asaas.
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:lock,0))"),
+                     {"lock": f"asaas:customer:{tenant_id}:{student.id}:{mode}"})
     binding = (await db.execute(select(AsaasCustomerBinding).where(
         AsaasCustomerBinding.tenant_id == tenant_id,
         AsaasCustomerBinding.student_id == student.id,
