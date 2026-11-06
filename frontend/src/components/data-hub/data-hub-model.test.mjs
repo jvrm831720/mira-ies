@@ -50,6 +50,9 @@ test("Data Hub never triggers imports, payments or remote tools by itself", () =
   assert.doesNotMatch(jsx, /dispatchApi\.(action|importComposio|stageFromComposio|approve|execute)\s*\(/);
   assert.doesNotMatch(jsx, /method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/);
   assert.match(jsx, /hasNavigationPermission\(me\.data, "data\.view"\)/);
+  assert.match(jsx, /api\.composioCatalog\(\)/);
+  assert.match(jsx, /enabled: authorized && canManageIntegrations/);
+  assert.doesNotMatch(jsx, /api\.(startComposioConnection|revokeComposioConnection|completeComposioConnection)\s*\(/);
 });
 
 test("catalog categories are descriptive, not inferred connection state", () => {
