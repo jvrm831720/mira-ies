@@ -268,7 +268,7 @@ async def test_wave6_cross_tenant_decision_is_hidden(db_session, tenant_factory,
     with pytest.raises(HTTPException) as missing:
         await admit_student(StudentProgramInput(
             student_id=UUID(b[2].student.id), program_id=UUID(a[4].id),
-            curriculum_id=UUID(uuid4()),
+            curriculum_id=uuid4(),
         ), auth=a[1], db=db_session)
     assert missing.value.status_code == 404
 
