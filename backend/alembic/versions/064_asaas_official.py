@@ -58,9 +58,9 @@ def upgrade():
         sa.Column("updated_at",sa.DateTime(timezone=True),nullable=False,server_default=sa.func.now()),
         unique_tenant("uq_mira_asaas_charge_tenant_id"),
         
-        sa.UniqueConstraint("tenant_id","financial_key",name="uq_mira_asaas_charge_financial_key"),
+        sa.UniqueConstraint("tenant_id","environment","financial_key",name="uq_mira_asaas_charge_financial_key"),
         sa.UniqueConstraint("external_reference",name="uq_mira_asaas_charge_reference"),
-        sa.UniqueConstraint("asaas_payment_id",name="uq_mira_asaas_charge_payment_id"),
+        sa.UniqueConstraint("environment","asaas_payment_id",name="uq_mira_asaas_charge_payment_id"),
         sa.ForeignKeyConstraint(["tenant_id","financial_observation_id"],["mira_finance_observations.tenant_id","mira_finance_observations.id"],name="fk_mira_asaas_charge_observation_tenant"),
         sa.ForeignKeyConstraint(["tenant_id","student_id"],["students.tenant_id","students.id"],name="fk_mira_asaas_charge_student_tenant"),
         sa.CheckConstraint("environment IN ('sandbox','production')",name="ck_mira_asaas_charge_environment"),
@@ -68,7 +68,7 @@ def upgrade():
         sa.CheckConstraint("amount > 0 AND currency = 'BRL'",name="ck_mira_asaas_charge_amount"),
         sa.CheckConstraint("method IN ('pix','boleto')",name="ck_mira_asaas_charge_method"))
     op.create_index("ix_mira_asaas_charge_tenant_created","mira_asaas_charges",["tenant_id","created_at"])
-    op.create_index("ix_mira_asaas_charge_payment_lookup","mira_asaas_charges",["asaas_payment_id"])
+    op.create_index("ix_mira_asaas_charge_payment_lookup","mira_asaas_charges",["environment","asaas_payment_id"])
     op.create_table("mira_asaas_webhook_events",
         pk(),tenant(),ref("charge_id"),column("event_id",120),column("event_type"),
         column("payment_id"),sa.Column("split_id",sa.String(100)),
@@ -104,6 +104,7 @@ def upgrade():
       LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $asaas$
         SELECT c.tenant_id,c.id FROM public.mira_asaas_charges c
         WHERE current_setting('app.asaas_webhook_authenticated',true)='yes'
+          AND c.environment=current_setting('app.asaas_webhook_environment',true)
           AND length(p_id) BETWEEN 6 AND 80 AND c.asaas_payment_id=p_id LIMIT 1
       $asaas$
     """)

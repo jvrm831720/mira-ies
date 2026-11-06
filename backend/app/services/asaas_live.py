@@ -107,7 +107,8 @@ async def prepare_charge(
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k,0))"),
                      {"k": "asaas:charge:" + tenant_id + ":" + key})
     already = (await db.execute(select(AsaasCharge).where(
-        AsaasCharge.tenant_id == tenant_id, AsaasCharge.financial_key == key,
+        AsaasCharge.tenant_id == tenant_id, AsaasCharge.environment == mode,
+        AsaasCharge.financial_key == key,
     ))).scalar_one_or_none()
     if already:
         if already.financial_observation_id != observation_id or already.method != method:

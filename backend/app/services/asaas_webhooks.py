@@ -68,6 +68,8 @@ async def ingest(db: AsyncSession, *, raw: bytes, token: str) -> dict:
     valid_token(token)
     event = parse_event(raw)
     await db.execute(text("SELECT set_config('app.asaas_webhook_authenticated', 'yes', true)"))
+    await db.execute(text("SELECT set_config('app.asaas_webhook_environment', :mode, true)"),
+                     {"mode": gateway.environment()})
     lookup = (await db.execute(text(
         "SELECT resolved_tenant, resolved_charge FROM mira_asaas_resolve_payment(:id)"
     ), {"id": event["payment_id"]})).first()
