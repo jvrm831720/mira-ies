@@ -62,6 +62,10 @@ class ViewSpec(BaseModel):
     version: Literal[1] = 1
     filters: list[FilterSpec] = Field(default_factory=list, max_length=8)
     sort: SortSpec | None = None
+    sorts: list[SortSpec] = Field(default_factory=list, max_length=3)
+    density: Literal["compact", "comfortable"] = "comfortable"
+    pinned: list[str] = Field(default_factory=list, max_length=3)
+    columnWidths: dict[str, int] = Field(default_factory=dict)
     columns: list[str] = Field(default_factory=list, max_length=24)
     page_size: Literal[25, 50, 100] = 50
 
@@ -95,6 +99,13 @@ def validate_view(object_key: ObjectKey, config: ViewSpec):
             raise HTTPException(status_code=422, detail="Filtro numérico exige número.")
     if config.sort and (config.sort.key not in fields or fields[config.sort.key] == "display"):
         raise HTTPException(status_code=422, detail="Ordenação não permitida.")
+    sort_keys = [item.key for item in config.sorts]
+    if len(sort_keys) != len(set(sort_keys)) or any(key not in fields or fields[key] == "display" for key in sort_keys):
+        raise HTTPException(status_code=422, detail="Ordenações incompatíveis com o objeto.")
+    if len(set(config.pinned)) != len(config.pinned) or any(key not in fields or key not in config.columns for key in config.pinned):
+        raise HTTPException(status_code=422, detail="Colunas fixadas inválidas.")
+    if len(config.columnWidths) > 24 or any(key not in config.columns or value < 100 or value > 640 for key, value in config.columnWidths.items()):
+        raise HTTPException(status_code=422, detail="Larguras de colunas inválidas.")
     if len(set(config.columns)) != len(config.columns) or any(col not in fields for col in config.columns):
         raise HTTPException(status_code=422, detail="Colunas não permitidas.")
 

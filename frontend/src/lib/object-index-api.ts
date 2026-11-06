@@ -26,6 +26,7 @@ export type StudentIndexParams = {
   limit: number; offset: number; q?: string; risk_level?: string;
   course?: string; sort?: string; view?: string;
   filters?: ObjectViewSpec["filters"];
+  sorts?: string;
 };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -53,6 +54,7 @@ export function listStudentIndex(params: StudentIndexParams): Promise<StudentInd
   if (params.risk_level) q.set("risk_level", params.risk_level);
   if (params.course) q.set("course", params.course);
   if (params.sort) q.set("sort", params.sort);
+  if (params.sorts) q.set("sorts", params.sorts);
   if (params.view) q.set("view", params.view);
   if (params.filters?.length) q.set("filters", JSON.stringify(params.filters));
   return request("/api/v1/object-index/students?" + q.toString());

@@ -12,6 +12,9 @@ from app.core.auth import AuthContext, require_permission
 from app.db.session import get_db
 from app.services.dispatch_core import bind_tenant
 
+from app.services.collection_index_filters import compile_collection_filters
+from app.services.object_index_sorting import COLLECTION_SORT_FIELDS, parse_sort_terms
+
 router = APIRouter(prefix="/collections", tags=["Collections"])
 
 
@@ -37,6 +40,8 @@ async def list_collection_cases(
     status: str | None = Query(None, pattern="^(open|paid|disputed|agreement|cancelled|unknown)$"),
     statuses: str | None = None,
     sort: str = "updated_at",
+    sorts: str | None = None,
+    filters: str | None = None,
     desc: bool = True,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -64,14 +69,25 @@ async def list_collection_cases(
             raise HTTPException(status_code=422, detail="Estados inválidos.")
         where.append("status IN :statuses")
         params["statuses"] = tuple(choices)
+    extra_sql, extra_params, expanding_filter_keys = compile_collection_filters(filters)
+    where.extend(extra_sql)
+    params.update(extra_params)
     ordering = {"updated_at": "updated_at", "external_ref": "external_ref",
                 "status": "status", "balance": "balance", "source": "source"}
     if sort not in ordering:
         raise HTTPException(status_code=422, detail="Ordenação inválida.")
-    order_clause = f"{ordering[sort]} {'DESC' if desc else 'ASC'}, id DESC"
+    sort_terms = parse_sort_terms(sorts, COLLECTION_SORT_FIELDS)
+    if sort_terms:
+        order_clause = ", ".join(
+            f"{ordering[field]} {direction.upper()} NULLS LAST"
+            for field, direction in sort_terms
+        ) + ", id DESC"
+    else:
+        order_clause = f"{ordering[sort]} {'DESC' if desc else 'ASC'} NULLS LAST, id DESC"
     criteria = " AND ".join(where)
     count_sql = text(f"SELECT count(*) FROM dispatch_obligations WHERE {criteria}")
-    if statuses is not None: count_sql = count_sql.bindparams(bindparam("statuses", expanding=True))
+    for key in (["statuses"] if statuses is not None else []) + expanding_filter_keys:
+        count_sql = count_sql.bindparams(bindparam(key, expanding=True))
     count = (await db.execute(
         count_sql, params
     )).scalar_one()
@@ -81,7 +97,8 @@ async def list_collection_cases(
         FROM dispatch_obligations WHERE {criteria}
         ORDER BY {order_clause} LIMIT :limit OFFSET :offset
     """)
-    if statuses is not None: rows_sql = rows_sql.bindparams(bindparam("statuses", expanding=True))
+    for key in (["statuses"] if statuses is not None else []) + expanding_filter_keys:
+        rows_sql = rows_sql.bindparams(bindparam(key, expanding=True))
     rows = (await db.execute(rows_sql, params)).mappings().all()
     return {
         "items": [_serialize(dict(row)) for row in rows],

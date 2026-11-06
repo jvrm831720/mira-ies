@@ -53,7 +53,7 @@ test("index context round-trips view, filters, sort, columns, page and size", ()
   assert.equal(href.startsWith("/alunos?"), true);
   assert.equal(href.includes("source=external"), true);
   const restored = decode(href.split("?")[1]);
-  assert.deepEqual(plain(restored), plain(state));
+  assert.deepEqual(plain(restored), plain({ ...state, sorts: [state.sort], density: "comfortable", pinned: [] }));
   assert.equal(readRecordId(new URLSearchParams(href.split("?")[1])), uuid);
   assert.equal(href.includes("tab="), false);
 });

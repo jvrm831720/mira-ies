@@ -16,6 +16,7 @@ import {
   ObjectIndex, initialObjectIndexState, type ObjectIndexState,
 } from "@/components/object-index/object-index";
 import type { ObjectField, ObjectDefaultView } from "@/components/object-index/object-index-types";
+import { activeSorts, encodeSorts } from "@/components/object-index/object-index-experience";
 import { listStudentIndex, type ObjectIndexStudent } from "@/lib/object-index-api";
 import { api } from "@/lib/api";
 import { getVisibleNavigation, hasNavigationPermission } from "@/components/layout/navigation";
@@ -49,7 +50,7 @@ const STUDENT_FIELDS: ObjectField<ObjectIndexStudent>[] = [
     </span>,
   },
   { key: "matricula", title: "Matrícula", type: "identifier", getValue: row => row.matricula,
-    width: 140, filterable: true, nullLabel: "Não informado" },
+    width: 140, filterable: true, sortable: true, nullLabel: "Não informado" },
   { key: "curso", title: "Curso", type: "text", getValue: row => row.curso,
     width: 180, filterable: true, sortable: true },
   { key: "risk_level", title: "Classificação", type: "status", getValue: row => row.risk_level,
@@ -104,6 +105,8 @@ export function StudentsListPage() {
     ["nome", "matricula", "curso"].includes(filter.key));
   // Avoid even asking the backend for a prohibited risk sorting/count query.
   const safeSort = !canSensitive && state.sort?.key === "risk_score" ? null : state.sort;
+  const safeSorts = activeSorts(state).filter(item => exposedFields.some(field => field.key === item.key && field.sortable));
+  const sortSignature = encodeSorts(safeSorts);
 
   const sort = !safeSort ? (canSensitive ? "risk_desc" : "name_asc")
     : safeSort.key === "risk_score" ? (safeSort.desc ? "risk_desc" : "risk_asc")
@@ -148,13 +151,13 @@ export function StudentsListPage() {
   }
 
   const query = useQuery({
-    queryKey: ["object-index", "students", me.data?.tenant_id, me.data?.user_id, debouncedQuery, safeView, safeFilters, sort, state.pageIndex, state.pageSize],
+    queryKey: ["object-index", "students", me.data?.tenant_id, me.data?.user_id, debouncedQuery, safeView, safeFilters, sort, sortSignature, state.pageIndex, state.pageSize],
     queryFn: () => listStudentIndex({
       limit: state.pageSize, offset: state.pageIndex * state.pageSize,
       q: debouncedQuery.trim() || undefined,
       view: safeView,
       filters: safeFilters,
-      sort,
+      sort, sorts: sortSignature || undefined,
     }),
     enabled: canView && !validGroup,
     staleTime: 20_000, retry: false,
@@ -181,12 +184,13 @@ export function StudentsListPage() {
         description={canSensitive ? "Explore registros institucionais, classificação e acompanhamento com dados verificados." : "Registros institucionais autorizados para este perfil."}
         fields={canSensitive ? riskFields : exposedFields} rows={query.data?.students || []}
         state={canSensitive ? state : {
-          ...state, view: safeView, filters: safeFilters, sort: safeSort,
+          ...state, view: safeView, filters: safeFilters, sort: safeSort, sorts: safeSorts,
           columns: state.columns.filter(key => publicFields.some(field => field.key === key)),
         }}
         onStateChange={onStateChange}
         defaultViews={exposedViews} remote
-        total={query.data?.total}
+        total={query.data?.scope === "tenant" ? query.data?.total : undefined}
+        hasMore={query.data?.has_more}
         loading={query.isLoading}
         error={query.isError}
         onRetry={() => void query.refetch()}

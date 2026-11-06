@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { Search, X } from "@/components/ui/icons";
 import { ObjectDataTable } from "@/components/object-index/object-data-table";
+import { sortObjectRows } from "@/components/object-index/object-index-experience";
 import type { ObjectField, ObjectSort } from "@/components/object-index/object-index-types";
 import type { DispatchCampaign } from "@/lib/dispatch-api";
 import { CAMPAIGN_STATUS_LABEL, CHANNEL_LABEL, PURPOSE_LABEL } from "./dispatch-types";
@@ -46,7 +47,10 @@ export function CampaignIndex({
 }) {
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<ObjectSort | null>({ key: "created_at", desc: true });
+  const [sorts, setSorts] = useState<ObjectSort[]>([{ key: "created_at", desc: true }]);
+  const [pinned, setPinned] = useState<string[]>([]);
+  const density = "comfortable" as const;
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [visible, setVisible] = useState(fields.map(field => field.key));
   const [selected, setSelected] = useState<Record<string,boolean>>({});
   const [showColumns, setShowColumns] = useState(false);
@@ -55,7 +59,8 @@ export function CampaignIndex({
     const q = search.trim().toLocaleLowerCase("pt-BR");
     return relevant && (!q || [item.name, item.purpose, item.channel, item.status].some(v => v.toLocaleLowerCase("pt-BR").includes(q)));
   }), [campaigns,tab,search]);
-  const selectedRow = filtered.find(item => selected[item.id]);
+  const sorted = useMemo(() => sortObjectRows(filtered, fields, sorts), [filtered, sorts]);
+  const selectedRow = sorted.find(item => selected[item.id]);
   return <section className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white">
     <div className="border-b border-[var(--color-border)] px-5 py-4">
       <h2 className="text-[length:var(--type-body-compact)] font-semibold">Campanhas de Dispatch</h2>
@@ -89,8 +94,10 @@ export function CampaignIndex({
       A API devolve até 100 campanhas recentes, sem paginação. Filtros, ordenação e seleção atuam somente sobre essa amostra.
     </p>}
     {error ? <p role="alert" className="p-6 text-xs text-[var(--color-red)]">Não foi possível consultar campanhas. <button type="button" onClick={onRetry} className="underline">Tentar novamente</button></p>
-      : <ObjectDataTable records={filtered} fields={fields} visible={visible} onVisibleChange={setVisible}
-        sort={sort} onSortChange={setSort} selected={selected} onSelectedChange={setSelected}
+      : <ObjectDataTable<DispatchCampaign> records={sorted} fields={fields} visible={visible} onVisibleChange={setVisible}
+        sorts={sorts} onSortsChange={setSorts} density={density} pinned={pinned} onPinnedChange={setPinned}
+        columnWidths={columnWidths} onWidthsChange={setColumnWidths}
+        selected={selected} onSelectedChange={setSelected}
         onOpen={onOpen} loading={loading} emptyText="Nenhuma campanha encontrada neste recorte." />}
     <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] px-4 py-3 text-[length:var(--type-caption)] text-[var(--color-muted)]">
       <span>* Pós-envio = aceito + entregue + lido + respondido. Não comprova entrega.</span>

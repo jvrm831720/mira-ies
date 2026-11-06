@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.models.student import Student
 from app.models.intervention import InterventionLog
 from app.services.object_index_filters import compile_filters
+from app.services.object_index_sorting import STUDENT_SORT_FIELDS, parse_sort_terms
 
 router = APIRouter(prefix="/object-index", tags=["Object Index"])
 
@@ -62,6 +63,23 @@ def _student_sort(sort: StudentSort):
         "course_asc": (Student.curso.asc().nullslast(), Student.nome.asc(), Student.id.asc()),
     }[sort]
 
+def _student_multisort(raw: str | None, fallback: StudentSort):
+    terms = parse_sort_terms(raw, STUDENT_SORT_FIELDS)
+    if not terms:
+        return _student_sort(fallback)
+    allowed = {
+        "nome": Student.nome,
+        "matricula": Student.matricula,
+        "curso": Student.curso,
+        "risk_score": Student.risk_score,
+    }
+    order = []
+    for field, direction in terms:
+        column = allowed[field]
+        order.append((column.desc() if direction == "desc" else column.asc()).nullslast())
+    return (*order, Student.id.asc())
+
+
 @router.get("/students")
 async def index_students(
     limit: int = Query(default=50, ge=1, le=200),
@@ -72,6 +90,7 @@ async def index_students(
     view: StudentView = "todos",
     filters: str | None = Query(default=None, max_length=2000),
     sort: StudentSort = "name_asc",
+    sorts: str | None = None,
     auth: AuthContext = Depends(require_permission("students.view")),
     db: AsyncSession = Depends(get_db),
 ):
@@ -83,9 +102,11 @@ async def index_students(
         auth.custom_role_id is None and auth.role in ("admin", "coordinator")
     )
     compiled = compile_filters(filters)
+    sort_terms = parse_sort_terms(sorts, STUDENT_SORT_FIELDS)
     if not sensitive:
         sensitive_views = {"risco", "sem_classificacao", "dados_insuficientes", "acompanhamento"}
-        forbidden = bool(risk_level) or view in sensitive_views or sort.startswith("risk_")
+        forbidden = bool(risk_level) or view in sensitive_views or (not sort_terms and sort.startswith("risk_"))
+        forbidden = forbidden or any(field == "risk_score" for field, _ in sort_terms)
         if filters:
             filters_data = json.loads(filters)  # validated by compile_filters()
             forbidden = forbidden or any(
@@ -100,7 +121,7 @@ async def index_students(
     # All row access is bound to the same tenant as the count. No client-provided ID list.
     rows = (await db.execute(
         select(Student).where(and_(*scoped))
-        .order_by(*_student_sort(sort)).offset(offset).limit(limit)
+        .order_by(*_student_multisort(sorts, sort)).offset(offset).limit(limit)
     )).scalars().all()
     ids = [row.id for row in rows]
     latest: dict[str, dict] = {}
@@ -134,5 +155,5 @@ async def index_students(
         } for student in rows],
         "total": total, "limit": limit, "offset": offset,
         "has_more": offset + len(rows) < total,
-        "scope": "tenant", "sort": sort,
+        "scope": "tenant", "sort": sort, "sorts": sorts,
     }
