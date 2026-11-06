@@ -29,6 +29,7 @@ import { StudentRiskFactors } from "@/components/students/student-risk-factors";
 import { hasNavigationPermission } from "@/components/layout/navigation";
 import { toast } from "sonner";
 import { WorkQueueSummary } from "./work-queue-summary";
+import { WorkSevenDayPriority } from "./work-seven-day-priority";
 import { InfoBlock, InterventionContext } from "./work-activity-detail-parts";
 import { formatDate, STATUS_LABEL, TYPE_LABEL, PRIORITY_LABEL, ORIGIN_LABEL, EVENT_LABEL, RESULT_KIND_LABEL, CHANNEL_LABEL } from "./work-activity-labels";
 
@@ -66,6 +67,13 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
     queryKey: ["org-members", "work"],
     queryFn: () => api.listMembers(),
     retry: false,
+  });
+
+  const noContact = useQuery({
+    queryKey: ["work-priority-no-contact", me.data?.tenant_id],
+    queryFn: workApi.priorityWithoutContact,
+    enabled: Boolean(me.data?.tenant_id && canSensitive), retry: false,
+    staleTime: 60_000,
   });
 
   const summaryQuery = useQuery({
@@ -209,6 +217,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
       resetCreateForm();
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
       void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
+      void qc.invalidateQueries({ queryKey: ["work-priority-no-contact"] });
       if (created?.id) setSelectedId(created.id);
       toast.success("Atividade criada.");
     },
@@ -284,6 +293,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
         </div>
 
         <WorkQueueSummary data={summaryQuery.data} isLoading={summaryQuery.isLoading} isError={summaryQuery.isError} />
+        {canSensitive ? <WorkSevenDayPriority data={noContact.data} loading={noContact.isLoading} error={noContact.isError} /> : null}
 
         <WorkQueueFilters view={view} setView={setView}
           assigneeFilter={assigneeFilter} setAssigneeFilter={setAssigneeFilter}

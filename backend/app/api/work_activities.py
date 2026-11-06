@@ -7,10 +7,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import case, func, select
+from sqlalchemy import case, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, require_min_role
+from app.core.auth import AuthContext, require_min_role, require_permission
 from app.db.session import get_db
 from app.models.auth import User
 from app.models.intervention import InterventionLog
@@ -402,6 +402,95 @@ async def work_activity_summary(
         "campaign_pending": int(row.campaign_pending or 0),
         "urgent_pending": int(row.urgent_pending or 0),
         "as_of": _iso(now),
+    }
+
+
+
+@router.get("/activities/priority-no-contact")
+async def critical_students_without_recent_contact(
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verified tenant-wide counts; no capped work queue, no assumed contact for missing data.
+
+    A confirmed contact is either a sent intervention or a completed human
+    contact activity. Sending/unknown interventions and in-progress human
+    contacts are held for review, not mistaken for safe outreach candidates.
+    """
+    now = _now()
+    cutoff = now - timedelta(days=7)
+    critical = (
+        Student.tenant_id == auth.tenant_id,
+        Student.is_active.is_(True),
+        Student.risk_level == "critico",
+        Student.risk_score.is_not(None),
+    )
+    sent = exists(
+        select(InterventionLog.id).where(
+            InterventionLog.tenant_id == auth.tenant_id,
+            InterventionLog.student_id == Student.id,
+            InterventionLog.status == "sent",
+            InterventionLog.created_at >= cutoff,
+        )
+    )
+    human_done = exists(
+        select(WorkActivity.id).where(
+            WorkActivity.tenant_id == auth.tenant_id,
+            WorkActivity.student_id == Student.id,
+            WorkActivity.activity_type == "contact",
+            WorkActivity.status == "completed",
+            WorkActivity.completed_at >= cutoff,
+        )
+    )
+    uncertain_sent = exists(
+        select(InterventionLog.id).where(
+            InterventionLog.tenant_id == auth.tenant_id,
+            InterventionLog.student_id == Student.id,
+            InterventionLog.status.in_(("sending", "unknown")),
+            InterventionLog.created_at >= cutoff,
+        )
+    )
+    human_in_progress = exists(
+        select(WorkActivity.id).where(
+            WorkActivity.tenant_id == auth.tenant_id,
+            WorkActivity.student_id == Student.id,
+            WorkActivity.activity_type == "contact",
+            WorkActivity.status == "in_progress",
+        )
+    )
+    confirmed = sent | human_done
+    uncertain = ~confirmed & (uncertain_sent | human_in_progress)
+    actionable = ~confirmed & ~uncertain
+    aggregates = (await db.execute(
+        select(
+            func.count(Student.id).label("critical_total"),
+            func.count(case((confirmed, Student.id))).label("contacted_7d"),
+            func.count(case((uncertain, Student.id))).label("pending_verification"),
+            func.count(case((actionable, Student.id))).label("without_contact_7d"),
+        ).where(*critical)
+    )).one()
+    top = (await db.execute(
+        select(Student.id, Student.nome, Student.matricula, Student.risk_score)
+        .where(*critical, actionable)
+        .order_by(Student.risk_score.desc(), Student.id)
+        .limit(8)
+    )).all()
+    return {
+        "as_of": _iso(now),
+        "window_days": 7,
+        "critical_total": int(aggregates.critical_total or 0),
+        "contacted_7d": int(aggregates.contacted_7d or 0),
+        "pending_verification": int(aggregates.pending_verification or 0),
+        "without_contact_7d": int(aggregates.without_contact_7d or 0),
+        "candidates": [
+            {"id": row.id, "nome": row.nome, "matricula": row.matricula,
+             "risk_score": row.risk_score}
+            for row in top
+        ],
+        "count_scope": "all active tenant students scored as critical",
+        "policy": "Sent interventions and completed human contacts count as contact. "
+                  "Sending/unknown interventions and in-progress contacts are excluded "
+                  "from the candidate count until verified.",
     }
 
 

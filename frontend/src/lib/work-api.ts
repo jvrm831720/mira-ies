@@ -67,6 +67,13 @@ async function workRequest<T>(path: string, init: RequestInit = {}): Promise<T> 
   return JSON.parse(text) as T;
 }
 
+export type NoContactPriority = {
+  as_of: string; window_days: 7; critical_total: number;
+  contacted_7d: number; pending_verification: number; without_contact_7d: number;
+  candidates: Array<{ id: string; nome: string; matricula: string; risk_score: number }>;
+  count_scope: string; policy: string;
+};
+
 export const workApi = {
   list: (params?: {
     status?: string;
@@ -95,6 +102,7 @@ export const workApi = {
     workRequest<WorkActivitiesResponse>(`/api/v1/work/activities/mine?limit=${limit}`),
 
   summary: () => workRequest<WorkActivitySummary>("/api/v1/work/activities/summary"),
+  priorityWithoutContact: () => workRequest<NoContactPriority>("/api/v1/work/activities/priority-no-contact"),
 
   get: (id: string) =>
     workRequest<WorkActivity>(`/api/v1/work/activities/${encodeURIComponent(id)}`),
