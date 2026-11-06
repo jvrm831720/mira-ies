@@ -6,11 +6,8 @@ tenant-scoped projection; webhook delivery is stored before reconciliation.
 from __future__ import annotations
 
 import hashlib
-import hmac
-import json
 import re
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -82,9 +79,13 @@ async def _check_observation(db: AsyncSession, tenant: str, observation: Finance
 
 
 def financial_key(observation: FinanceObservation) -> str:
-    return hashlib.sha256(
-        (str(observation.tenant_id) + ":" + str(observation.profile_id) + ":" + observation.external_id).encode()
-    ).hexdigest()
+    # Correlated obligations from multiple integrations are one financial debt.
+    # The key is tenant-bound and student-bound, not provider-bound.
+    if observation.correlation_key:
+        identity = "correlated:" + str(observation.student_id) + ":" + observation.correlation_key
+    else:
+        identity = "source:" + str(observation.profile_id) + ":" + observation.external_id
+    return hashlib.sha256((str(observation.tenant_id) + ":" + identity).encode()).hexdigest()
 
 
 async def prepare_charge(
@@ -100,6 +101,8 @@ async def prepare_charge(
     ))).scalar_one_or_none()
     if observation is None:
         raise AsaasFlowDenied("Obrigação não encontrada.")
+    if mode == "production" and not observation.correlation_key:
+        raise AsaasFlowDenied("Cobrança real exige chave de obrigação única e revisada entre integrações.")
     key = financial_key(observation)
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k,0))"),
                      {"k": "asaas:charge:" + tenant_id + ":" + key})

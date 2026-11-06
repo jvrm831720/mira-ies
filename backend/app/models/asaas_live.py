@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     Boolean, CheckConstraint, Date, DateTime, ForeignKey, ForeignKeyConstraint,
-    Index, Numeric, String, Text, UniqueConstraint,
+    Index, Numeric, String, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column

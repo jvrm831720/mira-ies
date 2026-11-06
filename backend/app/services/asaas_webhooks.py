@@ -9,14 +9,12 @@ import hashlib
 import hmac
 import json
 import re
-from datetime import datetime, timezone
 
 from sqlalchemy import select, text
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models.asaas_live import AsaasCharge, AsaasWebhookEvent, AsaasWebhookApplication
+from app.models.asaas_live import AsaasWebhookEvent, AsaasWebhookApplication
 from app.services import asaas_gateway as gateway
 from app.services.asaas_live import reconcile_charge, AsaasFlowDenied
 from app.services.dispatch_core import bind_tenant
