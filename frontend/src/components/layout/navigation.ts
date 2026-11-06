@@ -49,6 +49,7 @@ const allGroups: NavigationGroup[] = [
     { href: "/academico/servicos", label: "Serviços acadêmicos", icon: FileClock, profile: "education", permission: "students.sensitive.view", module: "permanence", feature: "academic_services", keywords: "solicitações protocolos documentos" },
   ] },
   { id: "data", label: "Dados", items: [
+    { href: "/dados", label: "Data Hub", icon: Database, permission: "data.view", module: "data", keywords: "dados conexões sincronizações catálogo qualidade importações" },
     { href: "/conectores", label: "Integrações", icon: Database, permission: "data.view", module: "data", keywords: "fontes sistemas Composio" },
     { href: "/conectores/financeiro", label: "Fontes financeiras", icon: CreditCard, permission: "data.view", module: "data", keywords: "conciliação ERP financeiras" },
     { href: "/importar", label: "Importar dados", icon: FileUp, permission: "data.import", module: "data", keywords: "CSV XLSX upload" },
