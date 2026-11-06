@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/icons";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import {
   createSavedObjectView, deleteSavedObjectView, listSavedObjectViews, updateSavedObjectView,
@@ -175,7 +176,7 @@ export function ObjectIndex<T extends { id: string }>({
       setMenu(null);
       toast.success("Visualização salva.");
       void queryClient.invalidateQueries({ queryKey: ["object-views", userTenant, userId, objectKey] });
-    }).catch(e => setViewError(e instanceof Error ? e.message : "Não foi possível salvar."));
+    }).catch(e => { const message = e instanceof Error ? e.message : "Não foi possível salvar."; setViewError(message); toast.error(message); });
   }
   function duplicateView() {
     setViewName(savedLabel + " (cópia)");
