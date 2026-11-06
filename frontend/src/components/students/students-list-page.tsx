@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useObjectNavigationState, useObjectScrollRestoration } from "@/components/layout/navigation-context-provider";
+import { studentDetailHref } from "@/lib/navigation-context";
 import { Upload, Users } from "@/components/ui/icons";
 import { StudentDrawer } from "@/components/students/student-drawer";
 import {
@@ -68,26 +70,16 @@ const STUDENT_FIELDS: ObjectField<ObjectIndexStudent>[] = [
     </span> },
 ];
 
-function parseInitialState(searchParams: ReturnType<typeof useSearchParams>): ObjectIndexState {
-  const requested = searchParams.get("tab") || "todos";
-  const tab = STUDENT_VIEWS.some(view => view.id === requested) ? requested : "todos";
-  const state = initialObjectIndexState(STUDENT_FIELDS, tab);
-  const q = searchParams.get("q") || "";
-  state.query = q.slice(0, 160);
-  const risk = searchParams.get("risk");
-  if (risk && ["critico", "medio", "baixo"].includes(risk)) {
-    state.filters = [{ key: "risk_level", op: "eq", value: risk }];
-  }
-  return state;
-}
-
 export function StudentsListPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [state, setState] = useState(() => parseInitialState(searchParams));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [campaignIds, setCampaignIds] = useState<string[]>([]);
   const [campaignName, setCampaignName] = useState("");
+  const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
+  const { state, onStateChange, selectedId, openRecord, closeRecord, listingHref } = useObjectNavigationState({
+    fields: STUDENT_FIELDS, views: STUDENT_VIEWS,
+    tenantId: me.data?.tenant_id, userId: me.data?.user_id,
+  });
   const [debouncedQuery, setDebouncedQuery] = useState(state.query);
   const groupId = searchParams.get("group") || "";
   const validGroup = KNOWN_GROUP_IDS.has(groupId) ? groupId : "";
@@ -96,10 +88,7 @@ export function StudentsListPage() {
     const timer = window.setTimeout(() => setDebouncedQuery(state.query), 240);
     return () => window.clearTimeout(timer);
   }, [state.query]);
-
-  const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
   useEffect(() => {
-    setSelectedId(null);
     setCampaignIds([]);
   }, [me.data?.tenant_id, me.data?.user_id]);
 
@@ -170,6 +159,10 @@ export function StudentsListPage() {
     enabled: canView && !validGroup,
     staleTime: 20_000, retry: false,
   });
+  useObjectScrollRestoration({
+    tenantId: me.data?.tenant_id, userId: me.data?.user_id, listingHref,
+    selectedId, ready: Boolean(query.data && !query.isError && !query.isFetching),
+  });
   // The group detail page uses the authoritative cursor-based member API.
   // Redirect instead of intersecting two unrelated partial samples.
   useEffect(() => {
@@ -191,7 +184,7 @@ export function StudentsListPage() {
           ...state, view: safeView, filters: safeFilters, sort: safeSort,
           columns: state.columns.filter(key => publicFields.some(field => field.key === key)),
         }}
-        onStateChange={setState}
+        onStateChange={onStateChange}
         defaultViews={exposedViews} remote
         total={query.data?.total}
         loading={query.isLoading}
@@ -199,14 +192,14 @@ export function StudentsListPage() {
         onRetry={() => void query.refetch()}
         onRefresh={() => void query.refetch()}
         refreshing={query.isFetching}
-        onOpen={row => setSelectedId(row.id)}
+        onOpen={row => openRecord(row.id)}
         selectionActions={canPrepareCampaign ? rows => <Button size="sm" variant="primary" onClick={() => {
           setCampaignIds([...new Set(rows.map(row => row.id))]);
           setCampaignName("");
         }}>Criar campanha de retenção ({rows.length})</Button> : undefined}
         emptyAction={state.query || state.filters.length
           ? <button type="button" className="text-xs font-medium text-[var(--color-blue)] hover:underline"
-              onClick={() => setState(initialObjectIndexState(STUDENT_FIELDS))}>Limpar busca e filtros</button>
+              onClick={() => onStateChange(initialObjectIndexState(STUDENT_FIELDS))}>Limpar busca e filtros</button>
           : canImport ? <Link href="/importar" className="text-xs font-medium text-[var(--color-blue)] hover:underline">Importar alunos</Link> : null}
         actions={<div className="flex items-center gap-2">
           <Link href="/alunos/grupos" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-xs font-medium text-[var(--color-ink)] hover:bg-[var(--color-panel)]">
@@ -220,12 +213,13 @@ export function StudentsListPage() {
           {canSensitive && <RiskMovementsFeed movements={movementsQuery.data?.movements || []}
             loading={movementsQuery.isLoading} unavailable={movementsQuery.isError}
             truncated={Boolean(movementsQuery.data?.movements_truncated || movementsQuery.data?.temporal_data_truncated)}
-            onOpen={setSelectedId} />}
+            onOpen={openRecord} />}
           {groupId && !validGroup && <p role="alert" className="p-3 text-xs text-[var(--color-red)]">O grupo indicado não foi reconhecido.</p>}
         </>}
       />
     </main>
-    <StudentDrawer studentId={selectedId} onClose={() => setSelectedId(null)} />
+    <StudentDrawer studentId={selectedId} onClose={closeRecord}
+      fullPageHref={selectedId ? studentDetailHref(selectedId, listingHref) : undefined} />
     <Dialog open={campaignIds.length > 0}
       onOpenChange={open => { if (!open) setCampaignIds([]); }}
       title="Criar campanha de retenção"

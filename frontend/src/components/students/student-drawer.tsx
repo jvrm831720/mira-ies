@@ -56,7 +56,7 @@ function auditDescription(event: ConsentAuditEvent) {
   return "Preferência atualizada.";
 }
 
-export function StudentDrawer({ studentId, onClose }: {studentId: string|null;onClose:()=>void}) {
+export function StudentDrawer({ studentId, onClose, fullPageHref }: {studentId: string|null;onClose:()=>void;fullPageHref?:string}) {
   const open=Boolean(studentId);
   const me=useQuery({queryKey:["org-me"],queryFn:api.me,retry:false,staleTime:60_000});
   const canRead=getVisibleNavigation(me.data).some(group=>group.items.some(item=>item.href==="/alunos"));
@@ -104,7 +104,7 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
     </div>:<p className="text-xs text-[var(--color-muted)]">Sem acesso aos dados de contato.</p>},
   ];
   return <RecordDrawer record={record} onClose={onClose}
-    fullPageHref={canRead&&studentId?"/alunos/"+encodeURIComponent(studentId):undefined}
+    fullPageHref={canRead&&studentId?(fullPageHref || "/alunos/"+encodeURIComponent(studentId)):undefined}
     status={canSensitive&&q.data?<RiskBadge level={q.data.risk_level}/>:undefined}>
     <RecordSections key={studentId||""} sections={sections}/>
   </RecordDrawer>;

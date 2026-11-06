@@ -20,6 +20,7 @@ import {
   type NavigationItem,
 } from "./navigation";
 import { CommandPalette } from "./command-palette";
+import { useNavigationContext } from "./navigation-context-provider";
 
 /**
  * MIRA workspace sidebar.
@@ -44,6 +45,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { clearScroll } = useNavigationContext();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
@@ -71,6 +73,7 @@ export function Sidebar() {
     }),
     onSuccess: result => {
       toast.success("Workspace alterado para " + result.tenant_name + ".");
+      clearScroll();
       queryClient.clear();
       window.location.assign("/");
     },
