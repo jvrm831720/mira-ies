@@ -23,6 +23,7 @@ type StudentProfile = {
   institution: string;
 };
 type RecordKind = "enrollment" | "attendance" | "assessment" | "fee";
+type RecentServiceRequest = { id: string; subject: string; status: string; created_at: string };
 type ExtraTab = "schedule" | "calendar" | "report-card" | "attendance";
 type AcademicItem = {
   id?: string;
@@ -142,6 +143,7 @@ export default function StudentPortalPage() {
   const [tab, setTab] = useState<RecordKind>("enrollment");
   const [activeSection, setActiveSection] = useState<PortalSection>("home");
   const [records, setRecords] = useState<AcademicRecord[]>([]);
+  const [recentRequests, setRecentRequests] = useState<RecentServiceRequest[] | null>(null);
   const [extraTab, setExtraTab] = useState<ExtraTab>("schedule");
   const [extraRecords, setExtraRecords] = useState<AcademicItem[]>([]);
   const [extraMessage, setExtraMessage] = useState<string | null>(null);
@@ -213,6 +215,20 @@ export default function StudentPortalPage() {
       .finally(() => { if (active) setExtraLoading(false); });
     return () => { active = false; };
   }, [student, extraTab]);
+
+  useEffect(() => {
+    if (!student || activeSection !== "home") return;
+    let active = true;
+    setRecentRequests(null);
+    fetch("/api/v1/student-portal/services/requests", {
+      credentials: "same-origin", cache: "no-store",
+    }).then(response => response.ok ? response.json() as Promise<{items: RecentServiceRequest[]}> : null)
+      .then(result => {
+        if (active) setRecentRequests(Array.isArray(result?.items) ? result.items.slice(0, 3) : null);
+      })
+      .catch(() => { if (active) setRecentRequests(null); });
+    return () => { active = false; };
+  }, [student, activeSection]);
 
   async function claim(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -368,6 +384,11 @@ export default function StudentPortalPage() {
     </section>
   );
 
+  const academicRows = activeSection === "home" && extraTab === "schedule"
+    ? extraRecords.filter(item => item.starts_at && Number.isFinite(Date.parse(item.starts_at)) && Date.parse(item.starts_at) >= Date.now())
+      .sort((a, b) => Date.parse(a.starts_at || "") - Date.parse(b.starts_at || "")).slice(0, 5)
+    : extraRecords;
+
   const academicPanel = (title: string, description: string) => (
     <section aria-label={title} className="overflow-hidden rounded-xl border border-[#E6E7EA] bg-white">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E6E7EA] px-4 py-4 sm:px-6">
@@ -387,14 +408,14 @@ export default function StudentPortalPage() {
         </div>}
       </div>
       {extraLoading ? <div role="status" className="flex items-center gap-2 p-6 text-[12px] text-[#505967]"><Loader2 className="h-4 w-4 animate-spin" /> Consultando registros publicados…</div>
-        : extraRecords.length ? <ul className="divide-y divide-[#EEEFF1]">
-          {extraRecords.map((item,index) => <li key={(item.id || item.class_id || "academic") + "-" + index} className="px-4 py-4 sm:px-6">
+        : academicRows.length ? <ul className="divide-y divide-[#EEEFF1]">
+          {academicRows.map((item,index) => <li key={(item.id || item.class_id || "academic") + "-" + index} className="px-4 py-4 sm:px-6">
             <p className="text-[12px] font-semibold">{academicTitle(extraTab, item)}</p>
             <p className="mt-1.5 text-[11px] leading-5 text-[#505967]">{academicDescription(extraTab, item)}</p>
             {item.teacher_name && <p className="mt-1 text-[11px] text-[#75777C]">Docente: {item.teacher_name}</p>}
           </li>)}
-        </ul> : <p className="p-7 text-[12px] leading-6 text-[#75777C]">{extraMessage || "Nenhuma informação publicada nesta seção."}</p>}
-      {extraMessage && extraRecords.length > 0 && <p className="border-t border-[#E6E7EA] px-4 py-3 text-[11px] text-[#505967] sm:px-6">{extraMessage}</p>}
+        </ul> : <p className="p-7 text-[12px] leading-6 text-[#75777C]">{extraMessage || (activeSection === "home" ? "Nenhuma próxima aula publicada foi encontrada." : "Nenhuma informação publicada nesta seção.")}</p>}
+      {extraMessage && academicRows.length > 0 && <p className="border-t border-[#E6E7EA] px-4 py-3 text-[11px] text-[#505967] sm:px-6">{extraMessage}</p>}
       {extraTab === "report-card" && <p className="border-t border-[#EEEFF1] px-4 py-3 text-[11px] text-[#75777C] sm:px-6">Somente notas publicadas. Resultados finais dependem de homologação institucional.</p>}
       {extraTab === "attendance" && <p className="border-t border-[#EEEFF1] px-4 py-3 text-[11px] text-[#75777C] sm:px-6">Aulas sem chamada não são contadas como presença.</p>}
     </section>
@@ -418,7 +439,7 @@ export default function StudentPortalPage() {
         </dl>
       </section>
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
-        <div>{academicPanel("Aulas registradas", "Informações publicadas pela instituição, quando disponíveis.")}</div>
+        <div>{academicPanel("Próximas aulas", "Somente aulas futuras com data confirmada pelo sistema acadêmico.")}</div>
         <section aria-label="Acesso rápido" className="self-start rounded-xl border border-[#E6E7EA] bg-[#F8F9FA] p-5">
           <h2 className="text-[14px] font-semibold">O que você precisa fazer?</h2>
           <p className="mt-2 text-[12px] leading-5 text-[#505967]">Acesse seu histórico ou acompanhe um pedido sem procurar por diferentes portais.</p>
@@ -427,6 +448,23 @@ export default function StudentPortalPage() {
               <button key={id} type="button" onClick={() => navigate(id)} className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#E6E7EA] bg-white px-3 py-3 text-left text-[12px] font-medium hover:border-[#B6CDFE] focus-visible:ring-2 focus-visible:ring-[#266DF0]">
                 {label}<ArrowRight className="h-4 w-4 text-[#75777C]" />
               </button>)}
+          </div>
+          <div className="mt-5 border-t border-[#E6E7EA] pt-4">
+            <h3 className="text-[12px] font-semibold">Solicitações recentes</h3>
+            {recentRequests === null
+              ? <p className="mt-2 text-[11px] leading-5 text-[#75777C]">Informações de solicitações ainda não disponíveis nesta consulta.</p>
+              : recentRequests.length === 0
+                ? <p className="mt-2 text-[11px] text-[#75777C]">Nenhuma solicitação registrada.</p>
+                : <ul className="mt-2 divide-y divide-[#E6E7EA]">
+                  {recentRequests.map(request => <li key={request.id} className="py-2">
+                    <p className="truncate text-[11px] font-medium" title={request.subject}>{request.subject}</p>
+                    <p className="mt-0.5 text-[10px] text-[#75777C]">{request.status.replaceAll("_", " ")}</p>
+                  </li>)}
+                </ul>}
+            <button type="button" onClick={() => navigate("requests")}
+              className="mt-3 text-[11px] font-semibold text-[#266DF0] hover:underline focus-visible:ring-2 focus-visible:ring-[#266DF0]">
+              Ver todas as solicitações
+            </button>
           </div>
         </section>
       </div>
