@@ -40,7 +40,7 @@
 .card{display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:19px;min-width:0;min-height:132px;text-align:left;background:var(--apps-card);border:1px solid var(--apps-edge);border-radius:12px;padding:14px 15px 13px;color:var(--apps-ink);transition:background .14s,border-color .14s,transform .14s}
 .card:hover{background:var(--apps-hover);border-color:var(--mira-apps-palette-464951);transform:translateY(-1px)}
 .cardTop{display:flex;align-items:center;gap:13px;min-width:0}
-.logo{display:inline-grid;place-items:center;flex-shrink:0;width:52px;height:52px;border:1px solid var(--mira-apps-palette-303137);border-radius:11px;background:linear-gradient(140deg,var(--mira-apps-palette-27292c),var(--mira-apps-palette-17181b));font-size:24px;color:var(--mira-apps-palette-eff2f6);font-weight:800;letter-spacing:-.08em}
+.logo{position:relative;display:inline-grid;place-items:center;flex-shrink:0;width:52px;height:52px;border:1px solid var(--mira-apps-palette-303137);border-radius:11px;background:linear-gradient(140deg,var(--mira-apps-palette-27292c),var(--mira-apps-palette-17181b));font-size:24px;color:var(--mira-apps-palette-eff2f6);font-weight:800;letter-spacing:-.08em}
 .logo[data-tone="blue"]{background:linear-gradient(145deg,var(--mira-apps-palette-196cd3),var(--mira-apps-palette-10254b));color:var(--mira-apps-palette-ecf6ff)}
 .logo[data-tone="green"]{background:linear-gradient(145deg,var(--mira-apps-palette-26b95b),var(--mira-apps-palette-10482a));color:var(--mira-apps-palette-e8ffef)}
 .logo[data-tone="rainbow"]{background:conic-gradient(from 220deg,var(--mira-apps-palette-28b8a7),var(--mira-apps-palette-4178f4),var(--mira-apps-palette-e04b4b),var(--mira-apps-palette-e9aa37),var(--mira-apps-palette-28b8a7));color:white}
@@ -48,6 +48,10 @@
 .logo[data-tone="red"]{background:linear-gradient(145deg,var(--mira-apps-palette-c84653),var(--mira-apps-palette-571b25))}
 .logo[data-tone="cyan"]{background:linear-gradient(145deg,var(--mira-apps-palette-12b5c5),var(--mira-apps-palette-16566d))}
 .logo[data-tone="purple"]{background:linear-gradient(145deg,var(--mira-apps-palette-8662c9),var(--mira-apps-palette-3b225d))}
+.brandIcon{position:absolute;z-index:1;top:9px;left:9px;width:32px;height:32px;object-fit:contain;border-radius:6px}
+.fallbackInitial{display:inline-block;line-height:1}
+.moreButton{display:block;margin:26px auto 0;border:1px solid var(--apps-edge);border-radius:10px;color:var(--apps-ink);background:var(--apps-panel);padding:12px 20px;font-size:var(--apps-font-md);font-weight:600}
+.moreButton:hover{background:var(--apps-hover)}
 .cardIdentity{display:flex;flex-direction:column;gap:5px;min-width:0}
 .cardIdentity strong{font-size:var(--apps-font-title);font-weight:650;letter-spacing:-.016em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .cardIdentity span{color:var(--apps-muted);font-size:var(--apps-font-sm);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
