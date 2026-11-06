@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import {
   flexRender, getCoreRowModel, useReactTable,
   type ColumnDef, type RowSelectionState, type SortingState, type VisibilityState,
@@ -70,7 +70,7 @@ export function ObjectDataTable<T extends { id: string }>({
   ), [fields, visible]);
   const tableSorts: SortingState = sorts.map(sort => ({ id: sort.key, desc: sort.desc }));
 
-  function toggleSort(key: string, additive: boolean) {
+  const toggleSort = useCallback((key: string, additive: boolean) => {
     const current = sorts.find(sort => sort.key === key);
     const next = current ? current.desc ? null : { key, desc: true } : { key, desc: false };
     if (additive) {
@@ -80,7 +80,7 @@ export function ObjectDataTable<T extends { id: string }>({
     } else {
       onSortsChange(next ? [next] : []);
     }
-  }
+  }, [sorts, onSortsChange]);
 
   const columns = useMemo<ColumnDef<T>[]>(() => [
     {
@@ -124,7 +124,7 @@ export function ObjectDataTable<T extends { id: string }>({
           </button>
         : <PropertyCell field={field} record={row.original} />,
     })),
-  ], [fields, primary, onOpen, sorts]);
+  ], [fields, primary, onOpen, sorts, toggleSort]);
 
   const table = useReactTable<T>({
     data: records, columns, getRowId: record => record.id,
