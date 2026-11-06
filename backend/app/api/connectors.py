@@ -6,10 +6,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 
 from app.db.session import get_db
-from app.core.auth import AuthContext, get_current_tenant
+from app.core.auth import AuthContext, get_current_tenant, require_permission
 from app.services.connectors import list_connectors, get_connector, ingest_records
+from app.services.connectors.provenance import build_provenance_coverage
+from app.models.student import Student
 
 router = APIRouter()
 
@@ -80,6 +83,22 @@ async def _ingest_via_connector(
     except Exception:
         # Detalhes internos podem conter URLs, tokens ou dados do tenant.
         raise HTTPException(status_code=500, detail="Falha interna ao processar ingestao")
+
+
+@router.get("/connectors/provenance/coverage")
+async def get_provenance_coverage(
+    auth: AuthContext = Depends(require_permission('students.sensitive.view')),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cobertura de timestamps de observação explícitos do tenant autenticado."""
+    result = await db.execute(
+        select(Student.raw_data).where(
+            Student.tenant_id == auth.tenant_id,
+            Student.is_active.is_(True),
+        )
+    )
+    raw_data_rows = list(result.scalars().all())
+    return build_provenance_coverage(raw_data_rows)
 
 
 @router.get("/connectors")

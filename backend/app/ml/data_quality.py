@@ -31,7 +31,11 @@ def _parse_timestamp(value: Any) -> datetime | None:
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+        # Sem timezone explícito não há base segura para comparar a idade
+        # entre sistemas de fusos diferentes.
+        if parsed.tzinfo is None:
+            return None
+        return parsed.astimezone(timezone.utc)
     except ValueError:
         return None
 

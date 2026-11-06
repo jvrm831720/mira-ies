@@ -85,6 +85,42 @@ Faixas: baixo < 40; médio >= 40 e < 70; crítico >= 70. A regra de classificaç
 - **Ajuste dinâmico:** alteração operacional separada, com origem rastreável.
 - **Recomendação:** próxima ação sugerida; nunca deve ser exibida como se fosse uma causa observada.
 
+
+## Wave 3.4 — Contrato de proveniência dos conectores
+
+Os conectores ERP/LMS e o conector JSON genérico preservam metadados por campo em `__mira_provenance`, transportados pelo pipeline e persistidos em `students.raw_data._mira_provenance`.
+
+Formato preferencial enviado pela origem:
+
+```json
+{
+  "matricula": "A123",
+  "nome": "Estudante",
+  "dias_sem_login": 4,
+  "field_observations": {
+    "dias_sem_login": {
+      "observed_at": "2026-11-01T12:00:00Z",
+      "source_updated_at": "2026-11-01T12:05:00Z",
+      "source_field": "lastaccess"
+    }
+  }
+}
+```
+
+Também é aceito `<campo>_observed_at` para compatibilidade com importações CSV/XLSX e integrações simples. `source_updated_at` é armazenado como metadado auxiliar e **não** substitui `observed_at`.
+
+Regras:
+- `observed_at` deve representar quando aquele campo foi observado/calculado na origem.
+- O horário de recebimento pela MIRA é registrado separadamente em `imported_at`.
+- `updated_at`, `created_at`, timestamps de evento e horários de webhook não são usados como observação implícita.
+- Ausência, formato inválido ou data futura deixam a atualidade como `unknown`; não são convertidos em dados recentes.
+- A cobertura é avaliada por campo preditivo, não por registro ou payload inteiro.
+- Conectores que não conseguem provar a observação deixam o campo sem timestamp até que a origem passe a fornecer essa informação.
+
+A cobertura é consultável por tenant em `GET /api/v1/connectors/provenance/coverage`. O endpoint retorna cobertura global e por campo, separando timestamps ausentes de timestamps inválidos/futuros. Ele considera apenas registros ativos do tenant autenticado e não agrega dados entre instituições.
+
+A implementação atual adapta o contrato de payload e a persistência comum. Ela não cria chamadas de API de terceiros nem afirma que cada fornecedor já disponibiliza timestamps confiáveis. O mapeamento semântico de cada campo deve ser confirmado com documentação e payloads reais de cada IES.
+
 ## Pendências fora desta wave
 
 - Calibração e validação em coortes reais, com rótulos de evasão e horizonte definido.
