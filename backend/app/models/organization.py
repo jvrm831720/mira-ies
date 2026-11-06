@@ -17,6 +17,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    LargeBinary,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -129,6 +130,26 @@ class TenantBranding(Base):
     support_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     portal_title: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     extra: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
+class TenantLogoAsset(Base):
+    """Small, verified workspace logo bytes stored durably in PostgreSQL.
+
+    A separate bounded asset table avoids base64 payloads in tenant JSONB and
+    reuses the existing TenantBranding.logo_storage_key for discovery.
+    """
+
+    __tablename__ = "mira_tenant_logo_assets"
+
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True
+    )
+    content_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    image_bytes: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
     )

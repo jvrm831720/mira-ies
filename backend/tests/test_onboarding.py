@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.core.security import hash_api_key
 from app.models.auth import AuthChallenge, User
-from app.models.organization import Membership, ModuleEntitlement, Organization
+from app.models.organization import Membership, ModuleEntitlement, Organization, TenantBranding, TenantLogoAsset
 from app.models.tenant import Tenant
 
 
@@ -126,6 +126,7 @@ async def test_verified_email_can_provision_organization_once(client, db_session
         "campuses": "2_5",
         "description": "Instituição de ensino superior com foco em permanência.",
         "data_sources": ["totvs_rm", "moodle"],
+        "logo_data_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9UKQsAAAAASUVORK5CYII=",
     }
 
     response = await client.post("/api/v1/onboarding/complete", json=payload)
@@ -157,6 +158,51 @@ async def test_verified_email_can_provision_organization_once(client, db_session
     assert membership.origin == "self_service_onboarding"
     assert {item.module_key for item in entitlements} == {"permanence", "data", "workspace", "mira_plan"}
     assert organization.onboarding_profile["data_sources"] == ["totvs_rm", "moodle"]
+    from sqlalchemy import text
+    await db_session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": tenant.id},
+    )
+    logo = (await db_session.execute(
+        select(TenantLogoAsset).where(TenantLogoAsset.tenant_id == tenant.id)
+    )).scalar_one()
+    branding = (await db_session.execute(
+        select(TenantBranding).where(TenantBranding.tenant_id == tenant.id)
+    )).scalar_one()
+    assert logo.content_type == "image/png"
+    assert logo.source == "uploaded"
+    assert logo.image_bytes.startswith(b"\x89PNG")
+    assert branding.logo_storage_key == f"database:tenant-logo/{tenant.id}"
+
 
     reused = await client.post("/api/v1/onboarding/complete", json=payload)
     assert reused.status_code == 401
+
+def test_site_footer_cnpj_extraction_rejects_ambiguous_and_invalid_numbers():
+    from app.services.onboarding_enrichment import extract_single_cnpj, site_favicon_url
+
+    assert extract_single_cnpj("Rodapé: CNPJ: 11.222.333/0001-81") == "11222333000181"
+    assert extract_single_cnpj("CNPJ inválido: 11.222.333/0001-82") is None
+    assert extract_single_cnpj("11.222.333/0001-81 e 62.984.091/0001-02") is None
+    assert site_favicon_url("https://example.com.br") == (
+        "https://www.google.com/s2/favicons?domain=example.com.br&sz=128"
+    )
+
+
+def test_logo_payload_enforces_mime_and_size():
+    import base64
+
+    import pytest
+    from fastapi import HTTPException
+    from app.api.onboarding import _image_logo
+
+    assert _image_logo("") is None
+    with pytest.raises(HTTPException):
+        _image_logo("data:image/png;base64," + base64.b64encode(b"not-a-png").decode())
+    with pytest.raises(HTTPException):
+        _image_logo("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")
+
+
+async def test_logo_requires_authenticated_workspace(client):
+    response = await client.get("/api/v1/onboarding/workspace-logo")
+    assert response.status_code in {401, 403}

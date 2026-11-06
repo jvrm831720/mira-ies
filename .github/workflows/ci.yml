@@ -117,6 +117,7 @@ jobs:
             custom_field_definitions,
             tenant_composio_tool_approvals, tenant_omie_connections,
             mira_module_entitlements, mira_tenant_domains, mira_tenant_branding,
+            mira_tenant_logo_assets,
             mira_memberships, mira_organizations,
             mira_tenant_role_audit, mira_tenant_roles,
             student_feature_observations, tenant_integration_data_sources,
