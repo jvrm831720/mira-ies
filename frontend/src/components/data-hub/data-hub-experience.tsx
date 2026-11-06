@@ -79,6 +79,7 @@ export function DataHubExperience() {
   const authorized = hasNavigationPermission(me.data, "data.view");
   const canImport = hasNavigationPermission(me.data, "data.import");
   const canSeeDispatch = hasNavigationPermission(me.data, "campaigns.view");
+  const canManageIntegrations = hasNavigationPermission(me.data, "settings.manage");
   const tenantKey = me.data?.tenant_id;
 
   const catalog = useQuery({
@@ -101,6 +102,17 @@ export function DataHubExperience() {
     queryKey: ["data-hub", tenantKey, "composio-import-history"],
     queryFn: () => dispatchApi.composioImportHistory(),
     enabled: authorized && canSeeDispatch, staleTime: 45_000, retry: 1,
+  });
+
+  const composioCatalog = useQuery({
+    queryKey: ["data-hub", tenantKey, "composio-catalog"],
+    queryFn: () => api.composioCatalog(),
+    enabled: authorized && canManageIntegrations, staleTime: 300_000, retry: false,
+  });
+  const composioConnections = useQuery({
+    queryKey: ["data-hub", tenantKey, "composio-connections"],
+    queryFn: () => api.composioConnections(),
+    enabled: authorized && canManageIntegrations, staleTime: 60_000, retry: false,
   });
 
   const connections = useMemo(() => [
@@ -126,6 +138,10 @@ export function DataHubExperience() {
   const issues = useMemo(() => importIssues(uploads.data?.items || []), [uploads.data?.items]);
   const nativeConfigured = connections.filter(item => item.value?.configured).length;
   const nativeFailures = connections.filter(item => item.value && connectionState(item.value).key === "error").length;
+  const connectedComposioAccounts = composioConnections.data?.items || [];
+  const remoteCatalogItems = (composioCatalog.data?.items || []).filter(item =>
+    (item.name + " " + item.slug + " " + (item.description || "") + " " + (item.categories || []).join(" ")).toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))
+  );
   const catalogItems = useMemo(() => (catalog.data?.connectors || []).filter(item =>
     (item.name + " " + (item.category || "") + " " + (item.description || "")).toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR"))
   ), [catalog.data?.connectors, search]);
@@ -138,6 +154,7 @@ export function DataHubExperience() {
     void sponte.refetch();
     void uploads.refetch();
     if (canSeeDispatch) void composioHistory.refetch();
+    if (canManageIntegrations) { void composioCatalog.refetch(); void composioConnections.refetch(); }
   }
 
   if (me.isLoading) return <><Header title="Dados e integrações" subtitle="Preparando o seu espaço de trabalho." /><main className="p-8 text-sm text-[#79818B]">Verificando acesso...</main></>;
@@ -159,11 +176,12 @@ export function DataHubExperience() {
       </nav>
 
       {section === "overview" && <div className="space-y-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Stat label="Conexões nativas configuradas" value={jacad.isLoading || sponte.isLoading ? "—" : nativeConfigured} detail="JACAD e Sponte; não representa todo o workspace" />
           <Stat label="Conexões com erro conhecido" value={jacad.isLoading || sponte.isLoading ? "—" : nativeFailures} detail="Entre os dois provedores consultados" />
           <Stat label="Conectores no catálogo" value={catalog.isLoading ? "—" : (catalog.data?.count ?? "—")} detail="Disponibilidade não equivale à homologação" />
           <Stat label="Lotes recentes consultados" value={uploads.isLoading ? "—" : (uploads.data?.items.length ?? "—")} detail="Amostra dos 30 últimos uploads, não total histórico" />
+          <Stat label="Contas Composio registradas" value={!canManageIntegrations ? "Restrito" : composioConnections.isLoading ? "—" : (composioConnections.data?.total ?? "Indisponível")} detail="Registros locais; não comprova autenticação remota" />
         </div>
         <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
           <Panel title="Fontes acadêmicas" description="Estado real das conexões nativas consultáveis"
@@ -210,7 +228,21 @@ export function DataHubExperience() {
             <SmallLink href="/conectores">Inspecionar</SmallLink>
           </article>)}
         </div>
-        <p className="border-t border-[#EDF0F2] px-5 py-4 text-[11px] text-[#858D98]">Esta visão inclui somente JACAD e Sponte, cujos contratos de conexão foram confirmados. Outras integrações permanecem disponíveis nas telas nativas. Nenhuma limitação de uma conexão por workspace foi introduzida.</p>
+        {canManageIntegrations && <div className="border-t border-[#EDF0F2]">
+          <div className="px-5 pb-2 pt-4"><h3 className="text-xs font-semibold text-[#343B45]">Contas Composio</h3><p className="mt-1 text-[11px] text-[#8B929D]">Registros locais deste workspace, sem atualização remota automática.</p></div>
+          {composioConnections.isLoading ? <Empty message="Carregando contas locais..." /> :
+           composioConnections.isError ? <div role="alert" className="p-5 text-xs text-[#AC3327]">Conexões Composio indisponíveis. Verifique a configuração do serviço.</div> :
+           connectedComposioAccounts.length === 0 ? <Empty message="Nenhuma conta Composio registrada no workspace." /> :
+           <div className="divide-y divide-[#EDF0F2]">{connectedComposioAccounts.map(account => <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+             <div><p className="text-xs font-medium text-[#282F39]">{account.display_name || account.toolkit_slug}</p><p className="mt-1 text-[11px] text-[#818A96]">{account.toolkit_slug} · Conta local {account.connected_account_id}</p></div>
+             <Status state={account.status === "active" ? { key: "configured", label: "Ativa (local)", tone: "blue" } :
+               account.status === "revoked" ? { key: "disabled", label: "Revogada", tone: "neutral" } :
+               account.status === "expired" ? { key: "disconnected", label: "Expirada", tone: "amber" } :
+               account.status === "error" ? { key: "error", label: "Erro", tone: "red" } :
+               { key: "unknown", label: "Estado: " + account.status, tone: "neutral" }} />
+           </div>)}</div>}
+        </div>}
+        <p className="border-t border-[#EDF0F2] px-5 py-4 text-[11px] text-[#858D98]">JACAD e Sponte têm contratos nativos; as contas Composio têm identidade por conexão. Um registro local ativo não comprova sessão remota vigente. Não há restrição de uma conexão por workspace.</p>
       </Panel>}
 
       {section === "catalog" && <Panel title="Explorar integrações" description="Catálogo retornado pela API; não confundir presença no catálogo com conexão ativa."
@@ -228,6 +260,18 @@ export function DataHubExperience() {
             <p className="mt-3 min-h-10 text-xs leading-5 text-[#848C96]">{item.description || "Recursos e homologação dependem da configuração do provedor."}</p>
             <div className="mt-auto border-t border-[#EDF0F2] pt-3"><SmallLink href="/conectores">Ver integrações existentes</SmallLink></div>
           </article>)}</div>}
+        {canManageIntegrations && <div className="border-t border-[#EDF0F2]">
+          <div className="px-5 pb-2 pt-5"><h3 className="text-xs font-semibold text-[#303843]">Composio · catálogo remoto</h3><p className="mt-1 text-[11px] text-[#8B929E]">Visível somente com settings.manage. Toolkit habilitado não significa conta conectada ou ferramenta pronta para execução.</p></div>
+          {composioCatalog.isLoading ? <Empty message="Consultando o catálogo Composio..." /> :
+           composioCatalog.isError ? <div role="alert" className="px-5 py-6 text-xs text-[#A53E2E]">Catálogo Composio indisponível ou não configurado.</div> :
+           remoteCatalogItems.length === 0 ? <Empty message="Nenhuma ferramenta remota encontrada." /> :
+           <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">{remoteCatalogItems.map(item => <article key={item.slug} className="rounded-lg border border-[#E6E7EA] p-4">
+             <div className="flex items-start justify-between gap-2"><span className="rounded-lg bg-[#F5F6F8] p-2"><Plug size={17} aria-hidden /></span><Status state={item.enabled ? {key:"configured",label:"Política habilitada",tone:"blue"} : {key:"disabled",label:"Política desabilitada",tone:"neutral"}} /></div>
+             <h4 className="mt-3 text-xs font-semibold text-[#2B323B]">{item.name}</h4><p className="mt-1 text-[11px] text-[#8A939E]">{categoryLabel(item.category || item.categories?.[0])}</p>
+             <p className="mt-2 text-[11px] leading-5 text-[#7F8893]">{item.description || "Nenhuma descrição fornecida pelo provedor."}</p>
+             <p className="mt-3 border-t border-[#EDF0F2] pt-2 text-[10px] text-[#89919B]">{item.selected_tool_slugs?.length || 0} ferramenta(s) selecionada(s) nesta política</p>
+           </article>)}</div>}
+        </div>}
         <div className="border-t border-[#EDF0F2] bg-[#FAFAFB] px-5 py-3 text-[11px] text-[#818A96]">Ferramentas Composio são regidas por catálogo, allowlist, OAuth e políticas específicas; não há execução genérica neste catálogo.</div>
       </Panel>}
 
