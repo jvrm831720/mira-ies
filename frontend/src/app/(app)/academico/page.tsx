@@ -1,11 +1,17 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { AcademicCatalogSelector, type AcademicResource } from "@/components/academic/academic-catalog-selector";
+import { AcademicCatalogTable } from "@/components/academic/academic-catalog-table";
+import { AcademicNavigation } from "@/components/academic/academic-navigation";
+
+import { useCallback, useDeferredValue, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BookOpen, CalendarDays, CheckCircle2, GraduationCap, Loader2,
-  Plus, ShieldCheck, Users, X,
+  CheckCircle2, Loader2,
+  Plus, ShieldCheck, X,
 } from "@/components/ui/icons";
+import { Dialog } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
 import type { ObjectField } from "@/components/object-index/object-index-types";
@@ -31,7 +37,7 @@ const CLASS_FIELDS: ObjectField<Item>[] = [
 ];
 
 type Draft = { id: string; resource: string; title: string; class_id: string | null };
-type Field = { key: string; label: string; type?: "date" | "datetime-local" | "number"; options?: Item[]; required?: boolean };
+type Field = { key: string; label: string; type?: "date" | "datetime-local" | "number"; resource?: AcademicResource; required?: boolean };
 type NewKind = "program" | "subject" | "teacher" | "term" | "class" | "lesson" | "assessment" | "calendar_event";
 
 async function staffRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -74,9 +80,9 @@ const keys: Record<NewKind, string> = {
 function pretty(item: Item): string {
   return item.name || item.display_name || item.label || item.code || item.id;
 }
-function fieldsFor(kind: NewKind, data: Overview): Field[] {
+function fieldsFor(kind: NewKind): Field[] {
   const p = (key: string, label: string): Field => ({ key, label, required: true });
-  const select = (key: string, label: string, options: Item[]): Field => ({ key, label, options, required: true });
+  const select = (key: string, label: string, resource: AcademicResource): Field => ({ key, label, resource, required: true });
   const term: Field[] = [p("code", "Código do período"), p("label", "Nome do período"),
     { ...p("starts_on", "Data inicial"), type: "date" },
     { ...p("ends_on", "Data final"), type: "date" }];
@@ -87,22 +93,22 @@ function fieldsFor(kind: NewKind, data: Overview): Field[] {
   switch (kind) {
     case "program": return [p("code", "Código do curso"), p("name", "Nome do curso"), {key:"modality",label:"Modalidade"}];
     case "subject": return [
-      select("program_id", "Curso vinculado", data.programs),
+      select("program_id", "Curso vinculado", "programs"),
       p("code", "Código da disciplina"), p("name", "Nome da disciplina"),
       {key:"credit_hours",label:"Carga horária",type:"number"},
     ];
     case "teacher": return [p("staff_code", "Código docente"), p("display_name", "Nome do professor"),
       {key:"department",label:"Departamento"}];
     case "term": return term;
-    case "class": return [select("subject_id", "Disciplina", data.subjects), select("term_id", "Período", data.terms),
-      {key:"teacher_id",label:"Professor responsável (opcional)",options:data.teachers},
+    case "class": return [select("subject_id", "Disciplina", "subjects"), select("term_id", "Período", "terms"),
+      {key:"teacher_id",label:"Professor responsável (opcional)",resource:"teachers"},
       p("code", "Código da turma"), {key:"campus",label:"Unidade/campus"}];
-    case "lesson": return [select("class_id", "Turma", data.classes), ...range,
+    case "lesson": return [select("class_id", "Turma", "classes"), ...range,
       {key:"topic",label:"Tema da aula"}, {key:"room",label:"Sala ou link"}];
-    case "assessment": return [select("class_id", "Turma", data.classes),
+    case "assessment": return [select("class_id", "Turma", "classes"),
       p("code", "Código da avaliação"), p("title", "Título"),
       {...p("max_score", "Pontuação máxima"),type:"number"}];
-    case "calendar_event": return [select("term_id", "Período", data.terms),
+    case "calendar_event": return [select("term_id", "Período", "terms"),
       p("title", "Título do evento"), ...range, {key:"location",label:"Local"}];
   }
 }
@@ -120,12 +126,12 @@ export default function AcademicManagementPage() {
     ? me.data.permissions.includes("critical.manage") : me.data?.role === "admin");
 
   const overview = useQuery({
-    queryKey: ["native-academic", "catalog-overview"],
+    queryKey: ["native-academic", me.data?.tenant_id, me.data?.user_id, "catalog-overview"],
     queryFn: () => staffRequest<Overview>("/overview"),
     enabled: !!canView, retry: false,
   });
   const drafts = useQuery({
-    queryKey: ["native-academic", "drafts"],
+    queryKey: ["native-academic", me.data?.tenant_id, me.data?.user_id, "drafts"],
     queryFn: () => staffRequest<{ items: Draft[] }>("/drafts"),
     enabled: !!canView && !!canPublish, retry: false,
   });
@@ -134,6 +140,30 @@ export default function AcademicManagementPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [classIndexState, setClassIndexState] = useState(() => initialObjectIndexState(CLASS_FIELDS));
+
+  const classQuery = useDeferredValue(classIndexState.query);
+  const classRequest = {
+    query: classQuery.slice(0, 180), active_only: classIndexState.view === "active",
+    filters: classIndexState.filters, sort: classIndexState.sort,
+    columns: classIndexState.columns, page_size: classIndexState.pageSize,
+    offset: classIndexState.pageIndex * classIndexState.pageSize,
+  };
+  const classes = useQuery({
+    queryKey: ["native-academic", me.data?.tenant_id, me.data?.user_id, "class-index", classRequest],
+    queryFn: ({ signal }) => staffRequest<{ items: Item[]; total: number }>("/classes/index", {
+      method: "POST", body: JSON.stringify(classRequest), signal,
+    }),
+    enabled: Boolean(canView && overview.data && me.data?.tenant_id && me.data.user_id),
+    retry: false,
+  });
+
+  const [selection, setSelection] = useState<{ record: Item; tenant: string; user: string } | null>(null);
+  const selectedClass = selection && selection.tenant === me.data?.tenant_id && selection.user === me.data?.user_id
+    ? selection.record
+    : undefined;
+  const closeRecord = useCallback((open: boolean) => {
+    if (!open) setSelection(null);
+  }, []);
 
   const create = useMutation({
     mutationFn: async ({type, fields}: {type: NewKind; fields:Record<string,string>}) => {
@@ -176,7 +206,7 @@ export default function AcademicManagementPage() {
   });
 
   const possible = useMemo(() => (
-    overview.data ? fieldsFor(kind || "program", overview.data) : []
+    overview.data ? fieldsFor(kind || "program") : []
   ), [kind, overview.data]);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -189,6 +219,7 @@ export default function AcademicManagementPage() {
   </main>;
 
   return <main className="mx-auto max-w-[1370px] space-y-6 px-5 pb-16 pt-8 md:px-10">
+    <AcademicNavigation features={me.data?.available_features} />
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#98A2B3]">OPERAÇÃO ACADÊMICA · MIRA</p>
@@ -235,7 +266,7 @@ export default function AcademicManagementPage() {
       </section>
       <ObjectIndex objectKey="academic_classes"
         title="Turmas"
-        description="Índice de turmas da prévia oficial do catálogo acadêmico."
+        description="Turmas do catálogo acadêmico institucional."
         fields={CLASS_FIELDS.map(field => {
           if (field.key === "subject_id") return {
             ...field,
@@ -260,54 +291,57 @@ export default function AcademicManagementPage() {
           };
           return field;
         })}
-        rows={overview.data.classes} state={classIndexState} onStateChange={setClassIndexState}
-        total={overview.data.counts.classes}
-        partial={overview.data.counts.classes > overview.data.classes.length}
+        rows={classes.data?.items ?? []} remote loading={classes.isLoading} error={classes.isError} state={classIndexState} onStateChange={setClassIndexState}
+        onOpen={row => {
+          if (me.data?.tenant_id && me.data.user_id) {
+            setSelection({ record: row, tenant: me.data.tenant_id, user: me.data.user_id });
+          }
+        }}
+        total={classes.data?.total ?? 0}
         defaultViews={[
           { id: "todos", title: "Todas" },
           { id: "active", title: "Ativas", filterKey: "status:active" },
         ]}
-        onRefresh={() => void overview.refetch()} refreshing={overview.isFetching}
+        onRetry={() => void classes.refetch()} onRefresh={() => void classes.refetch()} refreshing={classes.isFetching}
         emptyTitle="Nenhuma turma foi carregada do catálogo acadêmico."
       />
 
+      {selectedClass && <Dialog open onOpenChange={closeRecord}
+        title={`Turma ${pretty(selectedClass)}`} description="Vínculos no catálogo acadêmico">
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {([
+            ["Disciplina", selectedClass.subject_id, overview.data.subjects],
+            ["Período", selectedClass.term_id, overview.data.terms],
+            ["Professor", selectedClass.teacher_id, overview.data.teachers],
+          ] as const).map(([label, id, options]) => {
+            const item = options.find(option => option.id === id);
+            return <div key={label}>
+              <dt className="text-xs text-[#505967]">{label}</dt>
+              <dd className="mt-1 text-sm font-medium">{item ? pretty(item) : id ? "Referência fora da prévia" : "Sem vínculo"}</dd>
+            </div>;
+          })}
+          <div>
+            <dt className="text-xs text-[#505967]">Estado</dt>
+            <dd className="mt-1 text-sm font-medium">{selectedClass.status}</dd>
+          </div>
+        </dl>
+        {selectedClass.status === "active" && me.data?.available_features?.academic_operations && <Link
+          href={`/academico/jornadas?turma=${encodeURIComponent(selectedClass.id)}`}
+          className="mt-5 inline-flex rounded-md bg-[#101112] px-4 py-2 text-sm text-white">
+          Abrir diário da turma
+        </Link>}
+      </Dialog>}
+
       <div className="grid gap-5 lg:grid-cols-[1fr_370px]">
         <section className="space-y-5">
-          <div className="rounded-xl border border-[#E4E7EC] bg-white p-5">
-            <div className="flex items-center justify-between">
-              <div><h2 className="text-[14px] font-semibold">Estrutura de ensino</h2>
-                <p className="mt-1 text-[11px] text-[#98A2B3]">Cursos, disciplinas e turmas registrados</p></div>
-              <GraduationCap className="h-5 w-5 text-[#2563EB]"/>
-            </div>
-            <div className="mt-5 divide-y divide-[#EAECF0]">
-              {overview.data.programs.length === 0 && <p className="py-8 text-center text-[12px] text-[#667085]">
-                Nenhum curso cadastrado. Crie o primeiro curso para organizar a grade curricular.
-              </p>}
-              {overview.data.programs.map(program => <div key={program.id} className="flex items-center justify-between gap-3 py-3">
-                <div><p className="text-[12px] font-semibold text-[#344054]">{pretty(program)}</p>
-                  <p className="mt-1 text-[11px] text-[#98A2B3]">Código {program.code}</p></div>
-                <span className="rounded-md bg-[#F2F4F7] px-2.5 py-1 text-[11px] text-[#667085]">{program.status}</span>
-              </div>)}
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-[#EAECF0] pt-4">
-              <div><BookOpen className="mb-2 h-4 w-4 text-[#667085]"/>
-                <p className="text-[12px] font-semibold">{overview.data.subjects.length} disciplinas na prévia</p></div>
-              <div><Users className="mb-2 h-4 w-4 text-[#667085]"/>
-                <p className="text-[12px] font-semibold">{overview.data.classes.length} turmas na prévia</p></div>
-            </div>
-          </div>
-          <div className="rounded-xl border border-[#E4E7EC] bg-white p-5">
-            <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-[#2563EB]"/>
-              <h2 className="text-[14px] font-semibold">Períodos letivos</h2></div>
-            <div className="mt-5 divide-y divide-[#EAECF0]">
-              {overview.data.terms.length === 0 && <p className="py-6 text-[12px] text-[#667085]">Nenhum período letivo cadastrado.</p>}
-              {overview.data.terms.map(term=><div key={term.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div><p className="text-[12px] font-semibold">{pretty(term)}</p>
-                  <p className="mt-1 text-[11px] text-[#98A2B3]">{term.code}</p></div>
-                <span className="rounded bg-[#F2F4F7] px-2 py-1 text-[11px] text-[#667085]">{term.status}</span>
-              </div>)}
-            </div>
-          </div>
+          <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:programs`}
+            title="Cursos" resource="programs" load={staffRequest} tenant={me.data?.tenant_id} user={me.data?.user_id} total={overview.data.counts.programs} />
+          <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:subjects`}
+            title="Disciplinas" resource="subjects" load={staffRequest} tenant={me.data?.tenant_id} user={me.data?.user_id} total={overview.data.counts.subjects} />
+          <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:teachers`}
+            title="Professores" resource="teachers" load={staffRequest} tenant={me.data?.tenant_id} user={me.data?.user_id} total={overview.data.counts.teachers} />
+          <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:terms`}
+            title="Períodos letivos" resource="terms" load={staffRequest} tenant={me.data?.tenant_id} user={me.data?.user_id} total={overview.data.counts.terms} />
           {canPublish && <div className="rounded-xl border border-[#E4E7EC] bg-white p-5">
             <h2 className="text-[14px] font-semibold">Publicações pendentes</h2>
             <p className="mt-1 text-[11px] text-[#98A2B3]">Aulas, eventos, avaliações e notas exigem aprovação explícita.</p>
@@ -349,13 +383,11 @@ export default function AcademicManagementPage() {
               </div>
               {possible.map(field => <div key={field.key}>
                 <label htmlFor={"catalog-" + field.key} className="mb-1.5 block text-[11px] font-semibold text-[#475467]">{field.label}</label>
-                {field.options ?
-                  <select id={"catalog-" + field.key} required={field.required}
-                    value={form[field.key] || ""} onChange={e => setForm(v=>({...v,[field.key]:e.target.value}))}
-                    className="h-10 w-full rounded-lg border border-[#D0D5DD] bg-white px-2 text-[12px]">
-                    <option value="">Selecionar</option>
-                    {field.options.map(item => <option key={item.id} value={item.id}>{pretty(item)}</option>)}
-                  </select> :
+                {field.resource ?
+                  <AcademicCatalogSelector key={kind + field.key} id={"catalog-" + field.key}
+                    label={field.label} resource={field.resource} required={field.required}
+                    value={form[field.key] || ""} tenant={me.data?.tenant_id} user={me.data?.user_id}
+                    load={staffRequest} onChange={value => setForm(previous => ({ ...previous, [field.key]: value }))} /> :
                   <input id={"catalog-" + field.key} required={field.required} type={field.type || "text"}
                     value={form[field.key] || ""} onChange={e=>setForm(v=>({...v,[field.key]:e.target.value}))}
                     className="h-10 w-full rounded-lg border border-[#D0D5DD] px-3 text-[12px] outline-none focus:border-[#2563EB]"/>
