@@ -22,72 +22,11 @@ import type {
   WorkActivityStatus,
   WorkResultKind,
 } from "@/types/work";
-import type { InterventionLog } from "@/types/api";
 import { cn } from "@/lib/utils";
 import { RiskBadge } from "@/components/ui/badge";
-
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  open: "Aberta",
-  in_progress: "Em andamento",
-  completed: "Concluída",
-  cancelled: "Cancelada",
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  follow_up: "Follow-up",
-  contact: "Contato",
-  review: "Revisão",
-  other: "Outro",
-};
-
-const PRIORITY_LABEL: Record<string, string> = {
-  low: "Baixa",
-  normal: "Normal",
-  high: "Alta",
-  urgent: "Urgente",
-};
-
-const ORIGIN_LABEL: Record<string, string> = {
-  manual: "Equipe",
-  campaign: "Campanha",
-};
-
-const EVENT_LABEL: Record<string, string> = {
-  created: "Criação",
-  assignee_changed: "Responsável",
-  due_changed: "Prazo",
-  status_changed: "Status",
-  completed: "Conclusão",
-  cancelled: "Cancelamento",
-  result_recorded: "Resultado operacional",
-  priority_changed: "Prioridade",
-  details_changed: "Detalhes",
-  relations_changed: "Vínculos",
-};
-
-const RESULT_KIND_LABEL: Record<WorkResultKind, string> = {
-  done: "Concluída",
-  unreachable: "Não conseguiu contato",
-  deferred: "Adiada",
-  referred: "Encaminhada",
-};
-
-const CHANNEL_LABEL: Record<string, string> = {
-  whatsapp: "WhatsApp",
-  email: "E-mail",
-  sms: "SMS",
-};
+import { WorkQueueSummary } from "./work-queue-summary";
+import { InfoBlock, InterventionContext } from "./work-activity-detail-parts";
+import { formatDate, STATUS_LABEL, TYPE_LABEL, PRIORITY_LABEL, ORIGIN_LABEL, EVENT_LABEL, RESULT_KIND_LABEL, CHANNEL_LABEL } from "./work-activity-labels";
 
 type Props = {
   createDraft?: CreateFromLogDraft | null;
@@ -334,21 +273,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Resumo da fila">
-          {[
-            { label: "Pendentes", value: summaryQuery.data?.pending },
-            { label: "Atrasadas", value: summaryQuery.data?.overdue, warning: true },
-            { label: "Sem responsável", value: summaryQuery.data?.unassigned, warning: true },
-            { label: "Urgentes", value: summaryQuery.data?.urgent_pending, warning: true },
-            { label: "De campanhas", value: summaryQuery.data?.campaign_pending },
-            { label: "Concluídas · 7d", value: summaryQuery.data?.completed_7d },
-          ].map((metric) => (
-            <div key={metric.label} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2.5">
-              <p className="text-[11px] font-medium text-[var(--color-slate-600)]">{metric.label}</p>
-              <p className={cn("mt-1 text-lg font-semibold tabular-nums", metric.warning && Number(metric.value) > 0 ? "text-[var(--color-red)]" : "text-[var(--color-ink)]")}>{summaryQuery.isError || metric.value == null ? "—" : metric.value.toLocaleString("pt-BR")}</p>
-            </div>
-          ))}
-        </div>
+        <WorkQueueSummary data={summaryQuery.data} isLoading={summaryQuery.isLoading} isError={summaryQuery.isError} />
 
         <div className="flex flex-wrap items-center gap-2">
           <div role="tablist" className="flex flex-wrap gap-1 rounded-xl bg-[var(--color-panel)] p-1">
@@ -1023,48 +948,3 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
   );
 }
 
-function InfoBlock({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-white px-3 py-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{label}</p>
-      <div className="mt-0.5 text-xs text-[var(--color-slate-600)]">{children}</div>
-    </div>
-  );
-}
-
-function InterventionContext({ log }: { log: InterventionLog }) {
-  return (
-    <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
-      <div>
-        <span className="text-[var(--color-muted)]">Canal</span>
-        <p className="font-medium text-[var(--color-ink)]">
-          {log.channel ? CHANNEL_LABEL[log.channel] ?? log.channel : "—"}
-        </p>
-      </div>
-      <div>
-        <span className="text-[var(--color-muted)]">Data</span>
-        <p className="font-medium text-[var(--color-ink)]">{formatDate(log.created_at)}</p>
-      </div>
-      <div>
-        <span className="text-[var(--color-muted)]">Decision reason</span>
-        <p className="font-medium text-[var(--color-ink)]">{log.decision_reason || "—"}</p>
-      </div>
-      <div>
-        <span className="text-[var(--color-muted)]">Status de execução</span>
-        <p className="font-medium text-[var(--color-ink)]">{log.status || "—"}</p>
-      </div>
-      <div>
-        <span className="text-[var(--color-muted)]">Delivery status</span>
-        <p className="font-medium text-[var(--color-ink)]">{log.delivery_status || "—"}</p>
-      </div>
-      <div>
-        <span className="text-[var(--color-muted)]">Outcome</span>
-        <p className="font-medium text-[var(--color-ink)]">
-          {log.outcome
-            ? `${log.outcome}${log.outcome_at ? ` · ${formatDate(log.outcome_at)}` : ""}`
-            : "—"}
-        </p>
-      </div>
-    </div>
-  );
-}
