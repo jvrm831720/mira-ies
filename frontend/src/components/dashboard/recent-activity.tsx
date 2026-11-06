@@ -63,10 +63,10 @@ export function RecentActivity({
     <Card className="h-full overflow-hidden border-[var(--color-border)] shadow-none">
       <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b border-[var(--color-border)] pb-4">
         <div className="min-w-0">
-          <CardTitle className="text-[15px] tracking-[-0.02em] text-[var(--color-ink)]">
+          <CardTitle className="text-[length:var(--type-body-comfort)] tracking-[-0.02em] text-[var(--color-ink)]">
             Atividade recente
           </CardTitle>
-          <CardDescription className="mt-1 text-[12px] text-[var(--color-slate-600)]">
+          <CardDescription className="mt-1 text-xs text-[var(--color-slate-600)]">
             Últimos registros da régua de retenção. Status de mensagem não confirma retenção.
           </CardDescription>
         </div>
@@ -109,7 +109,7 @@ export function RecentActivity({
               <Clock3 className="h-4 w-4" />
             </span>
             <p className="mt-3 text-xs font-semibold text-[var(--color-ink)]">Nenhum contato registrado</p>
-            <p className="mt-1 max-w-[230px] text-[11px] leading-relaxed text-[var(--color-slate-600)]">
+            <p className="mt-1 max-w-[230px] text-[length:var(--type-caption)] leading-relaxed text-[var(--color-slate-600)]">
               Quando a régua for executada, o histórico aparecerá aqui.
             </p>
           </div>
@@ -131,19 +131,19 @@ export function RecentActivity({
                   <ChannelIcon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] font-semibold text-[var(--color-ink)]">
+                  <p className="truncate text-xs font-semibold text-[var(--color-ink)]">
                     {log.matricula ? `Matrícula ${log.matricula}` : "Registro de retenção"}
                   </p>
-                  <p className="mt-1 truncate text-[10px] text-[var(--color-muted)]">
+                  <p className="mt-1 truncate text-[length:var(--type-overline)] text-[var(--color-muted)]">
                     {channel.label}
                     {log.risk_level ? ` · Risco ${log.risk_level}` : ""} · {formatDate(log.created_at)}
                   </p>
                   {log.skip_reason && log.status === "skipped" && (
-                    <p className="mt-1 truncate text-[10px] text-[var(--color-slate-600)]">{log.skip_reason}</p>
+                    <p className="mt-1 truncate text-[length:var(--type-overline)] text-[var(--color-slate-600)]">{log.skip_reason}</p>
                   )}
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-semibold ${statusTone(visibleStatus)}`}
+                  className={`shrink-0 rounded-full px-2 py-1 text-[length:var(--type-size-9)] font-semibold ${statusTone(visibleStatus)}`}
                 >
                   {label}
                 </span>

@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 :root {
+  --color-legacy-9299a4: #9299a4;
+  --color-legacy-858c96: #858c96;
+  --color-legacy-946200: #946200;
+  --type-size-9: 9px;
   --color-legacy-202126: #202126;
   --color-legacy-f8f9fc: #f8f9fc;
   --color-legacy-fff4f3: #fff4f3;

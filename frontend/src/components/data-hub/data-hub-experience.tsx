@@ -38,7 +38,7 @@ const toneClasses: Record<DisplayState["tone"], string> = {
 };
 
 function Status({ state }: { state: DisplayState }) {
-  return <span className={"inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium " + toneClasses[state.tone]}>{state.label}</span>;
+  return <span className={"inline-flex items-center rounded-md border px-2 py-0.5 text-[length:var(--type-caption)] font-medium " + toneClasses[state.tone]}>{state.label}</span>;
 }
 
 function Time({ value }: { value?: string | null }) {
@@ -49,7 +49,7 @@ function Time({ value }: { value?: string | null }) {
 function Panel({ title, description, children, action }: { title: string; description?: string; children: React.ReactNode; action?: React.ReactNode }) {
   return <section className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-white">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-blue-tint)] px-5 py-4">
-      <div><h2 className="text-[13px] font-semibold text-[var(--color-ink)]">{title}</h2>{description && <p className="mt-1 text-xs text-[var(--color-slate-600)]">{description}</p>}</div>{action}
+      <div><h2 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">{title}</h2>{description && <p className="mt-1 text-xs text-[var(--color-slate-600)]">{description}</p>}</div>{action}
     </div>
     {children}
   </section>;
@@ -66,8 +66,8 @@ function Empty({ message }: { message: string }) {
 function Stat({ label, value, detail }: { label: string; value: number | string; detail: string }) {
   return <div className="rounded-xl border border-[var(--color-border)] bg-white px-5 py-4">
     <p className="text-xs text-[var(--color-slate-600)]">{label}</p>
-    <p className="mt-3 text-[28px] font-semibold tracking-[-0.04em] text-[var(--color-ink)]">{value}</p>
-    <p className="mt-1 text-[11px] text-[var(--color-muted)]">{detail}</p>
+    <p className="mt-3 text-[length:var(--type-display-medium)] font-semibold tracking-[-0.04em] text-[var(--color-ink)]">{value}</p>
+    <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">{detail}</p>
   </div>;
 }
 
@@ -194,7 +194,7 @@ export function DataHubExperience() {
             <div className="divide-y divide-[var(--color-blue-tint)]">
               {connections.map(item => <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-4">
                 <div className="flex items-center gap-3"><span className="rounded-lg bg-[var(--color-blue-tint)] p-2 text-[var(--color-slate-600)]"><Database size={17} aria-hidden /></span>
-                  <div><p className="text-xs font-medium text-[var(--color-ink)]">{item.name}</p><p className="mt-1 text-[11px] text-[var(--color-muted)]">{item.category}</p></div></div>
+                  <div><p className="text-xs font-medium text-[var(--color-ink)]">{item.name}</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">{item.category}</p></div></div>
                 {item.error ? <Status state={{key:"unknown",label:"Consulta indisponível",tone:"amber"}} /> :
                  item.loading ? <span className="text-xs text-[var(--color-muted)]">Consultando...</span> : <Status state={connectionState(item.value)} />}
               </div>)}
@@ -206,16 +206,16 @@ export function DataHubExperience() {
               <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-slate-600)]">Última sincronização nativa registrada</span><Time value={latestSync} /></div>
               <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-slate-600)]">Falhas de upload na amostra</span><strong className="font-semibold text-[var(--color-ink)]">{uploads.isLoading ? "—" : issues.filter(x => x.kind === "failed").length}</strong></div>
               <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-slate-600)]">Execuções Composio consultadas</span><strong className="font-semibold text-[var(--color-ink)]">{!canSeeDispatch ? "Sem permissão" : composioHistory.isLoading ? "—" : (composioHistory.data?.items.length ?? "Indisponível")}</strong></div>
-              <p className="border-t border-[var(--color-blue-tint)] pt-4 text-[11px] leading-5 text-[var(--color-muted)]">Execuções Composio são histórico de ingestão do Dispatch, não prova de execução remota de ferramentas no Data Hub.</p>
+              <p className="border-t border-[var(--color-blue-tint)] pt-4 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">Execuções Composio são histórico de ingestão do Dispatch, não prova de execução remota de ferramentas no Data Hub.</p>
             </div>
           </Panel>
         </div>
         <Panel title="Próximas ações" description="Operações existentes — nenhuma é executada automaticamente">
           <div className="grid gap-3 p-5 sm:grid-cols-3">
-            <Link href="/conectores" className="group rounded-lg border border-[var(--color-border)] p-4 hover:border-[var(--color-blue-tint)] hover:bg-[var(--color-blue-tint)]"><Plug size={20} className="text-[var(--color-slate-600)]" aria-hidden /><p className="mt-3 text-xs font-semibold text-[var(--color-blue)]">Configurar fontes</p><p className="mt-1 text-[11px] text-[var(--color-muted)]">Credenciais e sincronização nas telas homologadas.</p></Link>
-            {canImport ? <Link href="/importar" className="group rounded-lg border border-[var(--color-border)] p-4 hover:border-[var(--color-blue-tint)] hover:bg-[var(--color-blue-tint)]"><FileUp size={20} className="text-[var(--color-slate-600)]" aria-hidden /><p className="mt-3 text-xs font-semibold text-[var(--color-blue)]">Importar arquivo</p><p className="mt-1 text-[11px] text-[var(--color-muted)]">Preview, mapeamento e confirmação humana.</p></Link> :
-              <div className="rounded-lg border border-[var(--color-border)] p-4"><ShieldCheck size={20} className="text-[var(--color-slate-600)]" aria-hidden /><p className="mt-3 text-xs font-semibold text-[var(--color-blue)]">Importação restrita</p><p className="mt-1 text-[11px] text-[var(--color-muted)]">Requer a permissão data.import.</p></div>}
-            <Link href="/importacoes" className="group rounded-lg border border-[var(--color-border)] p-4 hover:border-[var(--color-blue-tint)] hover:bg-[var(--color-blue-tint)]"><History size={20} className="text-[var(--color-slate-600)]" aria-hidden /><p className="mt-3 text-xs font-semibold text-[var(--color-blue)]">Revisar lotes</p><p className="mt-1 text-[11px] text-[var(--color-muted)]">Detalhes do processamento no histórico de uploads.</p></Link>
+            <Link href="/conectores" className="group rounded-lg border border-[var(--color-border)] p-4 hover:border-[var(--color-blue-tint)] hover:bg-[var(--color-blue-tint)]"><Plug size={20} className="text-[var(--color-slate-600)]" aria-hidden /><p className="mt-3 text-xs font-semibold text-[var(--color-blue)]">Configurar fontes</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Credenciais e sincronização nas telas homologadas.</p></Link>
+            {canImport ? <Link href="/importar" className="group rounded-lg border border-[var(--color-border)] p-4 hover:border-[var(--color-blue-tint)] hover:bg-[var(--color-blue-tint)]"><FileUp size={20} className="text-[var(--color-slate-600)]" aria-hidden /><p className="mt-3 text-xs font-semibold text-[var(--color-blue)]">Importar arquivo</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Preview, mapeamento e confirmação humana.</p></Link> :
+              <div className="rounded-lg border border-[var(--color-border)] p-4"><ShieldCheck size={20} className="text-[var(--color-slate-600)]" aria-hidden /><p className="mt-3 text-xs font-semibold text-[var(--color-blue)]">Importação restrita</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Requer a permissão data.import.</p></div>}
+            <Link href="/importacoes" className="group rounded-lg border border-[var(--color-border)] p-4 hover:border-[var(--color-blue-tint)] hover:bg-[var(--color-blue-tint)]"><History size={20} className="text-[var(--color-slate-600)]" aria-hidden /><p className="mt-3 text-xs font-semibold text-[var(--color-blue)]">Revisar lotes</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Detalhes do processamento no histórico de uploads.</p></Link>
           </div>
         </Panel>
       </div>}
@@ -225,7 +225,7 @@ export function DataHubExperience() {
         <div className="divide-y divide-[var(--color-blue-tint)]">
           {connections.map(item => <article key={item.id} className="grid gap-4 px-5 py-5 md:grid-cols-[1fr_1fr_auto] md:items-center">
             <div className="flex items-center gap-3"><span className="rounded-lg bg-[var(--color-blue-tint)] p-2.5"><Plug size={19} aria-hidden /></span>
-              <div><h3 className="text-[13px] font-semibold text-[var(--color-blue)]">{item.name}</h3><p className="mt-1 text-[11px] text-[var(--color-muted)]">{item.category} · Nativo</p></div></div>
+              <div><h3 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-blue)]">{item.name}</h3><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">{item.category} · Nativo</p></div></div>
             <div className="flex flex-wrap items-center gap-3 text-xs">
               {item.error ? <Status state={{key:"unknown",label:"Falha ao consultar",tone:"amber"}} /> : item.loading ? "Carregando..." : <Status state={connectionState(item.value)} />}
               <p className="text-[var(--color-muted)]">Última sincronização: <Time value={item.value?.last_sync_at} /></p>
@@ -234,12 +234,12 @@ export function DataHubExperience() {
           </article>)}
         </div>
         {canManageIntegrations && <div className="border-t border-[var(--color-blue-tint)]">
-          <div className="px-5 pb-2 pt-4"><h3 className="text-xs font-semibold text-[var(--color-ink)]">Contas Composio</h3><p className="mt-1 text-[11px] text-[var(--color-muted)]">Registros locais deste workspace, sem atualização remota automática.</p></div>
+          <div className="px-5 pb-2 pt-4"><h3 className="text-xs font-semibold text-[var(--color-ink)]">Contas Composio</h3><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Registros locais deste workspace, sem atualização remota automática.</p></div>
           {composioConnections.isLoading ? <Empty message="Carregando contas locais..." /> :
            composioConnections.isError ? <div role="alert" className="p-5 text-xs text-[var(--color-red)]">Conexões Composio indisponíveis. Verifique a configuração do serviço.</div> :
            connectedComposioAccounts.length === 0 ? <Empty message="Nenhuma conta Composio registrada no workspace." /> :
            <div className="divide-y divide-[var(--color-blue-tint)]">{connectedComposioAccounts.map(account => <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-             <div><p className="text-xs font-medium text-[var(--color-blue)]">{account.display_name || account.toolkit_slug}</p><p className="mt-1 text-[11px] text-[var(--color-muted)]">{account.toolkit_slug} · Registrada em <Time value={account.connected_at} /></p></div>
+             <div><p className="text-xs font-medium text-[var(--color-blue)]">{account.display_name || account.toolkit_slug}</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">{account.toolkit_slug} · Registrada em <Time value={account.connected_at} /></p></div>
              <Status state={account.status === "active" ? { key: "configured", label: "Ativa (local)", tone: "blue" } :
                account.status === "revoked" ? { key: "disabled", label: "Revogada", tone: "neutral" } :
                account.status === "expired" ? { key: "disconnected", label: "Expirada", tone: "amber" } :
@@ -247,38 +247,38 @@ export function DataHubExperience() {
                { key: "unknown", label: "Estado: " + account.status, tone: "neutral" }} />
            </div>)}</div>}
         </div>}
-        <p className="border-t border-[var(--color-blue-tint)] px-5 py-4 text-[11px] text-[var(--color-muted)]">JACAD e Sponte têm contratos nativos; as contas Composio têm identidade por conexão. Um registro local ativo não comprova sessão remota vigente. Não há restrição de uma conexão por workspace.</p>
+        <p className="border-t border-[var(--color-blue-tint)] px-5 py-4 text-[length:var(--type-caption)] text-[var(--color-muted)]">JACAD e Sponte têm contratos nativos; as contas Composio têm identidade por conexão. Um registro local ativo não comprova sessão remota vigente. Não há restrição de uma conexão por workspace.</p>
       </Panel>}
 
       {section === "catalog" && <Panel title="Explorar integrações" description="Catálogo retornado pela API; não confundir presença no catálogo com conexão ativa."
         action={<SmallLink href="/conectores">Conectores nativos</SmallLink>}>
         <div className="border-b border-[var(--color-blue-tint)] px-5 py-4">
-          <label htmlFor="data-hub-search" className="mb-1.5 block text-[11px] font-medium text-[var(--color-slate-600)]">Pesquisar sistemas</label>
+          <label htmlFor="data-hub-search" className="mb-1.5 block text-[length:var(--type-caption)] font-medium text-[var(--color-slate-600)]">Pesquisar sistemas</label>
           <div className="relative max-w-md"><Search size={15} aria-hidden className="absolute left-3 top-3 text-[var(--color-muted)]" /><input id="data-hub-search" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Nome, categoria ou descrição" className="w-full rounded-lg border border-[var(--color-border)] bg-white py-2.5 pl-9 pr-3 text-xs text-[var(--color-ink)] outline-none focus:border-[var(--color-blue)]" /></div>
         </div>
         {catalog.isLoading ? <Empty message="Consultando o catálogo..." /> : catalog.isError ? <div role="alert" className="px-5 py-8 text-xs text-[var(--color-red)]">Não foi possível consultar o catálogo. Tente atualizar os dados.</div> :
           catalogItems.length === 0 ? <Empty message="Nenhum conector encontrado para esta pesquisa." /> :
           <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">{catalogItems.map(item => <article key={item.id} className="flex flex-col rounded-lg border border-[var(--color-border)] p-4">
-            <div className="flex items-start justify-between gap-2"><span className="rounded-lg bg-[var(--color-blue-tint)] p-2 text-[var(--color-slate-600)]"><Plug size={18} aria-hidden /></span><span className="rounded-md bg-[var(--color-blue-tint)] px-2 py-1 text-[10px] text-[var(--color-slate-600)]">Catálogo nativo</span></div>
-            <h3 className="mt-4 text-[13px] font-semibold text-[var(--color-ink)]">{item.name}</h3><p className="mt-1 text-[11px] text-[var(--color-slate-600)]">{categoryLabel(item.category)}</p>
+            <div className="flex items-start justify-between gap-2"><span className="rounded-lg bg-[var(--color-blue-tint)] p-2 text-[var(--color-slate-600)]"><Plug size={18} aria-hidden /></span><span className="rounded-md bg-[var(--color-blue-tint)] px-2 py-1 text-[length:var(--type-overline)] text-[var(--color-slate-600)]">Catálogo nativo</span></div>
+            <h3 className="mt-4 text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">{item.name}</h3><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">{categoryLabel(item.category)}</p>
             <p className="mt-3 min-h-10 text-xs leading-5 text-[var(--color-muted)]">{item.description || "Recursos e homologação dependem da configuração do provedor."}</p>
             <div className="mt-auto border-t border-[var(--color-blue-tint)] pt-3"><SmallLink href="/conectores">Ver integrações existentes</SmallLink></div>
           </article>)}</div>}
         {canManageIntegrations && <div className="border-t border-[var(--color-blue-tint)]">
-          <div className="px-5 pb-2 pt-5"><h3 className="text-xs font-semibold text-[var(--color-blue)]">Composio · catálogo remoto</h3><p className="mt-1 text-[11px] text-[var(--color-muted)]">Visível somente com settings.manage. Toolkit habilitado não significa conta conectada ou ferramenta pronta para execução.</p></div>
+          <div className="px-5 pb-2 pt-5"><h3 className="text-xs font-semibold text-[var(--color-blue)]">Composio · catálogo remoto</h3><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Visível somente com settings.manage. Toolkit habilitado não significa conta conectada ou ferramenta pronta para execução.</p></div>
           {composioCatalog.isLoading ? <Empty message="Consultando o catálogo Composio..." /> :
            composioCatalog.isError ? <div role="alert" className="px-5 py-6 text-xs text-[var(--color-red)]">Catálogo Composio indisponível ou não configurado.</div> :
            remoteCatalogItems.length === 0 ? <Empty message="Nenhuma ferramenta remota encontrada." /> :
            <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">{remoteCatalogItems.slice(0, 60).map(item => <article key={item.slug} className="rounded-lg border border-[var(--color-border)] p-4">
              <div className="flex items-start justify-between gap-2"><span className="rounded-lg bg-[var(--color-blue-tint)] p-2"><Plug size={17} aria-hidden /></span><Status state={item.enabled ? {key:"configured",label:"Política habilitada",tone:"blue"} : {key:"disabled",label:"Política desabilitada",tone:"neutral"}} /></div>
-             <h4 className="mt-3 text-xs font-semibold text-[var(--color-ink)]">{item.name}</h4><p className="mt-1 text-[11px] text-[var(--color-muted)]">{categoryLabel(item.category || item.categories?.[0])}</p>
-             <p className="mt-2 text-[11px] leading-5 text-[var(--color-muted)]">{item.description || "Nenhuma descrição fornecida pelo provedor."}</p>
-             <p className="mt-3 border-t border-[var(--color-blue-tint)] pt-2 text-[10px] text-[var(--color-muted)]">{item.selected_tool_slugs?.length || 0} ferramenta(s) selecionada(s) nesta política</p>
+             <h4 className="mt-3 text-xs font-semibold text-[var(--color-ink)]">{item.name}</h4><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">{categoryLabel(item.category || item.categories?.[0])}</p>
+             <p className="mt-2 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">{item.description || "Nenhuma descrição fornecida pelo provedor."}</p>
+             <p className="mt-3 border-t border-[var(--color-blue-tint)] pt-2 text-[length:var(--type-overline)] text-[var(--color-muted)]">{item.selected_tool_slugs?.length || 0} ferramenta(s) selecionada(s) nesta política</p>
            </article>)}</div>}
         </div>}
-        {canManageIntegrations && remoteCatalogItems.length > 60 && <p className="border-t border-[var(--color-blue-tint)] px-5 py-3 text-[11px] text-[var(--color-slate-600)]">Exibindo os primeiros 60 de {remoteCatalogItems.length} toolkits. Refine a pesquisa para localizar outros itens.</p>}
-        <div className="border-t border-[var(--color-blue-tint)] bg-[var(--color-canvas)] px-5 py-3 text-[11px] text-[var(--color-muted)]">Ferramentas Composio são regidas por catálogo, allowlist, OAuth e políticas específicas; não há execução genérica neste catálogo.</div>
+        {canManageIntegrations && remoteCatalogItems.length > 60 && <p className="border-t border-[var(--color-blue-tint)] px-5 py-3 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">Exibindo os primeiros 60 de {remoteCatalogItems.length} toolkits. Refine a pesquisa para localizar outros itens.</p>}
+        <div className="border-t border-[var(--color-blue-tint)] bg-[var(--color-canvas)] px-5 py-3 text-[length:var(--type-caption)] text-[var(--color-muted)]">Ferramentas Composio são regidas por catálogo, allowlist, OAuth e políticas específicas; não há execução genérica neste catálogo.</div>
       </Panel>}
 
       {section === "runs" && <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
@@ -287,9 +287,9 @@ export function DataHubExperience() {
           {uploads.isError && <div role="alert" className="border-b px-5 py-3 text-xs text-[var(--color-red)]">Não foi possível carregar os uploads.</div>}
           {canSeeDispatch && composioHistory.isError && <div role="alert" className="border-b px-5 py-3 text-xs text-[var(--color-red)]">Histórico Composio indisponível.</div>}
           {uploads.isLoading ? <Empty message="Carregando histórico..." /> : runs.length === 0 ? <Empty message="Nenhuma execução retornada pelos serviços consultados." /> :
-          <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-xs"><thead className="border-b border-[var(--color-blue-tint)] bg-[var(--color-canvas)] text-[11px] text-[var(--color-muted)]"><tr><th className="px-5 py-3 font-medium">Origem</th><th className="px-4 py-3 font-medium">Início</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">Registros</th><th className="px-4 py-3 font-medium">Detalhes</th></tr></thead>
+          <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-xs"><thead className="border-b border-[var(--color-blue-tint)] bg-[var(--color-canvas)] text-[length:var(--type-caption)] text-[var(--color-muted)]"><tr><th className="px-5 py-3 font-medium">Origem</th><th className="px-4 py-3 font-medium">Início</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">Registros</th><th className="px-4 py-3 font-medium">Detalhes</th></tr></thead>
             <tbody className="divide-y divide-[var(--color-blue-tint)]">{runs.map(row => <tr key={row.id} className={selectedRun === row.id ? "bg-[var(--color-blue-tint)]" : "hover:bg-[var(--color-blue-tint)]"}>
-              <td className="max-w-56 truncate px-5 py-4 text-[var(--color-ink)]">{row.source}<p className="mt-1 text-[10px] text-[var(--color-muted)]">{row.kind === "upload" ? "Arquivo" : "Composio / Dispatch"}</p></td>
+              <td className="max-w-56 truncate px-5 py-4 text-[var(--color-ink)]">{row.source}<p className="mt-1 text-[length:var(--type-overline)] text-[var(--color-muted)]">{row.kind === "upload" ? "Arquivo" : "Composio / Dispatch"}</p></td>
               <td className="px-4 py-4 text-[var(--color-slate-600)]"><Time value={row.started} /></td><td className="px-4 py-4"><Status state={runState(row.status)} /></td>
               <td className="px-4 py-4 text-[var(--color-slate-600)]">{row.processed} / {row.total}</td>
               <td className="px-4 py-4"><button type="button" onClick={() => setSelectedRun(row.id)} className="font-medium text-[var(--color-blue)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-blue)]">Ver</button></td>
@@ -298,13 +298,13 @@ export function DataHubExperience() {
         <Panel title="Detalhes da execução" description="Evidência disponível no contrato atual">
           {!selected ? <Empty message="Selecione uma execução para inspecionar." /> :
           <dl className="space-y-4 px-5 py-5 text-xs">
-            <div><dt className="text-[var(--color-muted)]">Identificador</dt><dd className="mt-1 break-all font-mono text-[11px] text-[var(--color-blue)]">{selected.id}</dd></div>
+            <div><dt className="text-[var(--color-muted)]">Identificador</dt><dd className="mt-1 break-all font-mono text-[length:var(--type-caption)] text-[var(--color-blue)]">{selected.id}</dd></div>
             <div><dt className="text-[var(--color-muted)]">Origem</dt><dd className="mt-1 text-[var(--color-blue)]">{selected.source}</dd></div>
             <div><dt className="text-[var(--color-muted)]">Estado</dt><dd className="mt-1"><Status state={runState(selected.status)} /></dd></div>
             <div><dt className="text-[var(--color-muted)]">Início / término</dt><dd className="mt-1 text-[var(--color-blue)]"><Time value={selected.started} /> · <Time value={selected.finished} /></dd></div>
             <div><dt className="text-[var(--color-muted)]">Processados / total conhecido</dt><dd className="mt-1 text-[var(--color-blue)]">{selected.processed} / {selected.total}</dd></div>
-            {selected.error && <p className="rounded-lg bg-[var(--color-red-tint)] p-3 text-[11px] text-[var(--color-red)]">Falha registrada. Detalhes técnicos e dados sensíveis devem ser consultados no serviço de origem.</p>}
-            <p className="border-t border-[var(--color-blue-tint)] pt-4 text-[11px] leading-5 text-[var(--color-muted)]">Etapas internas, ator responsável e retries não são fornecidos por estes contratos. Nenhum reprocessamento é iniciado aqui.</p>
+            {selected.error && <p className="rounded-lg bg-[var(--color-red-tint)] p-3 text-[length:var(--type-caption)] text-[var(--color-red)]">Falha registrada. Detalhes técnicos e dados sensíveis devem ser consultados no serviço de origem.</p>}
+            <p className="border-t border-[var(--color-blue-tint)] pt-4 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">Etapas internas, ator responsável e retries não são fornecidos por estes contratos. Nenhum reprocessamento é iniciado aqui.</p>
           </dl>}
         </Panel>
       </div>}
@@ -315,15 +315,15 @@ export function DataHubExperience() {
           issues.length === 0 && nativeFailures === 0 ? <div className="px-6 py-10 text-center">
             <CheckCircle2 size={24} className="mx-auto text-[var(--color-slate-600)]" aria-hidden />
             <p className="mt-3 text-xs font-medium text-[var(--color-slate-600)]">Nenhum problema identificável nos dados consultados.</p>
-            <p className="mt-1 text-[11px] text-[var(--color-muted)]">Isto não comprova qualidade integral, ausência de duplicidades ou dados completos.</p>
+            <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Isto não comprova qualidade integral, ausência de duplicidades ou dados completos.</p>
           </div> :
           <div className="divide-y divide-[var(--color-blue-tint)]">
             {issues.map(issue => <div key={issue.id} className="flex gap-3 px-5 py-4"><AlertTriangle className="mt-0.5 shrink-0 text-[var(--color-red)]" size={17} aria-hidden /><div>
               <p className="text-xs font-medium text-[var(--color-ink)]">{issue.title} · {issue.source}</p>
-              <p className="mt-1 text-[11px] leading-5 text-[var(--color-muted)]">{issue.kind === "partial" ? issue.detail : "O lote retornou um estado de falha. Verifique o histórico sem expor dados pessoais."}</p></div></div>)}
-            {connections.filter(item => item.value && connectionState(item.value).key === "error").map(item => <div key={item.id} className="flex gap-3 px-5 py-4"><AlertTriangle className="mt-0.5 shrink-0 text-[var(--color-red)]" size={17} aria-hidden /><div><p className="text-xs font-medium text-[var(--color-ink)]">Falha de sincronização · {item.name}</p><p className="mt-1 text-[11px] text-[var(--color-muted)]">Consulte o provedor na configuração da conexão. Nenhuma ação será repetida automaticamente.</p></div></div>)}
+              <p className="mt-1 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">{issue.kind === "partial" ? issue.detail : "O lote retornou um estado de falha. Verifique o histórico sem expor dados pessoais."}</p></div></div>)}
+            {connections.filter(item => item.value && connectionState(item.value).key === "error").map(item => <div key={item.id} className="flex gap-3 px-5 py-4"><AlertTriangle className="mt-0.5 shrink-0 text-[var(--color-red)]" size={17} aria-hidden /><div><p className="text-xs font-medium text-[var(--color-ink)]">Falha de sincronização · {item.name}</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Consulte o provedor na configuração da conexão. Nenhuma ação será repetida automaticamente.</p></div></div>)}
           </div>}
-        <div className="flex items-start gap-2 border-t border-[var(--color-blue-tint)] bg-[var(--color-canvas)] px-5 py-4"><Info size={15} className="shrink-0 text-[var(--color-muted)]" aria-hidden /><p className="text-[11px] leading-5 text-[var(--color-slate-600)]">Cobertura de campos, duplicidades, conciliação e scores de qualidade requerem contratos dedicados; o Data Hub não inventa esses resultados. Dados ausentes não representam situação favorável.</p></div>
+        <div className="flex items-start gap-2 border-t border-[var(--color-blue-tint)] bg-[var(--color-canvas)] px-5 py-4"><Info size={15} className="shrink-0 text-[var(--color-muted)]" aria-hidden /><p className="text-[length:var(--type-caption)] leading-5 text-[var(--color-slate-600)]">Cobertura de campos, duplicidades, conciliação e scores de qualidade requerem contratos dedicados; o Data Hub não inventa esses resultados. Dados ausentes não representam situação favorável.</p></div>
       </Panel>}
 
       {section === "settings" && <div className="grid gap-5 md:grid-cols-2">
