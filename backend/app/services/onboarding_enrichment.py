@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from urllib.parse import quote, urljoin, urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -30,10 +30,10 @@ def extract_single_cnpj(markdown: str) -> str | None:
 
     Multiple legal entities on one page are ambiguous: never pick one silently.
     """
-    pattern = r"(?<!\\d)(?:\\d{2}[.\\s]?\\d{3}[.\\s]?\\d{3}[/\\s-]?\\d{4}[-\\s]?\\d{2}|\\d{14})(?!\\d)"
+    pattern = r"(?<!\d)(?:\d{2}[.\s]?\d{3}[.\s]?\d{3}[/\s-]?\d{4}[-\s]?\d{2}|\d{14})(?!\d)"
     found = {
         digits for match in re.findall(pattern, markdown[:100_000])
-        if (digits := re.sub(r"\\D", "", match)) and _valid_cnpj_digits(digits)
+        if (digits := re.sub(r"\D", "", match)) and _valid_cnpj_digits(digits)
     }
     return next(iter(found)) if len(found) == 1 else None
 
