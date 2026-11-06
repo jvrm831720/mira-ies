@@ -712,10 +712,24 @@ async def portal_request_enrollment(
 
 
 async def _requests(db: AsyncSession, tenant_id: str, *, student_id=None, status=None):
-    q = (select(AcademicEnrollmentRequest, AcademicStudentProgram.student_id)
+    q = (select(AcademicEnrollmentRequest, AcademicStudentProgram.student_id,
+                Student.nome, Student.matricula, AcademicProgram.name,
+                AcademicTerm.label)
         .join(AcademicStudentProgram, and_(
             AcademicStudentProgram.tenant_id == AcademicEnrollmentRequest.tenant_id,
             AcademicStudentProgram.id == AcademicEnrollmentRequest.student_program_id,
+        ))
+        .join(Student, and_(
+            Student.tenant_id == AcademicStudentProgram.tenant_id,
+            Student.id == AcademicStudentProgram.student_id,
+        ))
+        .join(AcademicProgram, and_(
+            AcademicProgram.tenant_id == AcademicStudentProgram.tenant_id,
+            AcademicProgram.id == AcademicStudentProgram.program_id,
+        ))
+        .join(AcademicTerm, and_(
+            AcademicTerm.tenant_id == AcademicEnrollmentRequest.tenant_id,
+            AcademicTerm.id == AcademicEnrollmentRequest.term_id,
         ))
         .where(AcademicEnrollmentRequest.tenant_id == tenant_id))
     if student_id:
@@ -726,12 +740,19 @@ async def _requests(db: AsyncSession, tenant_id: str, *, student_id=None, status
         AcademicEnrollmentRequest.submitted_at.desc(), AcademicEnrollmentRequest.id.desc(),
     ).limit(200))).all()
     result = []
-    for r, student in rows:
-        classes = (await db.execute(select(AcademicEnrollmentRequestClass.class_id).where(
-            AcademicEnrollmentRequestClass.tenant_id == tenant_id,
-            AcademicEnrollmentRequestClass.request_id == r.id,
-        ))).scalars().all()
-        result.append({**_request_json(r), "student_id": student, "class_ids": list(classes)})
+    for r, student, name, registration, course, term_label in rows:
+        classes = (await db.execute(select(AcademicClass.code)
+            .join(AcademicEnrollmentRequestClass, and_(
+                AcademicEnrollmentRequestClass.class_id == AcademicClass.id,
+                AcademicEnrollmentRequestClass.tenant_id == AcademicClass.tenant_id,
+            ))
+            .where(AcademicEnrollmentRequestClass.tenant_id == tenant_id,
+                   AcademicEnrollmentRequestClass.request_id == r.id)
+        )).scalars().all()
+        result.append({**_request_json(r), "student_id": student,
+                       "student_name": name, "student_registration": registration,
+                       "program_name": course, "term_label": term_label,
+                       "class_codes": list(classes)})
     return {"items": result, "limit": 200}
 
 
@@ -1149,3 +1170,44 @@ async def search_students(
     ).order_by(Student.nome).limit(25))).all()
     return {"items": [{"id": sid, "name": name, "registration": registration}
                       for sid, name, registration in rows], "limit": 25}
+
+
+class PublishGradesInput(BaseModel):
+    assessment_id: UUID
+
+
+@institution_router.post("/classes/{class_id}/grades/publish")
+async def publish_class_grades(
+    class_id: UUID, body: PublishGradesInput,
+    auth: AuthContext = Depends(require_permission("critical.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    await _staff(db, auth)
+    cls = await _editable_class(db, auth.tenant_id, class_id)
+    exam = await _row(db, AcademicAssessment, auth.tenant_id, body.assessment_id)
+    if exam.class_id != cls.id or exam.publication_status != "published":
+        _conflict("Avaliação não publicada nesta turma.")
+    roster = (await db.execute(select(AcademicClassEnrollment.student_id).where(
+        AcademicClassEnrollment.tenant_id == auth.tenant_id,
+        AcademicClassEnrollment.class_id == cls.id,
+        AcademicClassEnrollment.status == "enrolled",
+    ))).scalars().all()
+    if not roster:
+        _conflict("Não há alunos com matrícula ativa.")
+    rows = (await db.execute(select(AcademicGrade).where(
+        AcademicGrade.tenant_id == auth.tenant_id,
+        AcademicGrade.class_id == cls.id,
+        AcademicGrade.assessment_id == exam.id,
+    ).with_for_update())).scalars().all()
+    by_student = {r.student_id: r for r in rows}
+    if (any(sid not in by_student for sid in roster) or
+            any(r.score < 0 or r.score > exam.max_score for r in rows)):
+        _conflict("Todas as notas devem estar lançadas e válidas antes da publicação.")
+    for row in rows:
+        if row.publication_status == "draft":
+            row.publication_status = "published"
+    _event(db, auth.tenant_id, "staff", auth.user_id, "grades_published", "class", cls.id,
+           {"assessment_id": exam.id, "count": len(roster)})
+    await db.commit()
+    return {"class_id": cls.id, "assessment_id": exam.id,
+            "publication_status": "published", "count": len(roster)}
