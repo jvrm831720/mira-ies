@@ -195,7 +195,6 @@ export default function JourneysPage(){
       max_classes_per_term:Number(maxClasses),allow_reenrollment:allowReenroll,excused_excluded:excusedExcluded,
       enrollment_opens_on:opens||null,enrollment_closes_on:closes||null});
   }
-  const currentCurricula=overview?.curricula.filter(x=>x.program_id===admitProgram&&x.status==="published")||[];
   const eligibleSubjects=overview?.subjects.filter(x=>x.program_id===curriculumProgram&&x.status==="active")||[];
   const assessment=roster?.assessments.find(x=>x.id===assessmentId);
   const lesson=roster?.lessons.find(x=>x.id===lessonId);
@@ -317,9 +316,9 @@ export default function JourneysPage(){
         <h2 className="text-[15px] font-semibold">Montar grade curricular</h2>
         {canManage?<form onSubmit={e=>void createCurriculum(e)} className="mt-4 space-y-3">
           <label className="block text-[11px] text-[#667085]">Curso
-            <select required value={curriculumProgram} onChange={e=>{setCurriculumProgram(e.target.value);setCurriculumItems([{...blank}]);}} className={field+" mt-1"}>
-              <option value="">Selecionar curso</option>{overview?.programs.filter(p=>p.status==="active").map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-            </select></label>
+<AcademicCatalogSelector id="curriculum-program" label="Curso" resource="programs"
+required status="active" value={curriculumProgram} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+onChange={value => {setCurriculumProgram(value);setCurriculumItems([{...blank}]);}} /></label>
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="text-[11px] text-[#667085]">Código / versão
               <input className={field+" mt-1"} required minLength={2} maxLength={40} value={curriculumCode} onChange={e=>setCurriculumCode(e.target.value)}/></label>
@@ -329,9 +328,10 @@ export default function JourneysPage(){
           <div className="space-y-2">{curriculumItems.map((item,index)=><div key={index} className="rounded-lg border border-[#EAECF0] bg-[#FAFBFC] p-3">
             <div className="flex justify-between text-[11px] font-medium"><span>Disciplina {index+1}</span>
               {curriculumItems.length>1&&<button type="button" className="text-[#B42318]" onClick={()=>setCurriculumItems(v=>v.filter((_,i)=>i!==index))}>Remover</button>}</div>
-            <select className={field+" mt-2"} required value={item.subject_id} onChange={e=>setCurriculumItems(v=>v.map((it,i)=>i===index?{...it,subject_id:e.target.value}:it))}>
-              <option value="">Selecionar disciplina</option>{eligibleSubjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+<AcademicCatalogSelector key={curriculumProgram + index} id={`curriculum-subject-${index}`} label="Disciplina" resource="subjects"
+required programId={curriculumProgram} status="active" value={item.subject_id}
+tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+onChange={value => setCurriculumItems(previous => previous.map((entry, i) => i === index ? {...entry, subject_id: value} : entry))} />
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <label className="text-[11px] text-[#667085]">Período
                 <input type="number" required min="1" max="30" className={field+" mt-1"} value={item.period_number}
@@ -407,10 +407,9 @@ export default function JourneysPage(){
             <AcademicCatalogSelector id="enrollment-program" label="Curso" resource="programs"
               required value={admitProgram} tenant={me.data?.tenant_id} user={me.data?.user_id}
               load={catalog} onChange={value => { setAdmitProgram(value); setAdmitCurriculum(""); }} />
-            <select required value={admitCurriculum} onChange={e=>setAdmitCurriculum(e.target.value)} className={field}>
-              <option value="">Selecionar currículo publicado</option>
-              {currentCurricula.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
+<AcademicCatalogSelector key={admitProgram} id="enrollment-curriculum" label="Matriz curricular" resource="curricula"
+required programId={admitProgram} status="published" value={admitCurriculum}
+tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog} onChange={setAdmitCurriculum} />
             <button type="submit" className={primary} disabled={busy||!admitCurriculum}>Vincular ao curso</button>
           </form>}
         </div>
@@ -441,12 +440,9 @@ export default function JourneysPage(){
       <h2 className="text-[15px] font-semibold">Diário de classe</h2>
       <p className="mt-1 text-[12px] text-[#667085]">Notas, frequência e fechamento com rastreabilidade. Registros ausentes bloqueiam resultados.</p>
       <label className="mt-4 block max-w-xl text-[11px] text-[#667085]">Turma ativa
-        <select value={classId} onChange={e=>{setClassId(e.target.value);void loadRoster(e.target.value);}} className={field+" mt-1"}>
-          <option value="">Selecionar turma</option>
-          {classId && !overview?.classes.some(row => row.id === classId && row.status === "active") &&
-            <option value={classId}>{roster?.class.code ?? "Turma selecionada"}</option>}
-          {overview?.classes.filter(x=>x.status==="active").map(c=><option key={c.id} value={c.id}>{c.code} · {overview.subjects.find(s=>s.id===c.subject_id)?.name}</option>)}
-        </select></label>
+<AcademicCatalogSelector id="gradebook-class" label="Turma" resource="classes" status="active"
+value={classId} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+onChange={value => {setClassId(value);void loadRoster(value);}} /></label>
       {roster&&<div className="mt-5 grid gap-5 xl:grid-cols-2">
         <div className="rounded-lg border border-[#EAECF0] p-4">
           <h3 className="text-[13px] font-semibold">Notas por avaliação</h3>

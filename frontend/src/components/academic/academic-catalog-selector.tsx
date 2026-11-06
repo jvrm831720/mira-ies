@@ -5,9 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 
 type Option = { id: string; name: string; code: string };
 type Page = { items: Option[]; has_more: boolean };
-export type AcademicResource = "programs" | "subjects" | "teachers" | "terms" | "classes";
+export type AcademicResource = "programs" | "subjects" | "teachers" | "terms" | "classes" | "curricula";
 
-export function AcademicCatalogSelector({ id, label, resource, required, value, tenant, user, load, onChange }: {
+export function AcademicCatalogSelector({ id, label, resource, required, value, tenant, user, load, onChange, programId, status }: {
+  programId?: string;
+  status?: string;
   id: string;
   label: string;
   resource: AcademicResource;
@@ -23,6 +25,8 @@ export function AcademicCatalogSelector({ id, label, resource, required, value, 
   const [chosen, setChosen] = useState<Option>();
   const query = useDeferredValue(search.trim());
   const params = new URLSearchParams({ q: query, offset: String(offset), limit: "25" });
+  if (programId) params.set("program_id", programId);
+  if (status) params.set("status", status);
   const result = useQuery({
     queryKey: ["native-academic", tenant, user, "selector", resource, params.toString()],
     queryFn: ({ signal }) => load(`/records/${resource}?${params}`, { signal }),

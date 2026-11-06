@@ -22,6 +22,7 @@ from app.api.object_views import ViewSpec, validate_view
 from app.core.auth import AuthContext, require_permission
 from app.core.config import get_settings
 from app.db.session import get_db
+from app.models.academic_operations import AcademicCurriculum
 from app.models.academic_catalog import (
     AcademicProgram, AcademicSubject, AcademicTeacher, AcademicTerm,
     AcademicClass, AcademicClassEnrollment, AcademicLesson,
@@ -214,8 +215,9 @@ def _fields(item: BaseModel) -> dict:
     }
 
 
-CatalogResource = Literal["programs", "subjects", "teachers", "terms", "classes"]
+CatalogResource = Literal["programs", "subjects", "teachers", "terms", "classes", "curricula"]
 CATALOG_LISTS = {
+    "curricula": (AcademicCurriculum, AcademicCurriculum.label, AcademicCurriculum.code),
     "programs": (AcademicProgram, AcademicProgram.name, AcademicProgram.code),
     "subjects": (AcademicSubject, AcademicSubject.name, AcademicSubject.code),
     "teachers": (AcademicTeacher, AcademicTeacher.display_name, AcademicTeacher.staff_code),
@@ -228,6 +230,8 @@ CATALOG_LISTS = {
 async def list_catalog_records(
     resource: CatalogResource,
     q: str = Query("", max_length=180),
+    program_id: UUID | None = None,
+    status: str | None = Query(None, max_length=30),
     sort: Literal["name", "code", "status"] = "name",
     desc: bool = False,
     offset: int = Query(0, ge=0),
@@ -242,6 +246,12 @@ async def list_catalog_records(
     statement = select(model.id, name.label("name"), code.label("code"), model.status).where(
         model.tenant_id == auth.tenant_id,
     )
+    if program_id is not None:
+        if resource not in {"subjects", "curricula"}:
+            raise HTTPException(status_code=422, detail="Objeto sem vínculo direto com curso.")
+        statement = statement.where(model.program_id == str(program_id))
+    if status:
+        statement = statement.where(model.status == status)
     if search := q.strip():
         statement = statement.where(or_(
             name.icontains(search, autoescape=True),
