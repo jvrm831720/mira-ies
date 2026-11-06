@@ -227,7 +227,9 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
       void qc.invalidateQueries({ queryKey: ["work-activities"] });
       void qc.invalidateQueries({ queryKey: ["work-activity-events"] });
       void qc.invalidateQueries({ queryKey: ["work-activity-summary"] });
+      toast.success("Atividade atualizada.");
     },
+    onError: (error: Error) => toast.error(error.message || "Falha ao atualizar atividade."),
   });
 
   const resultMut = useMutation({
