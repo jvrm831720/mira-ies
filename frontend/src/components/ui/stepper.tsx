@@ -65,7 +65,7 @@ export function Stepper({ steps, current, className }: StepperProps) {
                 {step.label}
               </span>
               {step.description ? (
-                <span className="mt-0.5 block text-[11px] leading-snug text-[var(--text-secondary)] sm:hidden">
+                <span className="mt-0.5 block text-[length:var(--type-caption)] leading-snug text-[var(--text-secondary)] sm:hidden">
                   {step.description}
                 </span>
               ) : null}

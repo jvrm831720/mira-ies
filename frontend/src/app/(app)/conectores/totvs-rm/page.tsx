@@ -48,13 +48,13 @@ function durationLabel(seconds?: number | null) {
 }
 function StatusPill({ status }: { status: string }) {
   const item = STATUS[status] || { label: status, className: "bg-slate-100 text-slate-700" };
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${item.className}`}>{item.label}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[length:var(--type-caption)] font-semibold ${item.className}`}>{item.label}</span>;
 }
 function Metric({ label, value, hint }: { label: string; value: string | number; hint: string }) {
   return <Card><CardContent className="p-4">
     <p className="text-xs font-medium text-muted-foreground">{label}</p>
     <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
-    <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>
+    <p className="mt-1 text-[length:var(--type-caption)] text-muted-foreground">{hint}</p>
   </CardContent></Card>;
 }
 
@@ -255,7 +255,7 @@ export default function TotvsRmOperationsPage() {
               <div className="space-y-1 text-xs">
                 <p className="font-semibold">{selectedJob.source_name} · {selectedJob.entity_name}</p>
                 <p className="text-muted-foreground">Coligada {selectedJob.coligada_id} · Schema {selectedJob.schema_version}</p>
-                <p className="break-all font-mono text-[10px] text-muted-foreground">{selectedJob.id}</p>
+                <p className="break-all font-mono text-[length:var(--type-overline)] text-muted-foreground">{selectedJob.id}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-3 text-xs">
                 <div><p className="text-muted-foreground">Tentativas</p><p className="mt-1 font-semibold tabular-nums">{selectedJob.attempts} / {selectedJob.max_attempts}</p></div>
@@ -274,11 +274,11 @@ export default function TotvsRmOperationsPage() {
                 {detail.data?.events?.length ? <ol className="space-y-3">
                   {detail.data.events.map((event, index) => <li key={event.created_at + event.event_type + index} className="relative pl-4">
                     <span className={`absolute left-0 top-1.5 h-2 w-2 rounded-full ${event.severity === "error" ? "bg-red-500" : event.severity === "warning" ? "bg-amber-500" : "bg-blue-500"}`} />
-                    <p className="text-[11px] font-medium">{EVENT_LABELS[event.event_type] || event.event_type}</p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">{dateLabel(event.created_at)}</p>
-                    {event.details?.code != null && <p className="mt-1 text-[10px] text-muted-foreground">Código: {String(event.details.code)}</p>}
+                    <p className="text-[length:var(--type-caption)] font-medium">{EVENT_LABELS[event.event_type] || event.event_type}</p>
+                    <p className="mt-0.5 text-[length:var(--type-overline)] text-muted-foreground">{dateLabel(event.created_at)}</p>
+                    {event.details?.code != null && <p className="mt-1 text-[length:var(--type-overline)] text-muted-foreground">Código: {String(event.details.code)}</p>}
                   </li>)}
-                </ol> : <p className="text-[11px] text-muted-foreground">Nenhum evento disponível.</p>}
+                </ol> : <p className="text-[length:var(--type-caption)] text-muted-foreground">Nenhum evento disponível.</p>}
               </div>
             </>}
           </CardContent>
@@ -291,7 +291,7 @@ export default function TotvsRmOperationsPage() {
           {scopes.isLoading ? <p className="text-xs text-muted-foreground">Carregando escopos…</p> : scopeSummary.length === 0 ? <p className="text-xs text-muted-foreground">Nenhum escopo criado ainda.</p> : <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] text-left text-xs">
               <thead><tr className="border-b border-border text-muted-foreground"><th className="pb-2 pr-3 font-medium">Coligada</th><th className="pb-2 pr-3 font-medium">Origem</th><th className="pb-2 pr-3 font-medium">Entidade</th><th className="pb-2 pr-3 font-medium">Schema</th><th className="pb-2 pr-3 font-medium">Snapshot atual</th><th className="pb-2 font-medium">Atualizado</th></tr></thead>
-              <tbody>{scopeSummary.map((scope) => <tr key={scope.id} className="border-b border-border/70 last:border-0"><td className="py-2.5 pr-3 font-medium">{scope.coligada_id}</td><td className="py-2.5 pr-3">{scope.source_name}</td><td className="py-2.5 pr-3">{scope.entity_name}</td><td className="py-2.5 pr-3">{scope.schema_version}</td><td className="py-2.5 pr-3 font-mono text-[10px]">{scope.current_snapshot_run_id ? scope.current_snapshot_run_id.slice(0, 12) + "…" : "—"}</td><td className="py-2.5">{dateLabel(scope.updated_at)}</td></tr>)}</tbody>
+              <tbody>{scopeSummary.map((scope) => <tr key={scope.id} className="border-b border-border/70 last:border-0"><td className="py-2.5 pr-3 font-medium">{scope.coligada_id}</td><td className="py-2.5 pr-3">{scope.source_name}</td><td className="py-2.5 pr-3">{scope.entity_name}</td><td className="py-2.5 pr-3">{scope.schema_version}</td><td className="py-2.5 pr-3 font-mono text-[length:var(--type-overline)]">{scope.current_snapshot_run_id ? scope.current_snapshot_run_id.slice(0, 12) + "…" : "—"}</td><td className="py-2.5">{dateLabel(scope.updated_at)}</td></tr>)}</tbody>
             </table>
           </div>}
         </CardContent>
@@ -306,10 +306,10 @@ function JobRow({ job, selected, onSelect }: { job: RMTotvsJob; selected: boolea
       <span className="text-xs font-semibold">{job.entity_name} <span className="font-normal text-muted-foreground">· Coligada {job.coligada_id}</span></span>
       <StatusPill status={job.status as RMTotvsJobStatus} />
     </div>
-    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground">
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[length:var(--type-overline)] text-muted-foreground">
       <span>{dateLabel(job.created_at)}</span>
       <span>{job.attempts}/{job.max_attempts} tentativas</span>
     </div>
-    {job.error_code && <p className="mt-2 flex items-center gap-1 text-[10px] text-red-600"><XCircle className="h-3 w-3" /> {job.error_code}</p>}
+    {job.error_code && <p className="mt-2 flex items-center gap-1 text-[length:var(--type-overline)] text-red-600"><XCircle className="h-3 w-3" /> {job.error_code}</p>}
   </button>;
 }

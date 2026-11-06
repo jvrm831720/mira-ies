@@ -19,8 +19,8 @@ export function RecordActivity({ events, truncated=false, emptyMessage="Nenhum e
 }) {
   return <section aria-label="Atividade do registro" className={cn("rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white",className)}>
     <header className="border-b border-[var(--color-border)] px-4 py-3">
-      <h3 className="text-[13px] font-semibold text-[var(--color-ink)]">Atividade</h3>
-      <p className="mt-0.5 text-[11px] text-[var(--color-muted)]">Somente eventos documentados pelas fontes autorizadas.</p>
+      <h3 className="text-[length:var(--type-body-compact)] font-semibold text-[var(--color-ink)]">Atividade</h3>
+      <p className="mt-0.5 text-[length:var(--type-caption)] text-[var(--color-muted)]">Somente eventos documentados pelas fontes autorizadas.</p>
     </header>
     {events.length?<ol className="divide-y divide-[var(--color-border-subtle)]">
       {events.map(event=>{
@@ -29,19 +29,19 @@ export function RecordActivity({ events, truncated=false, emptyMessage="Nenhum e
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--color-panel)] text-[var(--color-slate-600)]"><Icon className="h-4 w-4"/></span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-start justify-between gap-x-2">
-              <p className="text-[12px] font-medium text-[var(--color-ink)]">{event.title}</p>
-              <time dateTime={event.at||undefined} className="text-[10px] text-[var(--color-muted)]">{formatDate(event.at)}</time>
+              <p className="text-xs font-medium text-[var(--color-ink)]">{event.title}</p>
+              <time dateTime={event.at||undefined} className="text-[length:var(--type-overline)] text-[var(--color-muted)]">{formatDate(event.at)}</time>
             </div>
-            <p className="mt-0.5 text-[11px] text-[var(--color-muted)]">{meta.label} · Origem: {event.origin}</p>
-            {(event.actor||event.status)&&<p className="mt-1 text-[11px] text-[var(--color-slate-600)]">
+            <p className="mt-0.5 text-[length:var(--type-caption)] text-[var(--color-muted)]">{meta.label} · Origem: {event.origin}</p>
+            {(event.actor||event.status)&&<p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">
               {event.actor?"Responsável: "+event.actor:"Responsável não informado"}{event.status?" · Estado: "+event.status:""}
             </p>}
-            {event.description&&<p className="mt-1 text-[11px] text-[var(--color-slate-600)]">{event.description}</p>}
-            {event.href&&<Link href={event.href} className="mt-1 inline-block text-[11px] font-medium text-[var(--color-blue)] hover:underline">Ver registro relacionado</Link>}
+            {event.description&&<p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">{event.description}</p>}
+            {event.href&&<Link href={event.href} className="mt-1 inline-block text-[length:var(--type-caption)] font-medium text-[var(--color-blue)] hover:underline">Ver registro relacionado</Link>}
           </div>
         </li>;
       })}
-    </ol>:<p className="px-4 py-7 text-[12px] text-[var(--color-muted)]">{emptyMessage}</p>}
-    {truncated&&<p role="note" className="border-t border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2.5 text-[11px] text-[var(--color-slate-600)]">Prévia limitada: podem existir eventos adicionais na origem.</p>}
+    </ol>:<p className="px-4 py-7 text-xs text-[var(--color-muted)]">{emptyMessage}</p>}
+    {truncated&&<p role="note" className="border-t border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2.5 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">Prévia limitada: podem existir eventos adicionais na origem.</p>}
   </section>;
 }

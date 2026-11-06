@@ -58,24 +58,24 @@ function MetricCard({
   tone?: "neutral" | "positive" | "warning" | "danger";
 }) {
   const toneClass = {
-    neutral: "bg-[#F2F4F7] text-[#475467]",
-    positive: "bg-[#ECFDF3] text-[#027A48]",
-    warning: "bg-[#FFFAEB] text-[#B54708]",
-    danger: "bg-[#FEF3F2] text-[#B42318]",
+    neutral: "bg-[var(--color-legacy-f2f4f7)] text-[var(--color-legacy-475467)]",
+    positive: "bg-[var(--color-source-ecfdf3)] text-[var(--color-source-027a48)]",
+    warning: "bg-[var(--color-source-fffaeb)] text-[var(--color-source-b54708)]",
+    danger: "bg-[var(--color-red-tint)] text-[var(--color-legacy-b42318)]",
   }[tone];
 
   return (
-    <article className="rounded-[10px] border border-[#E4E7EC] bg-white p-4">
+    <article className="rounded-[10px] border border-[var(--color-line)] bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-medium text-[#667085]">{label}</p>
-          <p className="mt-2 text-[24px] font-semibold tracking-[-0.035em] text-[#101828]">{value}</p>
+          <p className="text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-667085)]">{label}</p>
+          <p className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-[var(--color-legacy-101828)]">{value}</p>
         </div>
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${toneClass}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-2 text-[10px] leading-relaxed text-[#667085]">{detail}</p>
+      <p className="mt-2 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-legacy-667085)]">{detail}</p>
     </article>
   );
 }
@@ -92,12 +92,12 @@ function FilterSelect({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex min-w-[155px] flex-1 flex-col gap-1.5 text-[11px] font-medium text-[#475467]">
+    <label className="flex min-w-[155px] flex-1 flex-col gap-1.5 text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-475467)]">
       {label}
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
+        className="h-10 rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white px-3 text-xs text-[var(--color-legacy-344054)] outline-none focus:border-[var(--color-blue)] focus:ring-2 focus:ring-[var(--color-blue)]/15"
       >
         {children}
       </select>
@@ -106,7 +106,7 @@ function FilterSelect({
 }
 
 function EmptyBreakdown({ text }: { text: string }) {
-  return <p className="rounded-lg bg-[#F8FAFC] px-4 py-6 text-center text-[12px] text-[#667085]">{text}</p>;
+  return <p className="rounded-lg bg-[var(--color-legacy-f8fafc)] px-4 py-6 text-center text-xs text-[var(--color-legacy-667085)]">{text}</p>;
 }
 
 function EducationalBreakdown({
@@ -119,15 +119,15 @@ function EducationalBreakdown({
   rows: PermanenceBreakdown[];
 }) {
   return (
-    <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5">
+    <section className="rounded-[10px] border border-[var(--color-line)] bg-white p-5">
       <div className="mb-4">
-        <h2 className="text-[14px] font-semibold text-[#101828]">{title}</h2>
-        <p className="mt-1 text-[11px] text-[#667085]">{description}</p>
+        <h2 className="text-sm font-semibold text-[var(--color-legacy-101828)]">{title}</h2>
+        <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{description}</p>
       </div>
       {rows.length === 0 ? <EmptyBreakdown text="Sem outcomes acadêmicos confirmados neste recorte." /> : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left text-[12px]">
-            <thead className="bg-[#F8F9FA] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
+          <table className="w-full min-w-[560px] text-left text-xs">
+            <thead className="bg-[var(--color-panel)] text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.05em] text-[var(--color-legacy-667085)]">
               <tr>
                 <th className="px-3 py-2">Grupo</th>
                 <th className="px-3 py-2">Desfechos</th>
@@ -136,10 +136,10 @@ function EducationalBreakdown({
                 <th className="px-3 py-2">Permanência obs.</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EAECF0]">
+            <tbody className="divide-y divide-[var(--color-legacy-eaecf0)]">
               {rows.map((row) => (
                 <tr key={row.key}>
-                  <td className="px-3 py-2.5 font-medium text-[#101828]">{row.label}</td>
+                  <td className="px-3 py-2.5 font-medium text-[var(--color-legacy-101828)]">{row.label}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.confirmed_outcomes)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.rematriculados)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.evasion_outcomes)}</td>
@@ -164,15 +164,15 @@ function OperationalBreakdown({
   rows: OperationalPermanenceBreakdown[];
 }) {
   return (
-    <section className="rounded-[10px] border border-[#E4E7EC] bg-white p-5">
+    <section className="rounded-[10px] border border-[var(--color-line)] bg-white p-5">
       <div className="mb-4">
-        <h2 className="text-[14px] font-semibold text-[#101828]">{title}</h2>
-        <p className="mt-1 text-[11px] text-[#667085]">{description}</p>
+        <h2 className="text-sm font-semibold text-[var(--color-legacy-101828)]">{title}</h2>
+        <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{description}</p>
       </div>
       {rows.length === 0 ? <EmptyBreakdown text="Sem registros operacionais para agrupar neste recorte." /> : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-left text-[12px]">
-            <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
+          <table className="w-full min-w-[520px] text-left text-xs">
+            <thead className="bg-[var(--color-source-f9fafb)] text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.05em] text-[var(--color-legacy-667085)]">
               <tr>
                 <th className="px-3 py-2">Grupo</th>
                 <th className="px-3 py-2">Mensagens enviadas</th>
@@ -180,10 +180,10 @@ function OperationalBreakdown({
                 <th className="px-3 py-2">Entregues</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EAECF0]">
+            <tbody className="divide-y divide-[var(--color-legacy-eaecf0)]">
               {rows.map((row) => (
                 <tr key={row.key}>
-                  <td className="px-3 py-2.5 font-medium text-[#101828]">{row.label}</td>
+                  <td className="px-3 py-2.5 font-medium text-[var(--color-legacy-101828)]">{row.label}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.messages_sent)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.unique_students_contacted)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{numberLabel(row.delivered_messages)}</td>
@@ -200,45 +200,45 @@ function OperationalBreakdown({
 function ComparisonCard({ data }: { data: PermanenceAnalytics["comparison"] }) {
   const available = data.status === "available_descriptive";
   return (
-    <section className="rounded-xl border border-[#FEDF89] bg-[#FFFAEB] p-5">
+    <section className="rounded-xl border border-[var(--color-source-fedf89)] bg-[var(--color-source-fffaeb)] p-5">
       <div className="flex items-start gap-3">
-        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#B54708]" />
+        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-source-b54708)]" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-[14px] font-semibold text-[#7A2E0E]">Comparação observacional entre grupos</h2>
-          <p className="mt-1 text-[11px] leading-relaxed text-[#93370D]">
+          <h2 className="text-sm font-semibold text-[var(--color-legacy-7a2e0e)]">Comparação observacional entre grupos</h2>
+          <p className="mt-1 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-93370d)]">
             {available
               ? "Diferença padronizada por faixa de risco basal. A comparação não demonstra que a intervenção causou o resultado."
               : data.reason}
           </p>
           {available ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-[#FDE68A] bg-white/70 p-3">
-                <p className="text-[10px] text-[#93370D]">Com intervenção</p>
-                <p className="mt-1 text-lg font-semibold text-[#7A2E0E]">{percentLabel(data.permanence_rate_exposed_pct)}</p>
-                <p className="text-[10px] text-[#93370D]">n = {numberLabel(data.exposed_n)}</p>
+              <div className="rounded-lg border border-[var(--color-legacy-fde68a)] bg-white/70 p-3">
+                <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-93370d)]">Com intervenção</p>
+                <p className="mt-1 text-lg font-semibold text-[var(--color-legacy-7a2e0e)]">{percentLabel(data.permanence_rate_exposed_pct)}</p>
+                <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-93370d)]">n = {numberLabel(data.exposed_n)}</p>
               </div>
-              <div className="rounded-lg border border-[#FDE68A] bg-white/70 p-3">
-                <p className="text-[10px] text-[#93370D]">Sem intervenção enviada em 90 dias</p>
-                <p className="mt-1 text-lg font-semibold text-[#7A2E0E]">{percentLabel(data.permanence_rate_no_intervention_standardized_pct)}</p>
-                <p className="text-[10px] text-[#93370D]">n = {numberLabel(data.no_intervention_n)}</p>
+              <div className="rounded-lg border border-[var(--color-legacy-fde68a)] bg-white/70 p-3">
+                <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-93370d)]">Sem intervenção enviada em 90 dias</p>
+                <p className="mt-1 text-lg font-semibold text-[var(--color-legacy-7a2e0e)]">{percentLabel(data.permanence_rate_no_intervention_standardized_pct)}</p>
+                <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-93370d)]">n = {numberLabel(data.no_intervention_n)}</p>
               </div>
-              <div className="rounded-lg border border-[#FDE68A] bg-white/70 p-3">
-                <p className="text-[10px] text-[#93370D]">Diferença descritiva</p>
-                <p className="mt-1 text-lg font-semibold text-[#7A2E0E]">
+              <div className="rounded-lg border border-[var(--color-legacy-fde68a)] bg-white/70 p-3">
+                <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-93370d)]">Diferença descritiva</p>
+                <p className="mt-1 text-lg font-semibold text-[var(--color-legacy-7a2e0e)]">
                   {data.difference_percentage_points == null ? "—" : `${data.difference_percentage_points > 0 ? "+" : ""}${data.difference_percentage_points.toLocaleString("pt-BR")} p.p.`}
                 </p>
-                <p className="text-[10px] text-[#93370D]">Faixas de risco: {data.common_risk_bands?.join(", ") || "—"}</p>
+                <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-93370d)]">Faixas de risco: {data.common_risk_bands?.join(", ") || "—"}</p>
               </div>
             </div>
           ) : (
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[#93370D]">
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[length:var(--type-overline)] text-[var(--color-legacy-93370d)]">
               <span>Com intervenção: {numberLabel(data.exposed_n)}</span>
               <span>Sem intervenção: {numberLabel(data.no_intervention_n)}</span>
               <span>Exposições mistas excluídas: {numberLabel(data.mixed_exposure_excluded)}</span>
               <span>Sem risco basal: {numberLabel(data.missing_baseline_risk_excluded)}</span>
             </div>
           )}
-          <p className="mt-3 text-[10px] leading-relaxed text-[#93370D]">
+          <p className="mt-3 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-legacy-93370d)]">
             Critérios: ao menos {data.minimum_group_size} outcomes por grupo, {data.minimum_per_stratum} por faixa de risco e suporte comum suficiente. Transferências não entram no denominador.
           </p>
         </div>
@@ -249,26 +249,26 @@ function ComparisonCard({ data }: { data: PermanenceAnalytics["comparison"] }) {
 
 function EducationalHistory({ data }: { data: PermanenceAnalytics["educational"] }) {
   return (
-    <section className="overflow-hidden rounded-[10px] border border-[#E4E7EC] bg-white">
-      <div className="flex flex-col gap-1 border-b border-[#E4E7EC] px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="overflow-hidden rounded-[10px] border border-[var(--color-line)] bg-white">
+      <div className="flex flex-col gap-1 border-b border-[var(--color-line)] px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-[14px] font-semibold text-[#101828]">Histórico de resultados por estudante</h2>
-          <p className="mt-1 text-[11px] text-[#667085]">Eventos acadêmicos mais recentes. Exibição limitada a 100 registros.</p>
+          <h2 className="text-sm font-semibold text-[var(--color-legacy-101828)]">Histórico de resultados por estudante</h2>
+          <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Eventos acadêmicos mais recentes. Exibição limitada a 100 registros.</p>
         </div>
-        <span className="text-[10px] text-[#667085]">{numberLabel(data.records_total)} outcomes no recorte</span>
+        <span className="text-[length:var(--type-overline)] text-[var(--color-legacy-667085)]">{numberLabel(data.records_total)} outcomes no recorte</span>
       </div>
       {data.records.length === 0 ? (
         <div className="px-5 py-10 text-center">
-          <BookOpenCheck className="mx-auto h-5 w-5 text-[#98A2B3]" />
-          <p className="mt-3 text-[13px] font-semibold text-[#344054]">Ainda não há desfechos acadêmicos confirmados</p>
-          <p className="mx-auto mt-1 max-w-xl text-[11px] leading-relaxed text-[#667085]">
+          <BookOpenCheck className="mx-auto h-5 w-5 text-[var(--color-legacy-98a2b3)]" />
+          <p className="mt-3 text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-344054)]">Ainda não há desfechos acadêmicos confirmados</p>
+          <p className="mx-auto mt-1 max-w-xl text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-667085)]">
             Importe eventos de matrícula, rematrícula, trancamento, evasão, conclusão ou transferência pelo endpoint acadêmico. Sem outcome registrado, a MIRA não presume permanência nem evasão.
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-[11px]">
-            <thead className="bg-[#F9FAFB] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#667085]">
+          <table className="w-full min-w-[960px] text-left text-[length:var(--type-caption)]">
+            <thead className="bg-[var(--color-source-f9fafb)] text-[length:var(--type-overline)] font-semibold uppercase tracking-[0.05em] text-[var(--color-legacy-667085)]">
               <tr>
                 <th className="px-4 py-3">Estudante</th>
                 <th className="px-4 py-3">Curso</th>
@@ -279,25 +279,25 @@ function EducationalHistory({ data }: { data: PermanenceAnalytics["educational"]
                 <th className="px-4 py-3">Intervenções relacionadas</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EAECF0]">
+            <tbody className="divide-y divide-[var(--color-legacy-eaecf0)]">
               {data.records.map((record) => (
-                <tr key={record.event_id} className="hover:bg-[#F9FAFB]">
+                <tr key={record.event_id} className="hover:bg-[var(--color-source-f9fafb)]">
                   <td className="px-4 py-3">
                     {record.student_id ? (
-                      <Link href={`/alunos/${record.student_id}`} className="font-semibold text-[#266DF0] hover:underline">
+                      <Link href={`/alunos/${record.student_id}`} className="font-semibold text-[var(--color-blue)] hover:underline">
                         {record.student_name || record.matricula}
                       </Link>
-                    ) : <span className="font-semibold text-[#101828]">{record.student_name || record.matricula}</span>}
-                    <span className="mt-0.5 block text-[10px] text-[#667085]">{record.matricula}</span>
+                    ) : <span className="font-semibold text-[var(--color-legacy-101828)]">{record.student_name || record.matricula}</span>}
+                    <span className="mt-0.5 block text-[length:var(--type-overline)] text-[var(--color-legacy-667085)]">{record.matricula}</span>
                   </td>
-                  <td className="px-4 py-3 text-[#475467]">{record.course || "Não informado"}</td>
-                  <td className="px-4 py-3 font-medium text-[#344054]">{record.outcome_label}</td>
-                  <td className="px-4 py-3 text-[#475467]">
-                    {record.academic_period || <span className="text-[#B54708">Não informado</span>}
+                  <td className="px-4 py-3 text-[var(--color-legacy-475467)]">{record.course || "Não informado"}</td>
+                  <td className="px-4 py-3 font-medium text-[var(--color-legacy-344054)]">{record.outcome_label}</td>
+                  <td className="px-4 py-3 text-[var(--color-legacy-475467)]">
+                    {record.academic_period || <span className="text-[var(--color-source-b54708)">Não informado</span>}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-[#475467]">{dateTimeLabel(record.outcome_at)}</td>
-                  <td className="px-4 py-3 text-[#475467]">{record.outcome_source}</td>
-                  <td className="px-4 py-3 text-[#475467]">
+                  <td className="whitespace-nowrap px-4 py-3 text-[var(--color-legacy-475467)]">{dateTimeLabel(record.outcome_at)}</td>
+                  <td className="px-4 py-3 text-[var(--color-legacy-475467)]">{record.outcome_source}</td>
+                  <td className="px-4 py-3 text-[var(--color-legacy-475467)]">
                     {record.intervention_count ? (
                       <span title={[...record.channels, ...record.campaigns].join(" · ") || undefined}>
                         {numberLabel(record.intervention_count)} registro(s)
@@ -329,7 +329,7 @@ function EducationalResults({ data }: { data: PermanenceAnalytics }) {
       </section>
 
       {noOutcomes && (
-        <div className="rounded-xl border border-[#B2CCFF] bg-[#EFF8FF] p-4 text-[11px] leading-relaxed text-[#175CD3]">
+        <div className="rounded-xl border border-[var(--color-legacy-b2ccff)] bg-[var(--color-legacy-eff8ff)] p-4 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-175cd3)]">
           Estes indicadores usam outcomes acadêmicos confirmados. Ausência de registro não significa permanência ou evasão. Para histórico por período letivo, a origem deve enviar o código real do período; ele não é inferido do semestre de curso nem do mês-calendário.
         </div>
       )}
@@ -345,7 +345,7 @@ function EducationalResults({ data }: { data: PermanenceAnalytics }) {
 
       <ComparisonCard data={data.comparison} />
       <EducationalHistory data={education} />
-      <p className="px-1 text-[10px] leading-relaxed text-[#667085]">
+      <p className="px-1 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-legacy-667085)]">
         Definição: rematrícula, status ativo, conclusão e formatura são resultados de permanência; evasão e trancamento são saídas; transferências ficam fora das taxas. Taxas são descritivas e não afirmam causalidade.
       </p>
     </div>
@@ -363,7 +363,7 @@ function OperationalResults({ data }: { data: PermanenceAnalytics }) {
         <MetricCard icon={CheckCircle2} label="Entrega registrada" value={percentLabel(summary.delivery_rate_pct)} detail={`${numberLabel(summary.delivered_messages)} eventos de entrega entre os envios`} tone="positive" />
         <MetricCard icon={Activity} label="Engajamento registrado" value={percentLabel(summary.engagement_rate_pct)} detail={`${numberLabel(summary.engaged_messages)} leituras, cliques ou respostas`} />
       </section>
-      <div className="rounded-xl border border-[#D1E9FF] bg-[#EFF8FF] p-4 text-[11px] leading-relaxed text-[#175CD3]">
+      <div className="rounded-xl border border-[var(--color-legacy-d1e9ff)] bg-[var(--color-legacy-eff8ff)] p-4 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-175cd3)]">
         Indicadores operacionais descrevem execução, entrega e engajamento. Mensagem enviada ou entregue não comprova rematrícula nem permanência; consulte a aba “Resultados educacionais” para outcomes acadêmicos confirmados.
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
@@ -385,12 +385,12 @@ function OperationalResults({ data }: { data: PermanenceAnalytics }) {
           }))}
         />
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#E4E7EC] bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[var(--color-line)] bg-white p-4">
         <div>
-          <p className="text-[12px] font-semibold text-[#101828]">Precisa revisar um contato específico?</p>
-          <p className="mt-1 text-[11px] text-[#667085]">O histórico detalhado fica separado dos outcomes educacionais.</p>
+          <p className="text-xs font-semibold text-[var(--color-legacy-101828)]">Precisa revisar um contato específico?</p>
+          <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">O histórico detalhado fica separado dos outcomes educacionais.</p>
         </div>
-        <Link href="/retencao/logs" className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#D0D5DD] px-3 text-[11px] font-semibold text-[#344054] hover:bg-[#F9FAFB]">
+        <Link href="/retencao/logs" className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--color-legacy-d0d5dd)] px-3 text-[length:var(--type-caption)] font-semibold text-[var(--color-legacy-344054)] hover:bg-[var(--color-source-f9fafb)]">
           Histórico de contatos <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -422,13 +422,13 @@ export function PermanenceResultsPage() {
     <>
       <Header title="Resultados de permanência" compact />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        <section className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <section className="flex flex-col gap-3 border-b border-[var(--color-legacy-e5e7eb)] pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#266DF0]">
+            <div className="mb-2 flex items-center gap-2 text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.08em] text-[var(--color-blue)]">
               <BookOpenCheck className="h-3.5 w-3.5" /> Mensuração educacional
             </div>
-            <h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#101828]">Resultados de permanência</h1>
-            <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-[#667085]">
+            <h1 className="text-2xl font-semibold tracking-[-0.035em] text-[var(--color-legacy-101828)]">Resultados de permanência</h1>
+            <p className="mt-1 max-w-3xl text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-legacy-667085)]">
               Acompanhe rematrícula, evasão e permanência por período letivo — e relacione os desfechos acadêmicos às intervenções sem presumir causalidade.
             </p>
           </div>
@@ -437,17 +437,17 @@ export function PermanenceResultsPage() {
               type="button"
               onClick={() => void query.refetch()}
               disabled={query.isFetching}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#D0D5DD] bg-white px-3 text-[12px] font-medium text-[#344054] hover:bg-[#F9FAFB] disabled:opacity-60"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--color-legacy-d0d5dd)] bg-white px-3 text-xs font-medium text-[var(--color-legacy-344054)] hover:bg-[var(--color-source-f9fafb)] disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} /> Atualizar
             </button>
-            <Link href="/retencao/logs" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-3.5 text-[12px] font-medium text-white hover:bg-[#101112]">
+            <Link href="/retencao/logs" className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-ink-900)] px-3.5 text-xs font-medium text-white hover:bg-[var(--color-ink)]">
               Histórico de contatos <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </section>
 
-        <section aria-label="Filtros de resultados" className="flex flex-wrap items-end gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4">
+        <section aria-label="Filtros de resultados" className="flex flex-wrap items-end gap-3 rounded-xl border border-[var(--color-legacy-e5e7eb)] bg-white p-4">
           <FilterSelect label="Janela de observação" value={String(days)} onChange={(value) => setDays(Number(value))}>
             {DAYS.map((value) => <option key={value} value={value}>Últimos {value} dias</option>)}
           </FilterSelect>
@@ -468,19 +468,19 @@ export function PermanenceResultsPage() {
             {(data?.options.channels || []).map((value) => <option key={value} value={value}>{value === "whatsapp" ? "WhatsApp" : value === "email" ? "E-mail" : value === "sms" ? "SMS" : value}</option>)}
           </FilterSelect>
         </section>
-        <p className="-mt-3 px-1 text-[10px] leading-relaxed text-[#667085]">
+        <p className="-mt-3 px-1 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-legacy-667085)]">
           O filtro de período letivo restringe os outcomes acadêmicos. Indicadores operacionais usam a janela de dias selecionada e são agrupados por mês-calendário.
         </p>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div role="tablist" aria-label="Tipo de resultados" className="inline-flex items-center gap-5 border-b border-[#E4E7EC] bg-white">
+          <div role="tablist" aria-label="Tipo de resultados" className="inline-flex items-center gap-5 border-b border-[var(--color-line)] bg-white">
             <button
               id="tab-educational"
               role="tab"
               aria-selected={tab === "educational"}
               aria-controls="panel-educational"
               onClick={() => setTab("educational")}
-              className={`inline-flex h-10 items-center gap-2 border-b-2 px-1 text-[12px] font-medium transition ${tab === "educational" ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:text-[#1C1D1F]"}`}
+              className={`inline-flex h-10 items-center gap-2 border-b-2 px-1 text-xs font-medium transition ${tab === "educational" ? "border-[var(--color-legacy-1c1d1f)] text-[var(--color-legacy-1c1d1f)]" : "border-transparent text-[var(--color-legacy-6f7988)] hover:text-[var(--color-legacy-1c1d1f)]"}`}
             >
               <GraduationCap className="h-3.5 w-3.5" /> Resultados educacionais
             </button>
@@ -490,19 +490,19 @@ export function PermanenceResultsPage() {
               aria-selected={tab === "operational"}
               aria-controls="panel-operational"
               onClick={() => setTab("operational")}
-              className={`inline-flex h-10 items-center gap-2 border-b-2 px-1 text-[12px] font-medium transition ${tab === "operational" ? "border-[#1C1D1F] text-[#1C1D1F]" : "border-transparent text-[#6F7988] hover:text-[#1C1D1F]"}`}
+              className={`inline-flex h-10 items-center gap-2 border-b-2 px-1 text-xs font-medium transition ${tab === "operational" ? "border-[var(--color-legacy-1c1d1f)] text-[var(--color-legacy-1c1d1f)]" : "border-transparent text-[var(--color-legacy-6f7988)] hover:text-[var(--color-legacy-1c1d1f)]"}`}
             >
               <Activity className="h-3.5 w-3.5" /> Resultados operacionais
             </button>
           </div>
-          <p className="text-[10px] text-[#667085]">
+          <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-667085)]">
             {data?.generated_at ? `Dados atualizados ${dateTimeLabel(data.generated_at)}` : `Janela: ${days} dias`}
           </p>
         </div>
 
         {query.isLoading && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map((n) => <Skeleton key={n} className="h-28 rounded-xl" />)}</div>}
         {query.isError && (
-          <div role="alert" className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-5 text-[12px] text-[#B42318]">
+          <div role="alert" className="rounded-xl border border-[var(--color-legacy-fecdca)] bg-[var(--color-red-tint)] p-5 text-xs text-[var(--color-legacy-b42318)]">
             <p className="font-semibold">Não foi possível carregar os resultados de permanência.</p>
             <p className="mt-1">Verifique a disponibilidade da API acadêmica e os dados do período selecionado.</p>
             <button type="button" onClick={() => void query.refetch()} className="mt-3 font-semibold underline">Tentar novamente</button>
@@ -510,8 +510,8 @@ export function PermanenceResultsPage() {
         )}
         {data && (tab === "educational" ? <EducationalResults data={data} /> : <OperationalResults data={data} />)}
 
-        <div className="flex items-start gap-2 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-3 text-[10px] leading-relaxed text-[#667085]">
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#667085]" />
+        <div className="flex items-start gap-2 rounded-lg border border-[var(--color-legacy-e5e7eb)] bg-[var(--color-source-f9fafb)] p-3 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-legacy-667085)]">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-legacy-667085)]" />
           <p>
             Outcomes acadêmicos dependem de importação explícita da instituição. Dados ausentes não são classificados como permanência ou evasão; envio, resposta e entrega são indicadores operacionais, não outcomes educacionais.
           </p>

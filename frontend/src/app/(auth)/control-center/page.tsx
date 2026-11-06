@@ -279,24 +279,24 @@ export default function ControlCenterPage() {
 
   const availableTabs: Tab[] = ["overview", ...(permissions.organizations ? ["organizations" as const] : []), ...(permissions.members ? ["members" as const] : []), ...(permissions.channels ? ["channels" as const] : []), ...(permissions.audit ? ["audit" as const] : []), ...(permissions.billing ? ["billing" as const] : [])];
 
-  if (loading || !admin) return <main className="grid min-h-screen place-items-center bg-[#f7f6f2]"><div className="flex items-center gap-3 text-sm text-neutral-600"><LoaderCircle className="animate-spin" size={18} /> Validando sessão administrativa…</div></main>;
+  if (loading || !admin) return <main className="grid min-h-screen place-items-center bg-[var(--color-legacy-f7f6f2)]"><div className="flex items-center gap-3 text-sm text-neutral-600"><LoaderCircle className="animate-spin" size={18} /> Validando sessão administrativa…</div></main>;
 
-  return <main className="min-h-screen bg-[#f7f6f2] px-4 py-6 text-neutral-900 sm:px-6 lg:px-10 lg:py-9">
+  return <main className="min-h-screen bg-[var(--color-legacy-f7f6f2)] px-4 py-6 text-neutral-900 sm:px-6 lg:px-10 lg:py-9">
     <div className="mx-auto max-w-[1500px]">
       <header className="flex flex-col gap-5 border-b border-neutral-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#17191d] text-white"><Fingerprint size={24} /></div>
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--brand-midnight)] text-white"><Fingerprint size={24} /></div>
           <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">MIRA · Interno</p><h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Control Center</h1><p className="mt-1 text-sm text-neutral-500">Monitoramento operacional e administração da plataforma</p></div>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden text-right sm:block"><p className="text-sm font-semibold">{admin.display_name}</p><p className="text-xs text-neutral-500">{roleLabels[admin.role] || admin.role} · {admin.email}</p></div>
           <button onClick={() => void refresh()} disabled={refreshing} className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""} /> Atualizar</button>
-          <button onClick={signOut} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#17191d] px-3 text-sm font-medium text-white hover:bg-neutral-700"><LogOut size={15} /> Sair</button>
+          <button onClick={signOut} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--brand-midnight)] px-3 text-sm font-medium text-white hover:bg-neutral-700"><LogOut size={15} /> Sair</button>
         </div>
       </header>
 
       <nav aria-label="Seções administrativas" className="mt-6 flex gap-2 overflow-x-auto pb-1">
-        {availableTabs.map((item) => <button key={item} onClick={() => { setSearch(""); setTab(item); }} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${tab === item ? "bg-[#4050cd] text-white shadow-sm" : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100"}`}>{tabLabels[item]}</button>)}
+        {availableTabs.map((item) => <button key={item} onClick={() => { setSearch(""); setTab(item); }} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${tab === item ? "bg-[var(--brand-indigo)] text-white shadow-sm" : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100"}`}>{tabLabels[item]}</button>)}
       </nav>
 
       {error && <div role="alert" className="mt-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><CircleAlert size={18} className="mt-0.5 shrink-0" />{error}</div>}
@@ -349,7 +349,7 @@ export default function ControlCenterPage() {
           <label className="space-y-1.5 text-sm"><span className="font-medium">Próximo vencimento</span><input required type="date" value={billingForm.due_date} onChange={(e) => setBillingForm({ ...billingForm, due_date: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
           <label className="space-y-1.5 text-sm"><span className="font-medium">Link externo de pagamento (HTTPS)</span><input type="url" value={billingForm.payment_link} onChange={(e) => setBillingForm({ ...billingForm, payment_link: e.target.value })} placeholder="https://..." className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
           <label className="space-y-1.5 text-sm md:col-span-2 xl:col-span-3"><span className="font-medium">Observações (opcional)</span><input maxLength={500} value={billingForm.notes} onChange={(e) => setBillingForm({ ...billingForm, notes: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
-          <div className="md:col-span-2 xl:col-span-3"><button disabled={savingBilling} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#4050cd] px-4 text-sm font-semibold text-white disabled:opacity-50">{savingBilling ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Registrar acompanhamento</button></div>
+          <div className="md:col-span-2 xl:col-span-3"><button disabled={savingBilling} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--brand-indigo)] px-4 text-sm font-semibold text-white disabled:opacity-50">{savingBilling ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Registrar acompanhamento</button></div>
         </form>}
 
         {editingBilling && permissions.billing && admin.role !== "auditor" && <form onSubmit={saveBillingEdit} className="grid gap-4 rounded-2xl border border-indigo-200 bg-white p-5 md:grid-cols-2 xl:grid-cols-3">
@@ -362,7 +362,7 @@ export default function ControlCenterPage() {
           <label className="space-y-1.5 text-sm"><span className="font-medium">Status do plano</span><select value={editBillingForm.plan_status} onChange={(e) => setEditBillingForm({ ...editBillingForm, plan_status: e.target.value as "active" | "paused" | "cancelled" })} className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3"><option value="active">Ativo</option><option value="paused">Pausado</option><option value="cancelled">Cancelado</option></select></label>
           <label className="space-y-1.5 text-sm"><span className="font-medium">Status do pagamento</span><select value={editBillingForm.payment_status} onChange={(e) => setEditBillingForm({ ...editBillingForm, payment_status: e.target.value as "pending" | "paid" })} className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3"><option value="pending">Pendente</option><option value="paid">Pago</option></select></label>
           <label className="space-y-1.5 text-sm md:col-span-2"><span className="font-medium">Observações</span><input maxLength={500} value={editBillingForm.notes} onChange={(e) => setEditBillingForm({ ...editBillingForm, notes: e.target.value })} className="h-11 w-full rounded-xl border border-neutral-200 px-3" /></label>
-          <div className="md:col-span-2 xl:col-span-3"><button disabled={savingBilling} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#4050cd] px-4 text-sm font-semibold text-white disabled:opacity-50">{savingBilling ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Salvar alterações</button></div>
+          <div className="md:col-span-2 xl:col-span-3"><button disabled={savingBilling} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--brand-indigo)] px-4 text-sm font-semibold text-white disabled:opacity-50">{savingBilling ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Salvar alterações</button></div>
         </form>}
         <section className="rounded-2xl border border-neutral-200 bg-white">
           <div className="border-b border-neutral-100 p-5"><h2 className="font-semibold">Planos e vencimentos</h2><p className="mt-1 text-sm text-neutral-500">Status financeiro manual; confirme pagamentos na fonte externa antes de marcar como pagos.</p></div>

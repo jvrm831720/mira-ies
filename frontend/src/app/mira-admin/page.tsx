@@ -67,7 +67,7 @@ export default function MiraAdminGovernancePage() {
   const rows = data[active];
 
   return (
-    <main className="min-h-screen bg-[#f7f7f5] px-4 py-6 text-[#202126] md:px-8 md:py-10">
+    <main className="min-h-screen bg-[var(--color-legacy-f7f7f5)] px-4 py-6 text-[var(--color-legacy-202126)] md:px-8 md:py-10">
       <div className="mx-auto max-w-7xl space-y-7">
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>

@@ -123,7 +123,7 @@ export default function MembersPage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <Card>
             <CardHeader>
-              <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              <div className="mb-1 flex items-center gap-2 text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.14em] text-primary">
                 <UserPlus className="h-3.5 w-3.5" /> Convidar
               </div>
               <CardTitle>Adicionar membro</CardTitle>
@@ -183,7 +183,7 @@ export default function MembersPage() {
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-[var(--brand-coral)]">
                   <Shield className="h-4 w-4" />
                 </span>
-                <CardTitle className="pt-1 text-[15px] text-white">Como funciona</CardTitle>
+                <CardTitle className="pt-1 text-[length:var(--type-body-comfort)] text-white">Como funciona</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-xs leading-relaxed text-white/75">
                 <p>1. Você convida com e-mail + perfil de acesso.</p>
@@ -194,7 +194,7 @@ export default function MembersPage() {
             </Card>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-border bg-white p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="text-[length:var(--type-overline)] font-semibold uppercase tracking-wider text-muted-foreground">
                   Ativos
                 </p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums">
@@ -202,7 +202,7 @@ export default function MembersPage() {
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-white p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="text-[length:var(--type-overline)] font-semibold uppercase tracking-wider text-muted-foreground">
                   Convites
                 </p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums">

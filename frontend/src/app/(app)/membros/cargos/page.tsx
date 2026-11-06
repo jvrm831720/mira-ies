@@ -186,7 +186,7 @@ export default function CustomRolesPage() {
                     <div className="rounded-lg border border-border p-3">
                       <p className="mb-2 text-xs font-semibold">Permissões efetivas do membro</p>
                       <p className="text-xs text-muted-foreground">{memberPermissions.data.custom_role?.name || memberPermissions.data.legacy_role}</p>
-                      <div className="mt-2 flex flex-wrap gap-1">{memberPermissions.data.permissions.map((permission) => <span key={permission} className="rounded-md bg-muted px-2 py-1 text-[10px]">{permission}</span>)}</div>
+                      <div className="mt-2 flex flex-wrap gap-1">{memberPermissions.data.permissions.map((permission) => <span key={permission} className="rounded-md bg-muted px-2 py-1 text-[length:var(--type-overline)]">{permission}</span>)}</div>
                     </div>
                   )}
                   <Button variant="outline" className="w-full" onClick={() => assignMutation.mutate()} disabled={!selectedMember || assignMutation.isPending}>{assignMutation.isPending ? "Atualizando…" : "Atualizar acesso do membro"}</Button>

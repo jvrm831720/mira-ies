@@ -390,6 +390,7 @@ export function Sidebar() {
         open={commandOpen}
         onOpenChange={setCommandOpen}
         groups={groups}
+        tenantId={me.data?.tenant_id}
         loading={me.isLoading}
         error={me.isError}
       />

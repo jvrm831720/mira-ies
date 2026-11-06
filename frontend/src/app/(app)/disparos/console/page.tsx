@@ -27,9 +27,9 @@ const statusLabels: Record<string, string> = {
 function Stat({ label, value, icon: Icon }: {
   label: string; value: number | string; icon: typeof Activity;
 }) {
-  return <div className="rounded-xl border border-[#E7E7EA] bg-white px-4 py-4">
-    <div className="mb-2 flex items-center gap-2 text-xs text-[#777780]"><Icon className="h-4 w-4" />{label}</div>
-    <p className="text-2xl font-semibold tracking-tight text-[#202124]">{value}</p>
+  return <div className="rounded-xl border border-[var(--color-legacy-e7e7ea)] bg-white px-4 py-4">
+    <div className="mb-2 flex items-center gap-2 text-xs text-[var(--color-legacy-777780)]"><Icon className="h-4 w-4" />{label}</div>
+    <p className="text-2xl font-semibold tracking-tight text-[var(--color-legacy-202124)]">{value}</p>
   </div>;
 }
 
@@ -214,29 +214,29 @@ export default function DispatchConsolePage() {
     <main className="mx-auto max-w-[1400px] space-y-6 px-4 pb-14 pt-6 md:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#202124]">Comunicações e intervenções</h1>
-          <p className="mt-1 text-sm text-[#85858B]">Um contato individual, um grupo de alunos ou campanhas em escala — com os mesmos controles.</p>
+          <h1 className="text-xl font-semibold text-[var(--color-legacy-202124)]">Comunicações e intervenções</h1>
+          <p className="mt-1 text-sm text-[var(--color-legacy-85858b)]">Um contato individual, um grupo de alunos ou campanhas em escala — com os mesmos controles.</p>
         </div>
         <div className="flex gap-2">
-          <Link href="/disparos/importacoes" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Importações Composio</Link>
-          <Link href="/disparos/modelos" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Modelos e aprovações</Link>
-          <Link href="/disparos/provedores" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">Provedores</Link>
+          <Link href="/disparos/importacoes" className="rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-sm font-medium text-[var(--color-legacy-45454c)]">Importações Composio</Link>
+          <Link href="/disparos/modelos" className="rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-sm font-medium text-[var(--color-legacy-45454c)]">Modelos e aprovações</Link>
+          <Link href="/disparos/provedores" className="rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-sm font-medium text-[var(--color-legacy-45454c)]">Provedores</Link>
           <button onClick={() => { setShowProposal(v => !v); setShowCreate(false); setShowIndividual(false); }} type="button"
-            className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#45454C]">
+            className="rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-sm font-medium text-[var(--color-legacy-45454c)]">
             Usar proposta aprovada
           </button>
           <button onClick={() => { setShowIndividual(v => !v); setShowCreate(false); setShowProposal(false); }} type="button"
-            className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm font-medium text-[#202124]">
+            className="rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-sm font-medium text-[var(--color-legacy-202124)]">
             Intervenção individual
           </button>
           <button onClick={() => { setShowCreate(v => !v); setShowIndividual(false); setShowProposal(false); }} type="button"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#202124] px-4 py-2 text-sm font-medium text-white hover:bg-[#35363A]">
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-legacy-202124)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-legacy-35363a)]">
             <Plus className="h-4 w-4" /> Nova campanha
           </button>
         </div>
       </div>
 
-      <div className="flex items-start gap-3 rounded-xl border border-[#E8E3D6] bg-[#FFFCF6] p-4 text-sm text-[#655735]">
+      <div className="flex items-start gap-3 rounded-xl border border-[var(--color-legacy-e8e3d6)] bg-[var(--color-legacy-fffcf6)] p-4 text-sm text-[var(--color-legacy-655735)]">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
         <div>
           <p className="font-semibold">Envio real permanece desabilitado por padrão</p>
@@ -246,7 +246,7 @@ export default function DispatchConsolePage() {
         </div>
       </div>
 
-      {metrics && <p className="text-xs text-[#85858B]">
+      {metrics && <p className="text-xs text-[var(--color-legacy-85858b)]">
         Worker: {metrics.worker_online ? "conectado recentemente" : "sem heartbeat recente"} ·
         Custo estimado dos envios aceitos: {Number(metrics.estimated_cost_brl ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
       </p>}
@@ -260,23 +260,23 @@ export default function DispatchConsolePage() {
         <Stat icon={AlertTriangle} label="Problemas" value={metrics?.problems ?? "—"} />
       </div>
 
-      {showProposal && <section className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-5">
+      {showProposal && <section className="space-y-4 rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5">
         <div>
-          <h2 className="text-base font-semibold text-[#202124]">Executar proposta de permanência aprovada</h2>
-          <p className="mt-1 text-sm text-[#85858B]">
+          <h2 className="text-base font-semibold text-[var(--color-legacy-202124)]">Executar proposta de permanência aprovada</h2>
+          <p className="mt-1 text-sm text-[var(--color-legacy-85858b)]">
             Reutiliza a audiência, o histórico de aprovação e as autorizações existentes.
             Não cria um novo processo de aprovação.
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-xs text-[#55555C]">Proposta aprovada da MIRA
+          <label className="text-xs text-[var(--color-legacy-55555c)]">Proposta aprovada da MIRA
             <input value={proposalId} onChange={e => setProposalId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm"
+              className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5 text-sm"
               placeholder="ID da proposta aprovada" />
           </label>
-          <label className="text-xs text-[#55555C]">Modelo de permanência aprovado
+          <label className="text-xs text-[var(--color-legacy-55555c)]">Modelo de permanência aprovado
             <select value={proposalTemplateId} onChange={e => setProposalTemplateId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm">
+              className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5 text-sm">
               <option value="">Selecione um modelo</option>
               {templates.filter(t => t.status === "approved" && t.purpose === "retention").map(t =>
                 <option key={t.id} value={t.id}>{t.subject} · {t.channel}</option>)}
@@ -285,60 +285,60 @@ export default function DispatchConsolePage() {
         </div>
         <button type="button" disabled={busy || !proposalId.trim() || !proposalTemplateId}
           onClick={() => void materializeApprovedProposal()}
-          className="rounded-lg bg-[#202124] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          className="rounded-lg bg-[var(--color-legacy-202124)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           Preparar execução vinculada
         </button>
       </section>}
 
-      {showIndividual && <section className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-5">
+      {showIndividual && <section className="space-y-4 rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5">
         <div>
-          <h2 className="text-base font-semibold text-[#202124]">Contato individual</h2>
-          <p className="mt-1 text-sm text-[#85858B]">Indicado para retenção, acompanhamento acadêmico ou atendimento. Exige modelo revisado e autorização específica.</p>
+          <h2 className="text-base font-semibold text-[var(--color-legacy-202124)]">Contato individual</h2>
+          <p className="mt-1 text-sm text-[var(--color-legacy-85858b)]">Indicado para retenção, acompanhamento acadêmico ou atendimento. Exige modelo revisado e autorização específica.</p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-xs text-[#55555C]">Modelo aprovado
+          <label className="text-xs text-[var(--color-legacy-55555c)]">Modelo aprovado
             <select value={individualTemplateId} onChange={e => { setIndividualTemplateId(e.target.value); requestIdRef.current = ""; }}
-              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm">
+              className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5 text-sm">
               <option value="">Selecione um modelo</option>
               {templates.filter(t => t.status === "approved" && t.purpose !== "collections").map(t =>
                 <option key={t.id} value={t.id}>{t.subject} · {t.channel} · {t.purpose}</option>)}
             </select>
           </label>
-          <label className="text-xs text-[#55555C]">Destinatário
+          <label className="text-xs text-[var(--color-legacy-55555c)]">Destinatário
             <select value={individualSubjectType} onChange={e => setIndividualSubjectType(e.target.value as "student" | "external")}
-              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm">
+              className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5 text-sm">
               <option value="student">Aluno da MIRA</option><option value="external">Contato externo</option>
             </select>
           </label>
-          <label className="text-xs text-[#55555C]">ID do destinatário
+          <label className="text-xs text-[var(--color-legacy-55555c)]">ID do destinatário
             <input value={individualSubjectRef} onChange={e => { setIndividualSubjectRef(e.target.value); requestIdRef.current = ""; }}
-              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm"
+              className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5 text-sm"
               placeholder="UUID do aluno ou referência externa" />
           </label>
-          <label className="text-xs text-[#55555C]">Referência de autorização individual
+          <label className="text-xs text-[var(--color-legacy-55555c)]">Referência de autorização individual
             <input value={individualEvidence} onChange={e => { setIndividualEvidence(e.target.value); requestIdRef.current = ""; }}
-              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm" placeholder="Evidência da integração autorizada" />
+              className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5 text-sm" placeholder="Evidência da integração autorizada" />
           </label>
-          <label className="text-xs text-[#55555C]">Agendar (opcional)
+          <label className="text-xs text-[var(--color-legacy-55555c)]">Agendar (opcional)
             <input type="datetime-local" value={individualSchedule} onChange={e => { setIndividualSchedule(e.target.value); requestIdRef.current = ""; }}
-              className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5 text-sm" />
+              className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5 text-sm" />
           </label>
         </div>
         <button type="button" disabled={busy || !individualTemplateId || !individualSubjectRef || individualEvidence.length < 8}
-          onClick={() => void individual()} className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          onClick={() => void individual()} className="rounded-lg bg-[var(--color-legacy-2563eb)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           Preparar intervenção
         </button>
       </section>}
 
-      {showCreate && <section className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-5">
-        <h2 className="text-base font-semibold text-[#202124]">Nova campanha</h2>
+      {showCreate && <section className="space-y-4 rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5">
+        <h2 className="text-base font-semibold text-[var(--color-legacy-202124)]">Nova campanha</h2>
         <div className="grid gap-4 md:grid-cols-4">
-          <label className="text-sm text-[#55555C]">Nome
-            <input className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5" value={draft.name}
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Nome
+            <input className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5" value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Ex.: Lembrete de mensalidade" />
           </label>
-          <label className="text-sm text-[#55555C]">Finalidade
-            <select className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5" value={draft.purpose}
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Finalidade
+            <select className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5" value={draft.purpose}
               onChange={(e) => setDraft({ ...draft, purpose: e.target.value as CampaignDraft["purpose"],
                 channel: e.target.value === "collections" ? "email" : draft.channel })}>
               <option value="retention">Permanência</option>
@@ -347,15 +347,15 @@ export default function DispatchConsolePage() {
               <option value="collections">Cobrança</option>
             </select>
           </label>
-          <label className="text-sm text-[#55555C]">Modo
-            <select className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5"
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Modo
+            <select className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5"
               value={draft.delivery_mode} onChange={e => setDraft({ ...draft, delivery_mode: e.target.value as "targeted" | "bulk" })}>
               <option value="targeted">Segmentada (seleção de destinatários)</option>
               <option value="bulk">Em escala (lotes sucessivos)</option>
             </select>
           </label>
-          <label className="text-sm text-[#55555C]">Canal
-            <select className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5" value={draft.channel}
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Canal
+            <select className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5" value={draft.channel}
               onChange={(e) => setDraft({ ...draft, channel: e.target.value as CampaignDraft["channel"] })}>
               <option value="email">E-mail</option>
               <option value="sms">SMS</option>
@@ -363,8 +363,8 @@ export default function DispatchConsolePage() {
             </select>
           </label>
         </div>
-        <label className="block text-sm text-[#55555C]">Origem dos dados da organização
-          <select className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5"
+        <label className="block text-sm text-[var(--color-legacy-55555c)]">Origem dos dados da organização
+          <select className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5"
             value={`${draft.source_kind || "manual"}::${draft.source_ref || ""}`}
             onChange={e => {
               const selectedSource = sources.find(item =>
@@ -387,48 +387,48 @@ export default function DispatchConsolePage() {
             </option>)}
           </select>
         </label>
-        {draft.source_kind === "composio" && <label className="block text-sm text-[#55555C]">
+        {draft.source_kind === "composio" && <label className="block text-sm text-[var(--color-legacy-55555c)]">
           Ferramenta autorizada no workspace
           <select value={draft.source_tool_slug || ""}
-            className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5"
+            className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5"
             onChange={e => setDraft({ ...draft, source_tool_slug: e.target.value })}>
             {(sources.find(source => source.kind === "composio"
               && source.reference === draft.source_ref)?.tools || []).map(slug =>
                 <option key={slug} value={slug}>{slug}</option>)}
           </select>
         </label>}
-        <p className="text-xs text-[#85858B]">
+        <p className="text-xs text-[var(--color-legacy-85858b)]">
           Selecionar uma conexão registra a origem, mas não importa dados automaticamente nem
           autoriza contato. Composio: {composioExecutionAvailable ? "ferramentas sujeitas ao executor autorizado" : "execução de ferramentas desativada"}.
         </p>
-        <label className="block text-sm text-[#55555C]">Identificador do modelo
-          <input className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5" value={draft.template_ref}
+        <label className="block text-sm text-[var(--color-legacy-55555c)]">Identificador do modelo
+          <input className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5" value={draft.template_ref}
             onChange={(e) => setDraft({ ...draft, template_ref: e.target.value })} />
         </label>
-        <label className="block text-sm text-[#55555C]">Texto do modelo (somente {"{nome}"} será substituído)
-          <textarea className="mt-1 w-full rounded-lg border border-[#DADADD] p-2.5" rows={3}
+        <label className="block text-sm text-[var(--color-legacy-55555c)]">Texto do modelo (somente {"{nome}"} será substituído)
+          <textarea className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2.5" rows={3}
             value={draft.template_body} onChange={(e) => setDraft({ ...draft, template_body: e.target.value })} />
         </label>
         <button type="button" disabled={busy || draft.name.trim().length < 3}
-          onClick={() => void create()} className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          onClick={() => void create()} className="rounded-lg bg-[var(--color-legacy-2563eb)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           {busy ? "Salvando…" : "Criar rascunho"}
         </button>
       </section>}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="overflow-hidden rounded-2xl border border-[#E7E7EA] bg-white">
-          <div className="border-b border-[#EEEEF0] px-5 py-4">
-            <h2 className="font-semibold text-[#202124]">Campanhas</h2>
-            <p className="mt-1 text-xs text-[#85858B]">Selecione uma campanha para preparar audiência, aprovar ou controlar execução.</p>
+        <section className="overflow-hidden rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white">
+          <div className="border-b border-[var(--color-legacy-eeeef0)] px-5 py-4">
+            <h2 className="font-semibold text-[var(--color-legacy-202124)]">Campanhas</h2>
+            <p className="mt-1 text-xs text-[var(--color-legacy-85858b)]">Selecione uma campanha para preparar audiência, aprovar ou controlar execução.</p>
           </div>
-          {loading ? <p className="p-6 text-sm text-[#777780]">Carregando…</p>
-            : campaigns.length === 0 ? <p className="p-6 text-sm text-[#777780]">Nenhuma campanha criada.</p>
-              : <div className="divide-y divide-[#F0F0F2]">
+          {loading ? <p className="p-6 text-sm text-[var(--color-legacy-777780)]">Carregando…</p>
+            : campaigns.length === 0 ? <p className="p-6 text-sm text-[var(--color-legacy-777780)]">Nenhuma campanha criada.</p>
+              : <div className="divide-y divide-[var(--color-legacy-f0f0f2)]">
                 {campaigns.map((campaign) => <button type="button" key={campaign.id}
-                  onClick={() => setSelected(campaign.id)} className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#FAFAFA] ${selected === campaign.id ? "bg-[#F5F8FF]" : ""}`}>
+                  onClick={() => setSelected(campaign.id)} className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[var(--color-legacy-fafafa)] ${selected === campaign.id ? "bg-[var(--color-legacy-f5f8ff)]" : ""}`}>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-[#202124]">{campaign.name}</div>
-                    <div className="mt-1 text-xs text-[#85858B]">
+                    <div className="truncate text-sm font-semibold text-[var(--color-legacy-202124)]">{campaign.name}</div>
+                    <div className="mt-1 text-xs text-[var(--color-legacy-85858b)]">
                     {campaign.purpose === "collections" ? "Cobrança" : campaign.purpose === "retention" ? "Permanência" : "Atendimento"}
                     {" · "}{campaign.delivery_mode === "individual" ? "Contato individual" : campaign.delivery_mode === "bulk" ? "Em escala" : "Segmentada"}
                     {" · "}{campaign.channel}{" · "}{campaign.total} destinatário(s)
@@ -438,46 +438,46 @@ export default function DispatchConsolePage() {
                   </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <span className="rounded-md bg-[#F1F1F2] px-2 py-1 text-[11px] font-medium">{statusLabels[campaign.status]}</span>
-                    <p className="mt-1 text-xs text-[#85858B]">{campaign.accepted} aceitas · {campaign.problems} alertas</p>
+                    <span className="rounded-md bg-[var(--color-legacy-f1f1f2)] px-2 py-1 text-[length:var(--type-caption)] font-medium">{statusLabels[campaign.status]}</span>
+                    <p className="mt-1 text-xs text-[var(--color-legacy-85858b)]">{campaign.accepted} aceitas · {campaign.problems} alertas</p>
                   </div>
                 </button>)}
               </div>}
         </section>
 
-        <aside className="space-y-4 rounded-2xl border border-[#E7E7EA] bg-white p-5">
-          {!current ? <p className="text-sm text-[#85858B]">Selecione uma campanha para gerenciar.</p> : <>
-            <h2 className="text-base font-semibold text-[#202124]">{current.name}</h2>
-            <p className="text-xs text-[#85858B]">Estado: {statusLabels[current.status]} · {current.total} contatos planejados</p>
-            {selectedDetail && <div className="rounded-lg border border-[#E7E7E9] bg-[#FAFAFA] p-3">
+        <aside className="space-y-4 rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5">
+          {!current ? <p className="text-sm text-[var(--color-legacy-85858b)]">Selecione uma campanha para gerenciar.</p> : <>
+            <h2 className="text-base font-semibold text-[var(--color-legacy-202124)]">{current.name}</h2>
+            <p className="text-xs text-[var(--color-legacy-85858b)]">Estado: {statusLabels[current.status]} · {current.total} contatos planejados</p>
+            {selectedDetail && <div className="rounded-lg border border-[var(--color-legacy-e7e7e9)] bg-[var(--color-legacy-fafafa)] p-3">
               <p className="text-xs font-semibold">Prévia do conteúdo em revisão</p>
-              <p className="mt-1 text-xs text-[#85858B]">{selectedDetail.template_ref}</p>
+              <p className="mt-1 text-xs text-[var(--color-legacy-85858b)]">{selectedDetail.template_ref}</p>
               <p className="mt-2 whitespace-pre-wrap text-sm">{selectedDetail.template_body}</p>
-              <p className="mt-2 text-xs text-[#85858B]">Variáveis renderizadas somente no momento do contato.</p>
+              <p className="mt-2 text-xs text-[var(--color-legacy-85858b)]">Variáveis renderizadas somente no momento do contato.</p>
             </div>}
             {current.status === "draft" && <>
-              <label className="block text-xs font-medium text-[#66666B]">Importar destinatários
-                <textarea className="mt-1 w-full rounded-lg border border-[#DADADD] p-2 text-xs" rows={3}
+              <label className="block text-xs font-medium text-[var(--color-legacy-66666b)]">Importar destinatários
+                <textarea className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2 text-xs" rows={3}
                   value={audience} onChange={(e) => setAudience(e.target.value)}
                   placeholder={"student|UUID|autorização\nexternal|referência|autorização|obrigação"} />
               </label>
-              <label className="block text-xs text-[#66666B]">Autorização compartilhada (opcional para lote com evidências individuais)
+              <label className="block text-xs text-[var(--color-legacy-66666b)]">Autorização compartilhada (opcional para lote com evidências individuais)
                 <input value={consentRef} onChange={(e) => setConsentRef(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[#DADADD] p-2" placeholder="Registro institucional ou contratual" />
+                  className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2" placeholder="Registro institucional ou contratual" />
               </label>
               <button disabled={busy || !audience.trim()}
                 onClick={() => void addTargets()}
-                className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
+                className="w-full rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-xs font-medium disabled:opacity-50">
                 Adicionar ao outbox
               </button>
               {current.source_kind === "composio" && <>
-                <div className="rounded-lg border border-[#DBEAFE] bg-[#F7FAFF] p-3 text-xs">
-                  <p className="font-semibold text-[#1D4ED8]">Audiência da conexão Composio</p>
-                  <p className="mt-1 text-[#536276]">
+                <div className="rounded-lg border border-[var(--color-source-dbeafe)] bg-[var(--color-legacy-f7faff)] p-3 text-xs">
+                  <p className="font-semibold text-[var(--color-legacy-1d4ed8)]">Audiência da conexão Composio</p>
+                  <p className="mt-1 text-[var(--color-legacy-536276)]">
                     Importe dados na tela de conexões. Somente registros com autorização individual,
                     contato verificado e obrigação financeira elegível entram na fila.
                   </p>
-                  <Link href="/disparos/importacoes" className="mt-2 inline-block font-medium text-[#2563EB]">
+                  <Link href="/disparos/importacoes" className="mt-2 inline-block font-medium text-[var(--color-legacy-2563eb)]">
                     Consultar dados da conexão
                   </Link>
                 </div>
@@ -486,57 +486,57 @@ export default function DispatchConsolePage() {
                     const result = await dispatchApi.stageFromComposio(current.id);
                     toast.message(`${result.filtered} registro(s) não elegível(is) ignorado(s).`);
                   }, "Registros autorizados vinculados à campanha.")}
-                  className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">
+                  className="w-full rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-xs font-medium disabled:opacity-50">
                   Vincular registros elegíveis importados
                 </button>
               </>}
-              <label className="block text-xs text-[#66666B]">Evidência institucional para aprovação
+              <label className="block text-xs text-[var(--color-legacy-66666b)]">Evidência institucional para aprovação
                 <input value={approvalRef} onChange={(e) => setApprovalRef(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[#DADADD] p-2" placeholder="Número do documento ou autorização" />
+                  className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2" placeholder="Número do documento ou autorização" />
               </label>
               <button disabled={busy || current.total < 1 || approvalRef.length < 8}
                 onClick={() => void execute(() => dispatchApi.approve(current.id, approvalRef), "Campanha aprovada.")}
-                className="w-full rounded-lg bg-[#202124] px-3 py-2 text-xs font-medium text-white disabled:opacity-50">
+                className="w-full rounded-lg bg-[var(--color-legacy-202124)] px-3 py-2 text-xs font-medium text-white disabled:opacity-50">
                 <ShieldCheck className="mr-2 inline h-4 w-4" /> Aprovar com segundo usuário
               </button>
             </>}
             {current.status === "approved" && <>
-              <label className="block text-xs text-[#66666B]">Agendar para
+              <label className="block text-xs text-[var(--color-legacy-66666b)]">Agendar para
                 <input type="datetime-local" value={scheduleAt}
                   onChange={(e) => setScheduleAt(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[#DADADD] p-2" />
+                  className="mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] p-2" />
               </label>
               <button disabled={!scheduleAt || busy} onClick={() => void execute(
                 () => dispatchApi.schedule(current.id, new Date(scheduleAt).toISOString()), "Campanha agendada.",
-              )} className="w-full rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium disabled:opacity-50">Agendar</button>
+              )} className="w-full rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-xs font-medium disabled:opacity-50">Agendar</button>
               <button disabled={busy} onClick={() => void execute(
                 () => dispatchApi.action(current.id, "start"), "Campanha iniciada em modo controlado.",
-              )} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-medium text-white">
+              )} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-legacy-2563eb)] px-3 py-2 text-xs font-medium text-white">
                 <Play className="h-3 w-3" /> Iniciar execução
               </button>
             </>}
             {current.status === "scheduled" && <button disabled={busy}
               onClick={() => void execute(() => dispatchApi.action(current.id, "start"), "Campanha iniciada.")}
-              className="w-full rounded-lg bg-[#2563EB] px-3 py-2 text-xs font-medium text-white">Iniciar agora</button>}
+              className="w-full rounded-lg bg-[var(--color-legacy-2563eb)] px-3 py-2 text-xs font-medium text-white">Iniciar agora</button>}
             {current.status === "running" && <button disabled={busy}
               onClick={() => void execute(() => dispatchApi.action(current.id, "pause"), "Campanha pausada.")}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#DADADD] px-3 py-2 text-xs font-medium">
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-xs font-medium">
                 <Pause className="h-3 w-3" /> Pausar novas entregas
               </button>}
             {current.status === "paused" && <button disabled={busy}
               onClick={() => void execute(() => dispatchApi.action(current.id, "resume"), "Campanha retomada.")}
-              className="w-full rounded-lg bg-[#202124] px-3 py-2 text-xs font-medium text-white">Retomar</button>}
+              className="w-full rounded-lg bg-[var(--color-legacy-202124)] px-3 py-2 text-xs font-medium text-white">Retomar</button>}
             {!["completed", "cancelled"].includes(current.status) && <button disabled={busy}
               onClick={() => void execute(() => dispatchApi.action(current.id, "cancel"), "Campanha cancelada.")}
               className="w-full rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50">
               Cancelar pendências
             </button>}
-            <div className="border-t border-[#EEEEF0] pt-3">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#55555C]"><MessageCircle className="h-4 w-4" /> Respostas e ações</div>
+            <div className="border-t border-[var(--color-legacy-eeeef0)] pt-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-legacy-55555c)]"><MessageCircle className="h-4 w-4" /> Respostas e ações</div>
               {replies.length === 0
-                ? <p className="mt-2 text-xs text-[#85858B]">Nenhuma resposta conciliada.</p>
+                ? <p className="mt-2 text-xs text-[var(--color-legacy-85858b)]">Nenhuma resposta conciliada.</p>
                 : replies.slice(0, 6).map((reply, index) =>
-                  <p className="mt-2 rounded bg-[#F7F7F8] px-2 py-1.5 text-xs" key={index}>
+                  <p className="mt-2 rounded bg-[var(--color-legacy-f7f7f8)] px-2 py-1.5 text-xs" key={index}>
                     {reply.reply_intent || reply.event_kind} · {reply.recommended_action || "Recebido"}
                   </p>)}
             </div>
@@ -544,15 +544,15 @@ export default function DispatchConsolePage() {
         </aside>
       </div>
 
-      <section className="rounded-xl border border-[#E7E7EA] bg-white p-5">
-        <h2 className="mb-3 text-sm font-semibold text-[#202124]">Resultados financeiros verificados</h2>
+      <section className="rounded-xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5">
+        <h2 className="mb-3 text-sm font-semibold text-[var(--color-legacy-202124)]">Resultados financeiros verificados</h2>
         <div className="flex flex-wrap items-baseline gap-6">
-          <p className="text-2xl font-semibold text-[#202124]">{financial
+          <p className="text-2xl font-semibold text-[var(--color-legacy-202124)]">{financial
             ? Number(financial.payments.received_brl).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
             : "—"}</p>
-          <p className="text-sm text-[#85858B]">{financial?.payments.transactions ?? "—"} pagamentos conciliados</p>
+          <p className="text-sm text-[var(--color-legacy-85858b)]">{financial?.payments.transactions ?? "—"} pagamentos conciliados</p>
         </div>
-        <p className="mt-2 text-xs text-[#85858B]">Valores são provenientes de fatos financeiros verificados, não de entregas ou respostas a campanhas.</p>
+        <p className="mt-2 text-xs text-[var(--color-legacy-85858b)]">Valores são provenientes de fatos financeiros verificados, não de entregas ou respostas a campanhas.</p>
       </section>
     </main>
   </>;

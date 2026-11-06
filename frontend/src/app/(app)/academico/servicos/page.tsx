@@ -90,9 +90,9 @@ const STATE_NEXT: Record<Status, Status[]> = {
   submitted: ["in_review", "cancelled"], in_review: ["approved", "rejected", "cancelled"],
   approved: ["completed", "cancelled"], rejected: [], completed: [], cancelled: [],
 };
-const inputStyle = "h-9 w-full rounded-lg border border-[#D9DEE7] bg-white px-3 text-[12px] text-[#344054] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10";
-const smallButton = "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[#D9DEE7] bg-white px-3 text-[12px] font-medium text-[#344054] transition hover:bg-[#F7F9FC] disabled:cursor-not-allowed disabled:opacity-50";
-const primaryButton = "inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#202124] px-3.5 text-[12px] font-medium text-white transition hover:bg-[#34353A] disabled:cursor-not-allowed disabled:opacity-50";
+const inputStyle = "h-9 w-full rounded-lg border border-[var(--color-legacy-d9dee7)] bg-white px-3 text-xs text-[var(--color-legacy-344054)] outline-none focus:border-[var(--color-legacy-2563eb)] focus:ring-2 focus:ring-[var(--color-legacy-2563eb)]/10";
+const smallButton = "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[var(--color-legacy-d9dee7)] bg-white px-3 text-xs font-medium text-[var(--color-legacy-344054)] transition hover:bg-[var(--color-legacy-f7f9fc)] disabled:cursor-not-allowed disabled:opacity-50";
+const primaryButton = "inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[var(--color-legacy-202124)] px-3.5 text-xs font-medium text-white transition hover:bg-[var(--color-legacy-34353a)] disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function AcademicServiceDeskPage() {
   const qc = useQueryClient();
@@ -230,38 +230,38 @@ export default function AcademicServiceDeskPage() {
     } });
   }
 
-  if (me.isLoading) return <main className="px-8 py-12 text-sm text-[#667085]">Verificando permissões…</main>;
-  if (!canView) return <main className="px-8 py-12 text-sm text-[#667085]">
+  if (me.isLoading) return <main className="px-8 py-12 text-sm text-[var(--color-legacy-667085)]">Verificando permissões…</main>;
+  if (!canView) return <main className="px-8 py-12 text-sm text-[var(--color-legacy-667085)]">
     A Central de Serviços Acadêmicos está disponível apenas para equipes institucionais autorizadas.
   </main>;
 
-  return <main className="min-h-screen bg-[#FCFCFD] px-4 py-7 text-[#202124] sm:px-8 xl:px-10">
+  return <main className="min-h-screen bg-[var(--color-legacy-fcfcfd)] px-4 py-7 text-[var(--color-legacy-202124)] sm:px-8 xl:px-10">
     <AcademicNavigation features={me.data?.available_features} />
     <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.11em] text-[#667085]">Acadêmico / Atendimento</p>
-        <h1 className="mt-2 text-[26px] font-semibold tracking-[-0.035em]">Central de Serviços Acadêmicos</h1>
-        <p className="mt-1.5 text-[13px] text-[#667085]">Receba, organize e resolva as solicitações do Portal do Aluno.</p>
+        <p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.11em] text-[var(--color-legacy-667085)]">Acadêmico / Atendimento</p>
+        <h1 className="mt-2 text-[length:var(--type-display-small)] font-semibold tracking-[-0.035em]">Central de Serviços Acadêmicos</h1>
+        <p className="mt-1.5 text-[length:var(--type-body-compact)] text-[var(--color-legacy-667085)]">Receba, organize e resolva as solicitações do Portal do Aluno.</p>
       </div>
       <button type="button" className={smallButton} onClick={refresh}>
         <RefreshCw className="h-4 w-4" /> Atualizar
       </button>
     </header>
-    <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-[#EAECF0] bg-white p-1.5">
+    <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-1.5">
       {([
         ["queue", "Solicitações", FileText],
         ["templates", "Modelos de documento", ShieldCheck],
         ["notifications", "Notificações internas", Bell],
       ] as const).map(([id, label, Icon]) => (
         <button key={id} type="button" onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined}
-          className={"flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium transition " +
-            (tab === id ? "bg-[#F1F5FF] text-[#2563EB]" : "text-[#667085] hover:bg-[#F9FAFB]")}>
+          className={"flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition " +
+            (tab === id ? "bg-[var(--color-legacy-f1f5ff)] text-[var(--color-legacy-2563eb)]" : "text-[var(--color-legacy-667085)] hover:bg-[var(--color-source-f9fafb)]")}>
           <Icon className="h-4 w-4" /> {label}
         </button>
       ))}
     </div>
-    {success && <p role="status" className="mb-4 rounded-lg border border-[#D6EADF] bg-[#F3FCF7] px-4 py-3 text-[12px] text-[#167047]">{success}</p>}
-    {failure && <p role="alert" className="mb-4 rounded-lg border border-[#F5D8D8] bg-[#FFF7F7] px-4 py-3 text-[12px] text-[#B42318]">{failure}</p>}
+    {success && <p role="status" className="mb-4 rounded-lg border border-[var(--color-legacy-d6eadf)] bg-[var(--color-legacy-f3fcf7)] px-4 py-3 text-xs text-[var(--color-legacy-167047)]">{success}</p>}
+    {failure && <p role="alert" className="mb-4 rounded-lg border border-[var(--color-legacy-f5d8d8)] bg-[var(--color-legacy-fff7f7)] px-4 py-3 text-xs text-[var(--color-legacy-b42318)]">{failure}</p>}
 
     {tab === "queue" && <>
       <div className="mb-4 grid gap-3 md:grid-cols-4">
@@ -271,14 +271,14 @@ export default function AcademicServiceDeskPage() {
         ] as const).map(([label, state]) => (
           <button key={state} type="button" onClick={() => changeFilter(state)}
             className={"rounded-xl border bg-white px-4 py-3 text-left " +
-              (filter === state ? "border-[#2563EB] shadow-sm" : "border-[#EAECF0] hover:border-[#C4D3EF]")}>
-            <p className="text-[11px] text-[#667085]">{label}</p>
-            <p className="mt-1 text-[16px] font-semibold">{queue.data?.items.filter(x => x.status === state).length || 0}<span className="ml-1 text-[10px] font-normal text-[#98A2B3]">na página atual</span></p>
+              (filter === state ? "border-[var(--color-legacy-2563eb)] shadow-sm" : "border-[var(--color-legacy-eaecf0)] hover:border-[var(--color-legacy-c4d3ef)]")}>
+            <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{label}</p>
+            <p className="mt-1 text-base font-semibold">{queue.data?.items.filter(x => x.status === state).length || 0}<span className="ml-1 text-[length:var(--type-overline)] font-normal text-[var(--color-legacy-98a2b3)]">na página atual</span></p>
           </button>
         ))}
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Filter className="h-3.5 w-3.5 text-[#98A2B3]" />
+        <Filter className="h-3.5 w-3.5 text-[var(--color-legacy-98a2b3)]" />
         <select aria-label="Filtrar por status" value={filter} onChange={e => changeFilter(e.target.value as Status | "all")} className={inputStyle + " max-w-[184px]"}>
           <option value="all">Todos os status</option>
           {Object.entries(LABELS).map(([key, text]) => <option key={key} value={key}>{text}</option>)}
@@ -287,39 +287,39 @@ export default function AcademicServiceDeskPage() {
           <option value="all">Todas as prioridades</option>
           {Object.entries(PRIORITY).map(([key, text]) => <option key={key} value={key}>{text}</option>)}
         </select>
-        <span className="ml-auto text-[11px] text-[#85858B]">{queue.data?.total || 0} solicitações no filtro</span>
+        <span className="ml-auto text-[length:var(--type-caption)] text-[var(--color-legacy-85858b)]">{queue.data?.total || 0} solicitações no filtro</span>
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(290px,0.83fr)_minmax(420px,1.17fr)]">
-        <section className="overflow-hidden rounded-xl border border-[#E6E8EB] bg-white" aria-label="Fila de solicitações">
-          <div className="border-b border-[#EEF0F2] px-4 py-3.5"><h2 className="text-[13px] font-semibold">Fila de atendimento</h2></div>
-          {queue.isLoading && <p className="px-4 py-12 text-center text-[12px] text-[#85858B]">Carregando solicitações…</p>}
-          {queue.isError && <p role="alert" className="px-4 py-5 text-[12px] text-[#B42318]">{(queue.error as Error).message}</p>}
+        <section className="overflow-hidden rounded-xl border border-[var(--color-legacy-e6e8eb)] bg-white" aria-label="Fila de solicitações">
+          <div className="border-b border-[var(--color-legacy-eef0f2)] px-4 py-3.5"><h2 className="text-[length:var(--type-body-compact)] font-semibold">Fila de atendimento</h2></div>
+          {queue.isLoading && <p className="px-4 py-12 text-center text-xs text-[var(--color-legacy-85858b)]">Carregando solicitações…</p>}
+          {queue.isError && <p role="alert" className="px-4 py-5 text-xs text-[var(--color-legacy-b42318)]">{(queue.error as Error).message}</p>}
           {!queue.isLoading && !queue.data?.items.length && <div className="px-6 py-14 text-center">
-            <CheckCircle2 className="mx-auto h-7 w-7 text-[#D0D5DD]" />
-            <p className="mt-3 text-[13px] font-medium">Nenhuma solicitação neste filtro</p>
-            <p className="mt-1 text-[11px] text-[#98A2B3]">As solicitações enviadas pelo Portal do Aluno aparecerão aqui.</p>
+            <CheckCircle2 className="mx-auto h-7 w-7 text-[var(--color-legacy-d0d5dd)]" />
+            <p className="mt-3 text-[length:var(--type-body-compact)] font-medium">Nenhuma solicitação neste filtro</p>
+            <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">As solicitações enviadas pelo Portal do Aluno aparecerão aqui.</p>
           </div>}
-          <div className="max-h-[72vh] overflow-y-auto divide-y divide-[#F0F1F2]">
+          <div className="max-h-[72vh] overflow-y-auto divide-y divide-[var(--color-legacy-f0f1f2)]">
             {queue.data?.items.map(item => {
               const overdue = item.due_at && new Date(item.due_at).getTime() < Date.now() && !["completed","cancelled","rejected"].includes(item.status);
               return <button type="button" key={item.id} onClick={() => { setSelectedId(item.id); setFailure(""); setSuccess(""); }}
-                className={"block w-full px-4 py-3.5 text-left transition " + (activeId === item.id ? "bg-[#F5F8FF]" : "hover:bg-[#FAFBFC]")}>
+                className={"block w-full px-4 py-3.5 text-left transition " + (activeId === item.id ? "bg-[var(--color-legacy-f5f8ff)]" : "hover:bg-[var(--color-legacy-fafbfc)]")}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-medium text-[#667085]">{CATEGORY[item.category] || item.category}</span>
-                  <span className={"rounded-md px-2 py-1 text-[10px] font-semibold " +
-                    (item.status === "completed" ? "bg-[#ECFDF3] text-[#027A48]" :
-                     item.status === "rejected" ? "bg-[#FEF3F2] text-[#B42318]" : "bg-[#EFF4FF] text-[#175CD3]")}>{LABELS[item.status]}</span>
+                  <span className="text-[length:var(--type-overline)] font-medium text-[var(--color-legacy-667085)]">{CATEGORY[item.category] || item.category}</span>
+                  <span className={"rounded-md px-2 py-1 text-[length:var(--type-overline)] font-semibold " +
+                    (item.status === "completed" ? "bg-[var(--color-source-ecfdf3)] text-[var(--color-source-027a48)]" :
+                     item.status === "rejected" ? "bg-[var(--color-red-tint)] text-[var(--color-legacy-b42318)]" : "bg-[var(--color-source-eff4ff)] text-[var(--color-legacy-175cd3)]")}>{LABELS[item.status]}</span>
                 </div>
-                <p className="mt-2 line-clamp-2 text-[12px] font-semibold text-[#202124]">{item.subject}</p>
-                <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-[#85858B]">
-                  <span className={overdue ? "font-semibold text-[#D92D20]" : ""}><Clock3 className="mr-1 inline h-3 w-3" /> {overdue ? "Vencida · " : ""}{prettyDate(item.due_at)}</span>
+                <p className="mt-2 line-clamp-2 text-xs font-semibold text-[var(--color-legacy-202124)]">{item.subject}</p>
+                <div className="mt-2 flex items-center justify-between gap-2 text-[length:var(--type-overline)] text-[var(--color-legacy-85858b)]">
+                  <span className={overdue ? "font-semibold text-[var(--color-legacy-d92d20)]" : ""}><Clock3 className="mr-1 inline h-3 w-3" /> {overdue ? "Vencida · " : ""}{prettyDate(item.due_at)}</span>
                   <span>{PRIORITY[item.priority]}</span>
                 </div>
               </button>;
             })}
           </div>
-          {queue.data && <div className="flex items-center justify-between border-t border-[#EFF0F2] px-4 py-3">
-            <span className="text-[11px] text-[#98A2B3]">{offset + 1}–{offset + queue.data.items.length} de {queue.data.total}</span>
+          {queue.data && <div className="flex items-center justify-between border-t border-[var(--color-legacy-eff0f2)] px-4 py-3">
+            <span className="text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">{offset + 1}–{offset + queue.data.items.length} de {queue.data.total}</span>
             <div className="flex gap-2">
               <button type="button" disabled={offset === 0} className={smallButton} onClick={() => {setOffset(v=>Math.max(v-50,0));setSelectedId(null);}}>Anterior</button>
               <button type="button" disabled={!queue.data.has_more} className={smallButton} onClick={() => {setOffset(v=>v+50);setSelectedId(null);}}>Próxima</button>
@@ -327,16 +327,16 @@ export default function AcademicServiceDeskPage() {
           </div>}
         </section>
 
-        <section className="min-w-0 overflow-hidden rounded-xl border border-[#E6E8EB] bg-white" aria-label="Detalhe da solicitação">
-          {!activeId && <div className="px-6 py-16 text-center text-[12px] text-[#98A2B3]">Selecione uma solicitação para começar.</div>}
-          {detail.isLoading && activeId && <div className="px-6 py-16 text-center text-[12px] text-[#667085]">Abrindo solicitação…</div>}
-          {detail.isError && <p role="alert" className="p-5 text-[12px] text-[#B42318]">{(detail.error as Error).message}</p>}
+        <section className="min-w-0 overflow-hidden rounded-xl border border-[var(--color-legacy-e6e8eb)] bg-white" aria-label="Detalhe da solicitação">
+          {!activeId && <div className="px-6 py-16 text-center text-xs text-[var(--color-legacy-98a2b3)]">Selecione uma solicitação para começar.</div>}
+          {detail.isLoading && activeId && <div className="px-6 py-16 text-center text-xs text-[var(--color-legacy-667085)]">Abrindo solicitação…</div>}
+          {detail.isError && <p role="alert" className="p-5 text-xs text-[var(--color-legacy-b42318)]">{(detail.error as Error).message}</p>}
           {row && <>
-            <div className="border-b border-[#EAECF0] p-5">
-              <p className="text-[10px] uppercase tracking-[0.1em] text-[#85858B]">{CATEGORY[row.category] || row.category} · {LABELS[row.status]}</p>
-              <h2 className="mt-1 text-[17px] font-semibold tracking-[-0.02em]">{row.subject}</h2>
-              <p className="mt-2 text-[12px] leading-5 text-[#667085]">{row.description}</p>
-              {detail.data?.student && <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-[#475467]">
+            <div className="border-b border-[var(--color-legacy-eaecf0)] p-5">
+              <p className="text-[length:var(--type-overline)] uppercase tracking-[0.1em] text-[var(--color-legacy-85858b)]">{CATEGORY[row.category] || row.category} · {LABELS[row.status]}</p>
+              <h2 className="mt-1 text-[length:var(--type-heading-compact)] font-semibold tracking-[-0.02em]">{row.subject}</h2>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-legacy-667085)]">{row.description}</p>
+              {detail.data?.student && <div className="mt-4 flex flex-wrap items-center gap-3 text-[length:var(--type-caption)] text-[var(--color-legacy-475467)]">
                 <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> {detail.data.student.name}</span>
                 <span>Matrícula {detail.data.student.registration}</span>
                 {detail.data.student.course && <span>{detail.data.student.course}</span>}
@@ -344,29 +344,29 @@ export default function AcademicServiceDeskPage() {
             </div>
             <div className="max-h-[72vh] space-y-6 overflow-y-auto p-5">
               <section>
-                <h3 className="mb-3 text-[12px] font-semibold">Responsável e prazo</h3>
+                <h3 className="mb-3 text-xs font-semibold">Responsável e prazo</h3>
                 <form onSubmit={assign} className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-[11px] text-[#667085]">Responsável
+                  <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Responsável
                     <select disabled={!canEdit || action.isPending} required value={assignee} onChange={e=>setAssignee(e.target.value)} className={inputStyle + " mt-1"}><option value="">Atribuir membro</option>
                       {members.data?.items.map(user=><option key={user.membership_id} value={user.membership_id}>{user.display_name}</option>)}
                     </select>
                   </label>
-                  <label className="text-[11px] text-[#667085]">Prioridade
+                  <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Prioridade
                     <select disabled={!canEdit || action.isPending} value={priority} onChange={e=>setPriority(e.target.value as RequestItem["priority"])} className={inputStyle + " mt-1"}>
                       {Object.entries(PRIORITY).map(([key,label])=><option key={key} value={key}>{label}</option>)}
                     </select>
                   </label>
-                  <label className="text-[11px] text-[#667085]">Prazo (horário local)
+                  <label className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Prazo (horário local)
                     <input disabled={!canEdit || action.isPending} type="datetime-local" value={dueAt} onChange={e=>setDueAt(e.target.value)} className={inputStyle + " mt-1"} />
                   </label>
                   {canEdit && <button type="submit" disabled={!assignee || action.isPending || ["completed","rejected","cancelled"].includes(row.status)} className={primaryButton + " self-end"}>Salvar atribuição</button>}
                 </form>
               </section>
               <section>
-                <h3 className="mb-2 text-[12px] font-semibold">Aprovação e resolução</h3>
-                {!canApprove ? <p className="text-[11px] text-[#85858B]">Aprovações e encerramentos exigem permissão institucional específica.</p> :
+                <h3 className="mb-2 text-xs font-semibold">Aprovação e resolução</h3>
+                {!canApprove ? <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-85858b)]">Aprovações e encerramentos exigem permissão institucional específica.</p> :
                   <div className="space-y-3">
-                    <label className="block text-[11px] text-[#667085]">Justificativa da decisão (visível ao aluno)
+                    <label className="block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Justificativa da decisão (visível ao aluno)
                       <textarea value={note} onChange={e=>setNote(e.target.value)} rows={2} maxLength={500} className={inputStyle + " mt-1 h-auto py-2"} placeholder="Registre o motivo da decisão" />
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -376,29 +376,29 @@ export default function AcademicServiceDeskPage() {
                         className={state === "completed" ? primaryButton : smallButton}>
                         {LABELS[state]} <ArrowRight className="h-3 w-3" />
                       </button>)}
-                      {!STATE_NEXT[row.status].length && <span className="text-[11px] text-[#85858B]">Esta solicitação já foi encerrada.</span>}
+                      {!STATE_NEXT[row.status].length && <span className="text-[length:var(--type-caption)] text-[var(--color-legacy-85858b)]">Esta solicitação já foi encerrada.</span>}
                     </div>
                   </div>}
               </section>
               <section>
-                <h3 className="mb-3 text-[12px] font-semibold">Conversa e observações</h3>
+                <h3 className="mb-3 text-xs font-semibold">Conversa e observações</h3>
                 {detail.data?.comments.length ? <div className="space-y-2">
                   {detail.data.comments.map(comment => <article key={comment.id} className={"rounded-lg border p-3 " +
-                    (comment.visibility === "staff" ? "border-[#F2E5C9] bg-[#FFFCF5]" : "border-[#E7E9ED] bg-[#FAFBFC]")}>
+                    (comment.visibility === "staff" ? "border-[var(--color-legacy-f2e5c9)] bg-[var(--color-legacy-fffcf5)]" : "border-[var(--color-legacy-e7e9ed)] bg-[var(--color-legacy-fafbfc)]")}>
                     <div className="flex flex-wrap justify-between gap-2">
-                      <p className="text-[11px] font-semibold text-[#344054]">{comment.actor_type === "student" ? "Aluno" : "Equipe institucional"}</p>
-                      <span className="text-[10px] text-[#85858B]">{comment.visibility === "staff" ? "Interno · " : ""}{prettyDate(comment.created_at)}</span>
+                      <p className="text-[length:var(--type-caption)] font-semibold text-[var(--color-legacy-344054)]">{comment.actor_type === "student" ? "Aluno" : "Equipe institucional"}</p>
+                      <span className="text-[length:var(--type-overline)] text-[var(--color-legacy-85858b)]">{comment.visibility === "staff" ? "Interno · " : ""}{prettyDate(comment.created_at)}</span>
                     </div>
-                    <p className="mt-1.5 whitespace-pre-wrap break-words text-[12px] text-[#475467]">{comment.body}</p>
+                    <p className="mt-1.5 whitespace-pre-wrap break-words text-xs text-[var(--color-legacy-475467)]">{comment.body}</p>
                   </article>)}
-                </div> : <p className="text-[11px] text-[#98A2B3]">Nenhum comentário até agora.</p>}
+                </div> : <p className="text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">Nenhum comentário até agora.</p>}
                 {canEdit && !["completed","rejected","cancelled"].includes(row.status) && <form className="mt-3 space-y-2" onSubmit={event=>{
                   event.preventDefault();
                   if (message.trim()) action.mutate({path:"/requests/"+row.id+"/comments",body:{body:message,visibility:privateNote?"staff":"student"}}, {onSuccess:()=>setMessage("")});
                 }}>
                   <textarea required minLength={1} maxLength={2000} value={message} onChange={e=>setMessage(e.target.value)} rows={3} placeholder="Escreva uma atualização…" className={inputStyle + " h-auto py-2"} />
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-[11px] text-[#667085]">
+                    <label className="flex items-center gap-2 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
                       <input type="checkbox" checked={privateNote} onChange={e=>setPrivateNote(e.target.checked)} /> Nota interna — não visível ao aluno
                     </label>
                     <button type="submit" className={primaryButton} disabled={action.isPending || !message.trim()}><MessageCircle className="h-3.5 w-3.5" /> Comentar</button>
@@ -406,35 +406,35 @@ export default function AcademicServiceDeskPage() {
                 </form>}
               </section>
               <section>
-                <h3 className="mb-3 text-[12px] font-semibold">Anexos <span className="font-normal text-[#98A2B3]">({detail.data?.attachments.length || 0}/5)</span></h3>
+                <h3 className="mb-3 text-xs font-semibold">Anexos <span className="font-normal text-[var(--color-legacy-98a2b3)]">({detail.data?.attachments.length || 0}/5)</span></h3>
                 <div className="space-y-2">{detail.data?.attachments.map(att=>(
                   <button key={att.id} type="button" onClick={()=>void download(row.id,att).catch(err=>setFailure(err.message))}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#EAECF0] p-3 text-left text-[11px] hover:bg-[#FAFBFC]">
-                    <span className="flex items-center gap-2"><FileText className="h-4 w-4 text-[#85858B]" />{att.filename}</span>
-                    <span className="text-[10px] text-[#85858B]">{att.visibility === "staff" ? "Interno" : "Aluno"} · {(att.byte_count/1024).toFixed(0)} KB</span>
+                    className="flex w-full items-center justify-between gap-2 rounded-lg border border-[var(--color-legacy-eaecf0)] p-3 text-left text-[length:var(--type-caption)] hover:bg-[var(--color-legacy-fafbfc)]">
+                    <span className="flex items-center gap-2"><FileText className="h-4 w-4 text-[var(--color-legacy-85858b)]" />{att.filename}</span>
+                    <span className="text-[length:var(--type-overline)] text-[var(--color-legacy-85858b)]">{att.visibility === "staff" ? "Interno" : "Aluno"} · {(att.byte_count/1024).toFixed(0)} KB</span>
                   </button>
                 ))}</div>
                 {canEdit && !["completed","rejected","cancelled"].includes(row.status) && <div className="mt-3 space-y-2">
-                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={e=>setFile(e.target.files?.[0] || null)} aria-label="Selecionar anexo" className="block w-full text-[11px] text-[#667085]" />
+                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={e=>setFile(e.target.files?.[0] || null)} aria-label="Selecionar anexo" className="block w-full text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]" />
                   <div className="flex flex-wrap justify-between gap-2">
                     <select aria-label="Visibilidade do anexo" className={inputStyle + " max-w-[164px]"} value={uploadVisibility} onChange={e=>setUploadVisibility(e.target.value as "student"|"staff")}>
                       <option value="staff">Somente equipe</option><option value="student">Visível ao aluno</option>
                     </select>
                     <button type="button" className={smallButton} disabled={!file || upload.isPending} onClick={()=>upload.mutate()}><UploadCloud className="h-3.5 w-3.5" /> Enviar anexo</button>
                   </div>
-                  <p className="text-[10px] text-[#85858B]">PDF, PNG ou JPG, até 256 KiB; limite de 5 arquivos. Download protegido.</p>
+                  <p className="text-[length:var(--type-overline)] text-[var(--color-legacy-85858b)]">PDF, PNG ou JPG, até 256 KiB; limite de 5 arquivos. Download protegido.</p>
                 </div>}
               </section>
               <section>
-                <h3 className="mb-2 text-[12px] font-semibold">Documento solicitado</h3>
-                {row.generated_document_id ? <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#EAECF0] bg-[#FAFBFC] p-3">
-                  <p className="break-all text-[11px] text-[#667085]">Documento vinculado: {row.generated_document_id}</p>
+                <h3 className="mb-2 text-xs font-semibold">Documento solicitado</h3>
+                {row.generated_document_id ? <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--color-legacy-eaecf0)] bg-[var(--color-legacy-fafbfc)] p-3">
+                  <p className="break-all text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Documento vinculado: {row.generated_document_id}</p>
                   {canApprove && <button className={smallButton} type="button" disabled={action.isPending}
                     onClick={()=>action.mutate({path:"/documents/"+row.generated_document_id+"/publish"})}>
                     <CheckCircle2 className="h-3.5 w-3.5"/> Publicar documento
                   </button>}
                 </div> : <>
-                  <p className="mb-3 text-[11px] text-[#85858B]">Gere um rascunho a partir de um modelo aprovado para a categoria. A publicação é uma ação separada.</p>
+                  <p className="mb-3 text-[length:var(--type-caption)] text-[var(--color-legacy-85858b)]">Gere um rascunho a partir de um modelo aprovado para a categoria. A publicação é uma ação separada.</p>
                   <div className="flex flex-wrap gap-2">
                     <select className={inputStyle + " min-w-[180px] flex-1"} aria-label="Selecionar modelo" value={templateId} onChange={e=>setTemplateId(e.target.value)}>
                       <option value="">Selecione um modelo</option>
@@ -446,14 +446,14 @@ export default function AcademicServiceDeskPage() {
                     </button>}
                   </div>
                 </>}
-                <p className="mt-2 text-[10px] text-[#85858B]">Declarações, históricos e comprovantes exigem documento publicado para serem concluídos.</p>
+                <p className="mt-2 text-[length:var(--type-overline)] text-[var(--color-legacy-85858b)]">Declarações, históricos e comprovantes exigem documento publicado para serem concluídos.</p>
               </section>
               <section>
-                <h3 className="mb-3 text-[12px] font-semibold">Histórico auditável</h3>
-                <ol className="space-y-3 border-l border-[#E7E9ED] pl-4">
-                  {detail.data?.events.map(e=><li key={e.id} className="relative text-[11px] text-[#667085]">
-                    <span className="absolute -left-[20px] top-1 h-2 w-2 rounded-full border-2 border-white bg-[#2563EB]" />
-                    <p className="font-medium text-[#344054]">{LABELS[e.status as Status] || e.status} · {e.actor_type === "student" ? "Aluno" : "Equipe"}</p>
+                <h3 className="mb-3 text-xs font-semibold">Histórico auditável</h3>
+                <ol className="space-y-3 border-l border-[var(--color-legacy-e7e9ed)] pl-4">
+                  {detail.data?.events.map(e=><li key={e.id} className="relative text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">
+                    <span className="absolute -left-[20px] top-1 h-2 w-2 rounded-full border-2 border-white bg-[var(--color-legacy-2563eb)]" />
+                    <p className="font-medium text-[var(--color-legacy-344054)]">{LABELS[e.status as Status] || e.status} · {e.actor_type === "student" ? "Aluno" : "Equipe"}</p>
                     <p className="mt-0.5">{prettyDate(e.occurred_at)}</p>
                     {e.note && <p className="mt-1 whitespace-pre-wrap break-words">{e.note}</p>}
                   </li>)}
@@ -466,68 +466,68 @@ export default function AcademicServiceDeskPage() {
     </>}
 
     {tab === "templates" && <div className="grid gap-5 lg:grid-cols-2">
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[14px] font-semibold">Modelos da instituição</h2>
-        <p className="mt-1 text-[11px] text-[#85858B]">Os modelos são usados para gerar rascunhos, nunca documentos publicados automaticamente.</p>
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-sm font-semibold">Modelos da instituição</h2>
+        <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-85858b)]">Os modelos são usados para gerar rascunhos, nunca documentos publicados automaticamente.</p>
         <div className="mt-4 space-y-2">
-          {templates.data?.items.map(t=><article key={t.id} className="rounded-lg border border-[#EAECF0] p-3">
+          {templates.data?.items.map(t=><article key={t.id} className="rounded-lg border border-[var(--color-legacy-eaecf0)] p-3">
             <div className="flex justify-between gap-2">
-              <strong className="text-[12px]">{t.name}</strong>
-              <span className={"text-[10px] " + (t.is_active ? "text-[#027A48]" : "text-[#98A2B3]")}>{t.is_active ? "Ativo" : "Inativo"}</span>
+              <strong className="text-xs">{t.name}</strong>
+              <span className={"text-[length:var(--type-overline)] " + (t.is_active ? "text-[var(--color-source-027a48)]" : "text-[var(--color-legacy-98a2b3)]")}>{t.is_active ? "Ativo" : "Inativo"}</span>
             </div>
-            <p className="mt-1 text-[11px] text-[#667085]">{CATEGORY[t.category] || t.category} · {t.document_kind}</p>
-            <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-[11px] text-[#85858B]">{t.body_template}</p>
+            <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{CATEGORY[t.category] || t.category} · {t.document_kind}</p>
+            <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-[length:var(--type-caption)] text-[var(--color-legacy-85858b)]">{t.body_template}</p>
           </article>)}
-          {templates.data?.items.length === 0 && <p className="py-12 text-center text-[12px] text-[#98A2B3]">Ainda não há modelos de documentos.</p>}
+          {templates.data?.items.length === 0 && <p className="py-12 text-center text-xs text-[var(--color-legacy-98a2b3)]">Ainda não há modelos de documentos.</p>}
         </div>
       </section>
-      <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
-        <h2 className="text-[14px] font-semibold">Novo modelo</h2>
-        {!canTemplates && <p className="mt-3 text-[12px] text-[#85858B]">Sua conta não tem permissão para gerenciar modelos.</p>}
+      <section className="rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white p-5">
+        <h2 className="text-sm font-semibold">Novo modelo</h2>
+        {!canTemplates && <p className="mt-3 text-xs text-[var(--color-legacy-85858b)]">Sua conta não tem permissão para gerenciar modelos.</p>}
         {canTemplates && <form onSubmit={createTemplate} className="mt-4 space-y-3">
-          <label className="block text-[11px] text-[#667085]">Nome do modelo
+          <label className="block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Nome do modelo
             <input className={inputStyle + " mt-1"} required minLength={3} maxLength={120} value={templateName} onChange={e=>setTemplateName(e.target.value)} placeholder="Declaração de matrícula" />
           </label>
-          <label className="block text-[11px] text-[#667085]">Categoria de solicitação
+          <label className="block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Categoria de solicitação
             <select className={inputStyle + " mt-1"} value={templateCategory} onChange={e=>setTemplateCategory(e.target.value)}>
               {Object.entries(CATEGORY).map(([id,label])=><option key={id} value={id}>{label}</option>)}
             </select>
           </label>
-          <label className="block text-[11px] text-[#667085]">Tipo do documento
+          <label className="block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Tipo do documento
             <select className={inputStyle + " mt-1"} value={templateKind} onChange={e=>setTemplateKind(e.target.value)}>
               <option value="declaration">Declaração</option><option value="enrollment_proof">Comprovante</option>
               <option value="transcript">Histórico</option><option value="other">Outro</option>
             </select>
           </label>
-          <label className="block text-[11px] text-[#667085]">Corpo do modelo
+          <label className="block text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">Corpo do modelo
             <textarea required minLength={10} maxLength={10000} className={inputStyle + " mt-1 h-auto py-3 font-mono leading-5"} rows={8}
               value={templateBody} onChange={e=>setTemplateBody(e.target.value)} />
           </label>
-          <p className="text-[11px] leading-5 text-[#85858B]">Variáveis permitidas: {templates.data?.variables.map(v=>"{{"+v+"}}").join(", ") || "student_name, registration, organization_name, today"}.</p>
+          <p className="text-[length:var(--type-caption)] leading-5 text-[var(--color-legacy-85858b)]">Variáveis permitidas: {templates.data?.variables.map(v=>"{{"+v+"}}").join(", ") || "student_name, registration, organization_name, today"}.</p>
           <button type="submit" className={primaryButton} disabled={action.isPending}><Plus className="h-3.5 w-3.5" /> Criar modelo</button>
         </form>}
       </section>
     </div>}
 
-    {tab === "notifications" && <section className="max-w-3xl rounded-xl border border-[#EAECF0] bg-white">
-      <div className="border-b border-[#EAECF0] p-5">
+    {tab === "notifications" && <section className="max-w-3xl rounded-xl border border-[var(--color-legacy-eaecf0)] bg-white">
+      <div className="border-b border-[var(--color-legacy-eaecf0)] p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-[14px] font-semibold">Suas notificações</h2>
-          <span className="text-[11px] text-[#667085]">{notificationsUnread} não lidas</span>
+          <h2 className="text-sm font-semibold">Suas notificações</h2>
+          <span className="text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{notificationsUnread} não lidas</span>
         </div>
-        <p className="mt-1 text-[11px] text-[#85858B]">Avisos internos da plataforma, sem envio automático de mensagens externas.</p>
+        <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-85858b)]">Avisos internos da plataforma, sem envio automático de mensagens externas.</p>
       </div>
-      {notifications.data?.items.map(n=><button key={n.id} type="button" className={"flex w-full items-center justify-between gap-3 border-b border-[#F0F1F2] px-5 py-4 text-left hover:bg-[#FAFBFC] " + (!n.read_at ? "bg-[#F8FBFF]" : "")}
+      {notifications.data?.items.map(n=><button key={n.id} type="button" className={"flex w-full items-center justify-between gap-3 border-b border-[var(--color-legacy-f0f1f2)] px-5 py-4 text-left hover:bg-[var(--color-legacy-fafbfc)] " + (!n.read_at ? "bg-[var(--color-legacy-f8fbff)]" : "")}
         onClick={async()=>{
           try {
             if (!n.read_at) await request("/notifications/"+n.id+"/read",{method:"POST"});
             setTab("queue");setFilter("all");setOffset(0);setSelectedId(n.request_id);refresh();
           } catch(err){setFailure((err as Error).message);}
         }}>
-        <span><strong className="block text-[12px] font-semibold">{n.title}</strong><span className="mt-1 block text-[10px] text-[#85858B]">{prettyDate(n.created_at)}</span></span>
-        {!n.read_at && <span className="h-2 w-2 shrink-0 rounded-full bg-[#2563EB]" />}
+        <span><strong className="block text-xs font-semibold">{n.title}</strong><span className="mt-1 block text-[length:var(--type-overline)] text-[var(--color-legacy-85858b)]">{prettyDate(n.created_at)}</span></span>
+        {!n.read_at && <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-legacy-2563eb)]" />}
       </button>)}
-      {!notifications.isLoading && !notifications.data?.items.length && <p className="py-16 text-center text-[12px] text-[#98A2B3]">Nenhuma notificação registrada.</p>}
+      {!notifications.isLoading && !notifications.data?.items.length && <p className="py-16 text-center text-xs text-[var(--color-legacy-98a2b3)]">Nenhuma notificação registrada.</p>}
     </section>}
   </main>;
 }

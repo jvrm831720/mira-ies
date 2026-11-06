@@ -23,30 +23,30 @@ const SOURCE_META: Record<
   risk_assessment: {
     label: "Risco",
     icon: Shield,
-    accent: "text-[#B54708]",
-    bg: "bg-[#FFFAEB]",
-    ring: "ring-[#FEC84B]",
+    accent: "text-[var(--color-source-b54708)]",
+    bg: "bg-[var(--color-source-fffaeb)]",
+    ring: "ring-[var(--color-legacy-fec84b)]",
   },
   intervention_log: {
     label: "Intervenção",
     icon: MessageSquare,
-    accent: "text-[#175CD3]",
-    bg: "bg-[#EFF8FF]",
-    ring: "ring-[#84CAFF]",
+    accent: "text-[var(--color-legacy-175cd3)]",
+    bg: "bg-[var(--color-legacy-eff8ff)]",
+    ring: "ring-[var(--color-legacy-84caff)]",
   },
   work_activity: {
     label: "Atividade",
     icon: Activity,
-    accent: "text-[#027A48]",
-    bg: "bg-[#ECFDF3]",
-    ring: "ring-[#6CE9A6]",
+    accent: "text-[var(--color-source-027a48)]",
+    bg: "bg-[var(--color-source-ecfdf3)]",
+    ring: "ring-[var(--color-legacy-6ce9a6)]",
   },
   engagement_event: {
     label: "Engajamento",
     icon: Sparkles,
-    accent: "text-[#6941C6]",
-    bg: "bg-[#F9F5FF]",
-    ring: "ring-[#D6BBFB]",
+    accent: "text-[var(--color-legacy-6941c6)]",
+    bg: "bg-[var(--color-legacy-f9f5ff)]",
+    ring: "ring-[var(--color-legacy-d6bbfb)]",
   },
 };
 
@@ -146,17 +146,17 @@ export function StudentWorkTimeline({
 
   return (
     <section
-      className={cn("rounded-xl border border-[#E5E7EB] bg-white", className)}
+      className={cn("rounded-xl border border-[var(--color-legacy-e5e7eb)] bg-white", className)}
       data-student-work-timeline
       aria-label="Histórico operacional do aluno"
     >
-      <div className="flex items-start gap-3 border-b border-[#E5E7EB] px-4 py-3.5 sm:px-5">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#F8FAFC] text-[#667085]">
+      <div className="flex items-start gap-3 border-b border-[var(--color-legacy-e5e7eb)] px-4 py-3.5 sm:px-5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--color-legacy-f8fafc)] text-[var(--color-legacy-667085)]">
           <History className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[15px] font-semibold text-[#111827]">Histórico operacional</h2>
-          <p className="mt-0.5 text-[12px] leading-relaxed text-[#667085]">
+          <h2 className="text-[length:var(--type-body-comfort)] font-semibold text-[var(--color-legacy-111827)]">Histórico operacional</h2>
+          <p className="mt-0.5 text-xs leading-relaxed text-[var(--color-legacy-667085)]">
             Eventos reais de risco, intervenções, atividades e engajamento. Ausência de registro
             não significa ausência de risco.
           </p>
@@ -165,7 +165,7 @@ export function StudentWorkTimeline({
           type="button"
           onClick={() => void q.refetch()}
           disabled={q.isFetching}
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-[11px] font-medium text-[#344054] hover:bg-[#F8FAFC] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--color-legacy-e5e7eb)] bg-white px-2.5 text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-344054)] hover:bg-[var(--color-legacy-f8fafc)] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-legacy-2563eb)]"
           aria-label="Atualizar histórico"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", q.isFetching && "animate-spin")} />
@@ -185,21 +185,21 @@ export function StudentWorkTimeline({
         {q.isError && (
           <div
             role="alert"
-            className="rounded-xl border border-[#FECDCA] bg-[#FEF3F2] px-4 py-4 text-center"
+            className="rounded-xl border border-[var(--color-legacy-fecdca)] bg-[var(--color-red-tint)] px-4 py-4 text-center"
           >
-            <span className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-white text-[#B42318]">
+            <span className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-white text-[var(--color-legacy-b42318)]">
               <AlertCircle className="h-5 w-5" />
             </span>
-            <p className="mt-3 text-[13px] font-semibold text-[#111827]">
+            <p className="mt-3 text-[length:var(--type-body-compact)] font-semibold text-[var(--color-legacy-111827)]">
               Não foi possível carregar o histórico.
             </p>
-            <p className="mt-1 text-[12px] text-[#667085]">
+            <p className="mt-1 text-xs text-[var(--color-legacy-667085)]">
               A consulta à timeline falhou. Tente novamente.
             </p>
             <button
               type="button"
               onClick={() => void q.refetch()}
-              className="mt-3 text-[12px] font-semibold text-[#B42318] underline underline-offset-2"
+              className="mt-3 text-xs font-semibold text-[var(--color-legacy-b42318)] underline underline-offset-2"
             >
               Tentar novamente
             </button>
@@ -207,9 +207,9 @@ export function StudentWorkTimeline({
         )}
 
         {!q.isLoading && !q.isError && itemsNewestFirst.length === 0 && (
-          <div className="rounded-xl border border-dashed border-[#E5E7EB] bg-[#F8FAFC] px-4 py-8 text-center">
-            <p className="text-[13px] font-medium text-[#344054]">Nenhum evento registrado</p>
-            <p className="mt-1 text-[12px] leading-relaxed text-[#667085]">
+          <div className="rounded-xl border border-dashed border-[var(--color-legacy-e5e7eb)] bg-[var(--color-legacy-f8fafc)] px-4 py-8 text-center">
+            <p className="text-[length:var(--type-body-compact)] font-medium text-[var(--color-legacy-344054)]">Nenhum evento registrado</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-legacy-667085)]">
               Ainda não há avaliações de risco, intervenções, atividades ou engajamentos
               persistidos para este aluno.
             </p>
@@ -221,7 +221,7 @@ export function StudentWorkTimeline({
             {truncated && (
               <div
                 role="status"
-                className="mb-3 rounded-lg border border-[#FEE4E2] bg-[#FEF3F2] px-3 py-2 text-[11px] leading-relaxed text-[#B42318]"
+                className="mb-3 rounded-lg border border-[var(--color-legacy-fee4e2)] bg-[var(--color-red-tint)] px-3 py-2 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-b42318)]"
               >
                 Histórico limitado: a lista exibida pode não conter todos os eventos (limite de{" "}
                 {q.data?.limit ?? 100}).
@@ -239,7 +239,7 @@ export function StudentWorkTimeline({
                   <li key={`${item.source}-${item.id}-${index}`} className="relative flex gap-3 pb-4">
                     {!isLast && (
                       <span
-                        className="absolute left-[15px] top-8 bottom-0 w-px bg-[#E5E7EB]"
+                        className="absolute left-[15px] top-8 bottom-0 w-px bg-[var(--color-legacy-e5e7eb)]"
                         aria-hidden
                       />
                     )}
@@ -257,7 +257,7 @@ export function StudentWorkTimeline({
                       <div className="flex flex-wrap items-center gap-2">
                         <span
                           className={cn(
-                            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            "rounded-full px-2 py-0.5 text-[length:var(--type-overline)] font-semibold",
                             meta.bg,
                             meta.accent
                           )}
@@ -267,24 +267,24 @@ export function StudentWorkTimeline({
                         {when && (
                           <time
                             dateTime={item.at || undefined}
-                            className="text-[11px] tabular-nums text-[#98A2B3]"
+                            className="text-[length:var(--type-caption)] tabular-nums text-[var(--color-legacy-98a2b3)]"
                           >
                             {when}
                           </time>
                         )}
                       </div>
-                      <p className="mt-1.5 text-[13px] leading-relaxed text-[#111827]">
+                      <p className="mt-1.5 text-[length:var(--type-body-compact)] leading-relaxed text-[var(--color-legacy-111827)]">
                         {humanSummary(item)}
                       </p>
                       {item.source === "risk_assessment" && item.refs?.model_version != null && (
-                        <p className="mt-1 text-[11px] text-[#98A2B3]">
+                        <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-legacy-98a2b3)]">
                           Modelo: {String(item.refs.model_version)}
                         </p>
                       )}
                       {link && (
                         <Link
                           href={link.href}
-                          className="mt-1.5 inline-flex text-[11px] font-semibold text-[#2563EB] hover:underline"
+                          className="mt-1.5 inline-flex text-[length:var(--type-caption)] font-semibold text-[var(--color-legacy-2563eb)] hover:underline"
                         >
                           {link.label}
                         </Link>

@@ -111,24 +111,24 @@ export default function DispatchComposioImportsPage() {
     }
   }
 
-  const fieldClass = "mt-1 w-full rounded-lg border border-[#DADADD] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#2563EB]";
+  const fieldClass = "mt-1 w-full rounded-lg border border-[var(--color-legacy-dadadd)] bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--color-legacy-2563eb)]";
 
   return <>
     <Header title="Importações e conexões" subtitle="Leia dados de sistemas conectados via Composio, sem copiar credenciais" />
     <main className="mx-auto max-w-[1180px] space-y-6 px-4 pb-16 pt-6 md:px-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[#202124]">Conectar dados ao motor de disparos</h1>
-          <p className="mt-1 text-sm text-[#74747A]">
+          <h1 className="text-xl font-semibold text-[var(--color-legacy-202124)]">Conectar dados ao motor de disparos</h1>
+          <p className="mt-1 text-sm text-[var(--color-legacy-74747a)]">
             Os dados importados ficam no contexto da organização. Nada é enviado aos contatos automaticamente.
           </p>
         </div>
-        <Link href="/disparos" className="rounded-lg border border-[#DADADD] px-3 py-2 text-sm text-[#333]">
+        <Link href="/disparos" className="rounded-lg border border-[var(--color-legacy-dadadd)] px-3 py-2 text-sm text-[var(--color-legacy-333)]">
           Voltar aos disparos
         </Link>
       </div>
 
-      {!enabled && <div className="rounded-xl border border-[#E8E3D6] bg-[#FFFCF6] p-4 text-sm text-[#6F603B]">
+      {!enabled && <div className="rounded-xl border border-[var(--color-legacy-e8e3d6)] bg-[var(--color-legacy-fffcf6)] p-4 text-sm text-[var(--color-legacy-6f603b)]">
         <p className="font-semibold">Leituras reais Composio ainda não habilitadas neste ambiente</p>
         <p className="mt-1">
           A organização pode configurar suas conexões; executar importações exige as flags do backend,
@@ -137,13 +137,13 @@ export default function DispatchComposioImportsPage() {
       </div>}
       {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
 
-      <section className="rounded-2xl border border-[#E7E7EA] bg-white p-5 md:p-6">
+      <section className="rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5 md:p-6">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-semibold text-[#242428]">1. Selecionar conexão</h2>
-          <Link href="/integracoes" className="text-sm text-[#2563EB]">Gerenciar integrações</Link>
+          <h2 className="font-semibold text-[var(--color-legacy-242428)]">1. Selecionar conexão</h2>
+          <Link href="/integracoes" className="text-sm text-[var(--color-legacy-2563eb)]">Gerenciar integrações</Link>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="text-sm text-[#55555C]">Conta conectada
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Conta conectada
             <select value={accountId} className={fieldClass} onChange={e => {
               setAccountId(e.target.value); setToolSlug(""); resetKey();
             }}>
@@ -155,7 +155,7 @@ export default function DispatchComposioImportsPage() {
               ))}
             </select>
           </label>
-          <label className="text-sm text-[#55555C]">Ferramenta de leitura permitida
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Ferramenta de leitura permitida
             <select value={toolSlug} className={fieldClass} disabled={!selected} onChange={e => {
               setToolSlug(e.target.value); resetKey();
             }}>
@@ -164,47 +164,47 @@ export default function DispatchComposioImportsPage() {
             </select>
           </label>
         </div>
-        <p className="mt-3 text-xs text-[#85858B]">
+        <p className="mt-3 text-xs text-[var(--color-legacy-85858b)]">
           A seleção respeita as políticas do workspace. O backend também exige uma allowlist explícita
           para executar leituras e confirma a titularidade da conta no Composio.
         </p>
       </section>
 
-      <section className="rounded-2xl border border-[#E7E7EA] bg-white p-5 md:p-6">
-        <h2 className="mb-1 font-semibold text-[#242428]">2. Consultar e mapear dados</h2>
-        <p className="mb-5 text-sm text-[#85858B]">
+      <section className="rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5 md:p-6">
+        <h2 className="mb-1 font-semibold text-[var(--color-legacy-242428)]">2. Consultar e mapear dados</h2>
+        <p className="mb-5 text-sm text-[var(--color-legacy-85858b)]">
           Configure os argumentos da ferramenta e diga à MIRA onde estão os registros e seus identificadores.
           Apenas os campos mapeados são guardados, criptografados.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="text-sm text-[#55555C]">Argumentos da ferramenta (JSON)
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Argumentos da ferramenta (JSON)
             <textarea value={argumentsText} onChange={e => { setArgumentsText(e.target.value); resetKey(); }}
               rows={5} spellCheck={false} className={fieldClass + " font-mono"} />
           </label>
-          <label className="text-sm text-[#55555C]">Mapeamento de campos (JSON)
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Mapeamento de campos (JSON)
             <textarea value={fieldsText} onChange={e => { setFieldsText(e.target.value); resetKey(); }}
               rows={5} spellCheck={false} className={fieldClass + " font-mono"} />
           </label>
-          <label className="text-sm text-[#55555C]">Caminho para a lista na resposta
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Caminho para a lista na resposta
             <input value={rowsPath} onChange={e => { setRowsPath(e.target.value); resetKey(); }}
               className={fieldClass} placeholder="items, data.contacts, records" />
           </label>
-          <label className="text-sm text-[#55555C]">Campo de ID estável do registro
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Campo de ID estável do registro
             <input value={recordField} onChange={e => { setRecordField(e.target.value); resetKey(); }}
               className={fieldClass} placeholder="id" />
           </label>
-          <label className="text-sm text-[#55555C]">Campo de ID do destinatário na MIRA
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Campo de ID do destinatário na MIRA
             <input value={subjectField} onChange={e => { setSubjectField(e.target.value); resetKey(); }}
               className={fieldClass} placeholder="id, student_id, customer.id" />
           </label>
-          <label className="text-sm text-[#55555C]">Público dos registros
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Público dos registros
             <select value={subjectType} onChange={e => { setSubjectType(e.target.value as typeof subjectType); resetKey(); }}
               className={fieldClass}>
               <option value="external">Contatos externos</option>
               <option value="student">Alunos da MIRA (UUID)</option>
             </select>
           </label>
-          <label className="text-sm text-[#55555C]">Tipo dos dados
+          <label className="text-sm text-[var(--color-legacy-55555c)]">Tipo dos dados
             <select value={recordType} onChange={e => { setRecordType(e.target.value as typeof recordType); resetKey(); }}
               className={fieldClass}>
               <option value="contact">Contatos e CRM</option>
@@ -213,8 +213,8 @@ export default function DispatchComposioImportsPage() {
             </select>
           </label>
         </div>
-        <div className="mt-5 space-y-3 border-t border-[#EEEEF0] pt-5">
-          <label className="block text-sm text-[#55555C]">
+        <div className="mt-5 space-y-3 border-t border-[var(--color-legacy-eeeef0)] pt-5">
+          <label className="block text-sm text-[var(--color-legacy-55555c)]">
             Usar os registros nesta campanha (opcional)
             <select value={stageCampaignId} onChange={e => setStageCampaignId(e.target.value)}
               className={fieldClass}>
@@ -225,16 +225,16 @@ export default function DispatchComposioImportsPage() {
               ).map(item =>
                 <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
-            <span className="mt-1 block text-xs text-[#85858B]">
+            <span className="mt-1 block text-xs text-[var(--color-legacy-85858b)]">
               Se selecionada, a MIRA consulta a fonte e vincula automaticamente apenas destinatários autorizados.
             </span>
           </label>
           <button disabled={busy || loading || !enabled || !accountId || !toolSlug}
             onClick={() => void importData()}
-            className="rounded-lg bg-[#202124] px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">
+            className="rounded-lg bg-[var(--color-legacy-202124)] px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">
             {busy ? "Consultando sistema conectado…" : stageCampaignId ? "Consultar, importar e vincular elegíveis" : "Consultar e importar dados"}
           </button>
-          <p className="mt-3 text-xs text-[#85858B]">
+          <p className="mt-3 text-xs text-[var(--color-legacy-85858b)]">
             Limite: 100 registros e 256 KB por execução. Importação não equivale a consentimento,
             confirmação de pagamento ou autorização para envio. Os contatos elegíveis são verificados
             posteriormente na campanha.
@@ -243,24 +243,24 @@ export default function DispatchComposioImportsPage() {
       </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="rounded-2xl border border-[#E7E7EA] bg-white p-5">
+        <section className="rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold">Histórico de importações</h2>
-          {history.length === 0 ? <p className="text-sm text-[#85858B]">Nenhuma importação registrada.</p> :
-            <div className="divide-y divide-[#F0F0F2]">{history.map(item =>
+          {history.length === 0 ? <p className="text-sm text-[var(--color-legacy-85858b)]">Nenhuma importação registrada.</p> :
+            <div className="divide-y divide-[var(--color-legacy-f0f0f2)]">{history.map(item =>
               <div key={item.id} className="py-3 text-sm">
                 <p className="font-medium">{item.toolkit_slug} · {item.tool_slug}</p>
-                <p className="mt-1 text-xs text-[#85858B]">
+                <p className="mt-1 text-xs text-[var(--color-legacy-85858b)]">
                   {item.status} · {item.rows_total} registros · {new Date(item.started_at).toLocaleString("pt-BR")}
                 </p>
               </div>)}</div>}
         </section>
-        <section className="rounded-2xl border border-[#E7E7EA] bg-white p-5">
+        <section className="rounded-2xl border border-[var(--color-legacy-e7e7ea)] bg-white p-5">
           <h2 className="mb-3 text-sm font-semibold">Dados armazenados na MIRA</h2>
-          {summary.length === 0 ? <p className="text-sm text-[#85858B]">Nenhum registro sincronizado.</p> :
-            <div className="divide-y divide-[#F0F0F2]">{summary.map((item, index) =>
+          {summary.length === 0 ? <p className="text-sm text-[var(--color-legacy-85858b)]">Nenhum registro sincronizado.</p> :
+            <div className="divide-y divide-[var(--color-legacy-f0f0f2)]">{summary.map((item, index) =>
               <div key={index} className="py-3 text-sm">
                 <p className="font-medium">{item.toolkit_slug} · {item.record_type}</p>
-                <p className="mt-1 text-xs text-[#85858B]">{item.records} registros · {item.tool_slug}</p>
+                <p className="mt-1 text-xs text-[var(--color-legacy-85858b)]">{item.records} registros · {item.tool_slug}</p>
               </div>)}</div>}
         </section>
       </div>

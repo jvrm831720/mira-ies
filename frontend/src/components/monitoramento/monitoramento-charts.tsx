@@ -42,10 +42,10 @@ export function scoreLabel(value?: number | null) {
 }
 
 export function movementTone(change: RiskMovement["change_type"]) {
-  if (change === "risco_aumentou") return "bg-[#FEF3F2] text-[#B42318]";
-  if (change === "risco_diminuiu") return "bg-[#ECFDF3] text-[#027A48]";
-  if (change === "mudanca_modelo") return "bg-[#F4F3FF] text-[#5925DC]";
-  return "bg-[#F2F4F7] text-[#475467]";
+  if (change === "risco_aumentou") return "bg-[var(--color-red-tint)] text-[var(--color-legacy-b42318)]";
+  if (change === "risco_diminuiu") return "bg-[var(--color-source-ecfdf3)] text-[var(--color-source-027a48)]";
+  if (change === "mudanca_modelo") return "bg-[var(--color-legacy-f4f3ff)] text-[var(--color-legacy-5925dc)]";
+  return "bg-[var(--color-legacy-f2f4f7)] text-[var(--color-legacy-475467)]";
 }
 
 export function ScoreTimeline({ data }: { data: RiskHistoryResponse["timeline"] }) {
@@ -59,7 +59,7 @@ export function ScoreTimeline({ data }: { data: RiskHistoryResponse["timeline"] 
   ];
   if (!data.length || !buckets.length) {
     return (
-      <div className="grid min-h-[220px] place-items-center rounded-lg bg-[#F8FAFC] px-5 text-center text-[13px] text-[#667085]">
+      <div className="grid min-h-[220px] place-items-center rounded-lg bg-[var(--color-legacy-f8fafc)] px-5 text-center text-[length:var(--type-body-compact)] text-[var(--color-legacy-667085)]">
         Ainda não há avaliações históricas suficientes. Novas avaliações aparecerão aqui depois de
         executadas.
       </div>
@@ -68,7 +68,7 @@ export function ScoreTimeline({ data }: { data: RiskHistoryResponse["timeline"] 
   const x = (bucket: string) =>
     54 + (buckets.length <= 1 ? 0 : (buckets.indexOf(bucket) * 790) / (buckets.length - 1));
   const y = (score: number) => 210 - Math.max(0, Math.min(100, score)) * 1.75;
-  const colors = ["#2563EB", "#7F56D9", "#039855", "#D92D20"];
+  const colors = ["var(--color-legacy-2563eb)", "var(--color-legacy-7f56d9)", "var(--color-legacy-039855)", "var(--color-legacy-d92d20)"];
   return (
     <div>
       <div className="overflow-x-auto">
@@ -80,14 +80,14 @@ export function ScoreTimeline({ data }: { data: RiskHistoryResponse["timeline"] 
         >
           {[0, 25, 50, 75, 100].map((tick) => (
             <g key={tick}>
-              <line x1="54" x2="844" y1={y(tick)} y2={y(tick)} stroke="#EAECF0" strokeDasharray="3 4" />
-              <text x="42" y={y(tick) + 4} fontSize="11" textAnchor="end" fill="#667085">
+              <line x1="54" x2="844" y1={y(tick)} y2={y(tick)} stroke="var(--color-legacy-eaecf0)" strokeDasharray="3 4" />
+              <text x="42" y={y(tick) + 4} fontSize="11" textAnchor="end" fill="var(--color-legacy-667085)">
                 {tick}
               </text>
             </g>
           ))}
           {buckets.map((bucket) => (
-            <text key={bucket} x={x(bucket)} y="236" fontSize="10" textAnchor="middle" fill="#667085">
+            <text key={bucket} x={x(bucket)} y="236" fontSize="10" textAnchor="middle" fill="var(--color-legacy-667085)">
               {dateLabel(bucket)}
             </text>
           ))}
@@ -148,7 +148,7 @@ export function ScoreTimeline({ data }: { data: RiskHistoryResponse["timeline"] 
       </div>
       <div className="mt-2 flex flex-wrap gap-3">
         {series.map((key, i) => (
-          <span key={key} className="inline-flex items-center gap-2 text-[11px] text-[#475467]">
+          <span key={key} className="inline-flex items-center gap-2 text-[length:var(--type-caption)] text-[var(--color-legacy-475467)]">
             <span
               className="h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: colors[i % colors.length] }}
@@ -157,7 +157,7 @@ export function ScoreTimeline({ data }: { data: RiskHistoryResponse["timeline"] 
           </span>
         ))}
       </div>
-      <p className="mt-3 text-[11px] leading-relaxed text-[#667085]">
+      <p className="mt-3 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-667085)]">
         Cada ponto representa a média do score da última avaliação de cada aluno naquela semana,
         agrupada por escopo, versão e semântica do score. Séries incompatíveis ficam separadas;
         lacunas superiores a uma semana não são conectadas. Ausência de pontos não implica
@@ -179,7 +179,7 @@ export function DistributionTimeline({ data }: { data: RiskHistoryResponse["time
     .slice(-12);
   if (!rows.length) {
     return (
-      <p className="rounded-lg bg-[#F8FAFC] p-4 text-[13px] text-[#667085]">
+      <p className="rounded-lg bg-[var(--color-legacy-f8fafc)] p-4 text-[length:var(--type-body-compact)] text-[var(--color-legacy-667085)]">
         A distribuição histórica será exibida quando houver avaliações no período.
       </p>
     );
@@ -200,12 +200,12 @@ export function DistributionTimeline({ data }: { data: RiskHistoryResponse["time
               point.score_semantics_version
             }
           >
-            <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-[#667085]">
+            <div className="mb-1.5 flex items-center justify-between gap-2 text-[length:var(--type-overline)] text-[var(--color-legacy-667085)]">
               <span>{label}</span>
               <span>{point.students_count} alunos</span>
             </div>
             <div
-              className="flex h-3 overflow-hidden rounded-full bg-[#F2F4F7]"
+              className="flex h-3 overflow-hidden rounded-full bg-[var(--color-legacy-f2f4f7)]"
               title={
                 distribution.critico +
                 " críticos, " +
@@ -218,21 +218,21 @@ export function DistributionTimeline({ data }: { data: RiskHistoryResponse["time
               {total > 0 && (
                 <>
                   <div
-                    className="bg-[#12B76A]"
+                    className="bg-[var(--color-legacy-12b76a)]"
                     style={{ width: (distribution.baixo / total) * 100 + "%" }}
                   />
                   <div
-                    className="bg-[#F79009]"
+                    className="bg-[var(--color-legacy-f79009)]"
                     style={{ width: (distribution.medio / total) * 100 + "%" }}
                   />
                   <div
-                    className="bg-[#F04438]"
+                    className="bg-[var(--color-legacy-f04438)]"
                     style={{ width: (distribution.critico / total) * 100 + "%" }}
                   />
                 </>
               )}
             </div>
-            <p className="mt-1 text-[9px] text-[#98A2B3]">{point.score_semantics_version}</p>
+            <p className="mt-1 text-[length:var(--type-size-9)] text-[var(--color-legacy-98a2b3)]">{point.score_semantics_version}</p>
           </div>
         );
       })}
@@ -261,34 +261,34 @@ export function CurrentRiskDistribution({
       key: "critico",
       label: "Crítico",
       value: summary.critico,
-      color: "bg-[#F04438]",
+      color: "bg-[var(--color-legacy-f04438)]",
       href: "/alunos?risk=critico",
     },
     {
       key: "medio",
       label: "Moderado",
       value: summary.medio,
-      color: "bg-[#F79009]",
+      color: "bg-[var(--color-legacy-f79009)]",
       href: "/alunos?risk=medio",
     },
     {
       key: "baixo",
       label: "Baixo",
       value: summary.baixo,
-      color: "bg-[#12B76A]",
+      color: "bg-[var(--color-legacy-12b76a)]",
       href: "/alunos?risk=baixo",
     },
     {
       key: "sem_score",
       label: "Sem score",
       value: summary.sem_score,
-      color: "bg-[#98A2B3]",
+      color: "bg-[var(--color-legacy-98a2b3)]",
       href: "/alunos?tab=dados_insuficientes",
     },
   ];
   return (
     <div className="space-y-4">
-      <div className="flex h-3 overflow-hidden rounded-full bg-[#F2F4F7]">
+      <div className="flex h-3 overflow-hidden rounded-full bg-[var(--color-legacy-f2f4f7)]">
         {rows.map((row) =>
           total > 0 && row.value > 0 ? (
             <div
@@ -302,25 +302,25 @@ export function CurrentRiskDistribution({
       </div>
       <ul className="space-y-2">
         {rows.map((row) => (
-          <li key={row.key} className="flex items-center justify-between gap-3 text-[12px]">
-            <span className="inline-flex items-center gap-2 text-[#344054]">
+          <li key={row.key} className="flex items-center justify-between gap-3 text-xs">
+            <span className="inline-flex items-center gap-2 text-[var(--color-legacy-344054)]">
               <span className={cn("h-2.5 w-2.5 rounded-full", row.color)} />
               {row.label}
               {row.key === "sem_score" ? (
-                <span className="rounded-full bg-[#F2F4F7] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#667085]">
+                <span className="rounded-full bg-[var(--color-legacy-f2f4f7)] px-1.5 py-0.5 text-[length:var(--type-size-9)] font-semibold uppercase tracking-wide text-[var(--color-legacy-667085)]">
                   não é baixo risco
                 </span>
               ) : null}
             </span>
-            <span className="tabular-nums text-[#101828]">
+            <span className="tabular-nums text-[var(--color-legacy-101828)]">
               <strong>{row.value.toLocaleString("pt-BR")}</strong>
-              <span className="ml-2 text-[11px] text-[#667085]">{pct(row.value)}%</span>
+              <span className="ml-2 text-[length:var(--type-caption)] text-[var(--color-legacy-667085)]">{pct(row.value)}%</span>
             </span>
           </li>
         ))}
       </ul>
       {summary.sem_score > 0 ? (
-        <div className="rounded-lg border border-[#FEDF89] bg-[#FFFAEB] px-3 py-2.5 text-[11px] leading-relaxed text-[#B54708]">
+        <div className="rounded-lg border border-[var(--color-source-fedf89)] bg-[var(--color-source-fffaeb)] px-3 py-2.5 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-source-b54708)]">
           <strong className="font-semibold">{summary.sem_score.toLocaleString("pt-BR")} alunos</strong>{
             " "
           }
@@ -333,7 +333,7 @@ export function CurrentRiskDistribution({
           </Link>
         </div>
       ) : null}
-      <p className="text-[11px] leading-relaxed text-[#667085]">
+      <p className="text-[length:var(--type-caption)] leading-relaxed text-[var(--color-legacy-667085)]">
         Snapshot atual (não confundir com a série histórica abaixo).
         {typeof totalScored === "number"
           ? ` Avaliados com score: ${totalScored.toLocaleString("pt-BR")}.`
@@ -344,7 +344,7 @@ export function CurrentRiskDistribution({
           <Link
             key={row.key}
             href={row.href}
-            className="inline-flex items-center gap-1 rounded-lg border border-[#D0D5DD] px-2.5 py-1.5 text-[11px] font-medium text-[#344054] hover:bg-[#F9FAFB]"
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-legacy-d0d5dd)] px-2.5 py-1.5 text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-344054)] hover:bg-[var(--color-source-f9fafb)]"
           >
             Ver {row.label.toLowerCase()}
             <ArrowRight className="h-3 w-3" />
@@ -371,8 +371,8 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
       : (index * (width - left - right)) / (points.length - 1));
   const y = (score: number) => top + ((100 - score) * (height - top - bottom)) / 100;
   return (
-    <div className="mb-5 rounded-lg border border-[#EAECF0] p-3">
-      <h3 className="mb-2 text-[12px] font-semibold text-[#344054]">Trajetória temporal do score</h3>
+    <div className="mb-5 rounded-lg border border-[var(--color-legacy-eaecf0)] p-3">
+      <h3 className="mb-2 text-xs font-semibold text-[var(--color-legacy-344054)]">Trajetória temporal do score</h3>
       <div className="overflow-x-auto">
         <svg
           viewBox={"0 0 " + width + " " + height}
@@ -387,10 +387,10 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
                 x2={width - right}
                 y1={y(tick)}
                 y2={y(tick)}
-                stroke="#EAECF0"
+                stroke="var(--color-legacy-eaecf0)"
                 strokeDasharray="3 4"
               />
-              <text x={left - 8} y={y(tick) + 4} fontSize="10" textAnchor="end" fill="#667085">
+              <text x={left - 8} y={y(tick) + 4} fontSize="10" textAnchor="end" fill="var(--color-legacy-667085)">
                 {tick}
               </text>
             </g>
@@ -418,7 +418,7 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
                     y1={y(previous.score)}
                     x2={x(index)}
                     y2={y(point.score)}
-                    stroke="#2563EB"
+                    stroke="var(--color-legacy-2563eb)"
                     strokeWidth="2.5"
                   />
                 ) : null}
@@ -426,8 +426,8 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
                   cx={x(index)}
                   cy={y(point.score)}
                   r="4"
-                  fill="#FFFFFF"
-                  stroke="#2563EB"
+                  fill="var(--color-canvas)"
+                  stroke="var(--color-legacy-2563eb)"
                   strokeWidth="2"
                 >
                   <title>
@@ -442,7 +442,7 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
                       point.score_semantics_version}
                   </title>
                 </circle>
-                <text x={x(index)} y={height - 10} fontSize="9" textAnchor="middle" fill="#667085">
+                <text x={x(index)} y={height - 10} fontSize="9" textAnchor="middle" fill="var(--color-legacy-667085)">
                   {dateLabel(point.evaluated_at)}
                 </text>
               </g>
@@ -450,13 +450,13 @@ export function StudentAssessmentTimeline({ assessments }: { assessments: RiskHi
           })}
         </svg>
       </div>
-      <p className="mt-1 text-[10px] text-[#667085]">
+      <p className="mt-1 text-[length:var(--type-overline)] text-[var(--color-legacy-667085)]">
         A linha é interrompida entre modelos/semânticas incompatíveis ou lacunas superiores a 45 dias.
       </p>
-      <ul className="mt-3 space-y-1.5 border-t border-[#F2F4F7] pt-3">
+      <ul className="mt-3 space-y-1.5 border-t border-[var(--color-legacy-f2f4f7)] pt-3">
         {points.map((a) => (
           <li key={a.id + "-model"} className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-[11px] text-[#344054]">
+            <span className="text-[length:var(--type-caption)] text-[var(--color-legacy-344054)]">
               {dateTimeLabel(a.evaluated_at)} · score {scoreLabel(a.score)}
             </span>
             <AssessmentModelLine a={a} />
@@ -484,19 +484,19 @@ export function Metric({
     <div
       className={cn(
         "rounded-xl border bg-white p-4",
-        tone === "danger" && "border-[#FECDCA]",
-        tone === "success" && "border-[#A6F4C5]",
-        tone === "neutral" && "border-[#E5E7EB]"
+        tone === "danger" && "border-[var(--color-legacy-fecdca)]",
+        tone === "success" && "border-[var(--color-legacy-a6f4c5)]",
+        tone === "neutral" && "border-[var(--color-legacy-e5e7eb)]"
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium text-[#667085]">{label}</p>
-        <span className="text-[#98A2B3]">{icon}</span>
+        <p className="text-[length:var(--type-caption)] font-medium text-[var(--color-legacy-667085)]">{label}</p>
+        <span className="text-[var(--color-legacy-98a2b3)]">{icon}</span>
       </div>
-      <p className="mt-3 text-[25px] font-semibold tracking-[-0.04em] text-[#101828]">
+      <p className="mt-3 text-[length:var(--type-size-25)] font-semibold tracking-[-0.04em] text-[var(--color-legacy-101828)]">
         {value.toLocaleString("pt-BR")}
       </p>
-      <p className="mt-1 text-[10px] leading-relaxed text-[#667085]">{hint}</p>
+      <p className="mt-1 text-[length:var(--type-overline)] leading-relaxed text-[var(--color-legacy-667085)]">{hint}</p>
     </div>
   );
 }

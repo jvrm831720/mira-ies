@@ -62,7 +62,7 @@ export function RecordDrawer({ record,onClose,fullPageHref,status,actions=[],chi
         <div className="flex items-center justify-between gap-3">
           <RecordActions actions={actions}/>
           {fullPageHref&&<Link href={fullPageHref} onClick={onClose}
-            className="inline-flex h-9 items-center gap-2 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-[12px] font-semibold text-white hover:bg-[var(--color-ink-900)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
+            className="inline-flex h-9 items-center gap-2 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-xs font-semibold text-white hover:bg-[var(--color-ink-900)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
             Abrir ficha completa <ExternalLink className="h-3.5 w-3.5"/>
           </Link>}
         </div>
