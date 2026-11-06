@@ -255,6 +255,20 @@ export function ViewManager<T>({
             </label>;
           })}
         </div>}
+        {schema.data?.custom_properties?.length ? <div className="rounded-md border border-[var(--color-border)] p-3">
+          <p className="text-xs font-semibold">Propriedades customizadas do workspace</p>
+          <p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">
+            Registradas na Importação Inteligente. Não podem ser incluídas em filtros ou colunas
+            deste índice até existir consulta remota validada pelo backend.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {schema.data.custom_properties.map(item =>
+              <span key={item.key} title={item.reason}
+                className="rounded-md border border-[var(--color-border)] bg-[var(--color-panel)] px-2 py-1 text-xs text-[var(--color-slate-600)]">
+                {item.label}
+              </span>)}
+          </div>
+        </div> : null}
         {managed?.can_edit && <div className="space-y-2 rounded-md border border-[var(--color-border)] p-3">
           <div className="flex items-center gap-2 text-xs font-semibold"><History className="h-4 w-4" /> Histórico de revisões</div>
           {history.isLoading && <p role="status" className="text-xs">Carregando histórico…</p>}
