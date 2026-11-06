@@ -10,7 +10,7 @@ from uuid import uuid5, NAMESPACE_URL
 import logging
 
 from app.db.session import get_db
-from app.core.auth import AuthContext, get_current_tenant
+from app.core.auth import AuthContext, get_current_tenant, require_permission
 from app.models.student import Student
 from app.services.consent import effective_preferences
 from app.ml.features import FEATURE_COLUMNS, FEATURE_LABELS_PT
@@ -241,30 +241,34 @@ async def list_critical_students(
     }
 
 
-@router.get("/students/{student_id}/risk")
-async def get_student_risk(
-    student_id: str,
-    auth: AuthContext = Depends(get_current_tenant),
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(
-        select(Student).where(Student.id == student_id, Student.tenant_id == auth.tenant_id)
+def _can_read_student_sensitive(auth: AuthContext) -> bool:
+    """Effective custom grants take precedence; built-in roles use RBAC ceiling.
+
+    Legacy service keys retain the existing integration response. They are not
+    treated as institutional human users for UI presentation.
+    """
+    if auth.permissions is not None:
+        return "students.sensitive.view" in auth.permissions
+    if auth.custom_role_id is not None:
+        return False
+    return auth.role in ("admin", "coordinator") or (
+        auth.role is None and auth.user_id is None
     )
-    student = result.scalar_one_or_none()
-    if not student:
-        raise HTTPException(status_code=404, detail="Aluno nao encontrado")
+
+
+def _student_record_projection(student: Student, auth: AuthContext) -> dict:
+    base = {
+        "id": student.id, "matricula": student.matricula,
+        "nome": student.nome, "telefone": student.telefone,
+        "email": student.email, "curso": student.curso,
+        "campus": student.campus, "status_aluno": student.status_aluno,
+        "turma": student.turma, "forma_ingresso": student.forma_ingresso,
+        "semestre": student.semestre, "tenant_id": auth.tenant_id,
+    }
+    if not _can_read_student_sensitive(auth):
+        return base
     return {
-        "id": student.id,
-        "matricula": student.matricula,
-        "nome": student.nome,
-        "telefone": student.telefone,
-        "email": student.email,
-        "curso": student.curso,
-        "campus": student.campus,
-        "status_aluno": student.status_aluno,
-        "turma": student.turma,
-        "forma_ingresso": student.forma_ingresso,
-        "semestre": student.semestre,
+        **base,
         "presenca_percentual": student.presenca_percentual,
         "nota_media": student.nota_media,
         "reprovacoes": student.reprovacoes,
@@ -283,9 +287,22 @@ async def get_student_risk(
         "risk_level": student.risk_level,
         "shap_top_factors": student.shap_top_factors,
         "recommended_actions": (student.shap_top_factors or {}).get("recommended_actions"),
-        "tenant_id": auth.tenant_id,
     }
 
+
+@router.get("/students/{student_id}/risk")
+async def get_student_risk(
+    student_id: str,
+    auth: AuthContext = Depends(require_permission("students.view", allow_service_key=True)),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Student).where(Student.id == student_id, Student.tenant_id == auth.tenant_id)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Aluno nao encontrado")
+    return _student_record_projection(student, auth)
 
 @router.get("/risk/history")
 async def risk_history(
