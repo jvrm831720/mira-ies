@@ -11,6 +11,7 @@ import json
 import re
 
 from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -114,6 +115,7 @@ async def work_tenant(db: AsyncSession, tenant_id: str, *, limit: int = 20) -> d
     )).scalars().all()
     processed, pending = 0, 0
     for event in events:
+        await bind_tenant(db, tenant_id)
         await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:id,0))"),
                          {"id": "asaas:worker:" + tenant_id + ":" + event.id})
         exists = (await db.execute(select(AsaasWebhookApplication.id).where(
@@ -130,12 +132,16 @@ async def work_tenant(db: AsyncSession, tenant_id: str, *, limit: int = 20) -> d
             await db.rollback()
             pending += 1
             continue
-        db.add(AsaasWebhookApplication(
+        # reconcile_charge commits and resets transaction-local tenant RLS.
+        # Rebind before the append-only application record.
+        await bind_tenant(db, tenant_id)
+        statement = pg_insert(AsaasWebhookApplication).values(
             tenant_id=tenant_id, event_id=event.id, outcome="reconciled",
             provider_status=latest["payment_status"],
-        ))
+        ).on_conflict_do_nothing(constraint="uq_mira_asaas_applied_event")
+        result = await db.execute(statement)
         await db.commit()
-        processed += 1
+        processed += 1 if result.rowcount else 0
     return {"processed": processed, "remaining_or_failed": pending,
             "scope": tenant_id, "side_effects": "provider_read_only"}
 
