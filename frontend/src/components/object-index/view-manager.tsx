@@ -56,6 +56,7 @@ export function ViewManager<T>({
   const [draftLabels, setDraftLabels] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [conflicted, setConflicted] = useState(false);
 
   const views = saved.data?.views || [];
   const active = views.find(view => view.id === activeId) || null;
@@ -78,6 +79,7 @@ export function ViewManager<T>({
     setDraftName(view?.name || "");
     setDraftLabels({ ...(view?.config?.property_labels || (view ? {} : currentConfig.property_labels) || {}) });
     setError("");
+    setConflicted(false);
     setDialogOpen(true);
   }
 
@@ -97,7 +99,10 @@ export function ViewManager<T>({
       const message = failMessage(e);
       setError(message);
       toast.error(message);
-      if (e instanceof ViewApiError && e.status === 409) await refresh();
+      if (e instanceof ViewApiError && e.status === 409) {
+        setConflicted(true);
+        await refresh();
+      }
     } finally {
       setBusy(false);
     }
@@ -111,6 +116,7 @@ export function ViewManager<T>({
   }
 
   async function save() {
+    if (conflicted) return;
     const name = draftName.trim();
     if (name.length < 2 || name.length > 80) { setError("Informe um nome de 2 a 80 caracteres."); return; }
     await perform(async () => {
@@ -142,7 +148,7 @@ export function ViewManager<T>({
   }
 
   async function duplicate() {
-    if (!managed) return;
+    if (conflicted || !managed) return;
     await perform(async () => {
       const name = (managed.name.slice(0, 70) + " (cópia)").slice(0, 80);
       const copy = await duplicateSavedObjectView(managed.id, name);
@@ -153,7 +159,7 @@ export function ViewManager<T>({
   }
 
   async function toggleShare() {
-    if (!managed?.can_share) return;
+    if (conflicted || !managed?.can_share) return;
     await perform(async () => {
       await shareSavedObjectView(managed.id,
         managed.scope === "workspace" ? "personal" : "workspace", managed.revision);
@@ -162,7 +168,7 @@ export function ViewManager<T>({
   }
 
   async function restore(revision: number) {
-    if (!managed?.can_edit) return;
+    if (conflicted || !managed?.can_edit) return;
     await perform(async () => {
       const updated = await restoreSavedObjectView(managed.id, revision, managed.revision);
       if (activeId === managed.id) onApply(updated);
@@ -173,7 +179,7 @@ export function ViewManager<T>({
   }
 
   async function remove() {
-    if (!managed?.can_edit || !window.confirm('Excluir a visualização "' + managed.name + '"?')) return;
+    if (conflicted || !managed?.can_edit || !window.confirm('Excluir a visualização "' + managed.name + '"?')) return;
     await perform(async () => {
       await deleteSavedObjectView(managed.id, managed.revision);
       setDialogOpen(false);
@@ -277,29 +283,32 @@ export function ViewManager<T>({
             className="flex items-center gap-2 border-t border-[var(--color-border-subtle)] py-2 text-xs">
             <span className="flex-1 truncate">#{item.revision} · {item.name} · {item.scope === "workspace" ? "Workspace" : "Pessoal"}</span>
             <span className="shrink-0 text-[var(--color-muted)]">{new Date(item.created_at).toLocaleDateString("pt-BR")}</span>
-            <button type="button" disabled={busy || item.revision === managed.revision || item.schema_version !== 1}
+            <button type="button" disabled={busy || conflicted || item.revision === managed.revision || item.schema_version !== 1}
               onClick={() => void restore(item.revision)}
               className="rounded px-2 py-1 font-medium text-[var(--color-blue)] disabled:opacity-40">
               Restaurar
             </button>
           </div>)}
         </div>}
+        {conflicted && <p role="alert" className="rounded-md bg-[var(--color-panel)] p-2 text-xs">
+          A visualização foi modificada em outra sessão. Feche e reabra para carregar a revisão atual antes de editar.
+        </p>}
         {error && <p role="alert" className="rounded-md border border-[var(--color-red)] p-2 text-xs text-[var(--color-red)]">{error}</p>}
         <div className="flex flex-wrap items-center gap-2 border-t border-[var(--color-border)] pt-3">
           {(!managed || managed.can_edit && managed.schema_status !== "unsupported") &&
-            <button type="button" disabled={busy} onClick={() => void save()}
+            <button type="button" disabled={busy || conflicted} onClick={() => void save()}
               className="h-9 rounded-md bg-[var(--color-ink)] px-4 text-xs font-semibold text-white disabled:opacity-40">
               {busy ? "Salvando…" : managed ? "Salvar revisão" : "Criar"}
             </button>}
-          {managed && <button type="button" disabled={busy || managed.schema_status === "unsupported"} onClick={() => void duplicate()}
+          {managed && <button type="button" disabled={busy || conflicted || managed.schema_status === "unsupported"} onClick={() => void duplicate()}
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 text-xs disabled:opacity-40">
             <Copy className="h-3.5 w-3.5" /> Duplicar
           </button>}
-          {managed?.can_share && <button type="button" disabled={busy || managed.schema_status === "unsupported"} onClick={() => void toggleShare()}
+          {managed?.can_share && <button type="button" disabled={busy || conflicted || managed.schema_status === "unsupported"} onClick={() => void toggleShare()}
             className="h-9 rounded-md border border-[var(--color-border)] px-3 text-xs disabled:opacity-40">
             {managed.scope === "workspace" ? "Tornar pessoal" : "Compartilhar"}
           </button>}
-          {managed?.can_edit && <button type="button" disabled={busy} onClick={() => void remove()}
+          {managed?.can_edit && <button type="button" disabled={busy || conflicted} onClick={() => void remove()}
             className="h-9 rounded-md px-3 text-xs text-[var(--color-red)] disabled:opacity-40">Excluir</button>}
           <button type="button" disabled={busy} onClick={() => setDialogOpen(false)}
             className="ml-auto inline-flex h-9 items-center gap-1 rounded-md px-3 text-xs text-[var(--color-muted)] disabled:opacity-40">
