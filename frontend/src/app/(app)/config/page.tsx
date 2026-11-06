@@ -85,8 +85,8 @@ function channelState(providerRaw: string | undefined | null): ChannelState {
 }
 
 function stateBadgeClass(kind: ChannelState["kind"]) {
-  if (kind === "connected") return "bg-[#e9f7f0] text-[#287653]";
-  if (kind === "simulation") return "bg-[#eef0ff] text-[#3848b5]";
+  if (kind === "connected") return "bg-[var(--color-legacy-e9f7f0)] text-[var(--color-legacy-287653)]";
+  if (kind === "simulation") return "bg-[var(--color-legacy-eef0ff)] text-[var(--color-legacy-3848b5)]";
   return "bg-muted text-muted-foreground";
 }
 
@@ -180,7 +180,7 @@ export default function ConfigPage() {
       <main className="mx-auto w-full max-w-5xl space-y-6 px-4 pb-12 pt-5 md:px-9 md:pt-7">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+            <p className="text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.14em] text-primary">
               Administração
             </p>
             <h2 className="mt-1 text-xl font-semibold tracking-tight">
@@ -279,17 +279,17 @@ export default function ConfigPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={cn(
-                    "rounded-full px-3 py-1.5 text-[10px] font-semibold",
+                    "rounded-full px-3 py-1.5 text-[length:var(--type-overline)] font-semibold",
                     status.data.dry_run_default
-                      ? "bg-[#eef0ff] text-[#3848b5]"
-                      : "bg-[#fff0ed] text-[#b84336]"
+                      ? "bg-[var(--color-legacy-eef0ff)] text-[var(--color-legacy-3848b5)]"
+                      : "bg-[var(--color-legacy-fff0ed)] text-[var(--color-legacy-b84336)]"
                   )}
                 >
                   {status.data.dry_run_default
                     ? "Simulação padrão no ambiente"
                     : "Modo real padrão no ambiente"}
                 </span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-[length:var(--type-caption)] text-muted-foreground">
                   Flag de ambiente — não editável por tenant nesta versão.
                 </span>
               </div>
@@ -307,7 +307,7 @@ export default function ConfigPage() {
                         </div>
                         <span
                           className={cn(
-                            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            "rounded-full px-2 py-0.5 text-[length:var(--type-overline)] font-semibold",
                             stateBadgeClass(st.kind)
                           )}
                         >
@@ -396,7 +396,7 @@ export default function ConfigPage() {
               </CardContent>
             </Card>
           )}
-          <p className="flex items-start gap-2 rounded-xl bg-muted/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="flex items-start gap-2 rounded-xl bg-muted/40 p-3 text-[length:var(--type-caption)] leading-relaxed text-muted-foreground">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
             Preferências de comunicação por aluno (opt-out, canais, tópicos) são geridas na ficha do
             aluno, não nesta tela institucional.
@@ -434,7 +434,7 @@ export default function ConfigPage() {
                     <Datum label="AUC informado" value={model.data.auc.toFixed(3)} />
                   )}
                 </div>
-                <p className="rounded-xl border border-[#dce0ff] bg-[#f3f4ff] p-3 text-xs leading-relaxed text-[#313e9e]">
+                <p className="rounded-xl border border-[var(--color-legacy-dce0ff)] bg-[var(--color-legacy-f3f4ff)] p-3 text-xs leading-relaxed text-[var(--color-legacy-313e9e)]">
                   {model.data.disclaimer || copy.modelDisclaimerFallback}
                 </p>
               </CardContent>
@@ -559,7 +559,7 @@ export default function ConfigPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">{session.device_label}{session.current ? " · Este dispositivo" : ""}</p>
                     <p className="mt-1 text-xs text-muted-foreground">Criada em {new Date(session.created_at).toLocaleString("pt-BR")} · {session.ip_address || "IP indisponível"} · AAL{session.aal}</p>
-                    <p className="text-[11px] text-muted-foreground">{session.active ? `Expira em ${new Date(session.expires_at).toLocaleString("pt-BR")}` : session.revoked_at ? "Encerrada" : "Expirada"}</p>
+                    <p className="text-[length:var(--type-caption)] text-muted-foreground">{session.active ? `Expira em ${new Date(session.expires_at).toLocaleString("pt-BR")}` : session.revoked_at ? "Encerrada" : "Expirada"}</p>
                   </div>
                   {session.active && !session.current && <Button size="sm" variant="outline" onClick={() => revokeSession(session.id)}>Encerrar</Button>}
                   {session.current && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Atual</span>}
@@ -603,7 +603,7 @@ function SectionIntro({
 function Datum({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-xl bg-muted/35 p-3">
-      <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
+      <p className="text-[length:var(--type-overline)] font-medium text-muted-foreground">{label}</p>
       <p className="mt-1 truncate text-xs font-semibold" title={value}>
         {value}
       </p>
@@ -615,7 +615,7 @@ function ErrorBanner({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="flex items-start gap-2 rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-4 text-sm text-[#B42318]"
+      className="flex items-start gap-2 rounded-xl border border-[var(--color-legacy-fecdca)] bg-[var(--color-red-tint)] p-4 text-sm text-[var(--color-legacy-b42318)]"
     >
       <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
       <span>{message}</span>

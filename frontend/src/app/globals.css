@@ -3,6 +3,38 @@
 @tailwind utilities;
 
 :root {
+  --color-legacy-e9f7f0: #e9f7f0;
+  --color-legacy-287653: #287653;
+  --color-legacy-eef0ff: #eef0ff;
+  --color-legacy-3848b5: #3848b5;
+  --color-legacy-fff0ed: #fff0ed;
+  --color-legacy-b84336: #b84336;
+  --color-legacy-dce0ff: #dce0ff;
+  --color-legacy-f3f4ff: #f3f4ff;
+  --color-legacy-313e9e: #313e9e;
+  --color-legacy-e7e7ea: #e7e7ea;
+  --color-legacy-777780: #777780;
+  --color-legacy-dadadd: #dadadd;
+  --color-legacy-45454c: #45454c;
+  --color-legacy-35363a: #35363a;
+  --color-legacy-e8e3d6: #e8e3d6;
+  --color-legacy-fffcf6: #fffcf6;
+  --color-legacy-655735: #655735;
+  --color-legacy-55555c: #55555c;
+  --color-legacy-eeeef0: #eeeef0;
+  --color-legacy-f0f0f2: #f0f0f2;
+  --color-legacy-fafafa: #fafafa;
+  --color-legacy-f1f1f2: #f1f1f2;
+  --color-legacy-e7e7e9: #e7e7e9;
+  --color-legacy-66666b: #66666b;
+  --color-legacy-f7faff: #f7faff;
+  --color-legacy-1d4ed8: #1d4ed8;
+  --color-legacy-536276: #536276;
+  --color-legacy-f7f7f8: #f7f7f8;
+  --color-legacy-74747a: #74747a;
+  --color-legacy-333: #333;
+  --color-legacy-6f603b: #6f603b;
+  --color-legacy-242428: #242428;
   --color-legacy-d0d5dd: #d0d5dd;
   --color-legacy-2563eb: #2563eb;
   --color-legacy-202124: #202124;

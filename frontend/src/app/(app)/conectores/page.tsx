@@ -315,10 +315,10 @@ export default function DadosIntegracoesPage() {
                   <Plug className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{c.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[length:var(--type-caption)] text-muted-foreground">
                       {c.category || "—"} · {c.description || c.id}
                     </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
+                    <p className="mt-1 text-[length:var(--type-caption)] text-muted-foreground">
                       Status de sincronização: não informado pela API
                     </p>
                   </div>
@@ -715,7 +715,7 @@ export default function DadosIntegracoesPage() {
                     <Plug className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <span>
                       <span className="block font-semibold">{c.name}</span>
-                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      <span className="mt-0.5 block text-[length:var(--type-caption)] text-muted-foreground">
                         {c.category || "—"} · {c.description || c.id}
                       </span>
                     </span>
@@ -743,7 +743,7 @@ export default function DadosIntegracoesPage() {
                   {loading ? "Processando…" : "Ingerir e pontuar"}
                 </Button>
                 {result && (
-                  <pre className="overflow-x-auto rounded-xl bg-muted/40 p-3 text-[11px]">{result}</pre>
+                  <pre className="overflow-x-auto rounded-xl bg-muted/40 p-3 text-[length:var(--type-caption)]">{result}</pre>
                 )}
               </CardContent>
             </Card>
