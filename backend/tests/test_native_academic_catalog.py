@@ -12,10 +12,11 @@ from pydantic import ValidationError
 from sqlalchemy import text
 
 from app.api.academic_catalog import (
-    AssessmentInput, CalendarInput, CatalogBatch, LessonInput, TermInput,
+    AssessmentInput, CalendarInput, CatalogBatch, LessonInput, TermInput, list_catalog_records,
 )
 from app.api.academic_portal import _range, student_calendar, student_report_card, student_schedule
 from app.api.native_academic import PortalIdentity
+from app.core.auth import AuthContext
 from app.core.config import get_settings
 from app.models.academic_catalog import (
     AcademicAssessment, AcademicCalendarEvent, AcademicClass,
@@ -163,3 +164,34 @@ async def test_unpublished_records_never_reach_portal(
     assert schedule["items"] == []
     assert calendar["items"] == []
     assert grades["items"] == []
+
+
+async def test_catalog_pages_filter_and_isolate_tenants(tenant_factory, db_session, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "native_academic_enabled", True)
+    monkeypatch.setattr(settings, "native_academic_catalog_enabled", True)
+    a, _ = await tenant_factory(slug="catalog-page-a")
+    b, _ = await tenant_factory(slug="catalog-page-b")
+    await _setup_ies(db_session, a, suffix="p1")
+    await _setup_ies(db_session, a, suffix="p2")
+    await _setup_ies(db_session, b, suffix="private")
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": a.id})
+    auth = AuthContext(
+        tenant=a, tenant_id=a.id, tenant_slug=a.slug,
+        user_id=str(uuid4()), session_id=str(uuid4()),
+    )
+
+    async def page(query, offset=0):
+        return await list_catalog_records(
+            "programs", q=query, sort="code", desc=True, offset=offset,
+            limit=1, auth=auth, db=db_session,
+        )
+
+    first = await page("curso")
+    second = await page("curso", offset=1)
+    assert [row["code"] for row in first["items"]] == ["P-p2"]
+    assert first["has_more"] is True
+    assert [row["code"] for row in second["items"]] == ["P-p1"]
+    assert second["has_more"] is False
+    assert (await page("private"))["items"] == []
+    assert (await page("%"))["items"] == []

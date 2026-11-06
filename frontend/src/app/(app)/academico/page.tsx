@@ -313,13 +313,13 @@ export default function AcademicManagementPage() {
       <div className="grid gap-5 lg:grid-cols-[1fr_370px]">
         <section className="space-y-5">
           <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:programs`}
-            title="Cursos" records={overview.data.programs} total={overview.data.counts.programs} />
+            title="Cursos" resource="programs" load={staffRequest} tenant={me.data?.tenant_id} user={me.data?.user_id} total={overview.data.counts.programs} />
           <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:subjects`}
-            title="Disciplinas" records={overview.data.subjects} total={overview.data.counts.subjects} />
+            title="Disciplinas" resource="subjects" load={staffRequest} tenant={me.data?.tenant_id} user={me.data?.user_id} total={overview.data.counts.subjects} />
           <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:teachers`}
-            title="Professores" records={overview.data.teachers} total={overview.data.counts.teachers} />
+            title="Professores" resource="teachers" load={staffRequest} tenant={me.data?.tenant_id} user={me.data?.user_id} total={overview.data.counts.teachers} />
           <AcademicCatalogTable key={`${me.data?.tenant_id}:${me.data?.user_id}:terms`}
-            title="Períodos letivos" records={overview.data.terms} total={overview.data.counts.terms} />
+            title="Períodos letivos" resource="terms" load={staffRequest} tenant={me.data?.tenant_id} user={me.data?.user_id} total={overview.data.counts.terms} />
           {canPublish && <div className="rounded-xl border border-[#E4E7EC] bg-white p-5">
             <h2 className="text-[14px] font-semibold">Publicações pendentes</h2>
             <p className="mt-1 text-[11px] text-[#98A2B3]">Aulas, eventos, avaliações e notas exigem aprovação explícita.</p>

@@ -11,9 +11,9 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -211,6 +211,47 @@ def _fields(item: BaseModel) -> dict:
         key: str(value) if isinstance(value, UUID) else value
         for key, value in item.model_dump(exclude_none=True).items()
     }
+
+
+CatalogResource = Literal["programs", "subjects", "teachers", "terms"]
+CATALOG_LISTS = {
+    "programs": (AcademicProgram, AcademicProgram.name, AcademicProgram.code),
+    "subjects": (AcademicSubject, AcademicSubject.name, AcademicSubject.code),
+    "teachers": (AcademicTeacher, AcademicTeacher.display_name, AcademicTeacher.staff_code),
+    "terms": (AcademicTerm, AcademicTerm.label, AcademicTerm.code),
+}
+
+
+@router.get("/records/{resource}")
+async def list_catalog_records(
+    resource: CatalogResource,
+    q: str = Query("", max_length=180),
+    sort: Literal["name", "code", "status"] = "name",
+    desc: bool = False,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    _human(auth)
+    await _require_ies(db, auth)
+    model, name, code = CATALOG_LISTS[resource]
+    statement = select(model.id, name.label("name"), code.label("code"), model.status).where(
+        model.tenant_id == auth.tenant_id,
+    )
+    if search := q.strip():
+        statement = statement.where(or_(
+            name.icontains(search, autoescape=True),
+            code.icontains(search, autoescape=True),
+            model.status.icontains(search, autoescape=True),
+        ))
+    column = {"name": name, "code": code, "status": model.status}[sort]
+    rows = (await db.execute(
+        statement.order_by(column.desc() if desc else column.asc(), model.id)
+        .offset(offset).limit(limit + 1)
+    )).mappings().all()
+    return {"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit}
 
 
 @router.get("/overview")

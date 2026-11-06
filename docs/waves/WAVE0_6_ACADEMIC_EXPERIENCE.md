@@ -18,8 +18,8 @@ O overview atual retorna totais institucionais e limita a prévia a 50 cursos, 5
 
 Os modelos relacionais, as permissões do backend, as regras de publicação e as flags acadêmicas continuam sob os contratos existentes. A entrega não requer migration. A integração de registros com procedência do Data Hub e a validação do Portal ficam para as etapas seguintes.
 
-Cursos, disciplinas, professores e períodos agora reutilizam a tabela do Object Index, com busca e ordenação dentro da prévia. Os totais continuam vindo do backend.
+Cursos, disciplinas, professores e períodos agora reutilizam a tabela do Object Index, com busca, ordenação e páginas de 25 registros no servidor. O endpoint reutiliza a autorização institucional e filtra por tenant antes de aplicar a paginação. Os totais gerais continuam vindo do overview. Turmas e seletores dos formulários continuam sujeitos aos limites da prévia.
 
 ## Gates pendentes
 
-Paginação no servidor, visões salvas para os demais objetos, registros acadêmicos completos, refinamento das operações de sala e dos serviços, testes com dados sintéticos e duas instituições, validação de permissões, CI no HEAD final e verificação de release antes do merge.
+Paginação de turmas e seletores, visões salvas para os demais objetos, registros acadêmicos completos, refinamento das operações de sala e dos serviços, testes com dados sintéticos e duas instituições, validação de permissões, CI no HEAD final e verificação de release antes do merge.
