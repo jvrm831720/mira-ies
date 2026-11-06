@@ -115,8 +115,8 @@ def _verify_remote_account(
     if remote_toolkit and remote_toolkit != expected_toolkit:
         raise ConnectionDenied("Toolkit da conta remota diverge do toolkit autorizado no state.")
 
-    status = (remote.get("status") or "active").lower()
-    if status in {"revoked", "expired", "disabled"}:
+    status = (remote.get("status") or "unknown").lower().split(".")[-1]
+    if status != "active":
         raise ConnectionDenied(f"Conta remota não está ativa (status={status}).")
 
     return remote
@@ -332,7 +332,7 @@ async def list_tenant_accounts(
             local = local_rows.get(account_id)
             status = (remote_item.get("status") or "active").lower()
             if status not in {"active", "expired", "revoked", "error"}:
-                status = "active"
+                status = "error"
             toolkit = (remote_item.get("toolkit_slug") or "unknown").lower()
             if local is None:
                 db.add(

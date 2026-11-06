@@ -34,3 +34,16 @@ async def test_onboarding_connection_never_bypasses_global_allowlist(monkeypatch
             auth_config_id="ac_gmail", require_tool_policy=False,
         )
     db.execute.assert_not_awaited()
+
+
+def test_incomplete_remote_oauth_does_not_count_as_connected(monkeypatch):
+    def remote(_id):
+        return {"connected_account_id": "ca_123", "toolkit_slug": "gmail",
+                "user_id": "tenant-opaque", "status": "initiated"}
+    monkeypatch.setattr(connection_service, "get_connected_account", remote)
+    with pytest.raises(ConnectionDenied, match="não está ativa"):
+        connection_service._verify_remote_account(
+            connected_account_id="ca_123",
+            expected_user_id="tenant-opaque",
+            expected_toolkit="gmail",
+        )

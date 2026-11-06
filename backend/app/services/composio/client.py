@@ -166,14 +166,14 @@ def _normalize_account_row(item: Any) -> dict[str, Any] | None:
         toolkit = toolkit.get("slug")
     if not toolkit:
         toolkit = row.get("appName") or row.get("app_name")
-    status = row.get("status") or getattr(item, "status", None) or "active"
+    status = row.get("status") or getattr(item, "status", None) or "unknown"
     user_id = row.get("user_id") or row.get("userId") or row.get("entity_id")
     return {
         "connected_account_id": account_id.strip(),
         "toolkit_slug": str(toolkit).strip().lower() if toolkit else "unknown",
         "auth_config_id": row.get("auth_config_id") or row.get("authConfigId"),
         "display_name": row.get("display_name") or row.get("alias") or row.get("name"),
-        "status": str(status).strip().lower(),
+        "status": str(status).strip().lower().split(".")[-1],
         "user_id": str(user_id).strip() if user_id else None,
     }
 
