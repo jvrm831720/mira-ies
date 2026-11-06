@@ -8,7 +8,8 @@ import {
   Database, GraduationCap, LockKeyhole, ShieldCheck, UploadCloud,
 } from "@/components/ui/icons";
 import { api } from "@/lib/api";
-import { setAccessToken } from "@/lib/auth";
+import { getAccessToken, setAccessToken } from "@/lib/auth";
+import { OnboardingIntegrationSetup } from "./onboarding-integration-setup";
 import { completeOrganizationOnboarding, enrichOnboarding, type OnboardingEnrichment } from "@/lib/onboarding-api";
 import { corporateDomain, isValidCnpj, maskCnpj, publicCompanyDescription, plausiblePublicWebsite } from "@/lib/onboarding-flow.mjs";
 
@@ -28,15 +29,8 @@ const EMPTY: FormData = {
   organizationName: "", tradeName: "", cnpj: "", website: "",
   description: "", firstName: "", lastName: "", dataSources: [],
 };
-const STEPS: Step[] = ["workspace", "description", "name", "integrations", "trial"];
-const SOURCE_OPTIONS = [
-  { id: "sponte", name: "Sponte", category: "Gestão acadêmica" },
-  { id: "sophia", name: "Sophia", category: "Gestão acadêmica" },
-  { id: "totvs_rm", name: "TOTVS RM", category: "Gestão e ERP" },
-  { id: "moodle", name: "Moodle", category: "Ambiente de aprendizagem" },
-  { id: "omie", name: "Omie", category: "Financeiro" },
-  { id: "spreadsheets", name: "Planilhas", category: "Importação de dados" },
-] as const;
+const STEPS: Step[] = ["workspace", "description", "name", "trial", "integrations"];
+
 
 function InputField({ id, label, children, note }: {
   id: string; label: string; children: React.ReactNode; note?: string;
@@ -81,6 +75,7 @@ export function ConversationalOnboarding() {
   const email = (params.get("email") || "").trim().toLowerCase();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [token, setToken] = useState("");
+  const [connectedPhase, setConnectedPhase] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [step, setStep] = useState<Step>("workspace");
   const [form, setForm] = useState<FormData>(EMPTY);
@@ -122,7 +117,9 @@ export function ConversationalOnboarding() {
       window.sessionStorage.removeItem("mira_onboarding_pending_mfa:" + email);
     }
     const verifiedToken = window.sessionStorage.getItem("mira_onboarding_token") || "";
-    if (!verifiedToken) { setInitialized(true); return; }
+    const resumedConnections = window.sessionStorage.getItem("mira_onboarding_connect_email") === email && !!getAccessToken();
+    if (!verifiedToken && !resumedConnections) { setInitialized(true); return; }
+    if (resumedConnections) setConnectedPhase(true);
     setToken(verifiedToken);
     const saved = window.sessionStorage.getItem("mira_onboarding_draft_v3:" + email);
     if (saved) {
@@ -133,6 +130,7 @@ export function ConversationalOnboarding() {
         if (draft.siteRevealed) { setSiteRevealed(true); setSiteStatus("manual"); }
       } catch { window.sessionStorage.removeItem("mira_onboarding_draft_v3:" + email); }
     }
+    if (resumedConnections) setStep("integrations");
     setInitialized(true);
   }, [email]);
 
@@ -187,7 +185,7 @@ export function ConversationalOnboarding() {
   }, [initialized, token, email, step, securityStep, siteRevealed, form.cnpj, enrichment?.company?.cnpj]);
 
   useEffect(() => {
-    if (!initialized || !token || securityStep) return;
+    if (!initialized || !token || securityStep || connectedPhase) return;
     window.sessionStorage.setItem(draftKey, JSON.stringify({ step, form, siteRevealed }));
   }, [initialized, token, draftKey, form, step, securityStep, siteRevealed]);
   useEffect(() => { if (initialized && !securityStep) headingRef.current?.focus(); }, [initialized, securityStep, step]);
@@ -203,7 +201,7 @@ export function ConversationalOnboarding() {
   }
 
   function back() {
-    if (busy || siteStatus === "searching") return;
+    if (busy || siteStatus === "searching" || connectedPhase) return;
     if (currentIndex === 0) { router.replace("/login"); return; }
     navigate(STEPS[currentIndex - 1]);
   }
@@ -278,8 +276,9 @@ export function ConversationalOnboarding() {
         logo_data_url: logoDataUrl,
         auto_logo: !logoDataUrl && siteStatus === "done" && !!form.website,
       });
+      window.sessionStorage.setItem("mira_onboarding_connect_email", email);
+      setConnectedPhase(true);
       window.sessionStorage.removeItem("mira_onboarding_token");
-      window.sessionStorage.removeItem(draftKey);
       if ("challenge_token" in result) {
         setMfaTicket(result.challenge_token);
         const nextSecurityStep = "mfa_enrollment_required" in result && result.mfa_enrollment_required
@@ -298,7 +297,7 @@ export function ConversationalOnboarding() {
           setSecurityStep("verify");
         }
       } else {
-        router.replace("/");
+        setStep("integrations");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível criar seu workspace. Tente novamente.");
@@ -317,11 +316,13 @@ export function ConversationalOnboarding() {
         ? await api.confirmRequiredMfaEnrollment(mfaTicket, mfaCode)
         : await api.verifyMfaLogin(mfaTicket, mfaCode);
       setAccessToken(result.access_token);
+      setConnectedPhase(true);
       window.sessionStorage.removeItem("mira_onboarding_pending_mfa:" + email);
       if ("recovery_codes" in result && Array.isArray(result.recovery_codes) && result.recovery_codes.length) {
         setRecoveryCodes(result.recovery_codes);
       } else {
-        router.replace("/");
+        setSecurityStep(null);
+        setStep("integrations");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Código inválido ou expirado.");
@@ -342,7 +343,7 @@ export function ConversationalOnboarding() {
   if (!initialized) {
     return <main className="mira-flow-page"><div className="mira-flow-initial" role="status">Preparando seu workspace…</div></main>;
   }
-  if (!email || (!token && !securityStep)) {
+  if (!email || (!token && !securityStep && !connectedPhase)) {
     return (
       <main className="mira-flow-page">
         <div className="mira-flow-expired">
@@ -373,7 +374,7 @@ export function ConversationalOnboarding() {
                     <p>Guarde esses códigos em um local seguro. Eles serão mostrados apenas uma vez.</p>
                     <div className="mira-flow-recovery">{recoveryCodes.map((item) => <code key={item}>{item}</code>)}</div>
                     <button type="button" className="mira-flow-secondary" onClick={() => void navigator.clipboard.writeText(recoveryCodes.join("\n"))}>Copiar códigos</button>
-                    <button type="button" className="mira-flow-primary" onClick={() => router.replace("/")}>Já guardei — entrar</button>
+                    <button type="button" className="mira-flow-primary" onClick={() => { setRecoveryCodes(null); setSecurityStep(null); setStep("integrations"); }}>Já guardei — continuar</button>
                   </>
                 ) : (
                   <>
@@ -414,15 +415,15 @@ export function ConversationalOnboarding() {
                     {step === "workspace" ? <TypingText text="Criar seu workspace" /> :
                       step === "description" ? (publicCompanyDescription(enrichment) ? "Encontramos informações sobre sua empresa." : "Conte um pouco sobre sua empresa.") :
                       step === "name" ? "E como você prefere que te chamem?" :
-                      step === "integrations" ? (form.firstName || "Agora") + ", vamos falar das suas ferramentas." :
-                      "Seu workspace está quase pronto."}
+                      step === "integrations" ? (form.firstName || "Agora") + ", vamos conectar suas ferramentas." :
+                      "Vamos proteger seu workspace."}
                   </h1>
                   <p>
                     {step === "workspace" ? "Qual é o site da sua organização? Vamos encontrar os dados automaticamente." :
                       step === "description" ? "Esta descrição ajuda a entender a operação. Confirme ou edite antes de continuar." :
                       step === "name" ? "Assim, podemos deixar sua experiência mais pessoal, sem formulários longos." :
-                      step === "integrations" ? "Indique os sistemas que já utiliza. As conexões são configuradas depois, com sua autorização." :
-                      "Vamos criar seu ambiente com as informações confirmadas. Nenhuma cobrança será iniciada."}
+                      step === "integrations" ? "Autorize suas conexões agora ou continue sem elas. Você poderá adicionar mais contas depois." :
+                      "Crie sua organização e confirme o MFA antes de conectar seus aplicativos. Nenhuma cobrança será iniciada."}
                   </p>
                 </div>
 
@@ -523,23 +524,11 @@ export function ConversationalOnboarding() {
                   )}
 
                   {step === "integrations" && (
-                    <>
-                      <p className="mira-flow-card-label">Ferramentas da sua organização</p>
-                      <div className="mira-flow-tool-list">
-                        {SOURCE_OPTIONS.map((source) => {
-                          const selected = form.dataSources.includes(source.id);
-                          return (
-                            <button type="button" key={source.id} aria-pressed={selected} className={"mira-flow-tool" + (selected ? " selected" : "")}
-                              onClick={() => update("dataSources", selected ? form.dataSources.filter((v) => v !== source.id) : [...form.dataSources, source.id])}>
-                              <span className="mira-flow-tool-icon"><Database size={15} /></span>
-                              <span className="mira-flow-tool-copy"><strong>{source.name}</strong><small>{source.category}</small></span>
-                              <span className="mira-flow-tool-indicator">{selected ? <Check size={15} /> : "+"}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="mira-flow-note">A seleção não conecta nem sincroniza dados. As integrações e seus escopos serão configurados no workspace.</p>
-                    </>
+                    <OnboardingIntegrationSetup onComplete={() => {
+                      window.sessionStorage.removeItem("mira_onboarding_connect_email");
+                      window.sessionStorage.removeItem(draftKey);
+                      router.replace("/");
+                    }} />
                   )}
 
                   {step === "trial" && (
@@ -548,28 +537,28 @@ export function ConversationalOnboarding() {
                       <div className="mira-flow-finish-summary">
                         <span><CheckCircle2 size={16} /> Empresa: {previewName}</span>
                         <span><CheckCircle2 size={16} /> Perfil de acesso: {form.firstName} {form.lastName}</span>
-                        <span><CheckCircle2 size={16} /> Fontes selecionadas: {form.dataSources.length}</span>
+                        <span><CheckCircle2 size={16} /> Conexões opcionais após o MFA</span>
                       </div>
                       <div className="mira-flow-trial-note">
-                        <strong>Sobre os 7 dias de Pro</strong>
-                        <p>A oferta de boas-vindas ainda não foi habilitada para concessão automática. Nenhum trial ou cobrança será ativado nesta etapa.</p>
+                        <strong>Segurança antes das conexões</strong>
+                        <p>Crie o workspace e configure o autenticador. Em seguida, autorize as conexões reais sem ativar sincronizações automaticamente.</p>
                       </div>
                     </>
                   )}
 
                   {error && <p className="mira-flow-error" role="alert">{error}</p>}
-                  <div className="mira-flow-card-actions">
+                  {step !== "integrations" && <div className="mira-flow-card-actions">
                     <button type="button" className="mira-flow-back" onClick={back} disabled={busy || siteStatus === "searching"}><ArrowLeft size={14} /> Voltar</button>
                     {step === "trial" ? (
                       <button type="button" className="mira-flow-primary" disabled={busy} onClick={() => void finish()}>
-                        {busy ? "Criando…" : "Criar workspace"} <ArrowRight size={14} />
+                        {busy ? "Criando…" : "Criar e proteger workspace"} <ArrowRight size={14} />
                       </button>
                     ) : (
                       <button type="button" className="mira-flow-primary" disabled={busy || siteStatus === "searching" || (step === "workspace" && !siteRevealed)} onClick={next}>
-                        {step === "integrations" && !form.dataSources.length ? "Fazer isso depois" : "Confirmar"} <ArrowRight size={14} />
+                        {"Continuar"} <ArrowRight size={14} />
                       </button>
                     )}
-                  </div>
+                  </div>}
                 </div>
               </>
             )}
@@ -599,7 +588,7 @@ export function ConversationalOnboarding() {
               </div>
             </div>
           </div>
-          <p className="mira-flow-preview-caption">Esta é uma prévia de estrutura. Nenhum dado ou conexão foi criado ainda.</p>
+          <p className="mira-flow-preview-caption">{connectedPhase ? "Workspace criado. Conexões autorizadas individualmente, sem sincronização automática." : "Esta é uma prévia de estrutura. Nenhum dado ou conexão foi criado ainda."}</p>
         </aside>
       </div>
     </main>
