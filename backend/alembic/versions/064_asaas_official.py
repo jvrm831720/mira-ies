@@ -118,10 +118,10 @@ def upgrade():
           FOR EACH ROW EXECUTE FUNCTION mira_asaas_history_immutable()""")
 
 def downgrade():
-    op.drop_column("mira_asaas_workspace_destinations","verified_environment")
-    for name in ("mira_asaas_webhook_events","mira_asaas_webhook_applications"):
+    for name in ("mira_asaas_webhook_events","mira_asaas_webhook_applications","mira_asaas_destination_reviews"):
         op.execute(f"DROP TRIGGER IF EXISTS {name}_immutable ON {name}")
     op.execute("DROP FUNCTION IF EXISTS mira_asaas_history_immutable()")
     op.execute("DROP FUNCTION IF EXISTS mira_asaas_resolve_payment(text)")
     for name in ("mira_asaas_destination_reviews","mira_asaas_webhook_applications","mira_asaas_webhook_events","mira_asaas_charges","mira_asaas_customer_bindings"):
         op.drop_table(name)
+    op.drop_column("mira_asaas_workspace_destinations","verified_environment")

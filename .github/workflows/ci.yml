@@ -85,7 +85,7 @@ jobs:
           -- Legacy 002/004 bootstrap create_all uses the current ORM metadata.
           -- Remove later-wave tables/columns before replaying revisions 039..head.
           DROP TABLE IF EXISTS
-            mira_asaas_webhook_applications, mira_asaas_webhook_events,
+            mira_asaas_destination_reviews, mira_asaas_webhook_applications, mira_asaas_webhook_events,
             mira_asaas_charges, mira_asaas_customer_bindings,
             mira_student_payment_evidence, mira_student_payment_intents,
             mira_payment_provider_profiles, mira_asaas_workspace_destinations,
@@ -232,6 +232,7 @@ jobs:
             END IF;
             IF EXISTS (
               SELECT 1 FROM (VALUES
+                ('mira_asaas_destination_reviews'),
                 ('mira_asaas_customer_bindings'),
                 ('mira_asaas_charges'),
                 ('mira_asaas_webhook_events'),
@@ -249,8 +250,9 @@ jobs:
             END IF;
             IF (SELECT count(*) FROM pg_trigger WHERE tgname IN (
               'mira_asaas_webhook_events_immutable',
-              'mira_asaas_webhook_applications_immutable'
-            ) AND NOT tgisinternal) <> 2 THEN
+              'mira_asaas_webhook_applications_immutable',
+              'mira_asaas_destination_reviews_immutable'
+            ) AND NOT tgisinternal) <> 3 THEN
               RAISE EXCEPTION 'Wave 4D-B Asaas immutable event log trigger missing';
             END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='mira_asaas_resolve_payment') THEN
