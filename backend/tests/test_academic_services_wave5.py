@@ -132,7 +132,7 @@ async def test_wave5_isolated_staff_queue_and_student_portal_comment_visibility(
     notifications = await portal_notifications(identity=a[6], db=db_session)
     assert any(n["event_key"] == "comment" for n in notifications["items"])
     await portal_comment(UUID(a[4].id), CommentPayload(body="Obrigado!"), request=SimpleNamespace(
-        headers={"X-Mira-Portal-Action": "1"},
+        headers={"x-mira-portal-action": "1"},
     ), identity=a[6], db=db_session)
     assert len((await institution_detail(UUID(a[4].id), auth=a[5], db=db_session))["comments"]) == 3
 
