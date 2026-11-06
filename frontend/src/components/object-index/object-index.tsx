@@ -6,6 +6,7 @@ import {
   Check, ChevronDown, ChevronRight, Filter, Layers, Plus, RefreshCw, Search, X,
 } from "@/components/ui/icons";
 import { api } from "@/lib/api";
+import { Dialog } from "@/components/ui/dialog";
 import {
   createSavedObjectView, deleteSavedObjectView, listSavedObjectViews, updateSavedObjectView,
 } from "@/lib/object-index-api";
@@ -405,26 +406,23 @@ export function ObjectIndex<T extends { id: string }>({
       </footer>
     </>}
 
-    {(editingView || viewError) && <div role="dialog" aria-modal="true" aria-label="Salvar visualização"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--color-ink)]/35 p-4">
+    <Dialog open={Boolean(editingView || viewError)}
+      onOpenChange={open => { if (!open) { setEditingView(null); setViewError(""); } }}
+      title={editingView === "rename" ? "Renomear visualização" : "Salvar visualização pessoal"}
+      description="Uma configuração pessoal, sem armazenar os dados consultados."
+      className="max-w-[420px]">
       <form onSubmit={event => { event.preventDefault(); if (editingView) saveView(editingView); }}
-        className="w-full max-w-[380px] space-y-4 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-overlay)]">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold"> {editingView === "rename" ? "Renomear visualização" : "Salvar visualização pessoal"} </h2>
-          <button type="button" onClick={() => { setEditingView(null); setViewError(""); }}
-            aria-label="Fechar" className="rounded-md p-1 hover:bg-[var(--color-panel)]"><X className="h-4 w-4" /></button>
-        </div>
+        className="space-y-4">
         {editingView && <label className="block text-[12px] text-[var(--color-slate-600)]">Nome
           <input autoFocus value={viewName} maxLength={80} onChange={event => setViewName(event.target.value)}
             className="mt-1 h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[13px] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]" />
         </label>}
-        <p className="text-[11px] text-[var(--color-muted)]">Somente você pode acessar esta configuração. Nenhum dado da consulta será armazenado.</p>
         {viewError && <p role="alert" className="text-[12px] text-[var(--color-red)]">{viewError}</p>}
         {editingView && <button type="submit" disabled={save.isPending || updateSaved.isPending}
           className="h-9 w-full rounded-[var(--radius-md)] bg-[var(--color-ink)] px-4 text-[12px] font-medium text-white disabled:opacity-50">
           {save.isPending || updateSaved.isPending ? "Salvando…" : "Salvar"}
         </button>}
       </form>
-    </div>}
+    </Dialog>
   </section>;
 }
