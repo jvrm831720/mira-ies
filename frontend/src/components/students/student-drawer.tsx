@@ -11,6 +11,9 @@ import { RecordProperties } from "@/components/record/record-properties";
 import { RecordRelations } from "@/components/record/record-relations";
 import { RecordSections } from "@/components/record/record-sections";
 import { StudentRecordActivity } from "@/components/record/student-record-activity";
+import { StudentRiskTrend } from "./risk-trend";
+import { StudentCampaignsPanel } from "./student-campaigns-panel";
+import { StudentRiskFactors } from "./student-risk-factors";
 import { studentPropertyGroups, studentRecordIdentity, studentRelations } from "@/components/record/student-record-data";
 import type { CommunicationChannel, CommunicationPreferences, CommunicationTopic,
   CommunicationPreferenceUpdate, ConsentAuditEvent } from "@/types/api";
@@ -58,6 +61,7 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
   const me=useQuery({queryKey:["org-me"],queryFn:api.me,retry:false,staleTime:60_000});
   const canRead=getVisibleNavigation(me.data).some(group=>group.items.some(item=>item.href==="/alunos"));
   const canSensitive=hasNavigationPermission(me.data,"students.sensitive.view");
+  const canCampaigns=hasNavigationPermission(me.data,"campaigns.view");
   const q=useQuery({
     queryKey:["student-risk",studentId],queryFn:()=>api.studentRisk(studentId!),
     enabled:open&&canRead&&Boolean(studentId),retry:false,staleTime:30_000,
@@ -66,7 +70,7 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
   const record=studentId?studentRecordIdentity(studentId,q.data):null;
   const groups=q.data?studentPropertyGroups(q.data,canSensitive):[];
   const sections=[
-    {id:"summary",label:"Resumo",content:me.isLoading||q.isLoading?<div role="status" className="space-y-3"><Skeleton className="h-20 w-full"/><Skeleton className="h-28 w-full"/></div>
+    {id:"summary",label:"Resumo da IA",content:me.isLoading||q.isLoading?<div role="status" className="space-y-3"><Skeleton className="h-20 w-full"/><Skeleton className="h-28 w-full"/></div>
       : me.isError||!canRead?<p role="alert" className="text-[12px] text-[var(--color-red)]">Este perfil não tem acesso à ficha do aluno.</p>
       : q.isError?<div role="alert" className="space-y-3 text-[12px] text-[var(--color-slate-600)]">Não foi possível abrir o aluno.
           <button type="button" onClick={()=>void q.refetch()} className="ml-2 text-[var(--color-blue)]">Tentar novamente</button></div>
@@ -77,14 +81,18 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
             {typeof q.data.risk_score==="number"&&Number.isFinite(q.data.risk_score)?Math.round(q.data.risk_score):"Não calculado"}
           </span></p>
           {q.data.risk_score==null&&<p className="text-[11px] text-[var(--color-muted)]">Sem score não significa baixo risco.</p>}
-        </div>}
+          {studentId&&<StudentRiskTrend studentId={studentId}/>}
+        </div>
+        {canSensitive&&<StudentRiskFactors student={q.data}/>}
+}
         <RecordProperties groups={groups.filter(group=>group.id==="identification"||(canSensitive&&group.id==="risk"))} compact />
         <RecordRelations relations={studentRelations(q.data)}/>
       </div>:null},
-    {id:"academic",label:"Acadêmico",content:canSensitive&&q.data
+    {id:"academic",label:"Acadêmico e financeiro",content:canSensitive&&q.data
       ?<RecordProperties groups={groups.filter(group=>group.id==="academic"||group.id==="finance")} compact />
       :<p className="rounded-[var(--radius-md)] bg-[var(--color-panel)] p-4 text-[12px] text-[var(--color-muted)]">Indicadores restritos ou indisponíveis.</p>},
-    {id:"activity",label:"Atividade",content:studentId?<StudentRecordActivity studentId={studentId} canView={canSensitive&&canRead}/>:null},
+    {id:"activity",label:"Timeline de contatos",content:studentId?<StudentRecordActivity studentId={studentId} canView={canSensitive&&canRead}/>:null},
+    {id:"campaigns",label:"Campanhas",content:studentId?<StudentCampaignsPanel studentId={studentId} canView={canRead&&canCampaigns&&canSensitive}/>:null},
     {id:"contact",label:"Contato",content:q.data&&canRead?<div className="space-y-4">
       <RecordProperties compact groups={[{id:"contact",title:"Contato cadastrado",properties:[
         {key:"phone",label:"Telefone",value:q.data.telefone},{key:"email",label:"E-mail",value:q.data.email},
