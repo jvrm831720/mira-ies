@@ -24,6 +24,7 @@ export function Dialog({
   className,
   dismissible = true,
 }: DialogProps) {
+  const dialogRef = React.useRef<HTMLDivElement>(null);
   const titleId = React.useId();
   const descId = React.useId();
 
@@ -32,11 +33,30 @@ export function Dialog({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && dismissible) onOpenChange(false);
     };
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+    ) || []);
+    const onTrap = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const controls = focusable();
+      if (!controls.length) { event.preventDefault(); dialogRef.current?.focus(); return; }
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    dialogRef.current?.focus();
     document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onTrap);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onTrap);
+      previousFocus?.focus();
       document.body.style.overflow = prev;
     };
   }, [open, dismissible, onOpenChange]);
@@ -53,12 +73,14 @@ export function Dialog({
         onClick={() => dismissible && onOpenChange(false)}
       />
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
         className={cn(
-          "relative z-10 flex max-h-[min(92vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[24px] border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-[var(--shadow-overlay)] sm:rounded-[24px]",
+          "relative z-10 flex max-h-[min(92vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[var(--radius-card)] border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-[var(--shadow-overlay)] sm:rounded-[var(--radius-card)]",
           className
         )}
       >

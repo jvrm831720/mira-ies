@@ -23,7 +23,7 @@ from app.models.auth import OrganizationInvite, TenantRole, TenantRoleAudit, Use
 from app.api.mfa import create_login_challenge
 from app.core.mfa_policy import user_requires_mfa
 from app.core.user_sessions import create_user_session
-from app.models.organization import Membership, Organization
+from app.models.organization import Membership, Organization, ModuleEntitlement
 from app.models.tenant import Tenant
 from app.services.membership import ensure_membership, get_membership_for_tenant, list_active_memberships
 
@@ -511,7 +511,25 @@ async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession =
         operation_profile = "institution" if segment in (
             "higher_education", "institution", "university", "ies",
         ) else (segment or "unknown")
+    # Server-authoritative active entitlements for the current workspace only.
+    # This additive field lets clients hide disabled modules without modifying auth.
+    now = _now()
+    entitlements = (await db.execute(
+        select(ModuleEntitlement.module_key).where(
+            ModuleEntitlement.tenant_id == auth.tenant_id,
+            ModuleEntitlement.status.in_(("enabled", "trial")),
+            (ModuleEntitlement.expires_at.is_(None) | (ModuleEntitlement.expires_at > now)),
+        )
+    )).scalars().all()
+    flags = get_settings()
+    available_features = {
+        "academic_catalog": bool(flags.native_academic_enabled and flags.native_academic_catalog_enabled),
+        "academic_services": bool(flags.native_academic_enabled and flags.student_portal_enabled and flags.native_academic_services_enabled),
+        "academic_operations": bool(flags.native_academic_enabled and flags.native_academic_catalog_enabled and flags.native_academic_operations_enabled),
+    }
     return {
+        "available_features": available_features,
+        "enabled_modules": sorted(set(entitlements)),
         "operation_profile": operation_profile,
         "tenant_id": auth.tenant_id,
         "tenant_name": auth.tenant.name,
