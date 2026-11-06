@@ -84,7 +84,6 @@ export function StudentDrawer({ studentId, onClose }: {studentId: string|null;on
           {studentId&&<StudentRiskTrend studentId={studentId}/>}
         </div>
         {canSensitive&&<StudentRiskFactors student={q.data}/>}
-}
         <RecordProperties groups={groups.filter(group=>group.id==="identification"||(canSensitive&&group.id==="risk"))} compact />
         <RecordRelations relations={studentRelations(q.data)}/>
       </div>:null},
