@@ -8,6 +8,17 @@ type ServiceRequest = {
 };
 type Document = { id: string; title: string; kind: string; published_at: string | null };
 type Financial = { id: string; label: string; amount: string; currency: string; status: string; observed_at: string };
+type StudentAsaasCharge = {
+  id: string; method: "pix" | "boleto"; amount: string; currency: string;
+  payment_received_verified: boolean; split_settled_verified: boolean;
+  environment: "sandbox" | "production";
+};
+type PaymentInstructions = {
+  method: "pix" | "boleto";
+  copy_and_paste?: string;
+  expiration_date?: string | null;
+  identification_field?: string;
+};
 type View = "requests" | "documents" | "financial";
 
 async function serviceFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -55,6 +66,8 @@ export function StudentServicesPanel() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [financial, setFinancial] = useState<Financial[]>([]);
+  const [asaasCharges, setAsaasCharges] = useState<StudentAsaasCharge[]>([]);
+  const [paymentInstructions, setPaymentInstructions] = useState<PaymentInstructions | null>(null);
   const [category, setCategory] = useState("declaration");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -83,6 +96,32 @@ export function StudentServicesPanel() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [view]);
+
+  useEffect(() => {
+    if (view !== "financial") return;
+    let active = true;
+    setPaymentInstructions(null);
+    fetch("/api/v1/student-portal/services/asaas/charges", {
+      cache: "no-store", credentials: "same-origin",
+    }).then((r) => r.ok ? r.json() as Promise<{ items: StudentAsaasCharge[] }> : { items: [] })
+      .then((value) => { if (active) setAsaasCharges(value.items); })
+      .catch(() => { if (active) setAsaasCharges([]); });
+    return () => { active = false; };
+  }, [view]);
+
+  async function showPayment(charge: StudentAsaasCharge) {
+    setMessage(null); setPaymentInstructions(null);
+    try {
+      const result = await fetch(
+        "/api/v1/student-portal/services/asaas/charges/" + encodeURIComponent(charge.id) + "/instructions",
+        { cache: "no-store", credentials: "same-origin" },
+      );
+      if (!result.ok) throw new Error("Instruções de pagamento indisponíveis.");
+      setPaymentInstructions(await result.json() as PaymentInstructions);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Não foi possível consultar as instruções.");
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -213,7 +252,7 @@ export function StudentServicesPanel() {
           </div>}
         </>}
         {!loading && view === "financial" && <>
-          <p className="text-[12px] text-[#667085]">Dados informativos sincronizados de fontes homologadas. Nenhum pagamento é iniciado aqui.</p>
+          <p className="text-[12px] text-[#667085]">Dados importados são informativos. Cobranças oficiais da Asaas aparecem separadamente, somente após emissão autorizada.</p>
           <ul className="divide-y divide-[#EAECF0]">
             {financial.map((item) => <li key={item.id} className="flex justify-between gap-3 py-3 text-[12px]">
               <div><p className="font-medium">{item.label}</p><p className="text-[#667085]">{item.status}</p></div>
@@ -221,6 +260,35 @@ export function StudentServicesPanel() {
             </li>)}
           </ul>
           {financial.length === 0 && <p className="text-[12px] text-[#667085]">Nenhuma informação financeira disponível.</p>}
+          {asaasCharges.length > 0 && <div className="mt-5 border-t border-[#EAECF0] pt-4">
+            <h3 className="text-[13px] font-semibold text-[#344054]">Cobranças oficiais Asaas</h3>
+            <p className="mt-1 text-[11px] text-[#667085]">Pagamento recebido e repasse para a instituição são confirmações distintas.</p>
+            <ul className="mt-2 divide-y divide-[#EAECF0]">
+              {asaasCharges.map((charge) => <li key={charge.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div>
+                  <p className="text-[12px] font-medium text-[#344054]">
+                    {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(charge.amount))} · {charge.method === "pix" ? "Pix" : "Boleto"}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#667085]">
+                    {charge.split_settled_verified ? "Repasse à instituição confirmado" :
+                      charge.payment_received_verified ? "Pagamento recebido; repasse pendente" :
+                      "Aguardando pagamento"}
+                  </p>
+                  {charge.environment === "sandbox" && <p className="text-[11px] text-[#B54708]">Ambiente de teste</p>}
+                </div>
+                {!charge.payment_received_verified && <button className="text-[12px] font-semibold text-[#2563EB]"
+                  onClick={() => void showPayment(charge)}>Consultar {charge.method === "pix" ? "Pix" : "boleto"}</button>}
+              </li>)}
+            </ul>
+            {paymentInstructions && <div className="rounded-lg border border-[#EAECF0] bg-[#F9FAFB] p-3">
+              <p className="text-[12px] font-medium text-[#344054]">{paymentInstructions.method === "pix" ? "Pix copia e cola" : "Linha digitável"}</p>
+              <p className="mt-2 break-all font-mono text-[11px] text-[#667085]">
+                {paymentInstructions.copy_and_paste || paymentInstructions.identification_field || "Indisponível"}
+              </p>
+              {paymentInstructions.copy_and_paste && <button className="mt-2 text-[12px] font-semibold text-[#2563EB]"
+                onClick={() => void navigator.clipboard?.writeText(paymentInstructions.copy_and_paste || "")}>Copiar código Pix</button>}
+            </div>}
+          </div>}
         </>}
       </div>
     </section>
