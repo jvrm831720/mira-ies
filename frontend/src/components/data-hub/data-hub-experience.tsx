@@ -186,7 +186,7 @@ export function DataHubExperience() {
           <Stat label="Conexões com erro conhecido" value={jacad.isLoading || sponte.isLoading ? "—" : nativeFailures} detail="Entre os dois provedores consultados" />
           <Stat label="Conectores no catálogo" value={catalog.isLoading ? "—" : (catalog.data?.count ?? "—")} detail="Disponibilidade não equivale à homologação" />
           <Stat label="Lotes recentes consultados" value={uploads.isLoading ? "—" : (uploads.data?.items.length ?? "—")} detail="Amostra dos 30 últimos uploads, não total histórico" />
-          <Stat label="Contas Composio registradas" value={!canManageIntegrations ? "Restrito" : composioConnections.isLoading ? "—" : (composioConnections.data?.total ?? "Indisponível")} detail="Registros locais; não comprova autenticação remota" />
+          <Stat label="Contas de apps registradas" value={!canManageIntegrations ? "Restrito" : composioConnections.isLoading ? "—" : (composioConnections.data?.total ?? "Indisponível")} detail="Registros locais; não comprova autenticação remota" />
         </div>
         <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
           <Panel title="Fontes acadêmicas" description="Estado real das conexões nativas consultáveis"
@@ -205,8 +205,8 @@ export function DataHubExperience() {
             <div className="space-y-4 px-5 py-5 text-xs">
               <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-slate-600)]">Última sincronização nativa registrada</span><Time value={latestSync} /></div>
               <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-slate-600)]">Falhas de upload na amostra</span><strong className="font-semibold text-[var(--color-ink)]">{uploads.isLoading ? "—" : issues.filter(x => x.kind === "failed").length}</strong></div>
-              <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-slate-600)]">Execuções Composio consultadas</span><strong className="font-semibold text-[var(--color-ink)]">{!canSeeDispatch ? "Sem permissão" : composioHistory.isLoading ? "—" : (composioHistory.data?.items.length ?? "Indisponível")}</strong></div>
-              <p className="border-t border-[var(--color-blue-tint)] pt-4 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">Execuções Composio são histórico de ingestão do Dispatch, não prova de execução remota de ferramentas no Data Hub.</p>
+              <div className="flex items-center justify-between gap-3"><span className="text-[var(--color-slate-600)]">Importações de apps consultadas</span><strong className="font-semibold text-[var(--color-ink)]">{!canSeeDispatch ? "Sem permissão" : composioHistory.isLoading ? "—" : (composioHistory.data?.items.length ?? "Indisponível")}</strong></div>
+              <p className="border-t border-[var(--color-blue-tint)] pt-4 text-[length:var(--type-caption)] leading-5 text-[var(--color-muted)]">O histórico de importações não comprova que todas as ações de um aplicativo foram executadas.</p>
             </div>
           </Panel>
         </div>
@@ -234,10 +234,10 @@ export function DataHubExperience() {
           </article>)}
         </div>
         {canManageIntegrations && <div className="border-t border-[var(--color-blue-tint)]">
-          <div className="px-5 pb-2 pt-4"><h3 className="text-xs font-semibold text-[var(--color-ink)]">Contas Composio</h3><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Registros locais deste workspace, sem atualização remota automática.</p></div>
+          <div className="px-5 pb-2 pt-4"><h3 className="text-xs font-semibold text-[var(--color-ink)]">Contas de aplicativos</h3><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Registros locais deste workspace, sem atualização remota automática.</p></div>
           {composioConnections.isLoading ? <Empty message="Carregando contas locais..." /> :
-           composioConnections.isError ? <div role="alert" className="p-5 text-xs text-[var(--color-red)]">Conexões Composio indisponíveis. Verifique a configuração do serviço.</div> :
-           connectedComposioAccounts.length === 0 ? <Empty message="Nenhuma conta Composio registrada no workspace." /> :
+           composioConnections.isError ? <div role="alert" className="p-5 text-xs text-[var(--color-red)]">Contas de aplicativos indisponíveis. Verifique a configuração das conexões.</div> :
+           connectedComposioAccounts.length === 0 ? <Empty message="Nenhuma conta de aplicativo registrada no workspace." /> :
            <div className="divide-y divide-[var(--color-blue-tint)]">{connectedComposioAccounts.map(account => <div key={account.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
              <div><p className="text-xs font-medium text-[var(--color-blue)]">{account.display_name || account.toolkit_slug}</p><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">{account.toolkit_slug} · Registrada em <Time value={account.connected_at} /></p></div>
              <Status state={account.status === "active" ? { key: "configured", label: "Ativa (local)", tone: "blue" } :
@@ -247,7 +247,7 @@ export function DataHubExperience() {
                { key: "unknown", label: "Estado: " + account.status, tone: "neutral" }} />
            </div>)}</div>}
         </div>}
-        <p className="border-t border-[var(--color-blue-tint)] px-5 py-4 text-[length:var(--type-caption)] text-[var(--color-muted)]">JACAD e Sponte têm contratos nativos; as contas Composio têm identidade por conexão. Um registro local ativo não comprova sessão remota vigente. Não há restrição de uma conexão por workspace.</p>
+        <p className="border-t border-[var(--color-blue-tint)] px-5 py-4 text-[length:var(--type-caption)] text-[var(--color-muted)]">JACAD e Sponte têm contratos nativos; as contas de apps têm identidade por conexão. Um registro local ativo não comprova sessão remota vigente. Não há restrição de uma conexão por workspace.</p>
       </Panel>}
 
       {section === "catalog" && <Panel title="Explorar integrações" description="Catálogo retornado pela API; não confundir presença no catálogo com conexão ativa."
@@ -266,9 +266,9 @@ export function DataHubExperience() {
             <div className="mt-auto border-t border-[var(--color-blue-tint)] pt-3"><SmallLink href="/conectores">Ver integrações existentes</SmallLink></div>
           </article>)}</div>}
         {canManageIntegrations && <div className="border-t border-[var(--color-blue-tint)]">
-          <div className="px-5 pb-2 pt-5"><h3 className="text-xs font-semibold text-[var(--color-blue)]">Composio · catálogo remoto</h3><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Visível somente com settings.manage. Toolkit habilitado não significa conta conectada ou ferramenta pronta para execução.</p></div>
-          {composioCatalog.isLoading ? <Empty message="Consultando o catálogo Composio..." /> :
-           composioCatalog.isError ? <div role="alert" className="px-5 py-6 text-xs text-[var(--color-red)]">Catálogo Composio indisponível ou não configurado.</div> :
+          <div className="px-5 pb-2 pt-5"><h3 className="text-xs font-semibold text-[var(--color-blue)]">Apps disponíveis para conectar</h3><p className="mt-1 text-[length:var(--type-caption)] text-[var(--color-muted)]">Visível somente com settings.manage. Um app habilitado não significa conta conectada ou ações prontas para execução.</p></div>
+          {composioCatalog.isLoading ? <Empty message="Consultando aplicativos disponíveis..." /> :
+           composioCatalog.isError ? <div role="alert" className="px-5 py-6 text-xs text-[var(--color-red)]">Catálogo adicional indisponível ou não configurado.</div> :
            remoteCatalogItems.length === 0 ? <Empty message="Nenhuma ferramenta remota encontrada." /> :
            <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">{remoteCatalogItems.slice(0, 60).map(item => <article key={item.slug} className="rounded-lg border border-[var(--color-border)] p-4">
              <div className="flex items-start justify-between gap-2"><span className="rounded-lg bg-[var(--color-blue-tint)] p-2"><Plug size={17} aria-hidden /></span><Status state={item.enabled ? {key:"configured",label:"Política habilitada",tone:"blue"} : {key:"disabled",label:"Política desabilitada",tone:"neutral"}} /></div>
@@ -278,18 +278,18 @@ export function DataHubExperience() {
            </article>)}</div>}
         </div>}
         {canManageIntegrations && remoteCatalogItems.length > 60 && <p className="border-t border-[var(--color-blue-tint)] px-5 py-3 text-[length:var(--type-caption)] text-[var(--color-slate-600)]">Exibindo os primeiros 60 de {remoteCatalogItems.length} toolkits. Refine a pesquisa para localizar outros itens.</p>}
-        <div className="border-t border-[var(--color-blue-tint)] bg-[var(--color-canvas)] px-5 py-3 text-[length:var(--type-caption)] text-[var(--color-muted)]">Ferramentas Composio são regidas por catálogo, allowlist, OAuth e políticas específicas; não há execução genérica neste catálogo.</div>
+        <div className="border-t border-[var(--color-blue-tint)] bg-[var(--color-canvas)] px-5 py-3 text-[length:var(--type-caption)] text-[var(--color-muted)]">Cada aplicativo segue permissões, autenticação e políticas próprias. Estar no catálogo não autoriza a execução de ações.</div>
       </Panel>}
 
       {section === "runs" && <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
-        <Panel title="Histórico de importações" description="Uploads do workspace e importações Composio, sem misturar execuções não relacionadas."
+        <Panel title="Histórico de importações" description="Arquivos enviados e importações por aplicativos, sem misturar execuções não relacionadas."
           action={<SmallLink href="/importacoes">Histórico completo de arquivos</SmallLink>}>
           {uploads.isError && <div role="alert" className="border-b px-5 py-3 text-xs text-[var(--color-red)]">Não foi possível carregar os uploads.</div>}
-          {canSeeDispatch && composioHistory.isError && <div role="alert" className="border-b px-5 py-3 text-xs text-[var(--color-red)]">Histórico Composio indisponível.</div>}
+          {canSeeDispatch && composioHistory.isError && <div role="alert" className="border-b px-5 py-3 text-xs text-[var(--color-red)]">Histórico das importações por apps indisponível.</div>}
           {uploads.isLoading ? <Empty message="Carregando histórico..." /> : runs.length === 0 ? <Empty message="Nenhuma execução retornada pelos serviços consultados." /> :
           <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-xs"><thead className="border-b border-[var(--color-blue-tint)] bg-[var(--color-canvas)] text-[length:var(--type-caption)] text-[var(--color-muted)]"><tr><th className="px-5 py-3 font-medium">Origem</th><th className="px-4 py-3 font-medium">Início</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">Registros</th><th className="px-4 py-3 font-medium">Detalhes</th></tr></thead>
             <tbody className="divide-y divide-[var(--color-blue-tint)]">{runs.map(row => <tr key={row.id} className={selectedRun === row.id ? "bg-[var(--color-blue-tint)]" : "hover:bg-[var(--color-blue-tint)]"}>
-              <td className="max-w-56 truncate px-5 py-4 text-[var(--color-ink)]">{row.source}<p className="mt-1 text-[length:var(--type-overline)] text-[var(--color-muted)]">{row.kind === "upload" ? "Arquivo" : "Composio / Dispatch"}</p></td>
+              <td className="max-w-56 truncate px-5 py-4 text-[var(--color-ink)]">{row.source}<p className="mt-1 text-[length:var(--type-overline)] text-[var(--color-muted)]">{row.kind === "upload" ? "Arquivo" : "App conectado / Operação"}</p></td>
               <td className="px-4 py-4 text-[var(--color-slate-600)]"><Time value={row.started} /></td><td className="px-4 py-4"><Status state={runState(row.status)} /></td>
               <td className="px-4 py-4 text-[var(--color-slate-600)]">{row.processed} / {row.total}</td>
               <td className="px-4 py-4"><button type="button" onClick={() => setSelectedRun(row.id)} className="font-medium text-[var(--color-blue)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-blue)]">Ver</button></td>
@@ -332,7 +332,7 @@ export function DataHubExperience() {
             {canImport ? <SmallLink href="/importar">Abrir importação inteligente</SmallLink> : <span className="text-xs text-[var(--color-muted)]">Permissão data.import necessária</span>}</div>
         </Panel>
         <Panel title="Políticas e integrações" description="As credenciais nunca são expostas neste painel">
-          <div className="space-y-4 p-5"><Settings2 size={21} className="text-[var(--color-slate-600)]" aria-hidden /><p className="text-xs leading-5 text-[var(--color-slate-600)]">Autenticação, revogação, sincronizações e permissões continuam sob os fluxos nativos e controles de workspace. Composio só executa ferramentas autorizadas por política.</p><SmallLink href="/conectores">Gerenciar integrações</SmallLink></div>
+          <div className="space-y-4 p-5"><Settings2 size={21} className="text-[var(--color-slate-600)]" aria-hidden /><p className="text-xs leading-5 text-[var(--color-slate-600)]">Autenticação, revogação, sincronizações e permissões continuam sob os fluxos nativos e controles de workspace. A MIRA só executa ações autorizadas pelas políticas da organização.</p><SmallLink href="/conectores">Gerenciar integrações</SmallLink></div>
         </Panel>
       </div>}
     </main>
