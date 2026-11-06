@@ -18,6 +18,7 @@ from app.models.organization import (
     Organization,
     Membership,
     TenantBranding,
+    TenantLogoAsset,
     TenantDomain,
     ModuleEntitlement,
 )
@@ -48,7 +49,7 @@ __all__ = [
     "UploadBatch", "Student", "CustomFieldDefinition", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
     "AuthChallenge", "MfaLoginChallenge", "MfaRecoveryCode", "MfaAuditEvent",
     "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User", "TenantRole", "TenantRoleAudit",
-    "Organization", "Membership", "TenantBranding", "TenantDomain", "ModuleEntitlement",
+    "Organization", "Membership", "TenantBranding", "TenantLogoAsset", "TenantDomain", "ModuleEntitlement",
     "RetentionCampaign", "RetentionCampaignProposal", "RetentionCampaignProposalAuditEvent",
     "TenantDataUsePolicy", "InstitutionalTrainingAuthorization",
     "RiskAssessment", "WorkActivity", "WorkActivityEvent",
