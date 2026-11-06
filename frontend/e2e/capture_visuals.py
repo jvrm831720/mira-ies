@@ -46,7 +46,30 @@ def response(path: str, page_path: str) -> object:
     if path.endswith("/object-views"):
         return {"views": []}
     if path.endswith("/agents/retention/campaigns/intelligence/proposals"):
-        return {"count": 0, "proposals": []}
+        proposal = {
+            "id": "66666666-6666-4666-8666-666666666666", "tenant_id": TENANT,
+            "status": "draft", "title": "Proposta: Risco crítico",
+            "source_group_ids": ["risk_critical"], "source_catalog_version": "1.0.0",
+            "recommendation_engine": "signals-and-rules-v1", "source_evaluated_at": NOW,
+            "objective": "Acolhimento prioritário", "strategy": "Contato humano e apoio acadêmico",
+            "recommended_channels": ["email"], "cadence_days": [0, 3],
+            "message_brief": "Rascunho institucional — não enviado",
+            "audience_snapshot": [{
+                "student_id": STUDENT, "matched_group_ids": ["risk_critical"],
+                "eligible_channels": ["email"], "blocked_reasons": [],
+                "internal_action_only": False,
+            }],
+            "audience_hash": "a" * 64, "audience_total": 1,
+            "outreach_eligible_count": 1, "blocked_count": 0, "internal_action_count": 0,
+            "created_by": USER, "created_at": NOW, "updated_at": NOW, "revision": 1,
+            "reviewed_by": None, "reviewed_at": None, "approved_by": None, "approved_at": None,
+            "authorization_status": "unverified", "authorization_basis": None,
+            "authorization_reference": None, "authorization_attested_by": None,
+            "authorization_attested_at": None, "scheduled_for": None, "schedule_timezone": None,
+            "execution_enabled": False, "communication_authorization_status": "unverified",
+            "authorization_review_required": True,
+        }
+        return {"count": 1, "proposals": [proposal]}
     if "campaigns" in path and "schedule" in path:
         return {"items": [], "count": 0, "schedules": []}
     if path.endswith("/work/activities/summary"):
