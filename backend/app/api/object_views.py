@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import AuthContext, get_current_tenant
 from app.db.session import get_db
 from app.models.object_view import ObjectView, ObjectViewFavorite, ObjectViewRevision
+from app.models.custom_field import CustomFieldDefinition
 
 router = APIRouter(prefix="/object-views", tags=["Object Index / Saved Views"])
 ObjectKey = Literal["students", "campaigns", "academic_classes", "academic_programs",
@@ -344,10 +345,26 @@ async def _persist(db: AsyncSession, row: ObjectView, editor_id: str):
 @router.get("/metadata")
 async def object_metadata(
     object_key: ObjectKey, auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
 ):
     require_view_access(auth, object_key)
     sensitive = can_sensitive(auth)
+    custom = []
+    if object_key == "students" and has_permission(auth, "data.view"):
+        definitions = (await db.execute(select(CustomFieldDefinition).where(
+            CustomFieldDefinition.tenant_id == auth.tenant_id,
+            CustomFieldDefinition.target == "student",
+            CustomFieldDefinition.active.is_(True),
+        ).order_by(CustomFieldDefinition.label))).scalars().all()
+        custom = [{
+            "key": "custom." + item.name, "label": item.label,
+            "type": item.data_type, "source": "existing_registry",
+            "sensitive": item.is_pii, "filterable": False, "sortable": False,
+            "view_enabled": False,
+            "reason": "Catálogo disponível, mas a API do índice ainda não oferece consulta remota para este campo.",
+        } for item in definitions if sensitive or not item.is_pii]
     return {
+        "custom_properties": custom,
         "object_key": object_key, "schema_version": 1, "property_source": "object-index",
         "fields": [{
             "key": key, "label": LABELS.get(key, key), "type": kind,
