@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/icons";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import {
   createSavedObjectView, deleteSavedObjectView, listSavedObjectViews, updateSavedObjectView,

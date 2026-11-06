@@ -103,7 +103,7 @@ function PlanningPanel({
       setSelectionError("O navegador bloqueou o acesso à seleção temporária. Selecione novamente os alunos.");
       return;
     }
-    const data = parseRetentionSelection(value, currentUser.data?.tenant_id, currentUser.data?.user_id);
+    const data = parseRetentionSelection(value, currentUser.data?.tenant_id ?? undefined, currentUser.data?.user_id ?? undefined);
     if (!data || currentUser.isError ||
       !hasNavigationPermission(currentUser.data, "campaigns.create") ||
       !hasNavigationPermission(currentUser.data, "students.sensitive.view")) {
