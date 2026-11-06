@@ -1,8 +1,8 @@
 """Expand personal saved views to academic catalog objects."""
 from alembic import op
 
-revision = "067_academic_object_views"
-down_revision = "066_object_index_views"
+revision = "068_academic_object_views"
+down_revision = "067_retention_proposals_rls"
 branch_labels = None
 depends_on = None
 
