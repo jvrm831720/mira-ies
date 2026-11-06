@@ -116,21 +116,24 @@ async def work_tenant(db: AsyncSession, tenant_id: str, *, limit: int = 20) -> d
         .order_by(AsaasWebhookEvent.received_at, AsaasWebhookEvent.id)
         .limit(limit)
     )).scalars().all()
+    # Snapshot identifiers before any nested service commits/rollbacks.
+    # A failed reconciliation expires ORM instances in async sessions.
+    event_refs = [(event.id, event.charge_id) for event in events]
     processed, pending = 0, 0
-    for event in events:
+    for event_id, charge_id in event_refs:
         await bind_tenant(db, tenant_id)
         await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:id,0))"),
-                         {"id": "asaas:worker:" + tenant_id + ":" + event.id})
+                         {"id": "asaas:worker:" + tenant_id + ":" + event_id})
         exists = (await db.execute(select(AsaasWebhookApplication.id).where(
             AsaasWebhookApplication.tenant_id == tenant_id,
-            AsaasWebhookApplication.event_id == event.id,
+            AsaasWebhookApplication.event_id == event_id,
         ))).scalar_one_or_none()
         if exists is not None:
             await db.commit()
             continue
         # Always re-read provider state; delivery order may differ from event time.
         try:
-            latest = await reconcile_charge(db, tenant_id=tenant_id, charge_id=event.charge_id)
+            latest = await reconcile_charge(db, tenant_id=tenant_id, charge_id=charge_id)
         except (AsaasFlowDenied, gateway.GatewayInconclusive, gateway.GatewayRejected):
             await db.rollback()
             pending += 1
@@ -139,7 +142,7 @@ async def work_tenant(db: AsyncSession, tenant_id: str, *, limit: int = 20) -> d
         # Rebind before the append-only application record.
         await bind_tenant(db, tenant_id)
         statement = pg_insert(AsaasWebhookApplication).values(
-            tenant_id=tenant_id, event_id=event.id, outcome="reconciled",
+            tenant_id=tenant_id, event_id=event_id, outcome="reconciled",
             provider_status=latest["payment_status"],
         ).on_conflict_do_nothing(constraint="uq_mira_asaas_applied_event")
         result = await db.execute(statement)
