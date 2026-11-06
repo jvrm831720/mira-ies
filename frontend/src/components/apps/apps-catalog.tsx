@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- official provider favicons with accessible local initial fallback */
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -27,6 +28,17 @@ const examples: Record<string,string> = {
   moodle:"m",canvas:"C",omie:"O",asaas:"A",openai:"✳",stripe:"S",
   notion:"N",hubspot:"H",salesforce:"S",microsoft_teams:"T",
 };
+const brandedDomains:Record<string,string>={
+  whatsapp:"whatsapp.com",gmail:"gmail.com",outlook:"outlook.com",googlecalendar:"calendar.google.com",
+  googledrive:"drive.google.com",googlesheets:"sheets.google.com",slack:"slack.com",
+  jacad:"jacad.com.br",sponte:"sponte.com.br",sophia:"sophia.com.br",
+  moodle:"moodle.org",canvas:"instructure.com",omie:"omie.com.br",
+  asaas:"asaas.com",openai:"openai.com",notion:"notion.so",salesforce:"salesforce.com",
+  hubspot:"hubspot.com",stripe:"stripe.com",airtable:"airtable.com",
+  trello:"trello.com",clickup:"clickup.com",calendly:"calendly.com",
+  share_point:"microsoft.com",one_drive:"onedrive.live.com",microsoft_teams:"teams.microsoft.com",
+  zoom:"zoom.us",zendesk:"zendesk.com",freshdesk:"freshdesk.com",intercom:"intercom.com",
+};
 const iconTone:Record<string,string>={
   whatsapp:"green",gmail:"rainbow",outlook:"blue",googlecalendar:"blue",
   googledrive:"rainbow",slack:"rainbow",jacad:"blue",sponte:"blue",sophia:"blue",
@@ -41,8 +53,12 @@ function Status({ status }: {status:AppStatus}) {
   </span>;
 }
 function AppLogo({app}:{app:AppEntry}) {
+  const domain=brandedDomains[app.id];
   return <span className={styles.logo} data-tone={iconTone[app.id]||"neutral"} aria-hidden="true">
-    {examples[app.id]||app.name.slice(0,1).toLocaleUpperCase("pt-BR")}
+    {domain ? <img className={styles.brandIcon}
+      src={"https://www.google.com/s2/favicons?domain="+domain+"&sz=128"} alt=""
+      loading="lazy" referrerPolicy="no-referrer" onError={e=>{e.currentTarget.style.display="none";}}/> : null}
+    <span className={styles.fallbackInitial}>{examples[app.id]||app.name.slice(0,1).toLocaleUpperCase("pt-BR")}</span>
   </span>;
 }
 function AppCard({app,onOpen}:{app:AppEntry,onOpen:(app:AppEntry)=>void}) {
@@ -127,6 +143,7 @@ export function AppsCatalog() {
   const [search,setSearch]=useState("");
   const [selected,setSelected]=useState<AppEntry|null>(null);
   const [requestOpen,setRequestOpen]=useState(false);
+  const [visibleCount,setVisibleCount]=useState(36);
   const me=useQuery({queryKey:["org-me"],queryFn:()=>api.me(),retry:false,staleTime:60_000});
   const tenant=me.data?.tenant_id;
   const canSee=hasNavigationPermission(me.data,"data.view");
@@ -157,6 +174,8 @@ export function AppsCatalog() {
   ),[live.data?.items,native.data?.connectors,connections.data?.items,jacad.data?.configured,sponte.data?.configured]);
   const displayed=useMemo(()=>filterApps(items,search,category,tab),[items,search,category,tab]);
   const connected=items.filter(item=>item.status==="connected"||item.status==="configured").length;
+  useEffect(()=>{setVisibleCount(36);},[search,category,tab]);
+  const visibleItems=displayed.slice(0,visibleCount);
   if(me.isLoading)return <main className={styles.page}><p className={styles.loading} role="status">Carregando seu workspace...</p></main>;
   if(!canSee)return <main className={styles.page}><section className={styles.access}><ShieldCheck size={22}/><h1>Acesso restrito</h1><p>É necessário ter permissão de visualização de dados para explorar as integrações.</p></section></main>;
   return <main className={styles.page}>
@@ -179,7 +198,7 @@ export function AppsCatalog() {
           {categories.map(value=><button key={value} type="button" className={styles.chip} data-active={category===value}
             aria-pressed={category===value} onClick={()=>setCategory(value)}>{value}</button>)}
         </div>
-        <span className={styles.count}>{displayed.length} exibidos</span>
+        <span className={styles.count}>{displayed.length} encontrados</span>
       </div>
       {(live.isError&&canManage)&&<p className={styles.notice} role="status"><Info size={15}/>
         Parte do catálogo dinâmico está temporariamente indisponível. As integrações conhecidas continuam visíveis, sem presumir disponibilidade ou conexão.</p>}
@@ -188,8 +207,10 @@ export function AppsCatalog() {
       {(connections.isError&&canManage)&&<p className={styles.notice} role="status"><Info size={15}/>
         Não foi possível confirmar todas as conexões; consulte os detalhes antes de executar operações.</p>}
       <div className={styles.grid} aria-live="polite">
-        {displayed.map(app=><AppCard key={app.id} app={app} onOpen={setSelected}/>)}
+        {visibleItems.map(app=><AppCard key={app.id} app={app} onOpen={setSelected}/>)}
       </div>
+      {visibleCount<displayed.length&&<button type="button" className={styles.moreButton}
+        onClick={()=>setVisibleCount(current=>current+36)}>Mostrar mais aplicativos ({displayed.length-visibleCount} restantes)</button>}
       {displayed.length===0&&<div className={styles.empty}>
         <Plug size={28}/><h2>{tab==="connected"?"Nenhum app confirmado nesta seleção":"Nenhum aplicativo encontrado"}</h2>
         <p>Altere a busca ou os filtros para explorar outras opções.</p>
