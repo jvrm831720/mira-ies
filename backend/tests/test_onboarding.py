@@ -171,7 +171,7 @@ async def test_verified_email_can_provision_organization_once(client, db_session
     )).scalar_one()
     assert logo.content_type == "image/png"
     assert logo.source == "uploaded"
-    assert logo.image_bytes.startswith(b"\\x89PNG")
+    assert logo.image_bytes.startswith(b"\x89PNG")
     assert branding.logo_storage_key == f"database:tenant-logo/{tenant.id}"
 
 
