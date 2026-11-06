@@ -32,7 +32,7 @@ const sidebarSections: Array<{ id: string; label: string; paths: string[] }> = [
   { id: "operations", label: "Operação", paths: ["/disparos", "/retencao/logs"] },
   { id: "data", label: "Dados", paths: ["/dados", "/conectores", "/conectores/financeiro", "/importar", "/importacoes"] },
 ];
-const quickPaths = ["/", "/trabalho", "/monitoramento", "/resultados", "/workflows"];
+const quickPaths = ["/", "/trabalho", "/monitoramento", "/resultados", "/workflows", "/apps"];
 
 function recordTone(href: string): string {
   if (href === "/cobranca") return "bg-[var(--mira-sidebar-billing)]";
