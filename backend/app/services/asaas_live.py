@@ -180,8 +180,8 @@ async def _preflight_submit(db: AsyncSession, row: AsaasCharge, user_id: str):
     ))).scalar_one_or_none()
     if obs is None or (await _check_observation(db, row.tenant_id, obs)) != row.amount:
         raise AsaasFlowDenied("Saldo financeiro mudou após a preparação.")
-    issuer = get_settings().student_payments_asaas_issuer_wallet_id
-    if not issuer or str(UUID(issuer)) == row.destination_wallet_id:
+    issuer = gateway.issuer_wallet()
+    if issuer == row.destination_wallet_id:
         raise AsaasFlowDenied("Emissor Asaas não autorizado.")
     # Verify issuer identity against Asaas itself; static host, no tenant URL.
     remote = await gateway.request("GET", "/wallets/")
