@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { StudentServicesPanel } from "./student-services-panel";
+import { AcademicOperationsPanel } from "./academic-operations-panel";
 import {
   ArrowRight, BookOpen, CheckCircle2, GraduationCap, LockKeyhole,
   LogOut, ShieldCheck, Wallet, CalendarDays, AlertCircle, Loader2,
@@ -448,6 +449,8 @@ export default function StudentPortalPage() {
             </p>}
         </div>
       </section>
+
+      <AcademicOperationsPanel />
 
       <StudentServicesPanel />
 
