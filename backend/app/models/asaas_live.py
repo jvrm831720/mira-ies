@@ -5,7 +5,7 @@ Every tenant-scoped child relation is protected by composite FKs and FORCE RLS.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -27,8 +27,8 @@ class AsaasCustomerBinding(Base):
     __tablename__ = "mira_asaas_customer_bindings"
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_asaas_customer_tenant_id"),
-        UniqueConstraint("tenant_id", "student_id", name="uq_mira_asaas_customer_student"),
-        UniqueConstraint("tenant_id", "asaas_customer_id", name="uq_mira_asaas_customer_external"),
+        UniqueConstraint("tenant_id", "student_id", "issuer_environment", name="uq_mira_asaas_customer_student"),
+        UniqueConstraint("tenant_id", "asaas_customer_id", "issuer_environment", name="uq_mira_asaas_customer_external"),
         ForeignKeyConstraint(["tenant_id", "student_id"], ["students.tenant_id", "students.id"], name="fk_mira_asaas_customer_student_tenant"),
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
@@ -44,6 +44,7 @@ class AsaasCharge(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_asaas_charge_tenant_id"),
         UniqueConstraint("tenant_id", "intent_id", name="uq_mira_asaas_charge_intent"),
+        UniqueConstraint("tenant_id", "financial_key", name="uq_mira_asaas_charge_financial_key"),
         UniqueConstraint("external_reference", name="uq_mira_asaas_charge_reference"),
         UniqueConstraint("asaas_payment_id", name="uq_mira_asaas_charge_payment_id"),
         ForeignKeyConstraint(["tenant_id", "intent_id"], ["mira_student_payment_intents.tenant_id", "mira_student_payment_intents.id"], name="fk_mira_asaas_charge_intent_tenant"),
@@ -57,11 +58,12 @@ class AsaasCharge(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
     intent_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    financial_key: Mapped[str] = mapped_column(String(64), nullable=False)
     student_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     method: Mapped[str] = mapped_column(String(12), nullable=False)
-    due_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date] = mapped_column(Date, nullable=False)
     customer_id: Mapped[str] = mapped_column(String(80), nullable=False)
     destination_wallet_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     destination_version: Mapped[int] = mapped_column(nullable=False)
