@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import select, text
@@ -23,6 +24,116 @@ from app.models.auth import User
 from app.models.object_view import ObjectView, ObjectViewRevision
 from app.models.custom_field import CustomFieldDefinition
 
+
+
+@pytest_asyncio.fixture(scope="module")
+async def collaboration_rls(_prepare_test_database):
+    """Reproduce the Wave 3 migration policies in the separate ORM test DB.
+
+    CI first tests the actual Alembic migration in beacon_test, then pytest
+    creates a fresh schema with Base.metadata.create_all in beacon_pytest_test.
+    create_all does not execute migration RLS policies. Use a non-superuser
+    role and force RLS on both databases; never weaken the live migrations.
+    """
+    from app.db.session import engine
+
+    statements = [
+        """CREATE POLICY mira_object_views_read ON mira_object_views FOR SELECT
+           USING (
+             tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+             AND NULLIF(current_setting('app.user_id', true), '')::uuid IS NOT NULL
+             AND (
+               owner_user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+               OR (scope = 'workspace' AND
+                   (NOT is_sensitive OR current_setting('app.view_sensitive', true) = '1'))
+             )
+           )""",
+        """CREATE POLICY mira_object_views_insert ON mira_object_views FOR INSERT
+           WITH CHECK (
+             tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+             AND owner_user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+           )""",
+        """CREATE POLICY mira_object_views_update ON mira_object_views FOR UPDATE
+           USING (
+             tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+             AND owner_user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+           )
+           WITH CHECK (
+             tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+             AND owner_user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+           )""",
+        """CREATE POLICY mira_object_views_delete ON mira_object_views FOR DELETE
+           USING (
+             tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+             AND owner_user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+           )""",
+        """CREATE POLICY mira_view_revisions_select
+           ON mira_object_view_revisions FOR SELECT
+           USING (
+             tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+             AND EXISTS (
+               SELECT 1 FROM mira_object_views v WHERE
+                 v.id = view_id AND v.tenant_id = mira_object_view_revisions.tenant_id
+                 AND v.owner_user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+             )
+           )""",
+        """CREATE POLICY mira_view_revisions_insert
+           ON mira_object_view_revisions FOR INSERT
+           WITH CHECK (
+             tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+             AND edited_by_user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+             AND EXISTS (
+               SELECT 1 FROM mira_object_views v WHERE
+                 v.id = view_id AND v.tenant_id = mira_object_view_revisions.tenant_id
+                 AND v.owner_user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+             )
+           )""",
+    ]
+    for name, op in (
+        ("mira_view_favorites_select", "SELECT"),
+        ("mira_view_favorites_insert", "INSERT"),
+        ("mira_view_favorites_delete", "DELETE"),
+    ):
+        predicate = "WITH CHECK" if op == "INSERT" else "USING"
+        statements.append(
+            f"""CREATE POLICY {name} ON mira_object_view_favorites FOR {op}
+            {predicate} (
+              tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+              AND user_id = NULLIF(current_setting('app.user_id', true), '')::uuid
+            )"""
+        )
+
+    async with engine.begin() as conn:
+        role = await conn.scalar(text("""
+            SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user
+        """))
+        assert role is False, "RLS integration must run without superuser or BYPASSRLS."
+        for table in ("mira_object_views", "mira_object_view_revisions", "mira_object_view_favorites"):
+            await conn.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+            await conn.execute(text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
+        for name in ("mira_object_views_owner_policy", "mira_object_views_read",
+                     "mira_object_views_insert", "mira_object_views_update",
+                     "mira_object_views_delete"):
+            await conn.execute(text(f"DROP POLICY IF EXISTS {name} ON mira_object_views"))
+        for name in ("mira_view_revisions_select", "mira_view_revisions_insert"):
+            await conn.execute(text(f"DROP POLICY IF EXISTS {name} ON mira_object_view_revisions"))
+        for name in ("mira_view_favorites_select", "mira_view_favorites_insert",
+                     "mira_view_favorites_delete"):
+            await conn.execute(text(f"DROP POLICY IF EXISTS {name} ON mira_object_view_favorites"))
+        for sql in statements:
+            await conn.execute(text(sql))
+        await conn.execute(text("ALTER TABLE custom_field_definitions ENABLE ROW LEVEL SECURITY"))
+        await conn.execute(text("ALTER TABLE custom_field_definitions FORCE ROW LEVEL SECURITY"))
+        await conn.execute(text("""
+            DROP POLICY IF EXISTS custom_field_definitions_tenant_isolation
+            ON custom_field_definitions
+        """))
+        await conn.execute(text("""
+            CREATE POLICY custom_field_definitions_tenant_isolation ON custom_field_definitions
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+        """))
+    yield
 
 def context(tenant, user, *, role="coordinator", permissions=None):
     return SimpleNamespace(
@@ -71,7 +182,7 @@ def test_invalid_metadata_and_sensitive_fields_fail_closed():
 
 
 @pytest.mark.asyncio
-async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_factory):
+async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_factory, collaboration_rls):
     tenant_a, _ = await tenant_factory(slug="wave3-views-a")
     tenant_b, _ = await tenant_factory(slug="wave3-views-b")
     tenant_a_id, tenant_b_id = tenant_a.id, tenant_b.id
@@ -192,7 +303,7 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
 
 
 @pytest.mark.asyncio
-async def test_sensitive_shared_view_not_visible_to_basic_viewer(db_session, tenant_factory):
+async def test_sensitive_shared_view_not_visible_to_basic_viewer(db_session, tenant_factory, collaboration_rls):
     tenant, _ = await tenant_factory(slug="wave3-sensitive")
     tenant_id = tenant.id
     owner = User(tenant_id=tenant_id, email=f"owner-{uuid4()}@example.test",
@@ -229,7 +340,7 @@ async def test_sensitive_shared_view_not_visible_to_basic_viewer(db_session, ten
 
 
 @pytest.mark.asyncio
-async def test_custom_metadata_registry_is_readonly_and_permission_filtered(db_session, tenant_factory):
+async def test_custom_metadata_registry_is_readonly_and_permission_filtered(db_session, tenant_factory, collaboration_rls):
     tenant, _ = await tenant_factory(slug="wave3-custom-metadata")
     tenant_id = tenant.id
     owner_id = str(uuid4())
