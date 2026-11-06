@@ -1398,6 +1398,31 @@ textarea {
 .mira-flow-orb span { width: 7px; height: 7px; border-radius: 50%; background: #4e8cfc; animation: mira-flow-pulse 1.2s ease-in-out infinite; }
 .mira-flow-orb span:nth-child(2) { animation-delay: 160ms; }
 .mira-flow-orb span:nth-child(3) { animation-delay: 320ms; }
+/* Onboarding workspace discovery — left-side only. Dashboard preview untouched. */
+.mira-flow-site-progress {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 58px; padding: 12px 11px;
+  border: 1px solid #292d35; border-radius: 9px;
+  background: #15171b; color: #c4cad3;
+}
+.mira-flow-site-progress strong { font-size: 11px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.mira-flow-site-progress p { margin: 4px 0 0; color: #8d939d; font-size: 10px; line-height: 1.5; }
+.mira-flow-thinking-orb { flex-shrink: 0; color: #80a9ff; animation: mira-flow-orb-turn 3.8s linear infinite; }
+@keyframes mira-flow-orb-turn { to { transform: rotate(360deg); } }
+.mira-flow-type-caret { display: inline-block; vertical-align: -1px; height: 15px; width: 1.5px; margin-left: 2px; background: #91b7ff; animation: mira-flow-caret .7s steps(1,end) infinite; }
+@keyframes mira-flow-caret { 50% { opacity: 0; } }
+.mira-flow-skip-site { justify-self: start; margin-top: -3px; }
+.mira-flow-discovered { display: grid; gap: 13px; }
+.mira-flow-discovered > * { animation: mira-flow-reveal 450ms both; }
+.mira-flow-discovered > :nth-child(2) { animation-delay: 150ms; }
+.mira-flow-discovered > :nth-child(3) { animation-delay: 240ms; }
+.mira-flow-discovered > :nth-child(4) { animation-delay: 320ms; }
+.mira-flow-discovered > :nth-child(5) { animation-delay: 410ms; }
+.mira-flow-discovered > :nth-child(6) { animation-delay: 490ms; }
+.mira-flow-discovery-success { display: flex; align-items: center; gap: 7px; margin: 0; color: #94d5ae; font-size: 11px; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) {
+  .mira-flow-thinking-orb, .mira-flow-type-caret, .mira-flow-discovered > * { animation: none !important; }
+}
 .mira-flow-security-flow { display: grid; gap: 16px; margin-top: 20px; }
 .mira-flow-security-flow .mira-flow-primary, .mira-flow-security-flow .mira-flow-secondary { width: fit-content; }
 .mira-flow-mfa-setup { display: grid; gap: 12px; }
