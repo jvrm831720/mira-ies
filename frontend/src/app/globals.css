@@ -1886,3 +1886,29 @@ textarea {
   --mira-apps-cyan: #49c3d8;
   --mira-apps-icon-gray: #34363a;
 }
+
+/* Opt-in tenant connections during conversational onboarding */
+.mira-flow-connect { display: grid; gap: 12px; min-width: 0; }
+.mira-flow-connect-overview { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--color-legacy-b9bfcb); font-size: var(--type-body-xs); }
+.mira-flow-connect-overview span, .mira-flow-connected { display: inline-flex; align-items: center; gap: 5px; color: var(--color-legacy-b9bfcb); }
+.mira-flow-connect-overview strong { color: var(--auth-text); font-weight: 500; }
+.mira-flow-connect-search { display: flex; align-items: center; gap: 7px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--color-legacy-363a42); color: var(--color-legacy-9ba1ad); }
+.mira-flow-connect-search input { width: 100%; min-width: 0; height: 38px; padding: 0; border: 0; background: transparent; color: var(--auth-text); outline: none; font-size: var(--type-body-xs); }
+.mira-flow-connect-categories { display: flex; flex-wrap: wrap; gap: 6px; }
+.mira-flow-connect-categories button { color: var(--color-legacy-9ba1ad); border: 1px solid var(--color-legacy-34373e); border-radius: 999px; padding: 5px 9px; font-size: var(--type-overline); }
+.mira-flow-connect-categories button.active { color: var(--auth-text); border-color: var(--auth-blue); background: var(--color-legacy-151e2c); }
+.mira-flow-connect-list { max-height: 300px; overflow-y: auto; }
+.mira-flow-connect-row { display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--color-legacy-34373e); border-radius: 8px; background: var(--color-legacy-15171b); }
+.mira-flow-connect-row .mira-flow-tool-copy { min-width: 0; }
+.mira-flow-connect-row .mira-flow-tool-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mira-flow-connect-action { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 72px; }
+.mira-flow-connect-action button, .mira-flow-connect-action a { border: 1px solid var(--color-legacy-363a42); border-radius: 6px; padding: 6px 8px; font-size: var(--type-overline); color: var(--auth-text); white-space: nowrap; }
+.mira-flow-connect-action button:hover, .mira-flow-connect-action a:hover { border-color: var(--auth-blue); }
+.mira-flow-connect-action button:disabled { opacity: .65; cursor: progress; }
+.mira-flow-connected { color: var(--auth-text); font-size: var(--type-overline); }
+.mira-flow-connect-unavailable { color: var(--color-legacy-878d98); font-size: var(--type-overline); }
+.mira-flow-connect-footer { border-top: 1px solid var(--color-legacy-34373e); padding-top: 12px; display: grid; gap: 12px; }
+.mira-flow-connect-footer .mira-flow-primary { width: 100%; }
+
+.mira-flow-connect-refresh { border: 1px solid var(--color-legacy-34373e); border-radius: 6px; padding: 5px 7px; font-size: var(--type-overline); color: var(--auth-text); }
+.mira-flow-connect-refresh:hover { border-color: var(--auth-blue); }

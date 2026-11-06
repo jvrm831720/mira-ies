@@ -115,8 +115,8 @@ def _verify_remote_account(
     if remote_toolkit and remote_toolkit != expected_toolkit:
         raise ConnectionDenied("Toolkit da conta remota diverge do toolkit autorizado no state.")
 
-    status = (remote.get("status") or "active").lower()
-    if status in {"revoked", "expired", "disabled"}:
+    status = (remote.get("status") or "unknown").lower().split(".")[-1]
+    if status != "active":
         raise ConnectionDenied(f"Conta remota não está ativa (status={status}).")
 
     return remote
@@ -165,15 +165,20 @@ async def start_connect_link(
     actor_user_id: str | None,
     toolkit_slug: str,
     auth_config_id: str,
+    require_tool_policy: bool = True,
+    allow_multiple: bool = False,
 ) -> dict[str, Any]:
-    """Create a one-time Connect Link after policy and allowlist checks."""
+    """Create a Connect Link. An onboarding link grants no permission to execute tools."""
     settings = require_composio_configuration()
     slug = _normalize_toolkit(toolkit_slug)
     auth_cfg = (auth_config_id or "").strip()
     if not auth_cfg or len(auth_cfg) > 80:
         raise ValueError("auth_config_id inválido.")
 
-    await _require_enabled_toolkit_policy(db, tenant_id=tenant_id, toolkit_slug=slug)
+    if not composio_toolkit_allowed(slug):
+        raise ConnectionDenied("Toolkit não está na allowlist global do projeto.")
+    if require_tool_policy:
+        await _require_enabled_toolkit_policy(db, tenant_id=tenant_id, toolkit_slug=slug)
     session = await ensure_tenant_session(db, tenant_id=tenant_id, actor_user_id=actor_user_id)
 
     callback_base = _server_callback_url(settings)
@@ -198,6 +203,7 @@ async def start_connect_link(
         user_id=session.composio_user_id,
         auth_config_id=auth_cfg,
         callback_url=link_callback,
+        **({"allow_multiple": True} if allow_multiple else {}),
     )
     session.status = "active"
     session.updated_at = now
@@ -326,7 +332,7 @@ async def list_tenant_accounts(
             local = local_rows.get(account_id)
             status = (remote_item.get("status") or "active").lower()
             if status not in {"active", "expired", "revoked", "error"}:
-                status = "active"
+                status = "error"
             toolkit = (remote_item.get("toolkit_slug") or "unknown").lower()
             if local is None:
                 db.add(
