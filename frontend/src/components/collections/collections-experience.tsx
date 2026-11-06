@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/header";
+import { useObjectNavigationState, useObjectScrollRestoration } from "@/components/layout/navigation-context-provider";
 import { hasNavigationPermission } from "@/components/layout/navigation";
 import { api } from "@/lib/api";
 import { collectionsApi, type CollectionCase } from "@/lib/collections-api";
-import { ObjectIndex, initialObjectIndexState, type ObjectIndexState } from "@/components/object-index/object-index";
+import { ObjectIndex, type ObjectIndexState } from "@/components/object-index/object-index";
 import type { ObjectField } from "@/components/object-index/object-index-types";
 import { CaseDetail, Currency, Time } from "./collection-case-detail";
 
@@ -63,9 +64,11 @@ function serverStatus(state: ObjectIndexState): string[] {
 }
 
 export function CollectionsExperience() {
-  const [state, setState] = useState(() => initialObjectIndexState(FIELDS));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
+  const { state, onStateChange, selectedId, openRecord, closeRecord, listingHref } = useObjectNavigationState({
+    fields: FIELDS, views: DEFAULT_VIEWS,
+    tenantId: me.data?.tenant_id, userId: me.data?.user_id,
+  });
   const profile = me.data?.operation_profile;
   const educationWithBilling = profile === "institution"
     && Array.isArray(me.data?.enabled_modules) && me.data.enabled_modules.includes("billing");
@@ -94,7 +97,10 @@ export function CollectionsExperience() {
     queryFn: () => collectionsApi.detail(selectedId!),
     enabled: allowed && Boolean(selectedId) && Boolean(tenant), retry: false, staleTime: 20_000,
   });
-  useEffect(() => { setSelectedId(null); setState(initialObjectIndexState(FIELDS)); }, [tenant, user]);
+  useObjectScrollRestoration({
+    tenantId: tenant, userId: user, listingHref, selectedId,
+    ready: Boolean(cases.data && !cases.isError && !cases.isFetching),
+  });
   if (me.isLoading) return <main className="mira-page p-7 text-xs text-[var(--color-muted)]" role="status">Verificando acesso…</main>;
   if (me.isError || !allowed) return <main className="mira-page p-7 text-sm text-[var(--color-muted)]" role="alert">A área de cobrança não está disponível para este workspace ou cargo.</main>;
   return <main className="mira-page space-y-5 p-5 md:p-7">
@@ -108,15 +114,15 @@ export function CollectionsExperience() {
         objectKey="collections" title="Casos financeiros"
         description="Origem verificada · contagem integral · visualizações pessoais"
         fields={FIELDS} rows={cases.data?.items ?? []} state={state}
-        onStateChange={next => { setSelectedId(null); setState(next); }}
+        onStateChange={onStateChange}
         defaultViews={DEFAULT_VIEWS} remote total={cases.data?.total}
         loading={cases.isLoading || cases.isFetching} error={cases.isError}
         onRetry={() => void cases.refetch()} onRefresh={() => void cases.refetch()}
-        refreshing={cases.isFetching} onOpen={row => setSelectedId(row.id)}
+        refreshing={cases.isFetching} onOpen={row => openRecord(row.id)}
         emptyTitle="Nenhum caso corresponde aos filtros."
       />
       {selectedId && <CaseDetail record={detail.data} loading={detail.isLoading}
-        error={detail.isError} onClose={() => setSelectedId(null)} />}
+        error={detail.isError} onClose={closeRecord} />}
     </div>
   </main>;
 }

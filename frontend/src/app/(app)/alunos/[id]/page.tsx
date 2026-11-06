@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import { studentReturnHref } from "@/lib/navigation-context";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -84,6 +85,13 @@ function InfoCard({ label, value }: { label: string; value: string }) {
 }
 
 export default function StudentDetailPage() {
+  return <Suspense fallback={<main className="mira-page p-8 text-sm text-[var(--color-muted)]" role="status">Carregando ficha…</main>}>
+    <StudentDetailContent />
+  </Suspense>;
+}
+
+function StudentDetailContent() {
+  const searchParams = useSearchParams();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [preview, setPreview] = useState<string | null>(null);
@@ -214,7 +222,7 @@ export default function StudentDetailPage() {
         {data && canRead && (
             <RecordPage
               record={studentRecordIdentity(id,data)}
-              backHref="/alunos"
+              backHref={studentReturnHref(searchParams.get("from"))}
               status={canSensitive ? <RiskBadge level={data.risk_level}/> : undefined}
               actions={[
                 {id:"refresh",label:isFetching?"Atualizando…":"Atualizar",onClick:()=>void refetch(),disabled:isFetching},
