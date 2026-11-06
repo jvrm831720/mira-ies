@@ -3,12 +3,59 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from urllib.parse import urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 import httpx
 
 FIRECRAWL_SCRAPE_URL = "https://api.firecrawl.dev/v2/scrape"
 MINHA_RECEITA_URL = "https://minhareceita.org/{cnpj}"
+
+
+def _valid_cnpj_digits(digits: str) -> bool:
+    if len(digits) != 14 or len(set(digits)) == 1:
+        return False
+
+    def check(base: str, weights: list[int]) -> str:
+        total = sum(int(n) * weight for n, weight in zip(base, weights))
+        remainder = total % 11
+        return str(0 if remainder < 2 else 11 - remainder)
+
+    first = check(digits[:12], [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    second = check(digits[:12] + first, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    return digits[-2:] == first + second
+
+
+def extract_single_cnpj(markdown: str) -> str | None:
+    """Find a unique, check-digit-valid CNPJ, including public site footers.
+
+    Multiple legal entities on one page are ambiguous: never pick one silently.
+    """
+    pattern = r"(?<!\\d)(?:\\d{2}[.\\s]?\\d{3}[.\\s]?\\d{3}[/\\s-]?\\d{4}[-\\s]?\\d{2}|\\d{14})(?!\\d)"
+    found = {
+        digits for match in re.findall(pattern, markdown[:100_000])
+        if (digits := re.sub(r"\\D", "", match)) and _valid_cnpj_digits(digits)
+    }
+    return next(iter(found)) if len(found) == 1 else None
+
+
+def site_favicon_url(url: str) -> str:
+    """Use a fixed trusted image host instead of requesting arbitrary logo URLs."""
+    host = urlsplit(normalize_public_website(url)).hostname or ""
+    return "https://www.google.com/s2/favicons?domain=" + quote(host, safe="") + "&sz=128"
+
+
+async def fetch_site_favicon(url: str) -> bytes | None:
+    """Optional site icon, retrieved through a fixed HTTPS endpoint (no user URL fetch)."""
+    async with httpx.AsyncClient(timeout=httpx.Timeout(7.0, connect=3.0), follow_redirects=False) as client:
+        response = await client.get(site_favicon_url(url))
+        if response.status_code != 200 or len(response.content) > 2_000_000:
+            return None
+        if not response.headers.get("content-type", "").lower().startswith("image/"):
+            return None
+        return response.content
+
+
+
 
 
 def normalize_public_website(value: str) -> str:
@@ -89,7 +136,7 @@ async def scrape_website(url: str, api_key: str) -> dict:
         response = await client.post(
             FIRECRAWL_SCRAPE_URL,
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"url": url, "formats": ["markdown"], "onlyMainContent": True, "blockAds": True},
+            json={"url": url, "formats": ["markdown"], "onlyMainContent": False, "blockAds": True},
         )
         response.raise_for_status()
         payload = response.json()
@@ -104,6 +151,9 @@ async def scrape_website(url: str, api_key: str) -> dict:
         "url": url,
         "title": _optional_text(metadata, "title"),
         "description": _optional_text(metadata, "description", 1000),
+        # The favicon is only a suggested icon, not proof of organization ownership.
+        "logo_url": site_favicon_url(url),
+        "detected_cnpj": extract_single_cnpj(markdown),
         "markdown": markdown[:8000],
         "truncated": len(markdown) > 8000,
         "source": "Firecrawl",
