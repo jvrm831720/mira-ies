@@ -499,11 +499,12 @@ async def list_revisions(
         ObjectViewRevision.tenant_id == auth.tenant_id,
         ObjectViewRevision.view_id == row.id,
     ).order_by(ObjectViewRevision.revision.desc()).limit(50))).scalars().all()
-    await db.rollback()  # release FOR UPDATE before the history is shown
-    return {"revisions": [{
+    payload = {"revisions": [{
         "revision": item.revision, "name": item.name, "scope": item.scope,
         "schema_version": item.config_version, "created_at": item.created_at.isoformat(),
     } for item in history]}
+    await db.rollback()  # release FOR UPDATE; ORM rows may expire after rollback
+    return payload
 
 
 @router.post("/{view_id}/restore")
