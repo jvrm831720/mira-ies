@@ -35,7 +35,7 @@ export function WorkActivityCreateForm({title, setTitle, description, setDescrip
                 {linkLogId ? "Criar atividade a partir da intervenção" : "Criar atividade"}
               </p>
               {linkLogId && (
-                <span className="rounded-full bg-[var(--color-source-eff4ff)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-source-3538cd)]">
+                <span className="rounded-full bg-[var(--color-source-eff4ff)] px-2.5 py-1 text-[length:var(--type-caption)] font-medium text-[var(--color-source-3538cd)]">
                   Vinculada ao log · {linkLogId.slice(0, 8)}…
                 </span>
               )}

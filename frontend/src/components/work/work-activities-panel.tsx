@@ -285,7 +285,7 @@ export function WorkActivitiesPanel({ createDraft = null, onDraftConsumed }: Pro
           priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter}
           activeMembers={activeMembers} />
         {summaryQuery.data?.urgent_pending ? <button type="button" onClick={() => { setView("all"); setPriorityFilter("urgent"); }}
-          className="flex w-full items-center justify-between rounded-[var(--radius-md)] border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-left text-[12px] text-[var(--color-ink)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
+          className="flex w-full items-center justify-between rounded-[var(--radius-md)] border border-[var(--color-peach-tint-border)] bg-[var(--color-peach-tint)] px-3 py-2 text-left text-xs text-[var(--color-ink)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
           <span><strong>{summaryQuery.data.urgent_pending}</strong> atividade(s) urgentes aguardam tratamento</span>
           <span className="font-semibold">Priorizar agora</span>
         </button> : null}

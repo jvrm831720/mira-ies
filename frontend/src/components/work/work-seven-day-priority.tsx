@@ -40,7 +40,7 @@ export function WorkSevenDayPriority({ data, loading, error }: {
           </Link>
         </li>)}
       </ul> : <p className="text-xs text-[var(--color-slate-600)]">Nenhum aluno confirmado para priorização.</p>}
-      <p className="text-[11px] text-[var(--color-muted)]">Apuração: {new Date(data.as_of).toLocaleString("pt-BR")}. Priorizar não dispara mensagens.</p>
+      <p className="text-[length:var(--type-caption)] text-[var(--color-muted)]">Apuração: {new Date(data.as_of).toLocaleString("pt-BR")}. Priorizar não dispara mensagens.</p>
     </div>}
   </section>;
 }

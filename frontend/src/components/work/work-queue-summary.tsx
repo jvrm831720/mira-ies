@@ -16,9 +16,9 @@ export function WorkQueueSummary({ data, isLoading, isError }: Props) {
   ];
   return <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Resumo da fila">
     {metrics.map(metric => <div key={metric.label} className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-panel)] px-3 py-2.5">
-      <p className="text-[11px] font-medium text-[var(--color-slate-600)]">{metric.label}</p>
+      <p className="text-[length:var(--type-caption)] font-medium text-[var(--color-slate-600)]">{metric.label}</p>
       {isLoading ? <div className="mt-2 h-6 w-12 animate-pulse rounded bg-[var(--color-border)] motion-reduce:animate-none" role="status" aria-label="Carregando indicador" />
-      : <p className={cn("mt-1 text-[17px] font-semibold tabular-nums", metric.urgent && Number(metric.value) > 0 ? "text-[var(--color-red)]" : "text-[var(--color-ink)]")}>
+      : <p className={cn("mt-1 text-[length:var(--type-heading-compact)] font-semibold tabular-nums", metric.urgent && Number(metric.value) > 0 ? "text-[var(--color-red)]" : "text-[var(--color-ink)]")}>
         {isError || metric.value == null ? "—" : metric.value.toLocaleString("pt-BR")}
       </p>}
     </div>)}

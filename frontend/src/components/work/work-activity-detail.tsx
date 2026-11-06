@@ -77,7 +77,7 @@ export function WorkActivityDetail({selectedActivity, canSensitive, onClose,
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-slate-600)]">
                 Contexto do aluno
               </p>
-              {!canSensitive ? <p className="text-[12px] text-[var(--color-muted)]">Contexto de risco restrito ao perfil autorizado.</p> : !selectedActivity.student_id ? (
+              {!canSensitive ? <p className="text-xs text-[var(--color-muted)]">Contexto de risco restrito ao perfil autorizado.</p> : !selectedActivity.student_id ? (
                 <p className="text-xs text-[var(--color-muted)]">Nenhum aluno vinculado a esta atividade.</p>
               ) : studentLoading ? (
                 <p className="text-xs text-[var(--color-slate-600)]">Carregando dados do aluno…</p>
@@ -155,7 +155,7 @@ export function WorkActivityDetail({selectedActivity, canSensitive, onClose,
                 <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-slate-600)]">
                   <FileText className="h-3.5 w-3.5" /> Registrar resultado operacional
                 </p>
-                <p className="mb-3 text-[11px] leading-relaxed text-[var(--color-muted)]">
+                <p className="mb-3 text-[length:var(--type-caption)] leading-relaxed text-[var(--color-muted)]">
                   Grava evento <code className="text-[var(--color-slate-600)]">result_recorded</code>. Não altera
                   status da atividade, delivery status nem outcome de permanência.
                 </p>

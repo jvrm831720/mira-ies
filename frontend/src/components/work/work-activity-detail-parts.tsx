@@ -5,7 +5,7 @@ import { CHANNEL_LABEL, formatDate } from "./work-activity-labels";
 export function InfoBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-white px-3 py-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{label}</p>
+      <p className="text-[length:var(--type-caption)] font-medium uppercase tracking-wide text-[var(--color-muted)]">{label}</p>
       <div className="mt-0.5 text-xs text-[var(--color-slate-600)]">{children}</div>
     </div>
   );

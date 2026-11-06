@@ -92,7 +92,7 @@ export function WorkActivityList({rows, view, selectedId, activeMembers, loading
                         {item.student_id ? " · com aluno" : ""}
                       </p>
                       {item.campaign_id && (
-                        <p className="mt-1 text-[10px] font-medium text-[var(--color-source-3538cd)]">
+                        <p className="mt-1 text-[length:var(--type-overline)] font-medium text-[var(--color-source-3538cd)]">
                           Campanha · {item.campaign_id.slice(0, 8)}…
                         </p>
                       )}
