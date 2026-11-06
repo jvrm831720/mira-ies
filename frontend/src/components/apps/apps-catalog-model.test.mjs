@@ -18,7 +18,7 @@ test("unifies native and external entries without duplicates",()=>{
  const native=[{id:"jacad",name:"JACAD",category:"academic"},{id:"moodle",name:"Moodle",category:"lms"}];
  const remote=[{slug:"jacad",name:"JACAD remote",category:"education"},{slug:"gmail",name:"Gmail",category:"communication"}];
  const rows=unifyAppsCatalog(native,remote,[]);
- assert.equal(rows.length,3);
+ assert.ok(rows.length>=50, "editorial known apps remain discoverable");
  assert.equal(rows.find(x=>x.id==="jacad").native,true);
  assert.equal(rows.find(x=>x.id==="jacad").external,true);
  assert.equal(rows.find(x=>x.id==="gmail").status,"available");
@@ -27,23 +27,25 @@ test("unifies native and external entries without duplicates",()=>{
 
 test("local account is registered, never automatically presented as verified connected",()=>{
  const apps=unifyAppsCatalog([], [{slug:"gmail",name:"Gmail"}],[{toolkit_slug:"gmail",status:"active",display_name:"equipe@exemplo.edu.br"}]);
- assert.equal(apps[0].status,"configured");
- assert.equal(apps[0].statusText,"Conta registrada");
- assert.equal(apps[0].connectedAccountName,"equipe@exemplo.edu.br");
+ assert.equal(apps.find(x=>x.id==="gmail").status,"configured");
+ assert.equal(apps.find(x=>x.id==="gmail").statusText,"Conta registrada");
+ assert.equal(apps.find(x=>x.id==="gmail").connectedAccountName,"equipe@exemplo.edu.br");
 });
 
 test("native status requires evidence and respects inactive and error",()=>{
  const item=[{id:"jacad",name:"JACAD"}];
- assert.equal(unifyAppsCatalog(item,[],[])[0].status,"available");
- assert.equal(unifyAppsCatalog(item,[],[],{jacad:{configured:true}})[0].status,"configured");
- assert.equal(unifyAppsCatalog(item,[],[],{jacad:{configured:true,status:"connected"}})[0].status,"connected");
- assert.equal(unifyAppsCatalog(item,[],[],{jacad:{configured:true,enabled:false}})[0].status,"inactive");
- assert.equal(unifyAppsCatalog(item,[],[],{jacad:{configured:true,status:"error"}})[0].status,"error");
+ assert.equal(unifyAppsCatalog(item,[],[]).find(x=>x.id==="jacad").status,"available");
+ assert.equal(unifyAppsCatalog(item,[],[],{jacad:{configured:true}}).find(x=>x.id==="jacad").status,"configured");
+ assert.equal(unifyAppsCatalog(item,[],[],{jacad:{configured:true,status:"connected"}}).find(x=>x.id==="jacad").status,"connected");
+ assert.equal(unifyAppsCatalog(item,[],[],{jacad:{configured:true,enabled:false}}).find(x=>x.id==="jacad").status,"inactive");
+ assert.equal(unifyAppsCatalog(item,[],[],{jacad:{configured:true,status:"error"}}).find(x=>x.id==="jacad").status,"error");
 });
 
 test("filters by category, connection status, and normalized case",()=>{
  const rows=unifyAppsCatalog([{id:"jacad",name:"JACAD"},{id:"moodle",name:"Moodle"}],[],[],{jacad:{configured:true}});
- assert.equal(filterAppsCatalog(rows,"","Acadêmico","Conectados").length,1);
+ assert.equal(filterAppsCatalog(rows,"","Acadêmico","Conectados").length,0);
+ const verified=unifyAppsCatalog([{id:"jacad",name:"JACAD"}],[],[],{jacad:{configured:true,status:"connected"}});
+ assert.equal(filterAppsCatalog(verified,"","Acadêmico","Conectados").length,1);
  assert.equal(filterAppsCatalog(rows,"JACAD","Todos","Descobrir").length,1);
  assert.equal(filterAppsCatalog(rows,"xzy","Todos","Descobrir").length,0);
  assert.equal(normalizeAppKey("Google Drive"),"googledrive");
@@ -60,4 +62,23 @@ test("view keeps provider technical terms out of visible copy and protects permi
  assert.match(navigation,/href: "\/apps".*permission: "data\.view".*module: "data"/);
  assert.match(sidebar,/paths: \["\/apps", "\/dados"/);
  assert.match(view,/O pedido não será enviado automaticamente/);
+});
+
+test("curated educational, finance and business apps remain visible when live discovery is off",()=>{
+ const rows=unifyAppsCatalog([],[],[]);
+ for(const name of ["JACAD","Sponte","Moodle","Canvas","Omie","Asaas","Gmail","Microsoft Teams","Google Calendar","Stripe","Mailchimp"]){
+  const item=rows.find(x=>x.name===name);
+  assert.ok(item,name+" should be visible");
+  assert.equal(item.status,"request","never synthesize a connection: "+name);
+  assert.equal(item.statusText,"Sob consulta");
+ }
+ assert.equal(filterAppsCatalog(rows,"","Todos","Conectados").length,0);
+});
+test("remote catalog confirms presence but never fakes verified connectivity",()=>{
+ const rows=unifyAppsCatalog([],[{slug:"gmail",name:"Gmail",enabled:true}],
+   [{toolkit_slug:"gmail",status:"active"}]);
+ const item=rows.find(x=>x.id==="gmail");
+ assert.equal(item.status,"configured");
+ assert.equal(item.statusText,"Conta registrada");
+ assert.equal(filterAppsCatalog(rows,"gmail","Todos","Conectados").length,0);
 });
