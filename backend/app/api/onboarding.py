@@ -1,6 +1,8 @@
 """Public, email-verified organization provisioning for the first-run onboarding."""
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 import secrets
 import unicodedata
@@ -8,13 +10,14 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.mfa import create_login_challenge
+from app.core.auth import AuthContext, get_current_tenant
 from app.core.config import get_settings
 from app.core.mfa_policy import user_requires_mfa
 from app.core.mira_security import hash_password
@@ -22,9 +25,12 @@ from app.core.security import hash_api_key
 from app.core.user_sessions import create_user_session
 from app.db.session import get_db
 from app.models.auth import AuthChallenge, User
-from app.models.organization import Membership, ModuleEntitlement, Organization
+from app.models.organization import Membership, ModuleEntitlement, Organization, TenantBranding, TenantLogoAsset
 from app.models.tenant import Tenant
-from app.services.onboarding_enrichment import lookup_company, normalize_public_website, scrape_website
+from app.services.onboarding_enrichment import (
+    extract_single_cnpj, fetch_site_favicon, lookup_company,
+    normalize_public_website, scrape_website,
+)
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 _MODULES = ("permanence", "data", "workspace", "mira_plan")
@@ -72,6 +78,8 @@ class CompleteOnboardingPayload(BaseModel):
     campuses: str = Field(default="", max_length=64)
     description: str = Field(default="", max_length=2000)
     data_sources: list[str] = Field(default_factory=list, max_length=12)
+    logo_data_url: str = Field(default="", max_length=2_800_000)
+    auto_logo: bool = False
 
     @field_validator("email")
     @classmethod
@@ -140,12 +148,9 @@ class CompleteOnboardingPayload(BaseModel):
     @field_validator("website")
     @classmethod
     def normalize_website(cls, value: str) -> str:
-        value = value.strip()
-        if value and not re.match(r"^https?://", value, re.I):
-            value = "https://" + value
-        if value and not re.match(r"^https?://[^/\s]+", value, re.I):
-            raise ValueError("Informe um site válido.")
-        return value
+        if not value.strip():
+            return ""
+        return normalize_public_website(value)
 
 
 class EnrichOnboardingPayload(BaseModel):
@@ -179,6 +184,51 @@ class EnrichOnboardingPayload(BaseModel):
             return normalize_public_website(value)
         except ValueError as exc:
             raise ValueError(str(exc)) from exc
+
+
+def _image_logo(data_url: str) -> tuple[str, bytes] | None:
+    """Decode a bounded, real image; the browser preview alone is never persisted."""
+    if not data_url:
+        return None
+    match = re.fullmatch(r"data:(image/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)", data_url)
+    if not match:
+        raise HTTPException(status_code=422, detail="Envie uma imagem PNG, JPG ou WebP válida.")
+    mime = match.group(1)
+    try:
+        image = base64.b64decode(match.group(2), validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(status_code=422, detail="A imagem enviada é inválida.") from exc
+    if not image or len(image) > 2_000_000:
+        raise HTTPException(status_code=413, detail="O logotipo deve ter no máximo 2 MB.")
+    if not _image_mime_matches(mime, image):
+        raise HTTPException(status_code=422, detail="O conteúdo da imagem não corresponde ao formato informado.")
+    return mime, image
+
+
+def _image_mime_matches(mime: str, data: bytes) -> bool:
+    return (
+        (mime == "image/png" and data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"))
+        or (mime == "image/jpeg" and data.startswith(b"\\xff\\xd8\\xff"))
+        or (mime == "image/webp" and data[:4] == b"RIFF" and data[8:12] == b"WEBP")
+    )
+
+
+@router.get("/workspace-logo")
+async def read_workspace_logo(
+    auth: AuthContext = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db),
+):
+    """Deliver the actual stored logo to a signed-in workspace member."""
+    row = (await db.execute(
+        select(TenantLogoAsset).where(TenantLogoAsset.tenant_id == auth.tenant_id)
+    )).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Logotipo ainda não configurado.")
+    return Response(
+        content=row.image_bytes,
+        media_type=row.content_type,
+        headers={"Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.post("/enrich")
@@ -218,6 +268,14 @@ async def enrich_onboarding(
         else:
             try:
                 result["website"] = await scrape_website(body.website, api_key)
+                site_cnpj = result["website"].get("detected_cnpj") if isinstance(result["website"], dict) else None
+                if site_cnpj and not body.cnpj:
+                    try:
+                        result["company"] = await lookup_company(site_cnpj)
+                    except (httpx.HTTPError, LookupError, TypeError, ValueError):
+                        result["warnings"].append(
+                            "CNPJ encontrado no site, mas a consulta cadastral não foi concluída. Confirme os dados."
+                        )
             except (httpx.HTTPError, LookupError, TypeError, ValueError):
                 result["warnings"].append("Não foi possível ler o site agora. Você pode continuar e preencher os dados manualmente.")
     return result
@@ -251,6 +309,20 @@ async def complete_onboarding(
     existing = (await db.execute(select(User.id).where(User.email == body.email))).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=409, detail="Este e-mail já possui uma conta. Entre na sua conta para continuar.")
+
+    uploaded_logo = _image_logo(body.logo_data_url)
+    if not uploaded_logo and body.auto_logo and body.website:
+        # This requests only the Google favicon service, never a caller-supplied URL.
+        try:
+            icon = await fetch_site_favicon(body.website)
+            if icon:
+                for content_type in ("image/png", "image/jpeg", "image/webp"):
+                    if _image_mime_matches(content_type, icon):
+                        uploaded_logo = (content_type, icon)
+                        break
+        except (httpx.HTTPError, ValueError):
+            # Missing public icon is not a blocker for legal entity provisioning.
+            pass
 
     if body.cnpj:
         duplicate = (await db.execute(
@@ -299,6 +371,19 @@ async def complete_onboarding(
         text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
         {"tenant_id": tenant.id},
     )
+
+    if uploaded_logo:
+        content_type, image_bytes = uploaded_logo
+        db.add(TenantLogoAsset(
+            tenant_id=tenant.id,
+            content_type=content_type,
+            image_bytes=image_bytes,
+            source="uploaded" if body.logo_data_url else "site_favicon",
+        ))
+        db.add(TenantBranding(
+            tenant_id=tenant.id,
+            logo_storage_key=f"database:tenant-logo/{tenant.id}",
+        ))
 
     display_name = f"{body.first_name.strip()} {body.last_name.strip()}".strip()[:120]
     # MIRA's first-run access is passwordless (verified email OTP). Store an
