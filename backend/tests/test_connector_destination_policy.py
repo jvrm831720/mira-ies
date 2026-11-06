@@ -8,7 +8,10 @@ from app.services.connectors.destination_policy import (
 )
 
 
-POLICY = {"tenant-a": {"lms.example.edu.br", "erp.example.com"}}
+POLICY = {
+    "tenant-a": {"lms.example.edu.br", "erp.example.com"},
+    "tenant-b": {"erp.example.com"},
+}
 
 
 def test_accepts_exact_tenant_host_and_normalizes_case_and_trailing_dot():
