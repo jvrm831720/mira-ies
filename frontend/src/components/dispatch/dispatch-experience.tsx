@@ -32,6 +32,7 @@ export function DispatchExperience() {
   const canView=allowedByNavigation && hasNavigationPermission(me.data,"campaigns.view");
   const canCreate=canView && hasNavigationPermission(me.data,"campaigns.create");
   const canAudit=canView && hasNavigationPermission(me.data,"audit.view");
+  const canExecute=canView && hasNavigationPermission(me.data,"campaigns.execute");
   const canManageProviders=canView && hasNavigationPermission(me.data,"settings.manage");
   const qkey=["dispatch","campaigns",tenantId,userId] as const;
   const campaigns=useQuery({
@@ -96,6 +97,7 @@ export function DispatchExperience() {
             className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 text-[12px] font-medium hover:bg-[var(--color-panel)] disabled:opacity-50">
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </button>
+          {canExecute && <Link href="/disparos/console?mode=individual" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white px-3 text-[12px] font-medium hover:bg-[var(--color-panel)]">Contato individual</Link>}
           {canCreate && <button type="button" onClick={()=>{setBuilding(true);setSection("campaigns");}}
             className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-[12px] font-medium text-white">
             <Plus className="h-3.5 w-3.5" /> Nova campanha
