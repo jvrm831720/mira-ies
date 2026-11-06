@@ -43,11 +43,11 @@ class AsaasCharge(Base):
     __tablename__ = "mira_asaas_charges"
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mira_asaas_charge_tenant_id"),
-        UniqueConstraint("tenant_id", "intent_id", name="uq_mira_asaas_charge_intent"),
+        
         UniqueConstraint("tenant_id", "financial_key", name="uq_mira_asaas_charge_financial_key"),
         UniqueConstraint("external_reference", name="uq_mira_asaas_charge_reference"),
         UniqueConstraint("asaas_payment_id", name="uq_mira_asaas_charge_payment_id"),
-        ForeignKeyConstraint(["tenant_id", "intent_id"], ["mira_student_payment_intents.tenant_id", "mira_student_payment_intents.id"], name="fk_mira_asaas_charge_intent_tenant"),
+        ForeignKeyConstraint(["tenant_id", "financial_observation_id"], ["mira_finance_observations.tenant_id", "mira_finance_observations.id"], name="fk_mira_asaas_charge_observation_tenant"),
         ForeignKeyConstraint(["tenant_id", "student_id"], ["students.tenant_id", "students.id"], name="fk_mira_asaas_charge_student_tenant"),
         CheckConstraint("environment IN ('sandbox','production')", name="ck_mira_asaas_charge_environment"),
         CheckConstraint("creation_state IN ('prepared','submitting','unknown','created','rejected','review')", name="ck_mira_asaas_charge_creation"),
@@ -57,7 +57,7 @@ class AsaasCharge(Base):
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
-    intent_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    financial_observation_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     financial_key: Mapped[str] = mapped_column(String(64), nullable=False)
     student_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)

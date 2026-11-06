@@ -37,7 +37,7 @@ def upgrade():
         sa.ForeignKeyConstraint(["tenant_id","student_id"],["students.tenant_id","students.id"],name="fk_mira_asaas_customer_student_tenant"),
         sa.CheckConstraint("issuer_environment IN ('sandbox','production')",name="ck_mira_asaas_customer_environment"))
     op.create_table("mira_asaas_charges",
-        pk(),tenant(),ref("intent_id"),ref("student_id"),column("financial_key",64),
+        pk(),tenant(),ref("financial_observation_id"),ref("student_id"),column("financial_key",64),
         sa.Column("amount",sa.Numeric(12,2),nullable=False),
         column("currency",3),column("method",12),
         sa.Column("due_date",sa.Date(),nullable=False),
@@ -56,11 +56,11 @@ def upgrade():
         sa.Column("created_at",sa.DateTime(timezone=True),nullable=False,server_default=sa.func.now()),
         sa.Column("updated_at",sa.DateTime(timezone=True),nullable=False,server_default=sa.func.now()),
         unique_tenant("uq_mira_asaas_charge_tenant_id"),
-        sa.UniqueConstraint("tenant_id","intent_id",name="uq_mira_asaas_charge_intent"),
+        
         sa.UniqueConstraint("tenant_id","financial_key",name="uq_mira_asaas_charge_financial_key"),
         sa.UniqueConstraint("external_reference",name="uq_mira_asaas_charge_reference"),
         sa.UniqueConstraint("asaas_payment_id",name="uq_mira_asaas_charge_payment_id"),
-        sa.ForeignKeyConstraint(["tenant_id","intent_id"],["mira_student_payment_intents.tenant_id","mira_student_payment_intents.id"],name="fk_mira_asaas_charge_intent_tenant"),
+        sa.ForeignKeyConstraint(["tenant_id","financial_observation_id"],["mira_finance_observations.tenant_id","mira_finance_observations.id"],name="fk_mira_asaas_charge_observation_tenant"),
         sa.ForeignKeyConstraint(["tenant_id","student_id"],["students.tenant_id","students.id"],name="fk_mira_asaas_charge_student_tenant"),
         sa.CheckConstraint("environment IN ('sandbox','production')",name="ck_mira_asaas_charge_environment"),
         sa.CheckConstraint("creation_state IN ('prepared','submitting','unknown','created','rejected','review')",name="ck_mira_asaas_charge_creation"),
