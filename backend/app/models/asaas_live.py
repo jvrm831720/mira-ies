@@ -79,6 +79,8 @@ class AsaasCharge(Base):
     split_settled_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     reconciliation_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    authorized_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
+    authorized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
 

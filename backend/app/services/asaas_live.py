@@ -41,6 +41,7 @@ def present(row: AsaasCharge) -> dict:
         "method": row.method, "amount": str(row.amount), "currency": "BRL",
         "due_date": row.due_date.isoformat(), "environment": row.environment,
         "creation_state": row.creation_state,
+        "authorized_at": row.authorized_at.isoformat() if row.authorized_at else None,
         "payment_status": row.provider_payment_status,
         "split_status": row.provider_split_status,
         "split_configuration_verified": row.split_configuration_verified,
@@ -208,6 +209,8 @@ async def submit_charge(db: AsyncSession, *, tenant_id: str, charge_id: str,
         destination_wallet_id=row.destination_wallet_id,
     )
     row.creation_state = "submitting"
+    row.authorized_by = user_id
+    row.authorized_at = datetime.now(timezone.utc)
     row.updated_at = datetime.now(timezone.utc)
     await db.commit()  # durable fence BEFORE the non-idempotent external POST
     try:
