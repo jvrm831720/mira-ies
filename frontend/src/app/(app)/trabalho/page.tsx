@@ -175,7 +175,7 @@ export default function WorkCenterPage() {
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10">
         <section className="flex flex-col justify-between gap-4 border-b border-[var(--color-border)] pb-5 sm:flex-row sm:items-center">
           <div className="max-w-2xl">
-            <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-blue)]">
+            <p className="mb-1 flex items-center gap-2 text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.12em] text-[var(--color-blue)]">
               <ClipboardList className="h-3.5 w-3.5" /> Operação diária
             </p>
             <h2 className="text-xl font-semibold tracking-[-0.035em] text-[var(--color-ink)] sm:text-2xl">
@@ -333,7 +333,7 @@ export default function WorkCenterPage() {
                             ) : (
                               <span className="text-xs text-[var(--color-muted)]">Sem score</span>
                             )}
-                            <span className="mt-1 block text-[11px] tabular-nums text-[var(--color-slate-600)]">{scoreLabel(item.risk_score)}</span>
+                            <span className="mt-1 block text-[length:var(--type-caption)] tabular-nums text-[var(--color-slate-600)]">{scoreLabel(item.risk_score)}</span>
                           </td>
                           <td className="px-3 py-3.5 text-[var(--color-blue)]">{item.channel || "—"}</td>
                           <td className="px-3 py-3.5 text-[var(--color-blue)]">{item.status}</td>
