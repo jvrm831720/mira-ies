@@ -182,7 +182,7 @@ export function ViewManager<T>({
   }
 
   const config = managed?.config || currentConfig;
-  const authorized = new Set(schema.data?.fields.map(field => field.key) ||
+  const authorized = new Set(schema.data?.fields?.map(field => field.key) ||
     fields.map(field => field.key));
 
   return <div className="relative ml-2">
