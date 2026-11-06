@@ -28,8 +28,8 @@ export function WorkSevenDayPriority({ data, loading, error }: {
         <strong> {data.pending_verification.toLocaleString("pt-BR")}</strong> aguardando verificação.
       </p>
       <p className="text-xs text-[var(--color-slate-600)]">
-        Sem contato confirmado significa sem envio registrado como enviado e sem atividade humana de contato concluída
-        nos últimos 7 dias. Casos em envio ou contato em andamento ficam fora da fila até verificação.
+        Sem contato confirmado significa sem envio registrado como enviado e sem resultado humano de contato positivo (`done`)
+        nos últimos 7 dias. Casos em envio ou contato concluído sem resultado verificável ficam fora da fila até verificação.
       </p>
       {data.candidates.length > 0 ? <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {data.candidates.map(student => <li key={student.id}>

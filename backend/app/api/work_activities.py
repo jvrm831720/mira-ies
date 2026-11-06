@@ -413,8 +413,7 @@ async def critical_students_without_recent_contact(
 ):
     """Verified tenant-wide counts; no capped work queue, no assumed contact for missing data.
 
-    A confirmed contact is either a sent intervention or a completed human
-    contact activity. Sending/unknown interventions and in-progress human
+    A confirmed contact is a sent intervention or an explicit human\n    result_recorded(kind=done) event. Sending/unknown interventions and in-progress human
     contacts are held for review, not mistaken for safe outreach candidates.
     """
     now = _now()
@@ -434,12 +433,16 @@ async def critical_students_without_recent_contact(
         )
     )
     human_done = exists(
-        select(WorkActivity.id).where(
+        select(WorkActivityEvent.id)
+        .join(WorkActivity, WorkActivityEvent.activity_id == WorkActivity.id)
+        .where(
             WorkActivity.tenant_id == auth.tenant_id,
             WorkActivity.student_id == Student.id,
             WorkActivity.activity_type == "contact",
-            WorkActivity.status == "completed",
-            WorkActivity.completed_at >= cutoff,
+            WorkActivityEvent.tenant_id == auth.tenant_id,
+            WorkActivityEvent.event_type == "result_recorded",
+            WorkActivityEvent.payload["kind"].astext == "done",
+            WorkActivityEvent.created_at >= cutoff,
         )
     )
     uncertain_sent = exists(
@@ -455,7 +458,13 @@ async def critical_students_without_recent_contact(
             WorkActivity.tenant_id == auth.tenant_id,
             WorkActivity.student_id == Student.id,
             WorkActivity.activity_type == "contact",
-            WorkActivity.status == "in_progress",
+            (
+                (WorkActivity.status == "in_progress")
+                | (
+                    (WorkActivity.status == "completed")
+                    & (WorkActivity.completed_at >= cutoff)
+                )
+            ),
         )
     )
     confirmed = sent | human_done
@@ -488,8 +497,8 @@ async def critical_students_without_recent_contact(
             for row in top
         ],
         "count_scope": "all active tenant students scored as critical",
-        "policy": "Sent interventions and completed human contacts count as contact. "
-                  "Sending/unknown interventions and in-progress contacts are excluded "
+        "policy": "Sent interventions and explicitly successful human result events count as contact. "
+                  "Sending/unknown interventions and pending/unverified human contacts are excluded "
                   "from the candidate count until verified.",
     }
 
