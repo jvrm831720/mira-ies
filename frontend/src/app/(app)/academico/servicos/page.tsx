@@ -1,5 +1,7 @@
 "use client";
 
+import { AcademicNavigation } from "@/components/academic/academic-navigation";
+
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -230,6 +232,7 @@ export default function AcademicServiceDeskPage() {
   </main>;
 
   return <main className="min-h-screen bg-[#FCFCFD] px-4 py-7 text-[#202124] sm:px-8 xl:px-10">
+    <AcademicNavigation features={me.data?.available_features} />
     <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.11em] text-[#667085]">Acadêmico / Atendimento</p>

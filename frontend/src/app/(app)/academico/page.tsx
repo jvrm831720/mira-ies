@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { AcademicNavigation } from "@/components/academic/academic-navigation";
+
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen, CalendarDays, CheckCircle2, GraduationCap, Loader2,
   Plus, ShieldCheck, Users, X,
 } from "@/components/ui/icons";
+import { Dialog } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
 import type { ObjectField } from "@/components/object-index/object-index-types";
@@ -120,12 +123,12 @@ export default function AcademicManagementPage() {
     ? me.data.permissions.includes("critical.manage") : me.data?.role === "admin");
 
   const overview = useQuery({
-    queryKey: ["native-academic", "catalog-overview"],
+    queryKey: ["native-academic", me.data?.tenant_id, me.data?.user_id, "catalog-overview"],
     queryFn: () => staffRequest<Overview>("/overview"),
     enabled: !!canView, retry: false,
   });
   const drafts = useQuery({
-    queryKey: ["native-academic", "drafts"],
+    queryKey: ["native-academic", me.data?.tenant_id, me.data?.user_id, "drafts"],
     queryFn: () => staffRequest<{ items: Draft[] }>("/drafts"),
     enabled: !!canView && !!canPublish, retry: false,
   });
@@ -134,6 +137,14 @@ export default function AcademicManagementPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [classIndexState, setClassIndexState] = useState(() => initialObjectIndexState(CLASS_FIELDS));
+
+  const [selection, setSelection] = useState<{ id: string; tenant: string; user: string } | null>(null);
+  const selectedClass = selection && selection.tenant === me.data?.tenant_id && selection.user === me.data?.user_id
+    ? overview.data?.classes.find(row => row.id === selection.id)
+    : undefined;
+  const closeRecord = useCallback((open: boolean) => {
+    if (!open) setSelection(null);
+  }, []);
 
   const create = useMutation({
     mutationFn: async ({type, fields}: {type: NewKind; fields:Record<string,string>}) => {
@@ -189,6 +200,7 @@ export default function AcademicManagementPage() {
   </main>;
 
   return <main className="mx-auto max-w-[1370px] space-y-6 px-5 pb-16 pt-8 md:px-10">
+    <AcademicNavigation features={me.data?.available_features} />
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#98A2B3]">OPERAÇÃO ACADÊMICA · MIRA</p>
@@ -261,6 +273,11 @@ export default function AcademicManagementPage() {
           return field;
         })}
         rows={overview.data.classes} state={classIndexState} onStateChange={setClassIndexState}
+        onOpen={row => {
+          if (me.data?.tenant_id && me.data.user_id) {
+            setSelection({ id: row.id, tenant: me.data.tenant_id, user: me.data.user_id });
+          }
+        }}
         total={overview.data.counts.classes}
         partial={overview.data.counts.classes > overview.data.classes.length}
         defaultViews={[
@@ -270,6 +287,27 @@ export default function AcademicManagementPage() {
         onRefresh={() => void overview.refetch()} refreshing={overview.isFetching}
         emptyTitle="Nenhuma turma foi carregada do catálogo acadêmico."
       />
+
+      {selectedClass && <Dialog open onOpenChange={closeRecord}
+        title={`Turma ${pretty(selectedClass)}`} description="Vínculos no catálogo acadêmico">
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {([
+            ["Disciplina", selectedClass.subject_id, overview.data.subjects],
+            ["Período", selectedClass.term_id, overview.data.terms],
+            ["Professor", selectedClass.teacher_id, overview.data.teachers],
+          ] as const).map(([label, id, options]) => {
+            const item = options.find(option => option.id === id);
+            return <div key={label}>
+              <dt className="text-xs text-[#505967]">{label}</dt>
+              <dd className="mt-1 text-sm font-medium">{item ? pretty(item) : id ? "Referência fora da prévia" : "Sem vínculo"}</dd>
+            </div>;
+          })}
+          <div>
+            <dt className="text-xs text-[#505967]">Estado</dt>
+            <dd className="mt-1 text-sm font-medium">{selectedClass.status}</dd>
+          </div>
+        </dl>
+      </Dialog>}
 
       <div className="grid gap-5 lg:grid-cols-[1fr_370px]">
         <section className="space-y-5">

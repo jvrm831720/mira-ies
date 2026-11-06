@@ -1,5 +1,7 @@
 "use client";
 
+import { AcademicNavigation } from "@/components/academic/academic-navigation";
+
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -174,6 +176,7 @@ export default function JourneysPage(){
   if(me.isLoading)return <main className="p-10 text-[12px] text-[#667085]">Verificando acesso…</main>;
   if(!canView)return <main className="p-10 text-[12px] text-[#667085]">Acesso exclusivo à equipe institucional autorizada.</main>;
   return <main className="min-h-screen bg-[#FCFCFD] p-5 text-[#202124] md:p-9">
+    <AcademicNavigation features={me.data?.available_features} />
     <header className="mb-7 flex flex-wrap items-start justify-between gap-3">
       <div><p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#85858B]">Acadêmico / Operação</p>
         <h1 className="mt-2 text-[27px] font-semibold tracking-[-0.04em]">Jornadas acadêmicas</h1>
