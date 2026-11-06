@@ -2,7 +2,7 @@
 
 Data: 2026-11-06
 Branch: feat/product-design-wave-0-2-record-experience
-Dependência: Wave 0.1, PR #171. A Wave 0.1 ainda não foi mesclada na main porque a conexão Git da Vercel pode publicar automaticamente. O workspace Render requer confirmação explícita antes da inspeção do auto-deploy. Esta PR é stacked sobre a branch #171 e não pode entrar na main antes dela.
+Dependência concluída por operação concorrente: Wave 0.1, PR #171, mesclada em main em a53c0c7953af73517e16d8f28c8adbc2b9f144d6 em 06/11/2026. A PR #174 agora tem base main; o merge da #171 não foi executado por esta IA. A conexão Git da Vercel comprovadamente publicou main em production anteriormente; releases continuam bloqueados neste fluxo e o autoDeploy de Render ainda requer confirmação do workspace pelo usuário. As correções posteriores ao merge #171 (Object Index RBAC e filtros sensíveis) permanecem nesta PR #174.
 
 ## Referências e discovery
 
@@ -33,4 +33,4 @@ Fora de escopo: Portal do Aluno, sessão estudantil, execução de disparos, Wor
 
 ## QA / aceite e publicação
 
-CI no HEAD final obrigatório: ESLint, testes Node, TypeScript, build Next.js, Ruff, pytest e Alembic. QA desktop/mobile em navegador autenticado não pode ser declarado se não houver ambiente autorizado. A PR #171 precisa entrar na main só depois que o isolamento Vercel/Render for comprovado. Depois disso, retarget esta PR à main e repetir validações. Sem deploy ou migration de produção.
+CI no HEAD final obrigatório: ESLint, testes Node, TypeScript, build Next.js, Ruff, pytest e Alembic. QA desktop/mobile em navegador autenticado não pode ser declarado se não houver ambiente autorizado. A PR #171 já consta como integrada por outra operação. A PR #174 agora usa main como base e deve ter CI final no HEAD, revisão de permissões e QA autenticado antes de qualquer merge. Nenhuma alteração de configuração de publicação ou deploy/migration de produção foi executada nesta Wave.

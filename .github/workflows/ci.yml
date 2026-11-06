@@ -4,8 +4,7 @@ on:
   push:
     branches: [main, feat/mira-control-center, feat/model-data-governance-phase-1, feat/institutional-training-authorization, feat/backend-training-policy-guards, 'feat/ai-retention-campaigns-*', 'feat/wave6-academic-operations-*']
   pull_request:
-    # Temporary stacked Wave 0.2 gate; remove the extra target when retargeting to main.
-    branches: [main, feat/product-design-wave-0-1-object-index]
+    branches: [main]
 
 jobs:
   lint-and-test:
