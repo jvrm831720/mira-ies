@@ -225,7 +225,7 @@ export function DataHubExperience() {
               {item.error ? <Status state={{key:"unknown",label:"Falha ao consultar",tone:"amber"}} /> : item.loading ? "Carregando..." : <Status state={connectionState(item.value)} />}
               <p className="text-[#8A939E]">Última sincronização: <Time value={item.value?.last_sync_at} /></p>
             </div>
-            <SmallLink href="/conectores">Inspecionar</SmallLink>
+            <SmallLink href={"/dados/conexoes/" + item.id}>Inspecionar</SmallLink>
           </article>)}
         </div>
         {canManageIntegrations && <div className="border-t border-[#EDF0F2]">
