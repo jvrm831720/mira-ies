@@ -94,8 +94,15 @@ function PlanningPanel({
   useEffect(() => {
     if (!fromStudentSelection || selectionConsumed.current || currentUser.isLoading) return;
     selectionConsumed.current = true;
-    const value = window.sessionStorage.getItem(RETENTION_SELECTION_KEY);
-    window.sessionStorage.removeItem(RETENTION_SELECTION_KEY);
+    let value: string | null = null;
+    try {
+      value = window.sessionStorage.getItem(RETENTION_SELECTION_KEY);
+      window.sessionStorage.removeItem(RETENTION_SELECTION_KEY);
+    } catch {
+      setSelectionReady(false);
+      setSelectionError("O navegador bloqueou o acesso à seleção temporária. Selecione novamente os alunos.");
+      return;
+    }
     const data = parseRetentionSelection(value, currentUser.data?.tenant_id, currentUser.data?.user_id);
     if (!data || currentUser.isError ||
       !hasNavigationPermission(currentUser.data, "campaigns.create") ||
