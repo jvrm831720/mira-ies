@@ -81,38 +81,43 @@ export function DataHubExperience() {
   const canSeeDispatch = hasNavigationPermission(me.data, "campaigns.view");
   const canManageIntegrations = hasNavigationPermission(me.data, "settings.manage");
   const tenantKey = me.data?.tenant_id;
+  const onOverview = section === "overview";
+  const onConnections = section === "connections";
+  const onCatalog = section === "catalog";
+  const onRuns = section === "runs";
+  const onQuality = section === "quality";
 
   const catalog = useQuery({
     queryKey: ["data-hub", tenantKey, "native-catalog"],
-    queryFn: () => api.listConnectors(), enabled: authorized, staleTime: 60_000, retry: 1,
+    queryFn: () => api.listConnectors(), enabled: authorized && (onOverview || onCatalog), staleTime: 60_000, retry: 1,
   });
   const jacad = useQuery({
     queryKey: ["data-hub", tenantKey, "jacad"],
-    queryFn: () => api.jacadConnection(), enabled: authorized, staleTime: 60_000, retry: 1,
+    queryFn: () => api.jacadConnection(), enabled: authorized && (onOverview || onConnections || onQuality), staleTime: 60_000, retry: 1,
   });
   const sponte = useQuery({
     queryKey: ["data-hub", tenantKey, "sponte"],
-    queryFn: () => api.sponteConnection(), enabled: authorized, staleTime: 60_000, retry: 1,
+    queryFn: () => api.sponteConnection(), enabled: authorized && (onOverview || onConnections || onQuality), staleTime: 60_000, retry: 1,
   });
   const uploads = useQuery({
     queryKey: ["data-hub", tenantKey, "upload-history"],
-    queryFn: () => api.uploadHistory(30, 0), enabled: authorized, staleTime: 45_000, retry: 1,
+    queryFn: () => api.uploadHistory(30, 0), enabled: authorized && (onOverview || onRuns || onQuality), staleTime: 45_000, retry: 1,
   });
   const composioHistory = useQuery({
     queryKey: ["data-hub", tenantKey, "composio-import-history"],
     queryFn: () => dispatchApi.composioImportHistory(),
-    enabled: authorized && canSeeDispatch, staleTime: 45_000, retry: 1,
+    enabled: authorized && canSeeDispatch && (onOverview || onRuns), staleTime: 45_000, retry: 1,
   });
 
   const composioCatalog = useQuery({
     queryKey: ["data-hub", tenantKey, "composio-catalog"],
     queryFn: () => api.composioCatalog(),
-    enabled: authorized && canManageIntegrations, staleTime: 300_000, retry: false,
+    enabled: authorized && canManageIntegrations && onCatalog, staleTime: 300_000, retry: false,
   });
   const composioConnections = useQuery({
     queryKey: ["data-hub", tenantKey, "composio-connections"],
     queryFn: () => api.composioConnections(),
-    enabled: authorized && canManageIntegrations, staleTime: 60_000, retry: false,
+    enabled: authorized && canManageIntegrations && (onOverview || onConnections), staleTime: 60_000, retry: false,
   });
 
   const connections = useMemo(() => [
