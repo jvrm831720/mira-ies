@@ -21,6 +21,7 @@ from app.api.object_views import (
 )
 from app.models.auth import User
 from app.models.object_view import ObjectView, ObjectViewRevision
+from app.models.custom_field import CustomFieldDefinition
 
 
 def context(tenant, user, *, role="coordinator", permissions=None):
@@ -195,6 +196,43 @@ async def test_sensitive_shared_view_not_visible_to_basic_viewer(db_session, ten
                           auth=viewer, db=db_session)
     assert exc.value.status_code == 403
 
+
+
+@pytest.mark.asyncio
+async def test_custom_metadata_registry_is_readonly_and_permission_filtered(db_session, tenant_factory):
+    tenant, _ = await tenant_factory(slug="wave3-custom-metadata")
+    owner_id = str(uuid4())
+    await identity(db_session, tenant.id, owner_id)
+    db_session.add_all([
+        CustomFieldDefinition(
+            tenant_id=tenant.id, target="student", name="turno", label="Turno",
+            data_type="enum", options=["Manhã", "Noite"], required=False, is_pii=False,
+            aliases=[], active=True,
+        ),
+        CustomFieldDefinition(
+            tenant_id=tenant.id, target="student", name="identificador_restrito",
+            label="Identificador restrito", data_type="text", options=None,
+            required=False, is_pii=True, aliases=[], active=True,
+        ),
+    ])
+    await db_session.commit()
+    await identity(db_session, tenant.id, owner_id)
+
+    admin = context(tenant.id, owner_id)
+    schema = await object_metadata("students", auth=admin, db=db_session)
+    assert schema["schema_version"] == 1
+    assert {item["key"] for item in schema["custom_properties"]} == {
+        "custom.turno", "custom.identificador_restrito",
+    }
+    assert all(not item["filterable"] and not item["view_enabled"] for item in schema["custom_properties"])
+
+    limited = context(
+        tenant.id, owner_id, role="viewer",
+        permissions=frozenset({"students.view", "data.view"}),
+    )
+    safe = await object_metadata("students", auth=limited, db=db_session)
+    assert [item["key"] for item in safe["custom_properties"]] == ["custom.turno"]
+    assert "risk_score" not in [item["key"] for item in safe["fields"]]
 
 def uuid4_from(value):
     from uuid import UUID
