@@ -30,6 +30,7 @@ from app.services.composio.categories import (
 from app.services.composio.client import (
     ComposioSDKUnavailable,
     list_toolkits,
+    list_onboarding_auth_configs,
     list_tools_for_toolkit,
     validate_tool_slugs,
 )
@@ -40,7 +41,7 @@ from app.services.composio.connections import (
     revoke_tenant_account,
     start_connect_link,
 )
-from app.services.composio.gateway import ComposioNotConfigured, require_composio_configuration
+from app.services.composio.gateway import ComposioNotConfigured, require_composio_configuration, composio_toolkit_allowed
 from app.services.composio.sessions import ensure_tenant_session
 
 router = APIRouter(prefix="/integrations/composio", tags=["Composio"])
@@ -240,6 +241,52 @@ async def provision_session(
         "status": row.status,
         "session_id": row.session_id,
     }
+
+
+
+
+@router.get("/onboarding/auth-options")
+async def onboarding_auth_options(
+    auth: AuthContext = Depends(require_permission("settings.manage")),
+):
+    """Return only OAuth configs that operations has explicitly allowlisted."""
+    _require_human_aal2(auth)
+    try:
+        require_composio_configuration()
+        choices = await run_in_threadpool(list_onboarding_auth_configs)
+    except Exception as exc:
+        raise _catalog_error(exc) from exc
+    items = [item for item in choices if item["auth_scheme"] == "OAUTH2"
+             and composio_toolkit_allowed(item["toolkit_slug"])]
+    return {"items": items, "total": len(items)}
+
+
+@router.post("/onboarding/connections/start")
+async def start_onboarding_connection(
+    body: StartConnectPayload,
+    auth: AuthContext = Depends(require_permission("settings.manage")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Connect an approved app without enabling its tool execution policy."""
+    _require_human_aal2(auth)
+    try:
+        require_composio_configuration()
+        choices = await run_in_threadpool(list_onboarding_auth_configs)
+        valid = any(item["toolkit_slug"] == body.toolkit_slug.strip().lower()
+                    and item["auth_config_id"] == body.auth_config_id
+                    and item["auth_scheme"] == "OAUTH2"
+                    for item in choices)
+        if not valid or not composio_toolkit_allowed(body.toolkit_slug):
+            raise HTTPException(status_code=422, detail="Configuração OAuth indisponível para esta ferramenta.")
+        return await start_connect_link(
+            db, tenant_id=auth.tenant_id, actor_user_id=auth.user_id,
+            toolkit_slug=body.toolkit_slug, auth_config_id=body.auth_config_id,
+            require_tool_policy=False, allow_multiple=True,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _catalog_error(exc) from exc
 
 
 @router.post("/connections/start")

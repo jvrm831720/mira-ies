@@ -126,12 +126,15 @@ def create_connect_link(
     user_id: str,
     auth_config_id: str,
     callback_url: str | None = None,
+    allow_multiple: bool = False,
 ) -> dict[str, Any]:
     """Create a Composio Connect Link (hosted OAuth). Returns redirect_url only."""
     client = get_composio_client()
     kwargs: dict[str, Any] = {}
     if callback_url:
         kwargs["callback_url"] = callback_url
+    if allow_multiple:
+        kwargs["allow_multiple"] = True
     request = client.connected_accounts.link(user_id, auth_config_id, **kwargs)
     data = _as_dict(request)
     redirect_url = (
@@ -224,3 +227,40 @@ def revoke_connected_account(connected_account_id: str) -> None:
         accounts.delete(connected_account_id)
         return
     raise RuntimeError("SDK Composio não expõe revoke/delete de connected accounts.")
+
+
+def list_onboarding_auth_configs() -> list[dict[str, str]]:
+    """Only enabled auth configs; never expose OAuth credentials or secrets."""
+    client = get_composio_client()
+    cursor: str | None = None
+    seen: set[str] = set()
+    result: dict[tuple[str, str], dict[str, str]] = {}
+    while True:
+        kwargs: dict[str, Any] = {"limit": 200}
+        if cursor:
+            kwargs["cursor"] = cursor
+        page = client.auth_configs.list(**kwargs)
+        data = _as_dict(page)
+        items = (page.get("items") or [] if isinstance(page, dict)
+                 else getattr(page, "items", None) or data.get("items") or [])
+        for item in items:
+            row = _as_dict(item)
+            toolkit = row.get("toolkit") or getattr(item, "toolkit", None)
+            toolkit_data = _as_dict(toolkit)
+            slug = (toolkit_data.get("slug") or row.get("toolkit_slug")
+                    or (toolkit if isinstance(toolkit, str) else ""))
+            config_id = row.get("id") or getattr(item, "id", None)
+            status = str(row.get("status") or getattr(item, "status", "ENABLED")).upper()
+            if not isinstance(slug, str) or not isinstance(config_id, str) or status not in {"ENABLED", "ACTIVE"}:
+                continue
+            result[(slug.lower(), config_id)] = {
+                "toolkit_slug": slug.lower(),
+                "auth_config_id": config_id,
+                "auth_scheme": str(row.get("auth_scheme") or getattr(item, "auth_scheme", "OAUTH2")).upper(),
+            }
+        nxt = data.get("next_cursor") or getattr(page, "next_cursor", None)
+        if not isinstance(nxt, str) or not nxt or nxt in seen:
+            break
+        seen.add(nxt)
+        cursor = nxt
+    return list(result.values())
