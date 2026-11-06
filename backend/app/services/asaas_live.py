@@ -324,6 +324,8 @@ async def issue_payment_instructions(db: AsyncSession, *, tenant_id: str,
     # expose a payable QR code if the recipient changed in Asaas.
     lean = await gateway.request("GET", "/lean/payments/" + charge.asaas_payment_id)
     gateway.verify_payment_response(lean, charge, strict=True)
+    if lean.get("status") not in {"PENDING", "OVERDUE"}:
+        raise AsaasFlowDenied("Cobrança não está mais aberta para pagamento.")
     return await gateway.payment_instructions(charge.asaas_payment_id, charge.method)
 
 
