@@ -1960,6 +1960,10 @@ textarea {
   color: var(--color-legacy-e7e9ed); font-size: var(--type-overline);
   letter-spacing: .045em;
 }
+.mira-flow-security-copy-error {
+  margin: 0; color: var(--color-legacy-f3a4ae);
+  font-size: var(--type-overline); line-height: 1.55;
+}
 .mira-flow-security-manual-secret button {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   flex: 0 0 auto; border: 1px solid var(--color-legacy-35373d);

@@ -23,6 +23,8 @@ test("six visual slots use one accessible, paste-friendly native TOTP input", ()
   assert.match(setup, /inputMode="numeric"/);
   assert.match(setup, /autoComplete="one-time-code"/);
   assert.match(setup, /maxLength=\{6\}/);
+  assert.match(setup, /onPaste=\{event =>/);
+  assert.match(setup, /event\.clipboardData\.getData/);
   assert.match(setup, /onChange=\{event => onCodeChange\(event\.target\.value\.replace/);
   assert.match(setup, /type="submit" disabled=\{!canConfirm\}/);
   assert.match(setup, /aria-describedby=\{id \+ "-help"\}/);

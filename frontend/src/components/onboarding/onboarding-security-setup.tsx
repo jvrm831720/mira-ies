@@ -31,6 +31,13 @@ export function MfaCodeInput({
           disabled={disabled}
           value={code}
           onChange={event => onCodeChange(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          onPaste={event => {
+            const pastedCode = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+            if (pastedCode) {
+              event.preventDefault();
+              onCodeChange(pastedCode);
+            }
+          }}
           className="mira-flow-otp-native"
         />
         <div className="mira-flow-otp-slots" aria-hidden="true">
@@ -65,6 +72,7 @@ export function OnboardingSecuritySetup({
 }) {
   const [showManual, setShowManual] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
   const isEnrollment = mode === "enroll";
   const canConfirm = code.length === 6 && !busy && (!isEnrollment || !!enrollment);
 
@@ -73,8 +81,10 @@ export function OnboardingSecuritySetup({
     try {
       await navigator.clipboard.writeText(enrollment.secret);
       setCopied(true);
+      setCopyError(false);
     } catch {
       setCopied(false);
+      setCopyError(true);
     }
   }
 
@@ -129,10 +139,12 @@ export function OnboardingSecuritySetup({
                     </div>
                   ) : (
                     <div className="mira-flow-security-qr-pending" role="status">
-                      <p>Não foi possível exibir o QR Code.</p>
-                      <button type="button" className="mira-flow-secondary" disabled={busy} onClick={onRetry}>
-                        Tentar carregar novamente
-                      </button>
+                      <p>{busy ? "Preparando seu QR Code…" : "Não foi possível exibir o QR Code."}</p>
+                      {!busy && (
+                        <button type="button" className="mira-flow-secondary" onClick={onRetry}>
+                          Tentar carregar novamente
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -142,8 +154,7 @@ export function OnboardingSecuritySetup({
                         className="mira-flow-security-manual-trigger"
                         type="button"
                         aria-expanded={showManual}
-                        aria-controls="mira-flow-security-manual-panel"
-                        onClick={() => { setShowManual(open => !open); setCopied(false); }}
+                        onClick={() => { setShowManual(open => !open); setCopied(false); setCopyError(false); }}
                       >
                         <KeyRound size={14} aria-hidden="true" />
                         Não consegue escanear? Usar chave manual
@@ -155,9 +166,14 @@ export function OnboardingSecuritySetup({
                             <code>{enrollment.secret}</code>
                             <button type="button" onClick={() => void copySecret()} aria-label="Copiar chave de configuração do autenticador">
                               {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
-                              <span>{copied ? "Copiada" : "Copiar"}</span>
+                              <span aria-live="polite">{copied ? "Copiada" : "Copiar"}</span>
                             </button>
                           </div>
+                          {copyError && (
+                            <p className="mira-flow-security-copy-error" role="alert">
+                              Não foi possível copiar. Selecione a chave e copie manualmente.
+                            </p>
+                          )}
                           <p className="mira-flow-security-qr-caption">Mantenha a chave em segurança. Ela permite gerar os códigos de acesso.</p>
                         </div>
                       )}
