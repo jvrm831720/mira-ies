@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, _set_tenant_rls_context, require_min_role
+from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
 from app.models.retention_campaign import (
     RetentionCampaignProposal,
@@ -165,8 +165,6 @@ async def edit_proposal(
     proposal.updated_at = datetime.now(timezone.utc)
     _audit(db, proposal, actor_id, "proposal.edited", {"changes": changes})
     await db.commit()
-    # set_config(..., true) is transaction-local; commit clears the tenant RLS context.
-    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(proposal)
     return _serialize(proposal)
 
@@ -197,8 +195,6 @@ async def submit_for_review(
     proposal.updated_at = datetime.now(timezone.utc)
     _audit(db, proposal, actor_id, "proposal.submitted_for_review", {})
     await db.commit()
-    # set_config(..., true) is transaction-local; commit clears the tenant RLS context.
-    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(proposal)
     return _serialize(proposal)
 
@@ -224,8 +220,6 @@ async def request_proposal_changes(
     proposal.updated_at = datetime.now(timezone.utc)
     _audit(db, proposal, actor_id, "proposal.changes_requested", {"note": note})
     await db.commit()
-    # set_config(..., true) is transaction-local; commit clears the tenant RLS context.
-    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(proposal)
     return _serialize(proposal)
 
@@ -262,8 +256,6 @@ async def attest_communication_authorization(
         "meaning": "institution_assertion_not_legal_validation",
     })
     await db.commit()
-    # set_config(..., true) is transaction-local; commit clears the tenant RLS context.
-    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(proposal)
     return _serialize(proposal)
 
@@ -296,8 +288,6 @@ async def approve_proposal(
         "execution_enabled": False,
     })
     await db.commit()
-    # set_config(..., true) is transaction-local; commit clears the tenant RLS context.
-    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(proposal)
     return _serialize(proposal)
 

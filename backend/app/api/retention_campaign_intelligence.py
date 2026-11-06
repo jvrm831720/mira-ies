@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.channels.email import is_valid_email
 from app.agents.channels.whatsapp import normalize_phone_br
 from app.api.student_groups import _build_summary
-from app.core.auth import AuthContext, _set_tenant_rls_context, require_min_role
+from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
 from app.models.intervention import InterventionLog
 from app.models.retention_campaign import RetentionCampaignProposal
@@ -276,8 +276,6 @@ async def create_campaign_proposal(
     )
     db.add(proposal)
     await db.commit()
-    # set_config(..., true) is transaction-local; commit clears the tenant RLS context.
-    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(proposal)
     return _serialize_proposal(proposal)
 

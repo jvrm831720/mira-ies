@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, _set_tenant_rls_context, require_min_role
+from app.core.auth import AuthContext, require_min_role
 from app.db.session import get_db
 from app.models.retention_campaign import (
     RetentionCampaignProposal,
@@ -146,8 +146,6 @@ async def schedule_campaign_proposal(
         "execution_enabled": False,
     })
     await db.commit()
-    # set_config(..., true) is transaction-local; commit clears the tenant RLS context.
-    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(proposal)
     return _serialize_schedule(proposal)
 
@@ -181,8 +179,6 @@ async def remove_campaign_schedule(
         "execution_enabled": False,
     })
     await db.commit()
-    # set_config(..., true) is transaction-local; commit clears the tenant RLS context.
-    await _set_tenant_rls_context(db, auth.tenant_id)
     await db.refresh(proposal)
     return _serialize_schedule(proposal)
 

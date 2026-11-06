@@ -3,28 +3,7 @@
 @tailwind utilities;
 
 :root {
-  /* ── Legacy HSL (shadcn compatibility) ── */
-  --background: 0 0% 100%;
-  --foreground: 220 9% 13%;
-  --card: 0 0% 100%;
-  --card-foreground: 220 9% 13%;
-  --primary: 233 56% 53%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 36 24% 92%;
-  --secondary-foreground: 222 25% 12%;
-  --muted: 36 20% 92%;
-  --muted-foreground: 215 10% 47%;
-  --accent: 233 56% 96%;
-  --accent-foreground: 233 56% 30%;
-  --destructive: 4 76% 58%;
-  --destructive-foreground: 0 0% 100%;
-  --success: 155 55% 34%;
-  --success-foreground: 0 0% 100%;
-  --warning: 35 92% 48%;
-  --warning-foreground: 28 77% 15%;
-  --border: 34 18% 86%;
-  --input: 34 18% 86%;
-  --ring: 233 56% 53%;
+  /* Product primitives are resolved directly from the semantic palette. */
 
   /* ── MIRA brand (preserved) ── */
   --brand-indigo: #4050cd;
@@ -70,6 +49,20 @@
   --color-peach-tint-border: #FEE0C8;
   --color-red: #772322;
   --color-red-tint-border: #FEE7E7;
+  --color-red-tint: #FEF3F2;
+  /* Legacy accents kept as centralized tokens until design review. */
+  --color-source-f9fafb: #f9fafb;
+  --color-source-eff4ff: #eff4ff;
+  --color-source-3538cd: #3538cd;
+  --color-source-ecfdf3: #ecfdf3;
+  --color-source-027a48: #027a48;
+  --color-source-abefc6: #abefc6;
+  --color-source-bfdbfe: #bfdbfe;
+  --color-source-eff6ff: #eff6ff;
+  --color-source-dbeafe: #dbeafe;
+  --color-source-b54708: #b54708;
+  --color-source-fedf89: #fedf89;
+  --color-source-fffaeb: #fffaeb;
 
   /* ── Radius ── */
   --radius: 0.625rem;
@@ -121,7 +114,7 @@
 }
 
 * {
-  border-color: hsl(var(--border));
+  border-color: var(--color-border);
 }
 
 html {
@@ -130,8 +123,8 @@ html {
 }
 
 body {
-  color: hsl(var(--foreground));
-  background: hsl(var(--background));
+  color: var(--color-ink);
+  background: var(--color-canvas);
   min-height: 100vh;
   font-feature-settings: "rlig" 1, "calt" 1;
   -webkit-font-smoothing: antialiased;
@@ -165,7 +158,7 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--brand-indigo);
+  outline: 2px solid var(--color-blue);
   outline-offset: 3px;
 }
 
@@ -189,22 +182,8 @@ textarea {
 
 /* ── MIRA product surfaces (light, Attio-aligned) ── */
 .mira-page {
-  --background: 0 0% 100%;
-  --foreground: 220 9% 13%;
-  --card: 0 0% 100%;
-  --card-foreground: 220 9% 13%;
-  --primary: 220 9% 14%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 210 20% 97%;
-  --secondary-foreground: 220 9% 13%;
-  --muted: 210 20% 97%;
-  --muted-foreground: 215 10% 47%;
-  --accent: 216 100% 97%;
-  --accent-foreground: 216 89% 54%;
-  --border: 220 14% 91%;
-  --input: 220 14% 91%;
-  --ring: 216 89% 56%;
-  --brand-indigo: #266df0;
+  /* No parallel HSL theme inside the application. */
+  --brand-indigo: var(--color-blue);
   --brand-blue: #232529;
   color: var(--text-primary);
   background: #ffffff;
