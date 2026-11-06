@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { serviceStatusLabel, serviceStatusTone } from "./lib/service-status";
 
 type ServiceRequest = {
   id: string; category: string; subject: string; description: string;
@@ -27,6 +28,7 @@ type PaymentInstructions = {
   identification_field?: string;
 };
 type View = "requests" | "documents" | "financial";
+type ServiceHistory = { subject: string; events: Array<{ status: string; occurred_at: string }> };
 
 async function serviceFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch("/api/v1/student-portal/services" + path, {
@@ -63,13 +65,19 @@ const financeStates: Record<string, string> = {
 };
 function brazilMoney(raw: Financial) {
   const n = Number(raw.amount);
-  return raw.currency === "BRL" && Number.isFinite(n)
+  return raw.amount.trim() !== "" && raw.currency === "BRL" && Number.isFinite(n)
     ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n)
     : "Valor não disponível";
 }
+function officialChargeAmount(amount: string): string {
+  const parsed = Number(amount);
+  return amount.trim() !== "" && Number.isFinite(parsed) && parsed >= 0
+    ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(parsed)
+    : "Valor não disponível";
+}
 
-export function StudentServicesPanel() {
-  const [view, setView] = useState<View>("requests");
+export function StudentServicesPanel({ initialView = "requests", standalone = false }: { initialView?: View; standalone?: boolean }) {
+  const [view, setView] = useState<View>(initialView);
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [financial, setFinancial] = useState<Financial[]>([]);
@@ -82,7 +90,10 @@ export function StudentServicesPanel() {
   const [documentTitle, setDocumentTitle] = useState("");
   const [documentProof, setDocumentProof] = useState<string | null>(null);
   const [documentProofValid, setDocumentProofValid] = useState<boolean | null>(null);
-  const [history, setHistory] = useState<string | null>(null);
+  const [history, setHistory] = useState<ServiceHistory | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadIndex, setReloadIndex] = useState(0);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [detail, setDetail] = useState<PortalRequestDetail | null>(null);
   const [notifications, setNotifications] = useState<PortalNotification[]>([]);
   const [reply, setReply] = useState("");
@@ -95,7 +106,7 @@ export function StudentServicesPanel() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setMessage(null); setDocumentText(null); setHistory(null);
+    setLoading(true); setMessage(null); setLoadError(null); setDocumentText(null); setHistory(null);
     setDocumentProof(null); setDocumentProofValid(null);
     setDetail(null);
     if (view === "requests") {
@@ -111,10 +122,10 @@ export function StudentServicesPanel() {
         if (view === "documents") setDocuments(data.items as Document[]);
         if (view === "financial") setFinancial(data.items as Financial[]);
       })
-      .catch((err: Error) => { if (active) setMessage(err.message); })
+      .catch((err: Error) => { if (active) setLoadError(err.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [view]);
+  }, [view, reloadIndex]);
 
   useEffect(() => {
     if (view !== "financial") return;
@@ -150,7 +161,7 @@ export function StudentServicesPanel() {
         method: "POST", body: JSON.stringify({ category, subject, description }),
       });
       setRequests((items) => [created, ...items]);
-      setSubject(""); setDescription(""); setMessage("Solicitação registrada com sucesso.");
+      setSubject(""); setDescription(""); setComposeOpen(false); setMessage("Solicitação registrada com sucesso.");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Não foi possível criar solicitação.");
     } finally { setSending(false); }
@@ -259,31 +270,32 @@ export function StudentServicesPanel() {
       const result = await serviceFetch<{ events: { status: string; note: string | null; occurred_at: string }[] }>(
         "/requests/" + encodeURIComponent(item.id) + "/history"
       );
-      setHistory(item.subject + "\n" + result.events.map((event) =>
-        event.status + (event.note ? " — " + event.note : "") + " · " +
-        new Date(event.occurred_at).toLocaleDateString("pt-BR")).join("\n"));
+      // Staff-only notes are not a public contract. Show status and dates only.
+      setHistory({ subject: item.subject, events: result.events.map(({status,occurred_at}) => ({ status, occurred_at })) });
     } catch (err) { setMessage(err instanceof Error ? err.message : "Histórico indisponível."); }
   }
 
   return (
     <section aria-label="Serviços do Aluno" className="overflow-hidden rounded-xl border border-[#E4E7EC] bg-white">
       <div className="border-b border-[#EAECF0] px-6 py-5">
-        <h2 className="text-[17px] font-semibold text-[#101828]">Serviços do aluno</h2>
-        <p className="mt-1 text-[12px] text-[#667085]">Acompanhe seus pedidos, consulte documentos liberados e informações financeiras.</p>
+        <h2 className="text-[17px] font-semibold text-[#101112]">{view === "requests" ? "Solicitações" : view === "documents" ? "Documentos" : "Financeiro"}</h2>
+        <p className="mt-1 text-[12px] text-[#505967]">{view === "requests" ? "Abra e acompanhe seus requerimentos junto à instituição." : view === "documents" ? "Consulte documentos disponibilizados pela sua instituição." : "Consulte seus registros e cobranças confirmadas pelas fontes oficiais."}</p>
       </div>
-      <div className="flex flex-wrap gap-2 border-b border-[#EAECF0] px-6 py-3" role="tablist" aria-label="Tipos de serviço">
+      {!standalone && <div className="flex flex-wrap gap-2 border-b border-[#EAECF0] px-6 py-3" role="tablist" aria-label="Tipos de serviço">
         {choices.map((choice) => (
           <button key={choice.id} type="button" role="tab" aria-selected={view === choice.id}
             className={"rounded-lg px-4 py-2 text-[12px] font-medium " +
               (view === choice.id ? "bg-[#EFF4FF] text-[#2563EB]" : "text-[#667085] hover:bg-[#F9FAFB]")}
             onClick={() => setView(choice.id)}>{choice.label}</button>
         ))}
-      </div>
-      <div className="space-y-5 p-6">
+      </div>}
+      <div className="space-y-5 p-4 sm:p-6">
+        {loadError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#FEE7E7] bg-[#FFF7F7] px-4 py-3 text-[12px] text-[#772322]"><span>{loadError}</span><button type="button" className="underline" onClick={() => setReloadIndex(n => n + 1)}>Tentar novamente</button></div>}
         {message && <p role="status" className="rounded-lg bg-[#F9FAFB] p-3 text-[12px] text-[#475467]">{message}</p>}
         {loading && <p className="text-[12px] text-[#667085]">Consultando registros…</p>}
-        {!loading && !message?.includes("homologação") && view === "requests" && <>
-          <form onSubmit={submit} className="grid gap-3 rounded-xl border border-[#EAECF0] p-4">
+        {!loading && !loadError && view === "requests" && <>
+          <div className="flex items-center justify-between gap-3"><p className="text-[12px] text-[#505967]">{requests.length} solicitação(ões) nesta consulta</p><button type="button" aria-expanded={composeOpen} onClick={() => setComposeOpen(v => !v)} className="rounded-lg bg-[#101112] px-3.5 py-2.5 text-[12px] font-semibold text-white hover:bg-[#232529] focus-visible:ring-2 focus-visible:ring-[#266DF0]">{composeOpen ? "Fechar formulário" : "+ Nova solicitação"}</button></div>
+          {composeOpen && <form onSubmit={submit} className="grid gap-3 rounded-xl border border-[#EAECF0] p-4">
             <h3 className="text-[13px] font-semibold">Nova solicitação</h3>
             <label className="text-[12px] text-[#475467]">Tipo de pedido
               <select value={category} onChange={(e) => setCategory(e.target.value)}
@@ -303,7 +315,7 @@ export function StudentServicesPanel() {
             <button disabled={sending} type="submit" className="rounded-lg bg-[#101828] px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-60">
               {sending ? "Enviando…" : "Enviar solicitação"}
             </button>
-          </form>
+          </form>}
           {notifications.some(n=>!n.read_at) && <div className="rounded-lg border border-[#D6E4FF] bg-[#F5F8FF] p-3">
             <p className="text-[12px] font-semibold text-[#175CD3]">Novas atualizações das suas solicitações</p>
             {notifications.filter(n=>!n.read_at).slice(0,5).map(n=><button key={n.id} type="button"
@@ -311,7 +323,7 @@ export function StudentServicesPanel() {
           </div>}
           <ul className="divide-y divide-[#EAECF0]">
             {requests.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-[12px]">
-              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="text-[#667085]">{item.status} · {item.due_at ? "Prazo: "+new Date(item.due_at).toLocaleDateString("pt-BR") : "Prazo a definir"}</p></div>
+              <div><p className="font-semibold text-[#344054]">{item.subject}</p><p className="mt-1 text-[#667085]">{item.due_at ? "Prazo: "+new Date(item.due_at).toLocaleDateString("pt-BR") : "Prazo ainda não informado"}</p><span className={"mt-1 inline-flex rounded-md border px-2 py-0.5 text-[10px] " + serviceStatusTone(item.status)}>{serviceStatusLabel(item.status)}</span></div>
               <div className="flex shrink-0 gap-3">
                 <button type="button" onClick={() => void openRequest(item)} className="text-[#2563EB]">Acompanhar</button>
                 <button type="button" onClick={() => void openHistory(item)} className="text-[#667085]">Histórico</button>
@@ -319,6 +331,7 @@ export function StudentServicesPanel() {
             </li>)}
           </ul>
           {detail && <section aria-label="Acompanhamento da solicitação" className="space-y-4 rounded-xl border border-[#DDE5F0] bg-[#FCFDFF] p-4">
+            <div className="flex justify-end"><button type="button" className="text-[12px] font-semibold text-[#505967] hover:text-[#101112]" onClick={() => setDetail(null)}>Fechar detalhes</button></div>
             <div><h3 className="text-[13px] font-semibold">{detail.request.subject}</h3>
               <p className="mt-1 text-[11px] text-[#667085]">Acompanhe as respostas e os arquivos liberados pela instituição.</p>
             </div>
@@ -355,10 +368,20 @@ export function StudentServicesPanel() {
               </div>
             </>}
           </section>}
-          {history && <pre className="whitespace-pre-wrap rounded-lg bg-[#F9FAFB] p-3 text-[12px] text-[#475467]">{history}</pre>}
+          {history && <section aria-label="Linha do tempo da solicitação" className="rounded-xl border border-[#E6E7EA] p-4">
+            <div className="flex items-center justify-between gap-3"><h3 className="text-[13px] font-semibold">Histórico · {history.subject}</h3><button type="button" onClick={() => setHistory(null)} className="text-[12px] text-[#505967] underline">Fechar</button></div>
+            {history.events.length === 0 ? <p className="mt-3 text-[12px] text-[#75777C]">Nenhuma movimentação disponível.</p>
+              : <ol className="mt-4 space-y-0 border-l border-[#E6E7EA] pl-4">
+                {history.events.map((item, index) => <li key={item.occurred_at + "-" + index} className="relative pb-5 last:pb-0">
+                  <span aria-hidden="true" className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#266DF0]" />
+                  <p className="text-[12px] font-medium text-[#101112]">{serviceStatusLabel(item.status)}</p>
+                  <time dateTime={item.occurred_at} className="mt-0.5 block text-[11px] text-[#75777C]">{new Date(item.occurred_at).toLocaleString("pt-BR")}</time>
+                </li>)}
+              </ol>}
+          </section>}
           {requests.length === 0 && <p className="text-[12px] text-[#667085]">Nenhuma solicitação registrada.</p>}
         </>}
-        {!loading && view === "documents" && <>
+        {!loading && !loadError && view === "documents" && <>
           {documents.length === 0 && <p className="text-[12px] text-[#667085]">Nenhum documento liberado.</p>}
           <ul className="divide-y divide-[#EAECF0]">
             {documents.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-[12px]">
@@ -384,11 +407,11 @@ export function StudentServicesPanel() {
             <p className="mt-3 text-[11px] text-[#98A2B3]">Pré-visualização textual. Documento oficial assinado ainda não disponível.</p>
           </div>}
         </>}
-        {!loading && view === "financial" && <>
+        {!loading && !loadError && view === "financial" && <>
           <p className="text-[12px] text-[#667085]">Dados importados são informativos. Cobranças oficiais da Asaas aparecem separadamente, somente após emissão autorizada.</p>
           <ul className="divide-y divide-[#EAECF0]">
             {financial.map((item) => <li key={item.id} className="flex justify-between gap-3 py-3 text-[12px]">
-              <div><p className="font-medium">{item.label}</p><p className="text-[#667085]">{item.status}</p></div>
+              <div><p className="font-medium">{item.label}</p><p className="text-[#667085]">{financeStates[item.status] || "Situação não verificada"}</p></div>
               <strong>{brazilMoney(item)}</strong>
             </li>)}
           </ul>
@@ -400,7 +423,7 @@ export function StudentServicesPanel() {
               {asaasCharges.map((charge) => <li key={charge.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
                   <p className="text-[12px] font-medium text-[#344054]">
-                    {new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(charge.amount))} · {charge.method === "pix" ? "Pix" : "Boleto"}
+                    {officialChargeAmount(charge.amount)} · {charge.method === "pix" ? "Pix" : "Boleto"}
                   </p>
                   <p className="mt-1 text-[11px] text-[#667085]">
                     {charge.split_settled_verified ? "Repasse à instituição confirmado" :
