@@ -51,6 +51,8 @@ export type ObjectIndexProps<T extends { id: string }> = {
   onOpen?: (row: T) => void;
   actions?: ReactNode;
   emptyTitle?: string;
+  emptyAction?: ReactNode;
+  selectionActions?: (selectedRows: T[]) => ReactNode;
   extra?: ReactNode;
 };
 
@@ -60,7 +62,7 @@ export function ObjectIndex<T extends { id: string }>({
   objectKey, title, description, fields, rows, state, onStateChange,
   defaultViews = [{ id: "todos", title: "Todos" }],
   remote = false, total, partial = false, loading = false, error = false,
-  onRetry, onRefresh, refreshing, onOpen, actions, emptyTitle, extra,
+  onRetry, onRefresh, refreshing, onOpen, actions, emptyTitle, emptyAction, selectionActions, extra,
 }: ObjectIndexProps<T>) {
   const queryClient = useQueryClient();
   const me = useQuery({ queryKey: ["org-me"], queryFn: () => api.me(), retry: false, staleTime: 60_000 });
@@ -133,7 +135,8 @@ export function ObjectIndex<T extends { id: string }>({
   const count = remote ? (total ?? rows.length) : matches.length;
   const visibleRows = remote ? matches : matches.slice(state.pageIndex * state.pageSize, (state.pageIndex + 1) * state.pageSize);
   const pageCount = Math.max(1, Math.ceil(count / state.pageSize));
-  const selectedCount = Object.values(selected).filter(Boolean).length;
+  const selectedRows = visibleRows.filter(row => selected[row.id]);
+  const selectedCount = selectedRows.length;
   const savedLabel = activeSaved?.name || defaultViews.find(view => view.id === state.view)?.title || "Todos";
   const effectiveViewSpec = validateObjectView(fields, {
     version: 1, filters: state.filters, sort: state.sort, columns: state.columns, page_size: state.pageSize,
@@ -358,9 +361,10 @@ export function ObjectIndex<T extends { id: string }>({
       {partial && <p role="note" className="border-b border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2 text-[11px] text-[var(--color-slate-600)] sm:px-6">
         Prévia limitada: busca, filtros, ordenação e seleção referem-se somente aos {rows.length} registros carregados, não a toda a base.
       </p>}
-      {selectedCount > 0 && <div className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-blue-tint)] px-4 py-2 text-[12px] sm:px-6">
+      {selectedCount > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-blue-tint)] px-4 py-2 text-[12px] sm:px-6">
         <p className="font-medium text-[var(--color-blue-ink)]">{selectedCount} selecionado(s) nesta página</p>
         <div className="flex items-center gap-2">
+          {selectionActions?.(selectedRows)}
           {selectedCount === 1 && onOpen && <button type="button" onClick={() => {
             const item = visibleRows.find(row => selected[row.id]);
             if (item) onOpen(item);
@@ -375,7 +379,8 @@ export function ObjectIndex<T extends { id: string }>({
         sort={state.sort} onSortChange={sort => change({ sort })}
         manualSorting selected={selected} onSelectedChange={setSelected}
         onOpen={onOpen} loading={loading}
-        emptyText={emptyTitle || (state.query || state.filters.length ? "Nenhum registro corresponde aos filtros." : "Nenhum registro disponível.")} />
+        emptyText={emptyTitle || (state.query || state.filters.length ? "Nenhum registro corresponde aos filtros." : "Nenhum registro disponível.")}
+        emptyAction={emptyAction} />
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--color-border)] px-4 py-3 text-[11px] text-[var(--color-slate-600)] sm:px-6">
         <span className="tabular-nums">{loading ? "Carregando…" : remote
           ? count ? ((state.pageIndex * state.pageSize) + 1) + "–" + ((state.pageIndex * state.pageSize) + visibleRows.length) + " de " + count.toLocaleString("pt-BR") : "0 registros"
