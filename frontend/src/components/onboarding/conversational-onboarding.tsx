@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { getAccessToken, setAccessToken } from "@/lib/auth";
 import { OnboardingIntegrationSetup } from "./onboarding-integration-setup";
 import { OnboardingProOverview } from "./onboarding-pro-overview";
+import { OnboardingSecuritySetup } from "./onboarding-security-setup";
 import { completeOrganizationOnboarding, enrichOnboarding, type OnboardingEnrichment } from "@/lib/onboarding-api";
 import { corporateDomain, isValidCnpj, maskCnpj, publicCompanyDescription, plausiblePublicWebsite } from "@/lib/onboarding-flow.mjs";
 
@@ -380,32 +381,26 @@ export function ConversationalOnboarding() {
                     <button type="button" className="mira-flow-primary" onClick={() => { setRecoveryCodes(null); setSecurityStep(null); setStep("integrations"); }}>Já guardei — continuar</button>
                   </>
                 ) : (
-                  <>
-                    <p className="mira-flow-eyebrow">Última etapa</p>
-                    <h1>{securityStep === "enroll" ? "Proteja seu acesso." : "Confirme seu acesso."}</h1>
-                    <p>Use o aplicativo autenticador para concluir a criação do workspace.</p>
-                    {securityStep === "enroll" && enrollment && (
-                      <div className="mira-flow-mfa-setup">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={enrollment.qr_code} alt="QR Code para configurar o autenticador" />
-                        <code>{enrollment.secret}</code>
-                      </div>
-                    )}
-                    {securityStep === "enroll" && !enrollment && (
-                      <button type="button" className="mira-flow-secondary" onClick={async () => {
-                        try { setEnrollment(await api.beginRequiredMfaEnrollment(mfaTicket)); setError(""); }
-                        catch { setError("Não foi possível carregar o autenticador."); }
-                      }}>Tentar carregar novamente</button>
-                    )}
-                    <form onSubmit={confirmMfa} className="mira-flow-fields">
-                      <InputField id="mira-flow-mfa" label="Código do aplicativo">
-                        <input id="mira-flow-mfa" required inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" />
-                      </InputField>
-                      <button type="submit" className="mira-flow-primary" disabled={busy || mfaCode.length !== 6 || (securityStep === "enroll" && !enrollment)}>{busy ? "Verificando…" : "Confirmar"}</button>
-                    </form>
-                  </>
+                  <OnboardingSecuritySetup
+                    mode={securityStep}
+                    enrollment={enrollment}
+                    code={mfaCode}
+                    onCodeChange={value => { setMfaCode(value); if (error) setError(""); }}
+                    onConfirm={confirmMfa}
+                    onRetry={() => {
+                      if (busy || !mfaTicket) return;
+                      setBusy(true);
+                      setError("");
+                      void api.beginRequiredMfaEnrollment(mfaTicket)
+                        .then(setEnrollment)
+                        .catch(() => setError("Não foi possível carregar o QR Code. Tente novamente."))
+                        .finally(() => setBusy(false));
+                    }}
+                    busy={busy}
+                    error={error}
+                  />
                 )}
-                {error && <p className="mira-flow-error" role="alert">{error}</p>}
+                {recoveryCodes && error && <p className="mira-flow-error" role="alert">{error}</p>}
               </div>
             ) : (
               <>
