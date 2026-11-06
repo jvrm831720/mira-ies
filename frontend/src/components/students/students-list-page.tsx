@@ -1,548 +1,155 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
-import {
-  ArrowRight,
-  Search,
-  Users,
-  X,
-  Upload,
-  RefreshCw,
-  Layers,
-} from "@/components/ui/icons";
-import { Header } from "@/components/layout/header";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Upload, Users } from "@/components/ui/icons";
 import { StudentDrawer } from "@/components/students/student-drawer";
 import {
-  KNOWN_GROUP_IDS,
-  initials,
-  formatDate,
-  followUpLabel,
-  primarySignal,
-  type StudentTab,
-  type StudentSort,
+  followUpLabel, formatDate, initials, KNOWN_GROUP_IDS,
 } from "@/components/students/students-list-helpers";
-import { RiskBadge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ObjectIndex, initialObjectIndexState, type ObjectIndexState,
+} from "@/components/object-index/object-index";
+import type { ObjectField, ObjectDefaultView } from "@/components/object-index/object-index-types";
+import { listStudentIndex, type ObjectIndexStudent } from "@/lib/object-index-api";
 import { api } from "@/lib/api";
-import { cn, formatScore } from "@/lib/utils";
+import { getVisibleNavigation } from "@/components/layout/navigation";
+import { RiskBadge } from "@/components/ui/badge";
+
+const STUDENT_VIEWS: ObjectDefaultView[] = [
+  { id: "todos", title: "Todos" },
+  { id: "risco", title: "Risco elevado" },
+  { id: "sem_classificacao", title: "Sem classificação" },
+  { id: "dados_insuficientes", title: "Dados insuficientes" },
+  { id: "acompanhamento", title: "Em acompanhamento" },
+];
+
+const STUDENT_FIELDS: ObjectField<ObjectIndexStudent>[] = [
+  {
+    key: "nome", title: "Aluno", type: "person", primary: true, sortable: true,
+    filterable: true, width: 290, getValue: row => row.nome,
+    render: row => <span className="flex min-w-0 items-center gap-2.5">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[var(--color-panel)] text-[10px] font-semibold text-[var(--color-slate-600)]">
+        {initials(row.nome)}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[12px] font-semibold text-[var(--color-ink)]">{row.nome || "Sem nome"}</span>
+        <span className="block truncate text-[10px] font-normal text-[var(--color-muted)]">{row.matricula || "Matrícula não informada"}</span>
+      </span>
+    </span>,
+  },
+  { key: "matricula", title: "Matrícula", type: "identifier", getValue: row => row.matricula,
+    width: 140, filterable: true, nullLabel: "Não informado" },
+  { key: "curso", title: "Curso", type: "text", getValue: row => row.curso,
+    width: 180, filterable: true, sortable: true },
+  { key: "risk_level", title: "Classificação", type: "status", getValue: row => row.risk_level,
+    width: 140, filterable: true, options: [
+      { value: "critico", label: "Crítico" }, { value: "medio", label: "Moderado" }, { value: "baixo", label: "Baixo" },
+    ], render: row => row.risk_level ? <RiskBadge level={row.risk_level} />
+      : <span className="mira-tag border-[var(--color-border)] bg-[var(--color-panel)] text-[var(--color-slate-600)]">Sem classificação</span> },
+  { key: "risk_score", title: "Score", type: "number", width: 100, sortable: true,
+    getValue: row => row.risk_score, filterable: true,
+    render: row => <span className="font-mono text-[12px] tabular-nums">
+      {typeof row.risk_score === "number" && Number.isFinite(row.risk_score) ? Math.round(row.risk_score) : "—"}
+    </span> },
+  { key: "follow_up", title: "Acompanhamento", type: "text", width: 185,
+    getValue: row => row.follow_up?.status || null,
+    render: row => <span className="block truncate text-[11px]">
+      {followUpLabel(row.follow_up?.status)}
+      {row.follow_up?.created_at && <span className="block text-[10px] text-[var(--color-muted)]">{formatDate(row.follow_up.created_at)}</span>}
+    </span> },
+];
+
+function parseInitialState(searchParams: ReturnType<typeof useSearchParams>): ObjectIndexState {
+  const requested = searchParams.get("tab") || "todos";
+  const tab = STUDENT_VIEWS.some(view => view.id === requested) ? requested : "todos";
+  const state = initialObjectIndexState(STUDENT_FIELDS, tab);
+  const q = searchParams.get("q") || "";
+  state.query = q.slice(0, 160);
+  const risk = searchParams.get("risk");
+  if (risk && ["critico", "medio", "baixo"].includes(risk)) {
+    state.filters = [{ key: "risk_level", op: "eq", value: risk }];
+  }
+  return state;
+}
 
 export function StudentsListPage() {
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get("q") || "");
-  const [risk, setRisk] = useState(() => {
-    const requestedRisk = searchParams.get("risk") || "";
-    return ["critico", "medio", "baixo"].includes(requestedRisk) ? requestedRisk : "";
-  });
-  const [course, setCourse] = useState("");
-  const [sort, setSort] = useState<StudentSort>("risk_desc");
-  const [tab, setTab] = useState<StudentTab>(() => {
-    const t = searchParams.get("tab") || "";
-    if (
-      ["todos", "risco", "sem_classificacao", "dados_insuficientes", "acompanhamento"].includes(t)
-    ) {
-      return t as StudentTab;
-    }
-    return "todos";
-  });
-  const [groupId, setGroupId] = useState(() => {
-    const g = searchParams.get("group") || "";
-    return KNOWN_GROUP_IDS.has(g) ? g : "";
-  });
+  const router = useRouter();
+  const [state, setState] = useState(() => parseInitialState(searchParams));
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [visibleLimit, setVisibleLimit] = useState(50);
+  const [debouncedQuery, setDebouncedQuery] = useState(state.query);
+  const groupId = searchParams.get("group") || "";
+  const validGroup = KNOWN_GROUP_IDS.has(groupId) ? groupId : "";
 
-  const studentsQuery = useQuery({
-    queryKey: ["students", "explorer"],
-    queryFn: () => api.students({ limit: 500 }),
+  useEffect(() => {
+    setSelectedId(null);
+  }, [me.data?.tenant_id, me.data?.user_id]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(state.query), 240);
+    return () => window.clearTimeout(timer);
+  }, [state.query]);
+
+  const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
+  const visibleNav = useMemo(() => getVisibleNavigation(me.data), [me.data]);
+  const canView = visibleNav.some(group => group.items.some(item => item.href === "/alunos"));
+  const canImport = visibleNav.some(group => group.items.some(item => item.href === "/importar"));
+
+  const sort = !state.sort ? "risk_desc"
+    : state.sort.key === "risk_score" ? (state.sort.desc ? "risk_desc" : "risk_asc")
+    : state.sort.key === "curso" ? "course_asc" : (state.sort.desc ? "name_desc" : "name_asc");
+
+  const query = useQuery({
+    queryKey: ["object-index", "students", me.data?.tenant_id, me.data?.user_id, debouncedQuery, state.view, state.filters, sort, state.pageIndex, state.pageSize],
+    queryFn: () => listStudentIndex({
+      limit: state.pageSize, offset: state.pageIndex * state.pageSize,
+      q: debouncedQuery.trim() || undefined,
+      view: state.view,
+      filters: state.filters,
+      sort,
+    }),
+    enabled: canView && !validGroup,
+    staleTime: 20_000, retry: false,
   });
-  const groupsCatalog = useQuery({
-    queryKey: ["student-groups", "catalog", "list-filter"],
-    queryFn: () => api.studentGroupsCatalog(),
-    staleTime: 60_000,
-    retry: false,
-  });
-  const groupMembers = useQuery({
-    queryKey: ["student-groups", "members", groupId],
-    queryFn: async () => {
-      const page = await api.studentGroupMembers(groupId, { limit: 100 });
-      const ids = new Set(page.members.map((m) => m.student_id));
-      let cursor = page.next_cursor;
-      let guard = 0;
-      while (cursor && page.has_more !== false && guard < 5) {
-        const next = await api.studentGroupMembers(groupId, { limit: 100, cursor });
-        next.members.forEach((m) => ids.add(m.student_id));
-        cursor = next.next_cursor;
-        guard += 1;
-        if (!next.has_more) break;
-      }
-      return ids;
-    },
-    enabled: Boolean(groupId),
-    retry: false,
-    staleTime: 30_000,
-  });
-  const riskSummary = useQuery({
-    queryKey: ["risk-summary", "students"],
-    queryFn: () => api.riskSummary(),
-    retry: false,
-  });
-  const logsQuery = useQuery({
-    queryKey: ["retention-logs", "students-follow-up"],
-    queryFn: () => api.retentionLogs({ limit: 100 }),
-    retry: false,
-  });
+  // The group detail page uses the authoritative cursor-based member API.
+  // Redirect instead of intersecting two unrelated partial samples.
+  useEffect(() => {
+    if (validGroup) router.replace("/alunos/grupos/" + encodeURIComponent(validGroup));
+  }, [router, validGroup]);
 
-  const students = useMemo(
-    () => studentsQuery.data?.students ?? [],
-    [studentsQuery.data?.students]
-  );
-  const courses = useMemo(
-    () =>
-      [
-        ...new Set(
-          students
-            .map((student) => student.curso?.trim())
-            .filter((value): value is string => Boolean(value))
-        ),
-      ].sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [students]
-  );
-  const latestLogs = useMemo(() => {
-    const map = new Map<string, { status: string; created_at?: string | null }>();
-    for (const log of [...(logsQuery.data?.logs || [])].sort(
-      (a, b) =>
-        (b.created_at ? new Date(b.created_at).getTime() : 0) -
-        (a.created_at ? new Date(a.created_at).getTime() : 0)
-    )) {
-      if (log.student_id && !map.has(log.student_id)) {
-        map.set(log.student_id, { status: log.status, created_at: log.created_at });
-      }
-    }
-    return map;
-  }, [logsQuery.data]);
+  if (validGroup) return <main role="status" className="mira-page p-8 text-[13px] text-[var(--color-slate-600)]">Abrindo o grupo completo de alunos…</main>;
+  if (me.isLoading) return <main className="p-8 text-[13px] text-[var(--color-slate-600)]" role="status">Carregando permissões…</main>;
+  if (me.isError || !canView) return <main role="alert" className="mira-page p-8 text-[13px]">
+    Não foi possível confirmar a autorização para consultar os alunos.
+  </main>;
 
-  const memberIds = groupMembers.data;
-
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("pt-BR");
-    const result = students.filter((student) => {
-      const matchesSearch =
-        !normalized ||
-        [student.nome, student.matricula, student.curso].some((field) =>
-          field?.toLocaleLowerCase("pt-BR").includes(normalized)
-        );
-      const matchesRisk = !risk || student.risk_level === risk;
-      const matchesCourse = !course || student.curso === course;
-      const matchesGroup = !groupId || (memberIds ? memberIds.has(student.id) : true);
-      const matchesTab =
-        tab === "todos" ||
-        (tab === "risco" && ["critico", "medio"].includes(student.risk_level || "")) ||
-        (tab === "sem_classificacao" && (!student.risk_level || student.risk_score == null)) ||
-        (tab === "dados_insuficientes" &&
-          (!student.risk_level || student.risk_score == null || groupId === "missing_score")) ||
-        (tab === "acompanhamento" && latestLogs.has(student.id));
-      return matchesSearch && matchesRisk && matchesCourse && matchesTab && matchesGroup;
-    });
-
-    return result.sort((a, b) => {
-      if (sort === "name_asc") return (a.nome || "").localeCompare(b.nome || "", "pt-BR");
-      const scoreA = a.risk_score;
-      const scoreB = b.risk_score;
-      if (scoreA == null && scoreB == null) return (a.nome || "").localeCompare(b.nome || "", "pt-BR");
-      if (scoreA == null) return 1;
-      if (scoreB == null) return -1;
-      return sort === "risk_desc" ? scoreB - scoreA : scoreA - scoreB;
-    });
-  }, [students, query, risk, course, tab, latestLogs, sort, groupId, memberIds]);
-
-  const visibleStudents = useMemo(
-    () => filtered.slice(0, visibleLimit),
-    [filtered, visibleLimit]
-  );
-
-  const summary = riskSummary.data?.summary;
-  const highRisk = summary
-    ? summary.critico + summary.medio
-    : students.filter((s) => ["critico", "medio"].includes(s.risk_level || "")).length;
-  const unclassified =
-    summary?.sem_score ?? students.filter((s) => !s.risk_level || s.risk_score == null).length;
-  const hasFilters = Boolean(query || risk || course || groupId || tab !== "todos");
-
-  function clearFilters() {
-    setQuery("");
-    setRisk("");
-    setCourse("");
-    setSort("risk_desc");
-    setTab("todos");
-    setGroupId("");
-    setVisibleLimit(50);
-  }
-
-  function applyGroup(next: string) {
-    setGroupId(next);
-    setVisibleLimit(50);
-    if (next === "missing_score") setTab("dados_insuficientes");
-  }
-
-  const isRefreshing =
-    studentsQuery.isFetching ||
-    riskSummary.isFetching ||
-    logsQuery.isFetching ||
-    groupMembers.isFetching;
-
-  return (
-    <>
-      <Header title="Alunos" compact />
-      <main className="mira-page mx-auto w-full max-w-[1440px] space-y-5 px-4 pb-10 pt-5 md:px-8 md:pt-6 xl:px-10">
-        <section className="flex flex-col gap-3 border-b border-[#E5E7EB] pb-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-[#111827] sm:text-[24px]">
-              Alunos
-            </h1>
-            <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[#667085]">
-              Consulte a base, priorize por risco, grupo ou cobertura de dados e abra a ficha.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                void studentsQuery.refetch();
-                void riskSummary.refetch();
-                void logsQuery.refetch();
-                if (groupId) void groupMembers.refetch();
-              }}
-              disabled={isRefreshing}
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3.5 text-[13px] font-medium text-[#111827] transition hover:bg-[#F8F9FA] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
-              Atualizar
-            </button>
-            <Link
-              href="/importar"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#232529] px-4 text-[13px] font-medium text-white transition hover:bg-[#101112] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              Importar
-            </Link>
-          </div>
-        </section>
-
-        <section aria-label="Indicadores da base" className="flex flex-wrap items-center gap-x-8 gap-y-2 border-b border-[#E4E7EC] pb-4">
-          <div className="flex items-baseline gap-2">
-            <span className="text-[20px] font-semibold tracking-[-0.03em] tabular-nums text-[#1C1D1F]">
-              {studentsQuery.isLoading ? "—" : (riskSummary.data?.total_students ?? students.length).toLocaleString("pt-BR")}
-            </span>
-            <span className="text-[12px] text-[#6F7988]">alunos na base</span>
-          </div>
-          <span className="hidden h-5 w-px bg-[#E4E7EC] sm:block" />
-          <div className="flex items-baseline gap-2">
-            <span className="text-[16px] font-semibold tabular-nums text-[#1C1D1F]">
-              {studentsQuery.isLoading || riskSummary.isLoading ? "—" : highRisk.toLocaleString("pt-BR")}
-            </span>
-            <span className="text-[12px] text-[#6F7988]">risco elevado</span>
-          </div>
-          <span className="hidden h-5 w-px bg-[#E4E7EC] sm:block" />
-          <div className="flex items-baseline gap-2">
-            <span className="text-[16px] font-semibold tabular-nums text-[#1C1D1F]">
-              {studentsQuery.isLoading || riskSummary.isLoading ? "—" : unclassified.toLocaleString("pt-BR")}
-            </span>
-            <span className="text-[12px] text-[#6F7988]">sem classificação</span>
-          </div>
-          <span className="text-[11px] text-[#9FA1A7]">Ausência de score não significa baixo risco</span>
-        </section>
-
-        <section className="overflow-hidden rounded-[10px] border border-[#E4E7EC] bg-white">
-          <div className="border-b border-[#E5E7EB] p-4 sm:p-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <label className="relative block min-w-0 flex-1">
-                <span className="sr-only">Buscar por nome, matrícula ou curso</span>
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98A2B3]" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar por nome, matrícula ou curso"
-                  className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white pl-10 pr-9 text-[13px] text-[#111827] outline-none placeholder:text-[#98A2B3] focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
-                />
-                {query ? (
-                  <button
-                    type="button"
-                    onClick={() => setQuery("")}
-                    aria-label="Limpar busca"
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#98A2B3] hover:bg-[#F8F9FA] hover:text-[#111827]"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </label>
-
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4 lg:w-auto lg:min-w-[520px]">
-                <label className="block">
-                  <span className="sr-only">Filtrar por risco</span>
-                  <select
-                    value={risk}
-                    onChange={(e) => setRisk(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
-                  >
-                    <option value="">Todas as classificações</option>
-                    <option value="critico">Crítico</option>
-                    <option value="medio">Moderado</option>
-                    <option value="baixo">Baixo</option>
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="sr-only">Filtrar por curso</span>
-                  <select
-                    value={course}
-                    onChange={(e) => setCourse(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
-                  >
-                    <option value="">Todos os cursos</option>
-                    {courses.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="sr-only">Filtrar por grupo</span>
-                  <select
-                    value={groupId}
-                    onChange={(e) => applyGroup(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
-                  >
-                    <option value="">Todos os grupos</option>
-                    {(groupsCatalog.data?.groups || []).map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="sr-only">Ordenar alunos</span>
-                  <select
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as StudentSort)}
-                    className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 text-[13px] text-[#344054] outline-none focus:border-[#266DF0] focus:ring-2 focus:ring-[#266DF0]/15"
-                  >
-                    <option value="risk_desc">Maior score primeiro</option>
-                    <option value="risk_asc">Menor score primeiro</option>
-                    <option value="name_asc">Nome (A–Z)</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-5 border-b border-[#E4E7EC]" role="tablist" aria-label="Segmentos de alunos">
-              {(
-                [
-                  ["todos", "Todos"],
-                  ["risco", "Risco elevado"],
-                  ["sem_classificacao", "Sem classificação"],
-                  ["dados_insuficientes", "Dados insuficientes"],
-                  ["acompanhamento", "Com acompanhamento"],
-                ] as [StudentTab, string][]
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === value}
-                  onClick={() => setTab(value)}
-                  className={cn(
-                    "-mb-px rounded-none border-b-2 px-0 py-2 text-[12px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]",
-                    tab === value
-                      ? "border-[#1C1D1F] text-[#1C1D1F]"
-                      : "border-transparent text-[#6F7988] hover:text-[#1C1D1F]"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-              {hasFilters ? (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="ml-auto mb-2 inline-flex items-center gap-1 text-[12px] font-medium text-[#6F7988] hover:text-[#1C1D1F]"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Limpar filtros
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {studentsQuery.isLoading ? (
-            <div className="space-y-3 p-5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-[66px] w-full rounded-xl" />
-              ))}
-            </div>
-          ) : null}
-
-          {studentsQuery.isError ? (
-            <div role="alert" className="m-4 rounded-xl border border-[#FECDCA] bg-[#FEF3F2] p-5">
-              <p className="text-sm font-semibold text-[#B42318]">Não foi possível carregar os alunos.</p>
-              <button type="button" onClick={() => void studentsQuery.refetch()} className="mt-3 text-sm font-semibold text-[#B42318] underline underline-offset-4">
-                Tentar novamente
-              </button>
-            </div>
-          ) : null}
-
-          {!studentsQuery.isLoading && !studentsQuery.isError ? (
-            <>
-              <div className="flex flex-col gap-2 px-4 py-3 sm:px-5">
-                <p className="text-[13px] font-semibold text-[#111827]">
-                  Resultados
-                  <span className="ml-1 font-normal text-[#98A2B3]">
-                    ({filtered.length.toLocaleString("pt-BR")})
-                    {filtered.length > visibleLimit
-                      ? ` · mostrando ${visibleLimit.toLocaleString("pt-BR")}`
-                      : ""}
-                  </span>
-                </p>
-                {groupId ? (
-                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] text-[#1F5DD1]">
-                    <Layers className="h-3.5 w-3.5 shrink-0" />
-                    <span className="font-semibold">
-                      Grupo:{" "}
-                      {(groupsCatalog.data?.groups || []).find((g) => g.id === groupId)?.name || groupId}
-                    </span>
-                    {groupMembers.isLoading ? <span className="text-[#667085]">Carregando integrantes…</span> : null}
-                    {groupMembers.isError ? (
-                      <span className="text-[#B42318]">Não foi possível carregar os membros do grupo.</span>
-                    ) : null}
-                    {groupMembers.data ? (
-                      <span className="text-[#344054]">
-                        {groupMembers.data.size.toLocaleString("pt-BR")} com sinal ativo no grupo
-                      </span>
-                    ) : null}
-                    <Link
-                      href={"/alunos/grupos/" + encodeURIComponent(groupId)}
-                      className="ml-auto font-semibold underline underline-offset-2"
-                    >
-                      Ver grupo
-                    </Link>
-                    <button type="button" onClick={() => applyGroup("")} className="font-medium text-[#667085] hover:text-[#111827]">
-                      Limpar grupo
-                    </button>
-                  </div>
-                ) : null}
-                {tab === "dados_insuficientes" ? (
-                  <p className="rounded-lg border border-[#FEDF89] bg-[#FFFAEB] px-3 py-2 text-[11px] leading-relaxed text-[#B54708]">
-                    Segmento de cobertura: alunos sem score utilizável. Não representa baixo risco.
-                  </p>
-                ) : null}
-              </div>
-
-              {filtered.length === 0 ? (
-                <div className="flex flex-col items-center px-5 py-14 text-center">
-                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-[#F8F9FA] text-[#667085]">
-                    {hasFilters ? <Search className="h-5 w-5" /> : <Users className="h-5 w-5" />}
-                  </span>
-                  <h3 className="mt-4 text-[14px] font-semibold text-[#111827]">
-                    {hasFilters ? "Nenhum aluno encontrado" : "Sua base começa aqui"}
-                  </h3>
-                  <p className="mt-1 max-w-sm text-[13px] leading-relaxed text-[#667085]">
-                    {hasFilters
-                      ? "Tente ajustar os filtros ou remover alguns critérios."
-                      : "Importe uma planilha para começar a análise de risco."}
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] text-left">
-                    <thead>
-                      <tr className="border-b border-[#E4E7EC]">
-                        <th className="px-4 py-3 font-medium sm:px-5">Aluno</th>
-                        <th className="px-3 py-3 font-medium">Curso</th>
-                        <th className="px-3 py-3 font-medium">Classificação</th>
-                        <th className="px-3 py-3 text-right font-medium">Score</th>
-                        <th className="px-3 py-3 font-medium">Acompanhamento</th>
-                        <th className="px-4 py-3 text-right font-medium sm:px-5"> </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F0F1F3]">
-                      {visibleStudents.map((student) => {
-                        const signal = primarySignal(student);
-                        const log = latestLogs.get(student.id);
-                        return (
-                          <tr key={student.id} className="group">
-                            <td className="px-4 py-3 sm:px-5">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedId(student.id)}
-                                className="flex min-w-0 items-center gap-3 text-left"
-                              >
-                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[7px] bg-[#F4F5F6] text-[11px] font-semibold text-[#505967]">
-                                  {initials(student.nome)}
-                                </span>
-                                <span className="min-w-0">
-                                  <span className="block max-w-[280px] truncate text-[13px] font-medium text-[#1C1D1F] group-hover:text-[#266DF0]">
-                                    {student.nome || "Sem nome"}
-                                  </span>
-                                  <span className="mt-0.5 block truncate text-[11px] text-[#8F99A8]">
-                                    {student.matricula || "Matrícula não informada"}
-                                  </span>
-                                  {signal.signal ? (
-                                    <span className="mt-1 block max-w-[360px] truncate text-[11px] text-[#6F7988]">{signal.signal}</span>
-                                  ) : null}
-                                </span>
-                              </button>
-                            </td>
-                            <td className="px-3 py-3 text-[12px] text-[#505967]">
-                              <span className="block max-w-[220px] truncate">{student.curso || "—"}</span>
-                            </td>
-                            <td className="px-3 py-3"><RiskBadge level={student.risk_level} /></td>
-                            <td className="px-3 py-3 text-right">
-                              <span className="font-mono text-[12px] tabular-nums text-[#1C1D1F]">
-                                {student.risk_score != null ? formatScore(student.risk_score) : "—"}
-                              </span>
-                              {student.risk_score == null ? <span className="ml-2 text-[10px] text-[#8F99A8]">Sem score</span> : null}
-                            </td>
-                            <td className="px-3 py-3">
-                              <span className="block text-[12px] text-[#505967]">{log ? followUpLabel(log.status) : "Sem registro"}</span>
-                              {log?.created_at ? <span className="mt-0.5 block text-[11px] text-[#9FA1A7]">{formatDate(log.created_at)}</span> : null}
-                            </td>
-                            <td className="px-4 py-3 text-right sm:px-5">
-                              <Link
-                                href={`/alunos/${student.id}`}
-                                className="inline-flex items-center gap-1 text-[12px] font-medium text-[#6F7988] hover:text-[#266DF0]"
-                              >
-                                Abrir ficha <ArrowRight className="h-3 w-3" />
-                              </Link>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {filtered.length > visibleLimit ? (
-                <div className="border-t border-[#E5E7EB] px-4 py-4 sm:px-5">
-                  <button
-                    type="button"
-                    onClick={() => setVisibleLimit((n) => n + 50)}
-                    className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[13px] font-semibold text-[#344054] transition hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#266DF0]"
-                  >
-                    Carregar mais ({Math.min(50, filtered.length - visibleLimit)} de{" "}
-                    {(filtered.length - visibleLimit).toLocaleString("pt-BR")} restantes)
-                  </button>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-        </section>
-      </main>
-
-      <StudentDrawer studentId={selectedId} onClose={() => setSelectedId(null)} />
-    </>
-  );
+  return <>
+    <main className="mira-page min-h-dvh">
+      <ObjectIndex objectKey="students" title="Alunos"
+        description="Explore registros institucionais, classificação e acompanhamento com dados verificados."
+        fields={STUDENT_FIELDS} rows={query.data?.students || []} state={state} onStateChange={setState}
+        defaultViews={STUDENT_VIEWS} remote
+        total={query.data?.total}
+        loading={query.isLoading}
+        error={query.isError}
+        onRetry={() => void query.refetch()}
+        onRefresh={() => void query.refetch()}
+        refreshing={query.isFetching}
+        onOpen={row => setSelectedId(row.id)}
+        actions={<div className="flex items-center gap-2">
+          <Link href="/alunos/grupos" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 text-[12px] font-medium text-[var(--color-ink)] hover:bg-[var(--color-panel)]">
+            <Users className="h-3.5 w-3.5" /> Grupos
+          </Link>
+          {canImport && <Link href="/importar" className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-[12px] font-medium text-white hover:bg-[var(--color-ink-900)]">
+            <Upload className="h-3.5 w-3.5" /> Importar
+          </Link>}
+        </div>}
+        extra={groupId && !validGroup ? <p role="alert" className="p-3 text-[12px] text-[var(--color-red)]">O grupo indicado não foi reconhecido.</p> : null}
+      />
+    </main>
+    <StudentDrawer studentId={selectedId} onClose={() => setSelectedId(null)} />
+  </>;
 }

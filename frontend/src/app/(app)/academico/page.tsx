@@ -7,6 +7,8 @@ import {
   Plus, ShieldCheck, Users, X,
 } from "@/components/ui/icons";
 import { api } from "@/lib/api";
+import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
+import type { ObjectField } from "@/components/object-index/object-index-types";
 import { getAccessToken } from "@/lib/auth";
 
 type Item = { id: string; name?: string; code?: string; display_name?: string; label?: string; status: string; program_id?: string; subject_id?: string; term_id?: string; teacher_id?: string };
@@ -15,6 +17,19 @@ type Overview = {
   subjects: Item[]; teachers: Item[]; terms: Item[]; classes: Item[];
   preview_limited: boolean;
 };
+const CLASS_FIELDS: ObjectField<Item>[] = [
+  { key: "code", title: "Turma", type: "identifier", primary: true, width: 160,
+    getValue: row => row.code, sortable: true, filterable: true },
+  { key: "subject_id", title: "Disciplina", type: "reference", width: 210,
+    getValue: row => row.subject_id, filterable: true },
+  { key: "term_id", title: "Período", type: "reference", width: 180,
+    getValue: row => row.term_id, filterable: true },
+  { key: "teacher_id", title: "Docente", type: "reference", width: 190,
+    getValue: row => row.teacher_id },
+  { key: "status", title: "Estado", type: "status", width: 130,
+    getValue: row => row.status, filterable: true },
+];
+
 type Draft = { id: string; resource: string; title: string; class_id: string | null };
 type Field = { key: string; label: string; type?: "date" | "datetime-local" | "number"; options?: Item[]; required?: boolean };
 type NewKind = "program" | "subject" | "teacher" | "term" | "class" | "lesson" | "assessment" | "calendar_event";
@@ -118,6 +133,7 @@ export default function AcademicManagementPage() {
   const [form, setForm] = useState<Record<string,string>>({});
   const [feedback, setFeedback] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [classIndexState, setClassIndexState] = useState(() => initialObjectIndexState(CLASS_FIELDS));
 
   const create = useMutation({
     mutationFn: async ({type, fields}: {type: NewKind; fields:Record<string,string>}) => {
@@ -217,6 +233,44 @@ export default function AcademicManagementPage() {
           <p className="mt-2 text-[11px] text-[#98A2B3]">{item.detail}</p>
         </article>)}
       </section>
+      <ObjectIndex objectKey="academic_classes"
+        title="Turmas"
+        description="Índice de turmas da prévia oficial do catálogo acadêmico."
+        fields={CLASS_FIELDS.map(field => {
+          if (field.key === "subject_id") return {
+            ...field,
+            render: (row: Item) => {
+              const item = overview.data!.subjects.find(value => value.id === row.subject_id);
+              return <span className="block truncate">{item ? pretty(item) : row.subject_id ? "Referência não carregada" : "—"}</span>;
+            },
+          };
+          if (field.key === "term_id") return {
+            ...field,
+            render: (row: Item) => {
+              const item = overview.data!.terms.find(value => value.id === row.term_id);
+              return <span className="block truncate">{item ? pretty(item) : row.term_id ? "Referência não carregada" : "—"}</span>;
+            },
+          };
+          if (field.key === "teacher_id") return {
+            ...field,
+            render: (row: Item) => {
+              const item = overview.data!.teachers.find(value => value.id === row.teacher_id);
+              return <span className="block truncate">{item ? pretty(item) : row.teacher_id ? "Referência não carregada" : "—"}</span>;
+            },
+          };
+          return field;
+        })}
+        rows={overview.data.classes} state={classIndexState} onStateChange={setClassIndexState}
+        total={overview.data.counts.classes}
+        partial={overview.data.counts.classes > overview.data.classes.length}
+        defaultViews={[
+          { id: "todos", title: "Todas" },
+          { id: "active", title: "Ativas", filterKey: "status:active" },
+        ]}
+        onRefresh={() => void overview.refetch()} refreshing={overview.isFetching}
+        emptyTitle="Nenhuma turma foi carregada do catálogo acadêmico."
+      />
+
       <div className="grid gap-5 lg:grid-cols-[1fr_370px]">
         <section className="space-y-5">
           <div className="rounded-xl border border-[#E4E7EC] bg-white p-5">

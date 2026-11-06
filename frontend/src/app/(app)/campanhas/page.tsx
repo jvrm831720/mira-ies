@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
+import type { ObjectField } from "@/components/object-index/object-index-types";
+import type { RetentionCampaignProposal } from "@/types/api";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -81,6 +85,27 @@ function localDateTimeToUtcIso(value: string, timeZone: string): string {
   return `${value}:00${offset}`;
 }
 
+const CAMPAIGN_INDEX_FIELDS: ObjectField<RetentionCampaignProposal>[] = [
+  { key: "title", title: "Campanha", type: "text", primary: true, width: 260,
+    getValue: item => item.title, filterable: true, sortable: true },
+  { key: "status", title: "Estado", type: "status", width: 130,
+    getValue: item => item.status, filterable: true,
+    options: [
+      { value: "draft", label: "Rascunho" }, { value: "in_review", label: "Em revisão" },
+      { value: "approved", label: "Aprovada" }, { value: "scheduled", label: "Agendada" },
+      { value: "completed", label: "Concluída" }, { value: "failed", label: "Falhou" },
+    ],
+    render: item => <span className="mira-tag mira-tag--blue">{statusLabels[item.status] || item.status}</span> },
+  { key: "objective", title: "Objetivo", type: "text", width: 225,
+    getValue: item => item.objective, filterable: true },
+  { key: "audience_total", title: "Público", type: "number", width: 95,
+    getValue: item => item.audience_total, sortable: true },
+  { key: "recommended_channels", title: "Canais", type: "multiselect", width: 165,
+    getValue: item => item.recommended_channels },
+  { key: "created_at", title: "Criada em", type: "datetime", width: 145,
+    getValue: item => item.created_at, sortable: true },
+];
+
 function CampaignProposalsContent() {
   const queryClient = useQueryClient();
   const proposalsQuery = useQuery({
@@ -94,6 +119,7 @@ function CampaignProposalsContent() {
   });
   const proposals = proposalsQuery.data?.proposals ?? [];
   const [selectedId, setSelectedId] = useState("");
+  const [objectIndexState, setObjectIndexState] = useState(() => initialObjectIndexState(CAMPAIGN_INDEX_FIELDS));
   const selected = proposals.find((item) => item.id === selectedId) ?? null;
   const [title, setTitle] = useState("");
   const [objective, setObjective] = useState("");
@@ -237,27 +263,26 @@ function CampaignProposalsContent() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
-            <section className="space-y-3" aria-label="Lista de propostas">
-              {proposals.map((proposal) => (
-                <button
-                  key={proposal.id}
-                  type="button"
-                  onClick={() => setSelectedId(proposal.id)}
-                  className={`w-full rounded-xl border p-4 text-left transition-colors ${selectedId === proposal.id ? "border-blue-500 bg-blue-50/60" : "border-border bg-card hover:bg-muted/40"}`}
-                >
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">REV. {proposal.revision}</span>
-                    <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium">{statusLabels[proposal.status]}</span>
-                  </div>
-                  <p className="font-semibold">{proposal.title}</p>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{proposal.objective}</p>
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    {proposal.audience_total.toLocaleString("pt-BR")} alunos · {proposal.source_group_ids.length} grupos
-                  </p>
-                </button>
-              ))}
-            </section>
+          <div className="space-y-5">
+            <ObjectIndex
+              objectKey="campaigns" title="Propostas de campanhas"
+              description="Revisão e aprovação institucional; esta listagem não representa execuções de disparo."
+              fields={CAMPAIGN_INDEX_FIELDS}
+              rows={proposals}
+              state={objectIndexState}
+              onStateChange={setObjectIndexState}
+              defaultViews={[
+                { id: "todos", title: "Todas" },
+                { id: "in_review", title: "Em revisão", filterKey: "status:in_review" },
+                { id: "approved", title: "Aprovadas", filterKey: "status:approved" },
+              ]}
+              partial={typeof proposalsQuery.data?.count === "number" && proposalsQuery.data.count > proposals.length}
+              total={proposalsQuery.data?.count}
+              onOpen={proposal => setSelectedId(proposal.id)}
+              onRefresh={() => void proposalsQuery.refetch()}
+              refreshing={proposalsQuery.isFetching}
+              emptyTitle="Nenhuma proposta corresponde aos filtros."
+            />
 
             {selected ? (
               <div className="space-y-5">
