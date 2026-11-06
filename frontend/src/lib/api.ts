@@ -183,6 +183,7 @@ export type OrgMeResponse = {
   operation_profile?: string;
   /** Optional future entitlement list; absent on the current legacy backend. */
   enabled_modules?: string[] | null;
+  available_features?: { academic_catalog?: boolean; academic_services?: boolean; academic_operations?: boolean };
   role?: string;
   permissions?: string[] | null;
   custom_role_id?: string | null;

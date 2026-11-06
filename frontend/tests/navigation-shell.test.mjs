@@ -25,6 +25,7 @@ const hrefs = groups => groups.flatMap(group => group.items.map(item => item.hre
 const education = {
   role: "admin", operation_profile: "institution", permissions: null, custom_role_id: null,
   enabled_modules: ["workspace", "permanence", "data", "mira_plan"],
+  available_features: { academic_catalog: true, academic_services: true, academic_operations: true },
 };
 const collection = {
   role: "admin", operation_profile: "collection", permissions: null, custom_role_id: null,
@@ -46,6 +47,18 @@ test("collection does not inherit student, permanence or academic screens", () =
   assert.equal(links.includes("/campanhas"), true);
   assert.equal(links.includes("/disparos"), true);
   assert.equal(links.includes("/conectores"), true);
+});
+
+test("runtime academic flags hide unavailable routes despite an active entitlement", () => {
+  const gates = {
+    ...education,
+    available_features: { academic_catalog: true, academic_services: false, academic_operations: false },
+  };
+  const links = hrefs(getVisibleNavigation(gates));
+  assert.equal(links.includes("/academico"), true);
+  assert.equal(links.includes("/academico/jornadas"), false);
+  assert.equal(links.includes("/academico/servicos"), false);
+  assert.equal(hrefs(getVisibleNavigation({ ...education, available_features: undefined })).includes("/academico"), false);
 });
 
 test("server entitlement switches off disabled modules", () => {

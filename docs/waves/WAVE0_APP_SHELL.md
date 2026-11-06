@@ -34,7 +34,7 @@
 ## Limites honestos / próximos gates
 
 - Esta Wave não adiciona carteiras, contatos ou casos de Cobrança: o menu só os mostrará após existirem rotas operacionais e políticas autorizadas.
-- A entitlement permanence **não equivale** à flag runtime NATIVE_ACADEMIC_OPERATIONS_ENABLED. A flag não é exposta por org/me; páginas de jornadas mantêm os bloqueios de API. Um catálogo separado de capacidades em runtime é futuro trabalho; o frontend não simula habilitação.
+- A entitlement permanence **não equivale** à flag runtime NATIVE_ACADEMIC_OPERATIONS_ENABLED. O novo campo available_features de org/me inclui flags reais para catálogo, jornadas e serviços; a navegação acadêmica só mostra rotas com flags ativas. Páginas e APIs preservam seus bloqueios próprios e nenhuma capacidade é habilitada por esta PR.
 - Busca global: apenas rotas existentes. Busca de registros 360 e ações depende de APIs e escopo de autorização próprio; não há dados mockados.
 - Notificações globais: sem API conectada nesta Wave. O header informa a limitação.
 - Capturas HTML foram inspecionadas como evidência de referência, mas não há screenshot do novo app autenticado produzido nesta PR. QA visual final exige preview autenticado com Educação, Cobrança, viewer e custom RBAC, desktop e mobile.

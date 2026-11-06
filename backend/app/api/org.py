@@ -521,7 +521,14 @@ async def me(auth: AuthContext = Depends(get_current_tenant), db: AsyncSession =
             (ModuleEntitlement.expires_at.is_(None) | (ModuleEntitlement.expires_at > now)),
         )
     )).scalars().all()
+    flags = get_settings()
+    available_features = {
+        "academic_catalog": bool(flags.native_academic_enabled and flags.native_academic_catalog_enabled),
+        "academic_services": bool(flags.native_academic_enabled and flags.student_portal_enabled and flags.native_academic_services_enabled),
+        "academic_operations": bool(flags.native_academic_enabled and flags.native_academic_catalog_enabled and flags.native_academic_operations_enabled),
+    }
     return {
+        "available_features": available_features,
         "enabled_modules": sorted(set(entitlements)),
         "operation_profile": operation_profile,
         "tenant_id": auth.tenant_id,

@@ -19,6 +19,7 @@ export function CommandPalette({ open, onOpenChange, groups, loading, error }: P
   const labelId = useId();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [query, setQuery] = useState("");
@@ -74,9 +75,19 @@ export function CommandPalette({ open, onOpenChange, groups, loading, error }: P
     } else if (event.key === "Enter" && results[safeSelected]) {
       event.preventDefault();
       navigate(results[safeSelected].href);
-    } else if (event.key === "Tab") {
-      // Keep focus inside the active modal without adding an inert hidden control.
+    }
+  }
+
+  function trapFocus(event: React.KeyboardEvent<HTMLElement>) {
+    if (event.key !== "Tab") return;
+    const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('input, button:not(:disabled):not([tabindex="-1"])') || []);
+    if (!controls.length) return;
+    if (event.shiftKey && document.activeElement === controls[0]) {
       event.preventDefault();
+      controls[controls.length - 1].focus();
+    } else if (!event.shiftKey && document.activeElement === controls[controls.length - 1]) {
+      event.preventDefault();
+      controls[0].focus();
     }
   }
 
@@ -87,7 +98,7 @@ export function CommandPalette({ open, onOpenChange, groups, loading, error }: P
       <button type="button" aria-label="Fechar busca" tabIndex={-1}
         onClick={() => onOpenChange(false)}
         className="absolute inset-0 bg-[var(--color-ink)]/35" />
-      <section role="dialog" aria-modal="true" aria-labelledby={labelId}
+      <section ref={dialogRef} onKeyDown={trapFocus} role="dialog" aria-modal="true" aria-labelledby={labelId}
         className="relative z-10 w-full max-w-[600px] overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-canvas)] shadow-[var(--shadow-overlay)]">
         <h2 id={labelId} className="sr-only">Busca e navegação da MIRA</h2>
         <div className="flex h-14 items-center gap-3 border-b border-[var(--color-border)] px-4">

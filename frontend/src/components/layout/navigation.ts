@@ -16,6 +16,7 @@ export type NavigationItem = {
   permission: string;
   profile?: "education" | "collection";
   module?: "workspace" | "permanence" | "billing" | "data" | "mira_plan" | "operations";
+  feature?: "academic_catalog" | "academic_services" | "academic_operations";
 };
 export type NavigationGroup = {
   id: string;
@@ -42,9 +43,9 @@ const allGroups: NavigationGroup[] = [
     { href: "/retencao/logs", label: "Histórico de contatos", icon: Activity, profile: "education", permission: "campaigns.view", module: "operations", keywords: "logs atividades" },
   ] },
   { id: "academic", label: "Acadêmico", items: [
-    { href: "/academico", label: "Gestão acadêmica", icon: BookOpenCheck, profile: "education", permission: "students.sensitive.view", module: "permanence", keywords: "cursos turmas disciplinas professores" },
-    { href: "/academico/jornadas", label: "Jornadas", icon: Workflow, profile: "education", permission: "students.sensitive.view", module: "permanence", keywords: "matrícula rematrícula notas frequência currículo" },
-    { href: "/academico/servicos", label: "Serviços acadêmicos", icon: FileClock, profile: "education", permission: "students.sensitive.view", module: "permanence", keywords: "solicitações protocolos documentos" },
+    { href: "/academico", label: "Gestão acadêmica", icon: BookOpenCheck, profile: "education", permission: "students.sensitive.view", module: "permanence", feature: "academic_catalog", keywords: "cursos turmas disciplinas professores" },
+    { href: "/academico/jornadas", label: "Jornadas", icon: Workflow, profile: "education", permission: "students.sensitive.view", module: "permanence", feature: "academic_operations", keywords: "matrícula rematrícula notas frequência currículo" },
+    { href: "/academico/servicos", label: "Serviços acadêmicos", icon: FileClock, profile: "education", permission: "students.sensitive.view", module: "permanence", feature: "academic_services", keywords: "solicitações protocolos documentos" },
   ] },
   { id: "data", label: "Dados", items: [
     { href: "/conectores", label: "Integrações", icon: Database, permission: "data.view", module: "data", keywords: "fontes sistemas Composio" },
@@ -93,6 +94,7 @@ export function getVisibleNavigation(me: OrgMeResponse | null | undefined): Navi
     items: group.items.filter(item => {
       if (item.profile && item.profile !== profile) return false;
       if (!hasNavigationPermission(me, item.permission)) return false;
+      if (item.feature && me.available_features?.[item.feature] !== true) return false;
       const moduleKey = item.module === "operations" ? (profile === "education" ? "permanence" : "billing") : item.module;
       if (Array.isArray(enabled) && moduleKey && !enabled.includes(moduleKey)) return false;
       return true;
