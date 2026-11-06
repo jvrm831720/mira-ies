@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { AcademicCatalogSelector } from "@/components/academic/academic-catalog-selector";
+import { AcademicNavigation } from "@/components/academic/academic-navigation";
+
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   BookOpenCheck, CalendarDays, CheckCircle2, Clock3, FileText,
   GraduationCap, Loader2, Plus, RefreshCw, ShieldCheck, Users,
 } from "@/components/ui/icons";
+import { Dialog } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 
@@ -16,6 +20,9 @@ const primary = "inline-flex h-10 items-center justify-center rounded-lg bg-[#20
 const labels: Record<string,string> = {submitted:"Recebida",approved:"Aprovada",rejected:"Rejeitada",passed:"Aprovado",failed:"Reprovado"};
 type Item = {id:string;code:string;name:string;status:string;program_id?:string};
 type Curriculum = {id:string;program_id:string;code:string;label:string;status:string};
+type CurriculumDetail = Curriculum & {
+  items: {subject_id:string;period_number:number;required:boolean;prerequisite_subject_id:string|null}[];
+};
 type Class = {id:string;code:string;subject_id:string;term_id:string;status:string;capacity:number|null;enrollment_open:boolean};
 type Policy = {id:string;version:number;status:string;passing_percent:string;min_attendance_percent:string;max_classes_per_term:number};
 type Overview = {counts:{active_students:number;enrollment_requests:number;outcomes:number};policies:Policy[];curricula:Curriculum[];
@@ -34,6 +41,10 @@ type Preview = {ready:boolean;reason?:string;items:{student_id:string;name:strin
 type Transcript = {subject_name:string;term_label:string;grade_percent:string;attendance_percent:string;result:string;policy_version:number};
 type Tab = "matriculas"|"curriculos"|"ofertas"|"diario"|"regras"|"historico";
 type CurriculumItem = {subject_id:string;period_number:string;prerequisite_subject_id:string;required:boolean};
+
+async function catalog<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return call<T>("/../catalog" + path, init);
+}
 
 async function call<T>(path:string,init:RequestInit={}):Promise<T>{
   const token=getAccessToken();if(!token)throw new Error("Faça login na instituição.");
@@ -56,6 +67,16 @@ export default function JourneysPage(){
     me.data.permissions.includes("critical.manage"):me.data?.role==="admin");
   const canManage=!!canView&&(me.data?.permissions?
     me.data.permissions.includes("settings.manage"):me.data?.role==="admin");
+  const [curriculumId, setCurriculumId] = useState<string | null>(null);
+  const closeCurriculum = useCallback((open: boolean) => {
+    if (!open) setCurriculumId(null);
+  }, []);
+  const curriculum = useQuery({
+    queryKey: ["academic-curriculum", me.data?.tenant_id, me.data?.user_id, curriculumId],
+    queryFn: ({ signal }) => call<CurriculumDetail>(`/curricula/${curriculumId}`, { signal }),
+    enabled: Boolean(canView && curriculumId && me.data?.tenant_id && me.data.user_id),
+    retry: false,
+  });
   const [tab,setTab]=useState<Tab>("matriculas");
   const [overview,setOverview]=useState<Overview|null>(null);
   const [requests,setRequests]=useState<Request[]>([]);
@@ -79,6 +100,12 @@ export default function JourneysPage(){
   const [curriculumName,setCurriculumName]=useState("");
   const [curriculumItems,setCurriculumItems]=useState<CurriculumItem[]>([{...blank}]);
   const [offerId,setOfferId]=useState("");
+  const [offerLoadedId, setOfferLoadedId] = useState("");
+  const offerDetails = useQuery({
+    queryKey: ["academic-offer", me.data?.tenant_id, me.data?.user_id, offerId],
+    queryFn: ({ signal }) => call<{class: Class}>(`/classes/${offerId}/roster`, { signal }),
+    enabled: Boolean(canView && offerId && tab === "ofertas"), retry: false,
+  });
   const [offerCapacity,setOfferCapacity]=useState("");
   const [offerOpen,setOfferOpen]=useState(false);
   const [passing,setPassing]=useState("60");
@@ -96,6 +123,14 @@ export default function JourneysPage(){
   const [presence,setPresence]=useState<Record<string,string>>({});
   const [preview,setPreview]=useState<Preview|null>(null);
   const [transcript,setTranscript]=useState<Transcript[]>([]);
+
+  useEffect(() => {
+    const record = offerDetails.data?.class;
+    if (!record || record.id !== offerId) return;
+    setOfferCapacity(record.capacity == null ? "" : String(record.capacity));
+    setOfferOpen(record.enrollment_open);
+    setOfferLoadedId(record.id);
+  }, [offerDetails.data, offerId]);
 
   async function refresh(){
     setLoading(true);
@@ -121,6 +156,7 @@ export default function JourneysPage(){
   }
   async function chooseStudent(s:Student){
     setStudent(s);setResults([]);setStudentPrograms([]);setTranscript([]);
+    offerRequest.current?.abort(); setOffers([]); setPicked([]); setStudentProgram(""); setAdmitCurriculum("");
     try{const [programs,history]=await Promise.all([
       call<{items:ProgramLink[]}>("/students/"+s.id+"/programs"),
       call<{items:Transcript[]}>("/students/"+s.id+"/transcript")]);
@@ -128,18 +164,38 @@ export default function JourneysPage(){
       setTranscript(history.items);
     }catch(e){setError((e as Error).message);}
   }
+  const offerRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => offerRequest.current?.abort(), []);
   async function loadOffers(programId:string,termId:string){
+    offerRequest.current?.abort();
+    const controller = new AbortController();
+    offerRequest.current = controller;
     setPicked([]);setOffers([]);if(!programId||!termId)return;
-    try{const r=await call<{items:Offer[]}>("/programs/"+programId+"/offers?term_id="+termId);setOffers(r.items);}
-    catch(e){setError((e as Error).message);}
+    try{const r=await call<{items:Offer[]}>("/programs/"+programId+"/offers?term_id="+termId, { signal: controller.signal });if (!controller.signal.aborted) setOffers(r.items);}
+    catch(e){if (!controller.signal.aborted) setError((e as Error).message);}
   }
-  async function loadRoster(id:string){
+  const rosterRequest = useRef<AbortController | null>(null);
+  const loadRoster = useCallback(async (id: string) => {
+    rosterRequest.current?.abort();
     setRoster(null);setPreview(null);setGrades({});setPresence({});
     if(!id)return;
-    try{const r=await call<Roster>("/classes/"+id+"/roster");
+    const request = new AbortController();
+    rosterRequest.current = request;
+    try{const r=await call<Roster>("/classes/"+id+"/roster", { signal: request.signal });
+      if (request.signal.aborted) return;
       setRoster(r);setAssessmentId(r.assessments[0]?.id||"");setLessonId(r.lessons[0]?.id||"");
-    }catch(e){setError((e as Error).message);}
-  }
+    }catch(e){if (!request.signal.aborted) setError((e as Error).message);}
+  }, []);
+  useEffect(() => {
+    if (!canView) return;
+    const id = new URLSearchParams(window.location.search).get("turma");
+    if (id && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)) {
+      setTab("diario");
+      setClassId(id);
+      void loadRoster(id);
+    }
+    return () => rosterRequest.current?.abort();
+  }, [canView, loadRoster, me.data?.tenant_id, me.data?.user_id]);
   async function createCurriculum(e:FormEvent){
     e.preventDefault();
     const v=await act("/curricula",{program_id:curriculumProgram,code:curriculumCode,label:curriculumName,
@@ -153,7 +209,6 @@ export default function JourneysPage(){
       max_classes_per_term:Number(maxClasses),allow_reenrollment:allowReenroll,excused_excluded:excusedExcluded,
       enrollment_opens_on:opens||null,enrollment_closes_on:closes||null});
   }
-  const currentCurricula=overview?.curricula.filter(x=>x.program_id===admitProgram&&x.status==="published")||[];
   const eligibleSubjects=overview?.subjects.filter(x=>x.program_id===curriculumProgram&&x.status==="active")||[];
   const assessment=roster?.assessments.find(x=>x.id===assessmentId);
   const lesson=roster?.lessons.find(x=>x.id===lessonId);
@@ -174,6 +229,7 @@ export default function JourneysPage(){
   if(me.isLoading)return <main className="p-10 text-[12px] text-[#667085]">Verificando acesso…</main>;
   if(!canView)return <main className="p-10 text-[12px] text-[#667085]">Acesso exclusivo à equipe institucional autorizada.</main>;
   return <main className="min-h-screen bg-[#FCFCFD] p-5 text-[#202124] md:p-9">
+    <AcademicNavigation features={me.data?.available_features} />
     <header className="mb-7 flex flex-wrap items-start justify-between gap-3">
       <div><p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#85858B]">Acadêmico / Operação</p>
         <h1 className="mt-2 text-[27px] font-semibold tracking-[-0.04em]">Jornadas acadêmicas</h1>
@@ -239,12 +295,34 @@ export default function JourneysPage(){
       </section>
     </div>}
 
+    {canView && curriculumId && <Dialog open onOpenChange={closeCurriculum}
+      title={curriculum.data?.label ?? "Matriz curricular"}
+      description={curriculum.data ? `${curriculum.data.code} · ${curriculum.data.status}` : undefined}>
+      {curriculum.isPending && <p role="status">Carregando matriz…</p>}
+      {curriculum.isError && <p role="alert">Não foi possível carregar a matriz curricular.</p>}
+      {curriculum.data && <ul className="max-h-[50vh] divide-y overflow-y-auto">
+        {curriculum.data.items.map(item => {
+          const subject = overview?.subjects.find(row => row.id === item.subject_id);
+          const prerequisite = overview?.subjects.find(row => row.id === item.prerequisite_subject_id);
+          return <li key={item.subject_id} className="py-3 text-sm">
+            <p className="font-medium">{subject?.name ?? "Disciplina fora da prévia do catálogo"}</p>
+            <p className="text-xs text-[#505967]">
+              Período {item.period_number} · {item.required ? "Obrigatória" : "Optativa"}
+            </p>
+            {item.prerequisite_subject_id && <p className="text-xs text-[#505967]">
+              Pré-requisito · {prerequisite?.name ?? "Disciplina fora da prévia do catálogo"}
+            </p>}
+          </li>;
+        })}
+      </ul>}
+    </Dialog>}
+
     {tab==="curriculos"&&<div className="grid gap-5 xl:grid-cols-2">
       <section className="rounded-xl border border-[#EAECF0] bg-white p-5">
         <h2 className="text-[15px] font-semibold">Matrizes curriculares</h2>
         <p className="mt-1 text-[12px] text-[#667085]">Cada curso pode ter várias matrizes; os vínculos existentes preservam sua versão.</p>
         <div className="mt-4 space-y-2">{overview?.curricula.map(c=><article key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-[#EAECF0] p-3">
-          <div><p className="text-[12px] font-semibold">{c.label}</p><p className="mt-1 text-[11px] text-[#667085]">{c.code} · {overview.programs.find(p=>p.id===c.program_id)?.name} · {c.status}</p></div>
+          <div><button type="button" className="text-left text-[12px] font-semibold hover:underline" onClick={() => setCurriculumId(c.id)}>{c.label}</button><p className="mt-1 text-[11px] text-[#667085]">{c.code} · {overview.programs.find(p=>p.id===c.program_id)?.name} · {c.status}</p></div>
           {canApprove&&c.status==="draft"&&<button className={btn} disabled={busy} onClick={()=>void act("/curricula/"+c.id+"/publish")}>Publicar</button>}
         </article>)}</div>
       </section>
@@ -252,9 +330,9 @@ export default function JourneysPage(){
         <h2 className="text-[15px] font-semibold">Montar grade curricular</h2>
         {canManage?<form onSubmit={e=>void createCurriculum(e)} className="mt-4 space-y-3">
           <label className="block text-[11px] text-[#667085]">Curso
-            <select required value={curriculumProgram} onChange={e=>{setCurriculumProgram(e.target.value);setCurriculumItems([{...blank}]);}} className={field+" mt-1"}>
-              <option value="">Selecionar curso</option>{overview?.programs.filter(p=>p.status==="active").map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-            </select></label>
+<AcademicCatalogSelector id="curriculum-program" label="Curso" resource="programs"
+required status="active" value={curriculumProgram} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+onChange={value => {setCurriculumProgram(value);setCurriculumItems([{...blank}]);}} /></label>
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="text-[11px] text-[#667085]">Código / versão
               <input className={field+" mt-1"} required minLength={2} maxLength={40} value={curriculumCode} onChange={e=>setCurriculumCode(e.target.value)}/></label>
@@ -264,9 +342,10 @@ export default function JourneysPage(){
           <div className="space-y-2">{curriculumItems.map((item,index)=><div key={index} className="rounded-lg border border-[#EAECF0] bg-[#FAFBFC] p-3">
             <div className="flex justify-between text-[11px] font-medium"><span>Disciplina {index+1}</span>
               {curriculumItems.length>1&&<button type="button" className="text-[#B42318]" onClick={()=>setCurriculumItems(v=>v.filter((_,i)=>i!==index))}>Remover</button>}</div>
-            <select className={field+" mt-2"} required value={item.subject_id} onChange={e=>setCurriculumItems(v=>v.map((it,i)=>i===index?{...it,subject_id:e.target.value}:it))}>
-              <option value="">Selecionar disciplina</option>{eligibleSubjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+<AcademicCatalogSelector key={curriculumProgram + index} id={`curriculum-subject-${index}`} label="Disciplina" resource="subjects"
+required programId={curriculumProgram} status="active" value={item.subject_id}
+tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+onChange={value => setCurriculumItems(previous => previous.map((entry, i) => i === index ? {...entry, subject_id: value} : entry))} />
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <label className="text-[11px] text-[#667085]">Período
                 <input type="number" required min="1" max="30" className={field+" mt-1"} value={item.period_number}
@@ -291,16 +370,19 @@ export default function JourneysPage(){
       <p className="mt-1 text-[12px] text-[#667085]">As turmas são cadastradas em Gestão acadêmica; a abertura de vagas é controlada separadamente.</p>
       <div className="mt-5 space-y-4">
         <label className="block text-[11px] text-[#667085]">Turma
-          <select value={offerId} onChange={e=>{setOfferId(e.target.value);const c=overview?.classes.find(x=>x.id===e.target.value);
-            setOfferCapacity(c?.capacity==null?"":String(c.capacity));setOfferOpen(c?.enrollment_open||false);}} className={field+" mt-1"}>
-            <option value="">Selecionar turma</option>
-            {overview?.classes.map(c=><option key={c.id} value={c.id}>
-              {c.code} · {overview.subjects.find(s=>s.id===c.subject_id)?.name} · {c.status}</option>)}
-          </select></label>
+          <AcademicCatalogSelector id="offer-class" label="Turma" resource="classes"
+            value={offerId} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+            onChange={value => {setOfferId(value);setOfferLoadedId("");setOfferCapacity("");setOfferOpen(false);}} />
+</label>
+        {offerDetails.isFetching && <p role="status" className="text-xs">Carregando oferta…</p>}
+        {offerDetails.isError && <p role="alert" className="text-xs">
+          Não foi possível carregar a oferta.
+          <button type="button" className="ml-2 underline" onClick={() => void offerDetails.refetch()}>Tentar novamente</button>
+        </p>}
         <label className="block text-[11px] text-[#667085]">Capacidade da turma (opcional)
           <input type="number" min="1" max="10000" className={field+" mt-1"} value={offerCapacity} onChange={e=>setOfferCapacity(e.target.value)}/></label>
         <label className="flex items-center gap-2 text-[12px] text-[#475467]"><input type="checkbox" checked={offerOpen} onChange={e=>setOfferOpen(e.target.checked)}/>Aceitar novas solicitações de matrícula</label>
-        {canApprove&&<button type="button" className={primary} disabled={busy||!offerId}
+        {canApprove&&<button type="button" className={primary} disabled={busy||!offerId||offerLoadedId!==offerId||offerDetails.isFetching||offerDetails.isError}
           onClick={()=>void act("/classes/"+offerId+"/offer",{capacity:offerCapacity?Number(offerCapacity):null,enrollment_open:offerOpen})}>Salvar oferta</button>}
       </div>
     </section>}
@@ -339,14 +421,12 @@ export default function JourneysPage(){
           {student&&canEdit&&<form onSubmit={async e=>{e.preventDefault();const r=await act("/programs/enroll",{
             student_id:student.id,program_id:admitProgram,curriculum_id:admitCurriculum});if(r)await chooseStudent(student);
           }} className="mt-3 space-y-3">
-            <select required value={admitProgram} onChange={e=>{setAdmitProgram(e.target.value);setAdmitCurriculum("");}} className={field}>
-              <option value="">Selecionar curso</option>
-              {overview?.programs.filter(p=>p.status==="active").map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <select required value={admitCurriculum} onChange={e=>setAdmitCurriculum(e.target.value)} className={field}>
-              <option value="">Selecionar currículo publicado</option>
-              {currentCurricula.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
+            <AcademicCatalogSelector id="enrollment-program" label="Curso" resource="programs"
+              required value={admitProgram} tenant={me.data?.tenant_id} user={me.data?.user_id}
+              load={catalog} onChange={value => { setAdmitProgram(value); setAdmitCurriculum(""); }} />
+<AcademicCatalogSelector key={admitProgram} id="enrollment-curriculum" label="Matriz curricular" resource="curricula"
+required programId={admitProgram} status="published" value={admitCurriculum}
+tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog} onChange={setAdmitCurriculum} />
             <button type="submit" className={primary} disabled={busy||!admitCurriculum}>Vincular ao curso</button>
           </form>}
         </div>
@@ -356,9 +436,9 @@ export default function JourneysPage(){
             <select value={studentProgram} onChange={e=>{setStudentProgram(e.target.value);void loadOffers(e.target.value,term);}} className={field}>
               <option value="">Selecionar vínculo</option>{studentPrograms.filter(p=>p.status==="active").map(p=><option key={p.id} value={p.id}>{p.program_name}</option>)}
             </select>
-            <select value={term} onChange={e=>{setTerm(e.target.value);void loadOffers(studentProgram,e.target.value);}} className={field}>
-              <option value="">Selecionar período</option>{overview?.terms.filter(t=>["planned","active"].includes(t.status)).map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
+            <AcademicCatalogSelector id="enrollment-term" label="Período" resource="terms"
+              value={term} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+              onChange={value => { setTerm(value); void loadOffers(studentProgram, value); }} />
             {offers.map(o=><label key={o.id} className="flex gap-3 rounded-lg border border-[#EAECF0] p-3 text-[11px]">
               <input type="checkbox" disabled={!o.available} checked={picked.includes(o.id)} onChange={e=>setPicked(v=>e.target.checked?[...v,o.id]:v.filter(x=>x!==o.id))}/>
               <span className="flex-1">{o.subject_name} · {o.code}</span>
@@ -377,9 +457,9 @@ export default function JourneysPage(){
       <h2 className="text-[15px] font-semibold">Diário de classe</h2>
       <p className="mt-1 text-[12px] text-[#667085]">Notas, frequência e fechamento com rastreabilidade. Registros ausentes bloqueiam resultados.</p>
       <label className="mt-4 block max-w-xl text-[11px] text-[#667085]">Turma ativa
-        <select value={classId} onChange={e=>{setClassId(e.target.value);void loadRoster(e.target.value);}} className={field+" mt-1"}>
-          <option value="">Selecionar turma</option>{overview?.classes.filter(x=>x.status==="active").map(c=><option key={c.id} value={c.id}>{c.code} · {overview.subjects.find(s=>s.id===c.subject_id)?.name}</option>)}
-        </select></label>
+<AcademicCatalogSelector id="gradebook-class" label="Turma" resource="classes" status="active"
+value={classId} tenant={me.data?.tenant_id} user={me.data?.user_id} load={catalog}
+onChange={value => {setClassId(value);void loadRoster(value);}} /></label>
       {roster&&<div className="mt-5 grid gap-5 xl:grid-cols-2">
         <div className="rounded-lg border border-[#EAECF0] p-4">
           <h3 className="text-[13px] font-semibold">Notas por avaliação</h3>

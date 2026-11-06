@@ -1,5 +1,7 @@
 "use client";
 
+import { AcademicNavigation } from "@/components/academic/academic-navigation";
+
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -127,7 +129,7 @@ export default function AcademicServiceDeskPage() {
   const [file, setFile] = useState<File | null>(null);
 
   const queue = useQuery({
-    queryKey: ["academic-service-queue", filter, priorityFilter, offset],
+    queryKey: ["academic-service-queue", me.data?.tenant_id, me.data?.user_id, filter, priorityFilter, offset],
     queryFn: () => request<{ items: RequestItem[]; total: number; has_more: boolean; limit: number }>(
       "/queue?" + new URLSearchParams({
         limit: "50", offset: String(offset),
@@ -141,20 +143,20 @@ export default function AcademicServiceDeskPage() {
   // The backend independently verifies tenant access for this request ID.
   const activeId = selectedId || queue.data?.items[0]?.id || null;
   const detail = useQuery({
-    queryKey: ["academic-service-detail", activeId],
+    queryKey: ["academic-service-detail", me.data?.tenant_id, me.data?.user_id, activeId],
     queryFn: () => request<Detail>("/requests/" + activeId + "/detail"),
     enabled: !!canView && !!activeId && tab === "queue", retry: false,
   });
   const members = useQuery({
-    queryKey: ["academic-service-staff"], queryFn: () => request<{ items: Staff[] }>("/staff"),
+    queryKey: ["academic-service-staff", me.data?.tenant_id, me.data?.user_id], queryFn: () => request<{ items: Staff[] }>("/staff"),
     enabled: !!canView, retry: false,
   });
   const templates = useQuery({
-    queryKey: ["academic-service-templates"], queryFn: () => request<{ items: Template[]; variables: string[] }>("/templates"),
+    queryKey: ["academic-service-templates", me.data?.tenant_id, me.data?.user_id], queryFn: () => request<{ items: Template[]; variables: string[] }>("/templates"),
     enabled: !!canView && (tab === "templates" || tab === "queue"), retry: false,
   });
   const notifications = useQuery({
-    queryKey: ["academic-service-notifications"], queryFn: () => request<{ items: Notification[] }>("/notifications"),
+    queryKey: ["academic-service-notifications", me.data?.tenant_id, me.data?.user_id], queryFn: () => request<{ items: Notification[] }>("/notifications"),
     enabled: !!canView && tab === "notifications", retry: false,
   });
 
@@ -209,7 +211,11 @@ export default function AcademicServiceDeskPage() {
   function assign(event: FormEvent) {
     event.preventDefault();
     if (!activeId || !assignee) { setFailure("Selecione um responsável."); return; }
-    const date = dueAt ? new Date(dueAt).toISOString() : null;
+    const parsedDate = dueAt ? new Date(dueAt) : null;
+    if (parsedDate && Number.isNaN(parsedDate.getTime())) {
+      setFailure("Informe um prazo válido."); return;
+    }
+    const date = parsedDate?.toISOString() ?? null;
     action.mutate({ path: "/requests/" + activeId + "/assign", body: {
       membership_id: assignee, priority, due_at: date,
     } });
@@ -230,6 +236,7 @@ export default function AcademicServiceDeskPage() {
   </main>;
 
   return <main className="min-h-screen bg-[#FCFCFD] px-4 py-7 text-[#202124] sm:px-8 xl:px-10">
+    <AcademicNavigation features={me.data?.available_features} />
     <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.11em] text-[#667085]">Acadêmico / Atendimento</p>

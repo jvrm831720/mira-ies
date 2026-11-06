@@ -11,16 +11,18 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.native_academic import _require_ies
+from app.api.object_views import ViewSpec, validate_view
 from app.core.auth import AuthContext, require_permission
 from app.core.config import get_settings
 from app.db.session import get_db
+from app.models.academic_operations import AcademicCurriculum
 from app.models.academic_catalog import (
     AcademicProgram, AcademicSubject, AcademicTeacher, AcademicTerm,
     AcademicClass, AcademicClassEnrollment, AcademicLesson,
@@ -211,6 +213,115 @@ def _fields(item: BaseModel) -> dict:
         key: str(value) if isinstance(value, UUID) else value
         for key, value in item.model_dump(exclude_none=True).items()
     }
+
+
+CatalogResource = Literal["programs", "subjects", "teachers", "terms", "classes", "curricula"]
+CATALOG_LISTS = {
+    "curricula": (AcademicCurriculum, AcademicCurriculum.label, AcademicCurriculum.code),
+    "programs": (AcademicProgram, AcademicProgram.name, AcademicProgram.code),
+    "subjects": (AcademicSubject, AcademicSubject.name, AcademicSubject.code),
+    "teachers": (AcademicTeacher, AcademicTeacher.display_name, AcademicTeacher.staff_code),
+    "terms": (AcademicTerm, AcademicTerm.label, AcademicTerm.code),
+    "classes": (AcademicClass, AcademicClass.code, AcademicClass.code),
+}
+
+
+@router.get("/records/{resource}")
+async def list_catalog_records(
+    resource: CatalogResource,
+    q: str = Query("", max_length=180),
+    program_id: UUID | None = None,
+    status: str | None = Query(None, max_length=30),
+    sort: Literal["name", "code", "status"] = "name",
+    desc: bool = False,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    _human(auth)
+    await _require_ies(db, auth)
+    model, name, code = CATALOG_LISTS[resource]
+    statement = select(model.id, name.label("name"), code.label("code"), model.status).where(
+        model.tenant_id == auth.tenant_id,
+    )
+    if program_id is not None:
+        if resource not in {"subjects", "curricula"}:
+            raise HTTPException(status_code=422, detail="Objeto sem vínculo direto com curso.")
+        statement = statement.where(model.program_id == str(program_id))
+    if status:
+        statement = statement.where(model.status == status)
+    if search := q.strip():
+        statement = statement.where(or_(
+            name.icontains(search, autoescape=True),
+            code.icontains(search, autoescape=True),
+            model.status.icontains(search, autoescape=True),
+        ))
+    column = {"name": name, "code": code, "status": model.status}[sort]
+    rows = (await db.execute(
+        statement.order_by(column.desc() if desc else column.asc(), model.id)
+        .offset(offset).limit(limit + 1)
+    )).mappings().all()
+    return {"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit}
+
+
+class ClassIndexRequest(ViewSpec):
+    query: str = Field(default="", max_length=180)
+    active_only: bool = False
+    offset: int = Field(default=0, ge=0)
+
+
+@router.post("/{resource}/index")
+async def class_index(
+    resource: CatalogResource,
+    body: ClassIndexRequest,
+    auth: AuthContext = Depends(require_permission("students.sensitive.view")),
+    db: AsyncSession = Depends(get_db),
+):
+    _enabled()
+    _human(auth)
+    await _require_ies(db, auth)
+    validate_view("academic_" + resource, body)
+    model, name, code = CATALOG_LISTS[resource]
+    fields = ({"name": name, "code": code, "status": model.status}
+              if resource != "classes" else {key: getattr(model, key) for key in (
+                  "code", "status", "subject_id", "term_id", "teacher_id",
+              )})
+    conditions = [model.tenant_id == auth.tenant_id]
+    if body.active_only:
+        conditions.append(model.status == "active")
+    if search := body.query.strip():
+        conditions.append(or_(*(cast(column, String).icontains(search, autoescape=True)
+                                for column in fields.values())))
+    for spec in body.filters:
+        column = cast(fields[spec.key], String)
+        value = str(spec.value)
+        match spec.op:
+            case "empty":
+                conditions.append(or_(column.is_(None), column == ""))
+            case "eq":
+                conditions.append(column == value)
+            case "neq":
+                conditions.append(column != value)
+            case "contains":
+                conditions.append(column.icontains(value, autoescape=True))
+            case "not_contains":
+                conditions.append(~column.icontains(value, autoescape=True))
+            case "starts_with":
+                conditions.append(column.istartswith(value, autoescape=True))
+            case "in":
+                conditions.append(column.in_([str(item) for item in spec.value]))
+    sort = fields[body.sort.key] if body.sort else code
+    order = sort.desc() if body.sort and body.sort.desc else sort.asc()
+    total = (await db.execute(
+        select(func.count()).select_from(model).where(*conditions)
+    )).scalar_one()
+    rows = (await db.execute(
+        select(model.id, *(column.label(key) for key, column in fields.items())).where(*conditions)
+        .order_by(order.nulls_last(), model.id).offset(body.offset).limit(body.page_size)
+    )).mappings().all()
+    return {"items": [dict(row) for row in rows], "total": total}
 
 
 @router.get("/overview")
