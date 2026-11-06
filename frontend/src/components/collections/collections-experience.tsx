@@ -6,8 +6,8 @@ import { Header } from "@/components/layout/header";
 import { hasNavigationPermission } from "@/components/layout/navigation";
 import { api } from "@/lib/api";
 import { collectionsApi, type CollectionCase } from "@/lib/collections-api";
-import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
-import type { ObjectField, ObjectIndexState } from "@/components/object-index/object-index-types";
+import { ObjectIndex, initialObjectIndexState, type ObjectIndexState } from "@/components/object-index/object-index";
+import type { ObjectField } from "@/components/object-index/object-index-types";
 import { CaseDetail, Currency, Time } from "./collection-case-detail";
 
 const STATUS = [
