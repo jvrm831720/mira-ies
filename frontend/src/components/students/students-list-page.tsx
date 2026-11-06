@@ -85,15 +85,15 @@ export function StudentsListPage() {
   const validGroup = KNOWN_GROUP_IDS.has(groupId) ? groupId : "";
 
   useEffect(() => {
-    setSelectedId(null);
-  }, [me.data?.tenant_id, me.data?.user_id]);
-
-  useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(state.query), 240);
     return () => window.clearTimeout(timer);
   }, [state.query]);
 
   const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
+  useEffect(() => {
+    setSelectedId(null);
+  }, [me.data?.tenant_id, me.data?.user_id]);
+
   const visibleNav = useMemo(() => getVisibleNavigation(me.data), [me.data]);
   const canView = visibleNav.some(group => group.items.some(item => item.href === "/alunos"));
   const canImport = visibleNav.some(group => group.items.some(item => item.href === "/importar"));
