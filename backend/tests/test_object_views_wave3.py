@@ -76,15 +76,17 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
     tenant_b, _ = await tenant_factory(slug="wave3-views-b")
     tenant_a_id, tenant_b_id = tenant_a.id, tenant_b.id
     users = []
-    for tenant, suffix in ((tenant_a, "owner"), (tenant_a, "peer"), (tenant_b, "outside")):
+    for tenant_id, suffix in ((tenant_a_id, "owner"), (tenant_a_id, "peer"), (tenant_b_id, "outside")):
         user = User(
-            tenant_id=tenant.id, email=f"views-{suffix}-{uuid4()}@example.test",
+            tenant_id=tenant_id, email=f"views-{suffix}-{uuid4()}@example.test",
             display_name=suffix, password_hash="test", role="viewer",
         )
-        await db_session.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant.id})
+        await db_session.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
         db_session.add(user)
+        await db_session.flush()
+        new_user_id = user.id
         await db_session.commit()
-        users.append(user.id)
+        users.append(new_user_id)
     owner, peer, outsider = users
     await identity(db_session, tenant_a_id, owner)
     owner_auth = context(tenant_a_id, owner)
@@ -175,24 +177,27 @@ async def test_workspace_sharing_favorite_revision_and_rls(db_session, tenant_fa
 @pytest.mark.asyncio
 async def test_sensitive_shared_view_not_visible_to_basic_viewer(db_session, tenant_factory):
     tenant, _ = await tenant_factory(slug="wave3-sensitive")
-    owner = User(tenant_id=tenant.id, email=f"owner-{uuid4()}@example.test",
+    tenant_id = tenant.id
+    owner = User(tenant_id=tenant_id, email=f"owner-{uuid4()}@example.test",
                  display_name="Owner", password_hash="test", role="coordinator")
-    peer = User(tenant_id=tenant.id, email=f"viewer-{uuid4()}@example.test",
+    peer = User(tenant_id=tenant_id, email=f"viewer-{uuid4()}@example.test",
                 display_name="Viewer", password_hash="test", role="viewer")
-    await db_session.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant.id})
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
     db_session.add_all([owner, peer])
+    await db_session.flush()
+    owner_id, peer_id = owner.id, peer.id
     await db_session.commit()
-    await identity(db_session, tenant.id, owner.id)
-    author = context(tenant.id, owner.id)
+    await identity(db_session, tenant_id, owner_id)
+    author = context(tenant_id, owner_id)
     created = await create_view(personal_view(name="Risco sensível", columns=["nome", "risk_score"]),
                                 auth=author, db=db_session)
     assert created["config"]["columns"] == ["nome", "risk_score"]
-    await identity(db_session, tenant.id, owner.id)
+    await identity(db_session, tenant_id, owner_id)
     await share_view(uuid4_from(created["id"]), ShareView(scope="workspace", expected_revision=1),
                      auth=author, db=db_session)
 
-    await identity(db_session, tenant.id, peer.id)
-    viewer = context(tenant.id, peer.id, role="viewer")
+    await identity(db_session, tenant_id, peer_id)
+    viewer = context(tenant_id, peer_id, role="viewer")
     assert (await list_views("students", auth=viewer, db=db_session))["views"] == []
     rows = (await db_session.execute(select(ObjectView).where(
         ObjectView.id == created["id"]))).scalars().all()
@@ -209,24 +214,25 @@ async def test_sensitive_shared_view_not_visible_to_basic_viewer(db_session, ten
 @pytest.mark.asyncio
 async def test_custom_metadata_registry_is_readonly_and_permission_filtered(db_session, tenant_factory):
     tenant, _ = await tenant_factory(slug="wave3-custom-metadata")
+    tenant_id = tenant.id
     owner_id = str(uuid4())
-    await identity(db_session, tenant.id, owner_id)
+    await identity(db_session, tenant_id, owner_id)
     db_session.add_all([
         CustomFieldDefinition(
-            tenant_id=tenant.id, target="student", name="turno", label="Turno",
+            tenant_id=tenant_id, target="student", name="turno", label="Turno",
             data_type="enum", options=["Manhã", "Noite"], required=False, is_pii=False,
             aliases=[], active=True,
         ),
         CustomFieldDefinition(
-            tenant_id=tenant.id, target="student", name="identificador_restrito",
+            tenant_id=tenant_id, target="student", name="identificador_restrito",
             label="Identificador restrito", data_type="text", options=None,
             required=False, is_pii=True, aliases=[], active=True,
         ),
     ])
     await db_session.commit()
-    await identity(db_session, tenant.id, owner_id)
+    await identity(db_session, tenant_id, owner_id)
 
-    admin = context(tenant.id, owner_id)
+    admin = context(tenant_id, owner_id)
     schema = await object_metadata("students", auth=admin, db=db_session)
     assert schema["schema_version"] == 1
     assert {item["key"] for item in schema["custom_properties"]} == {
@@ -235,7 +241,7 @@ async def test_custom_metadata_registry_is_readonly_and_permission_filtered(db_s
     assert all(not item["filterable"] and not item["view_enabled"] for item in schema["custom_properties"])
 
     limited = context(
-        tenant.id, owner_id, role="viewer",
+        tenant_id, owner_id, role="viewer",
         permissions=frozenset({"students.view", "data.view"}),
     )
     safe = await object_metadata("students", auth=limited, db=db_session)
