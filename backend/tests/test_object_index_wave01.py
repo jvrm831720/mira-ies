@@ -172,3 +172,56 @@ async def test_object_views_rls_enforces_tenant_and_user(db_session, tenant_fact
     await set_identity(cases[0][0], cases[0][1])
     await db_session.execute(delete(ObjectView).where(ObjectView.id == view_id))
     await db_session.commit()
+
+
+
+@pytest.mark.asyncio
+async def test_object_index_viewer_cannot_infer_sensitive_risk_by_filters_or_sort():
+    viewer = SimpleNamespace(
+        tenant_id=str(uuid4()), user_id=str(uuid4()), role="viewer",
+        permissions=None, custom_role_id=None,
+    )
+    defaults = dict(
+        limit=50, offset=0, q=None, course=None, risk_level=None,
+        view="todos", sort="name_asc", filters=None, auth=viewer, db=None,
+    )
+    for changed in [
+        {"sort": "risk_desc"},
+        {"view": "risco"},
+        {"view": "acompanhamento"},
+        {"risk_level": "critico"},
+        {"filters": '[{"key":"risk_score","op":"gt","value":70}]'},
+    ]:
+        with pytest.raises(HTTPException) as exc:
+            await index_students(**{**defaults, **changed})
+        assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_object_index_viewer_projection_omits_risk_shap_and_followup(db_session, tenant_factory):
+    tenant, _ = await tenant_factory(slug="index-viewer")
+    batch = UploadBatch(
+        tenant_id=tenant.id, filename="viewer.csv", original_filename="viewer.csv",
+    )
+    db_session.add(batch)
+    await db_session.flush()
+    db_session.add(Student(
+        tenant_id=tenant.id, batch_id=batch.id,
+        matricula="00001", nome="Aluno público", curso="Engenharia",
+        risk_score=91, risk_level="critico",
+        shap_top_factors={"summary": "sinal restrito"},
+    ))
+    await db_session.commit()
+    auth = SimpleNamespace(
+        tenant_id=tenant.id, user_id=str(uuid4()), role="viewer",
+        permissions=None, custom_role_id=None,
+    )
+    page = await index_students(
+        limit=50, offset=0, q=None, course=None, risk_level=None,
+        view="todos", sort="name_asc", filters=None, auth=auth, db=db_session,
+    )
+    assert page["total"] == 1
+    row = page["students"][0]
+    assert row["matricula"] == "00001"
+    for key in ("risk_score", "risk_level", "shap_summary", "shap_top_factors", "follow_up"):
+        assert key not in row
