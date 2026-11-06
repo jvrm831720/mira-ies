@@ -50,6 +50,11 @@ export type ObjectSchemaField = {
 export type ObjectSchema = {
   object_key: ObjectKind; schema_version: number; property_source: string;
   fields: ObjectSchemaField[]; notes: string;
+  custom_properties?: Array<{
+    key: string; label: string; type: string; source: string;
+    sensitive: boolean; filterable: false; sortable: false;
+    view_enabled: false; reason: string;
+  }>;
 };
 
 export type ObjectField<T> = {
