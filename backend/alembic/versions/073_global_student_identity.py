@@ -55,14 +55,25 @@ def upgrade():
     )
     op.create_index("ix_global_student_sessions_account", "mira_global_student_sessions",
                     ["account_id", "expires_at"])
-    # Auth service is the only trusted owner. No anon, authenticated (Supabase),
-    # tenant runtime role, or PUBLIC privileges may read these global records.
+    op.create_table("mira_global_student_attestations",
+        sa.Column("nonce_digest", sa.String(64), primary_key=True),
+        sa.Column("account_id", UUID, sa.ForeignKey("mira_global_student_accounts.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("provider", sa.String(60), nullable=False),
+        sa.Column("verified_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("received_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    )
+    op.create_index("ix_global_student_attestation_account", "mira_global_student_attestations", ["account_id"])
+    # Backend identity endpoints set this transaction-local scope. Never set it
+    # in tenant requests. For production, provision a dedicated auth DB role.
     for table in ("mira_global_student_accounts", "mira_global_student_challenges",
-                  "mira_global_student_sessions"):
+                  "mira_global_student_sessions", "mira_global_student_attestations"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
         op.execute(f"REVOKE ALL ON TABLE {table} FROM PUBLIC")
-        # Role grants are provisioned separately for the dedicated auth service.
+        op.execute(f"CREATE POLICY {table}_auth_only ON {table} "
+                   "USING (current_setting('app.global_identity_service', true) = 'enabled') "
+                   "WITH CHECK (current_setting('app.global_identity_service', true) = 'enabled')")
+        # RLS is an extra boundary; provision a dedicated auth DB role in production.
 
 def downgrade():
     # Safest rollback is fail-closed when global identities already exist.
@@ -71,6 +82,7 @@ def downgrade():
       THEN RAISE EXCEPTION 'Global identities exist; manual reviewed migration required';
       END IF;
     END $$""")
+    op.drop_table("mira_global_student_attestations")
     op.drop_table("mira_global_student_sessions")
     op.drop_table("mira_global_student_challenges")
     op.drop_table("mira_global_student_accounts")
