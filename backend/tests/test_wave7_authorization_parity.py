@@ -2,6 +2,9 @@
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
+
+from app.api.work_inbox import require_work_access
 
 from app.api.object_views import can_sensitive, can_share, has_permission
 from app.core.auth import has_effective_permission
@@ -10,7 +13,7 @@ from app.core.auth import has_effective_permission
 def actor(role, permissions=None, custom_role_id=None):
     return SimpleNamespace(
         role=role, permissions=permissions, custom_role_id=custom_role_id,
-        user_id="signed-human", session_id="signed-mfa-session",
+        user_id="signed-human", session_id="signed-mfa-session", aal=2,
     )
 
 
@@ -60,3 +63,32 @@ def test_custom_share_grant_is_explicit_and_service_key_is_not_human():
     service.user_id = None
     service.session_id = None
     assert not can_share(service)
+
+@pytest.mark.asyncio
+async def test_work_inbox_denies_custom_student_viewer_and_requires_edit_to_mutate():
+    read = require_work_access("access.operator", "students.view")
+    write = require_work_access("access.operator", "students.view", "students.edit")
+    for identity in (actor("viewer"), actor(
+        "coordinator", permissions=frozenset({"students.view"}),
+        custom_role_id="readonly",
+    )):
+        with pytest.raises(HTTPException) as denied:
+            await read(identity)
+        assert denied.value.status_code == 403
+
+    operator = actor("operator")
+    assert await read(operator) is operator
+    assert await write(operator) is operator
+    read_only_operator = actor(
+        "operator", permissions=frozenset({"access.operator", "students.view"}),
+        custom_role_id="work-readonly",
+    )
+    assert await read(read_only_operator) is read_only_operator
+    with pytest.raises(HTTPException) as denied:
+        await write(read_only_operator)
+    assert denied.value.status_code == 403
+
+    operator.aal = 1
+    with pytest.raises(HTTPException) as denied:
+        await read(operator)
+    assert denied.value.status_code == 403
