@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { workApi } from "@/lib/work-api";
 import { hasNavigationPermission } from "@/components/layout/navigation";
 import { WorkItemInspector } from "./work-item-inspector";
@@ -29,7 +29,8 @@ function statusLabel(item: WorkActivity): string {
 }
 function errorText(error: unknown): string {
   if (error instanceof Error) {
-    return error.message.includes("409") || error.message.includes("revisão") ||
+    return (error instanceof ApiError && error.status === 409) ||
+      error.message.includes("409") || error.message.includes("revisão") ||
       error.message.includes("alterada em outra")
       ? "Conflito de edição (409). A fila foi atualizada; revise a atividade antes de continuar."
       : error.message;
