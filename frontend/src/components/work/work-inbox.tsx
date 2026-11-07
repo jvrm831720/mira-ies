@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
 import { workApi } from "@/lib/work-api";
@@ -41,6 +42,8 @@ function errorText(error: unknown): string {
 /** Same WorkActivity queue as the legacy Work Center; no mirrored tasks or financial outcomes. */
 export function WorkInbox() {
   const qc = useQueryClient();
+  const params = useSearchParams();
+  const deepLinkedId = params.get("activity");
   const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
   const tenant = me.data?.tenant_id || "";
   const user = me.data?.user_id || "";
@@ -54,6 +57,12 @@ export function WorkInbox() {
   const [deferUntil, setDeferUntil] = useState("");
   const [error, setError] = useState<string | null>(null);
   const pendingOperation = useRef<{ signature: string; key: string } | null>(null);
+  // Universal search opens the existing detail inspector. No work is mutated.
+  useEffect(() => {
+    if (deepLinkedId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(deepLinkedId)) {
+      setSelectedId(deepLinkedId);
+    }
+  }, [deepLinkedId]);
   const lastScope = useRef<string>("");
 
   useEffect(() => {

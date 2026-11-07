@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -174,7 +174,7 @@ export default function WorkCenterPage() {
         subtitle="Entrada operacional central · atividades humanas com prioridade explicada e execução auditável."
       />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10">
-        <WorkInbox />
+        <Suspense fallback={<p role="status" className="p-5 text-xs">Carregando Meu Trabalho…</p>}><WorkInbox /></Suspense>
         <details className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-3">
           <summary className="cursor-pointer px-2 py-2 text-xs font-semibold text-[var(--color-slate-600)]">
             Explorar diagnósticos legados: envios, intervenções e ferramentas avançadas

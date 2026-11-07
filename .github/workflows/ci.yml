@@ -351,6 +351,9 @@ jobs:
       - name: Validate Wave 5 Work Inbox, concurrency and idempotency
         working-directory: backend
         run: PYTHONPATH=. pytest -q tests/test_work_inbox_wave5.py -x
+      - name: Validate Wave 6 federated search RBAC and provider isolation
+        working-directory: backend
+        run: PYTHONPATH=. pytest -q tests/test_universal_search_wave6.py -x
       - name: Run tests (pytest)
         working-directory: backend
         run: PYTHONPATH=. pytest -v --maxfail=1

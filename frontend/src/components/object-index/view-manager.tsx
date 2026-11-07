@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Check, ChevronDown, Copy, History, Plus, X } from "@/components/ui/icons";
@@ -60,6 +60,20 @@ export function ViewManager<T>({
 
   const views = saved.data?.views || [];
   const active = views.find(view => view.id === activeId) || null;
+  const hydrated = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeId) {
+      hydrated.current = null;
+      return;
+    }
+    // The URL only contains a view ID, not its filters or sensitive fields.
+    // Resolve it exclusively through the authorized views API before applying.
+    if (!saved.isSuccess || !active?.config || active.schema_status === "unsupported") return;
+    const key = [tenantId, userId, objectKey, active.id, active.revision].join(":");
+    if (hydrated.current === key) return;
+    hydrated.current = key;
+    onApply(active);
+  }, [activeId, active, saved.isSuccess, tenantId, userId, objectKey, onApply]);
   const managed = views.find(view => view.id === manageId) || null;
   const history = useQuery({
     queryKey: ["object-view-revisions", tenantId, userId, manageId],

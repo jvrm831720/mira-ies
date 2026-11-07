@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
 import { RecordDrawer } from "@/components/record/record-drawer";
@@ -112,6 +113,9 @@ const CAMPAIGN_INDEX_FIELDS: ObjectField<RetentionCampaignProposal>[] = [
 ];
 
 function CampaignProposalsContent() {
+  const params = useSearchParams();
+  const linkedProposal = params.get("proposal");
+  const linkedView = params.get("saved_view");
   const queryClient = useQueryClient();
   const proposalsQuery = useQuery({
     queryKey: ["retention-campaign-proposals"],
@@ -126,6 +130,12 @@ function CampaignProposalsContent() {
   const [selectedId, setSelectedId] = useState("");
   const [previewId, setPreviewId] = useState<string|null>(null);
   const [objectIndexState, setObjectIndexState] = useState(() => initialObjectIndexState(CAMPAIGN_INDEX_FIELDS));
+  useEffect(() => {
+    if (linkedView && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(linkedView)) {
+      setObjectIndexState(current => current.savedViewId === linkedView
+        ? current : { ...current, savedViewId: linkedView });
+    }
+  }, [linkedView]);
   const selected = proposals.find((item) => item.id === selectedId) ?? null;
   const previewProposal = proposals.find(item => item.id === previewId) ?? null;
   const canSeeGroups = getVisibleNavigation(meQuery.data).some(group=>group.items.some(item=>item.href==="/alunos/grupos"));
@@ -149,8 +159,15 @@ function CampaignProposalsContent() {
   const isAdmin = role === "admin";
 
   useEffect(() => {
+    // Resolve a search result only against proposals already authorized by the
+    // campaign API. A forged ID in the URL never loads an external record.
+    if (linkedProposal && /^[0-9a-f-]{36}$/i.test(linkedProposal) &&
+        proposals.some(item => item.id === linkedProposal)) {
+      setSelectedId(linkedProposal);
+      return;
+    }
     if (!selectedId && proposals.length) setSelectedId(proposals[0].id);
-  }, [selectedId, proposals]);
+  }, [linkedProposal, selectedId, proposals]);
 
   useEffect(() => {
     if (!selected) return;
@@ -639,5 +656,7 @@ function CampaignProposalsContent() {
 }
 
 export default function CampaignProposalsPage() {
-  return <CampaignProposalsContent />;
+  return <Suspense fallback={<p role="status" className="p-6 text-xs">Carregando campanhas…</p>}>
+    <CampaignProposalsContent />
+  </Suspense>;
 }
