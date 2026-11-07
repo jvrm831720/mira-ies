@@ -95,7 +95,7 @@ export function unifyAppsCatalog(
     const base:CatalogApp={
       id:key,slug:source.slug,name:info?.name||source.name,
       description:info?.description||(source.description?.replace(/\bcomposio\b/gi, "MIRA").replace(/\btoolkits?\b/gi,"aplicativos") || "Conexão com o seu workspace"),
-      category:info?.category||categoryOf(source.mira_category_label || source.mira_category || source.category || source.categories?.[0]),
+      category:info?.category||(source.mira_category_label || source.mira_category || source.category || source.categories?.[0] ? categoryOf(source.mira_category_label || source.mira_category || source.category || source.categories?.[0]) : existing?.category || "Outros"),
       initials:info?.initials||nameInitials(source.name),color:info?.color||"gray",
       status:state.status,statusText:state.statusText,
       native:false,external:true,route:"/dados",
