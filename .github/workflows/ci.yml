@@ -366,6 +366,14 @@ jobs:
       - name: Validate Wave 7 schema preflight policy
         working-directory: backend
         run: PYTHONPATH=. pytest -q tests/test_wave7_schema_preflight.py -x
+      - name: Validate RLS fixture isolation across Wave 3, 6, 7 and campaign tests
+        working-directory: backend
+        run: |
+          PYTHONPATH=. pytest -q -x \
+            tests/test_object_views_wave3.py \
+            tests/test_retention_proposal_rls_issue178.py \
+            tests/test_universal_search_wave6.py \
+            tests/test_wave7_authenticated_journeys.py
       - name: Run tests (pytest)
         working-directory: backend
         run: PYTHONPATH=. pytest -v --maxfail=1
