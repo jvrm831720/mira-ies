@@ -18,12 +18,13 @@ def now_utc():
 class GlobalStudentAccount(Base):
     __tablename__ = "mira_global_student_accounts"
     __table_args__ = (
+        Index("ix_global_student_email", "email"),
         CheckConstraint("identity_verified_at IS NULL OR email_verified_at IS NOT NULL",
                         name="ck_global_identity_requires_email"),
     )
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     cpf_digest: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
     whatsapp: Mapped[str] = mapped_column(String(20), nullable=False)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     identity_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -63,8 +64,9 @@ class GlobalStudentSession(Base):
 
 class GlobalStudentAttestation(Base):
     __tablename__ = "mira_global_student_attestations"
+    __table_args__ = (Index("ix_global_student_attestation_account", "account_id"),)
     nonce_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
-    account_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_global_student_accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("mira_global_student_accounts.id", ondelete="CASCADE"), nullable=False)
     provider: Mapped[str] = mapped_column(String(60), nullable=False)
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
