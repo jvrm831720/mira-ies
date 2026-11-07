@@ -180,7 +180,7 @@ async def test_live_browser_six_journeys(
             await page.goto(BASE + routes[journey], wait_until="domcontentloaded",
                             timeout=60000)
             if journey == "app_shell":
-                await page.get_by_text("Meu Trabalho", exact=True).first.wait_for(timeout=45000)
+                await page.get_by_role("heading", name="Meu Trabalho").first.wait_for(timeout=45000)
                 await page.keyboard.press("Control+k")
                 dialog = page.get_by_role("dialog", name="Busca universal da MIRA")
                 await dialog.wait_for(timeout=10000)
@@ -226,7 +226,7 @@ async def test_live_browser_six_journeys(
                 )
 
             elif journey == "universal_search":
-                await page.get_by_text("Meu Trabalho", exact=True).first.wait_for(
+                await page.get_by_role("heading", name="Meu Trabalho").first.wait_for(
                     timeout=45000
                 )
                 await page.keyboard.press("Control+k")
