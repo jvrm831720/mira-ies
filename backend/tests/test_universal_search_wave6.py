@@ -108,6 +108,8 @@ async def test_all_providers_are_disambiguated_bounded_and_tenant_scoped(db_sess
     a_id, b_id = a.id, b.id
     owner = await seed(db_session, a_id, "ALPHA")
     foreign = await seed(db_session, b_id, "BETA")
+    # The direct endpoint call must emulate the request auth dependency RLS bind.
+    await bind_tenant(db_session, a_id)
     response = await search_universal(
         q="Aline", limit=5, providers=None,
         auth=human(a_id, owner["user"]), db=db_session,
