@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { getVisibleNavigation, hasNavigationPermission } from "@/components/layout/navigation";
 import { RecordDrawer } from "@/components/record/record-drawer";
 import { RecordProperties } from "@/components/record/record-properties";
-import { RecordRelations } from "@/components/record/record-relations";
+import { Record360Overview } from "@/components/record/record-360-overview";
 import { RecordSections } from "@/components/record/record-sections";
 import { StudentRecordActivity } from "@/components/record/student-record-activity";
 import { StudentRiskTrend } from "./risk-trend";
@@ -84,8 +84,8 @@ export function StudentDrawer({ studentId, onClose, fullPageHref }: {studentId: 
           {studentId&&<StudentRiskTrend studentId={studentId}/>}
         </div>}
         {canSensitive&&<StudentRiskFactors student={q.data}/>}
-        <RecordProperties groups={groups.filter(group=>group.id==="identification"||(canSensitive&&group.id==="risk"))} compact />
-        <RecordRelations relations={studentRelations(q.data)}/>
+        <Record360Overview groups={groups.filter(group=>group.id==="identification"||(canSensitive&&group.id==="risk"))}
+          relations={studentRelations(q.data)} compact />
       </div>:null},
     {id:"academic",label:"Acadêmico e financeiro",content:canSensitive&&q.data
       ?<RecordProperties groups={groups.filter(group=>group.id==="academic"||group.id==="finance")} compact />
