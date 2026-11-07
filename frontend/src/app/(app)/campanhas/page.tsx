@@ -115,6 +115,7 @@ const CAMPAIGN_INDEX_FIELDS: ObjectField<RetentionCampaignProposal>[] = [
 function CampaignProposalsContent() {
   const params = useSearchParams();
   const linkedProposal = params.get("proposal");
+  const linkedView = params.get("saved_view");
   const queryClient = useQueryClient();
   const proposalsQuery = useQuery({
     queryKey: ["retention-campaign-proposals"],
@@ -129,6 +130,12 @@ function CampaignProposalsContent() {
   const [selectedId, setSelectedId] = useState("");
   const [previewId, setPreviewId] = useState<string|null>(null);
   const [objectIndexState, setObjectIndexState] = useState(() => initialObjectIndexState(CAMPAIGN_INDEX_FIELDS));
+  useEffect(() => {
+    if (linkedView && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(linkedView)) {
+      setObjectIndexState(current => current.savedViewId === linkedView
+        ? current : { ...current, savedViewId: linkedView });
+    }
+  }, [linkedView]);
   const selected = proposals.find((item) => item.id === selectedId) ?? null;
   const previewProposal = proposals.find(item => item.id === previewId) ?? null;
   const canSeeGroups = getVisibleNavigation(meQuery.data).some(group=>group.items.some(item=>item.href==="/alunos/grupos"));
