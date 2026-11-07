@@ -38,3 +38,32 @@ async def test_readiness_returns_503_without_leaking_db_errors(monkeypatch):
     assert result.status_code == 503
     assert b"secret" not in result.body
     assert b"unready" in result.body
+
+def test_demo_tenant_and_known_dev_key_are_never_bootstrapped_in_production():
+    import ast
+    from pathlib import Path
+
+    file = Path(__file__).parents[1] / "app" / "main.py"
+    module = ast.parse(file.read_text(encoding="utf-8"))
+    lifespan = next(
+        node for node in module.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "lifespan"
+    )
+
+    def walk(node, guarded=False):
+        is_dev = (
+            isinstance(node, ast.If)
+            and ast.unparse(node.test) == "settings.app_env == 'development'"
+        )
+        protected = guarded or is_dev
+        if isinstance(node, ast.Call):
+            for keyword in node.keywords:
+                if keyword.arg == "slug" and isinstance(keyword.value, ast.Constant):
+                    if keyword.value.value == "default":
+                        assert protected, "Demo tenant must be dev-only"
+                if keyword.arg == "api_key_hash" and "dev_api_key" in ast.unparse(keyword.value):
+                    assert protected, "Known development API key must never be published"
+        for child in ast.iter_child_nodes(node):
+            walk(child, protected)
+
+    walk(lifespan)
