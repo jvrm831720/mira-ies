@@ -58,7 +58,8 @@ def relevance(query: str, *values: str | None) -> tuple[int, str]:
             candidate = (84, "contains")
         elif len(term) >= 4:
             # Fuzzy matching only within bounded, tenant-scoped SQL candidates.
-            ratio = SequenceMatcher(None, term, word[: max(len(term) + 4, 14)]).ratio()
+            alternatives = [word[: max(len(term) + 4, 14)], *word.split()[:8]]
+            ratio = max(SequenceMatcher(None, term, alt).ratio() for alt in alternatives)
             candidate = (int(70 * ratio), "approximate") if ratio >= 0.68 else (0, "approximate")
         else:
             candidate = (0, "approximate")
