@@ -128,6 +128,10 @@ jobs:
             tenant_connector_destination_audit, tenant_connector_destinations,
             eligible_contributions, training_dataset_snapshots, training_runs,
             mira_base_lifecycle_events CASCADE;
+          -- The legacy ORM bootstrap created Wave 5 columns in old base tables.
+          -- Drop them before 071 so migrations can prove their additive DDL.
+          ALTER TABLE work_activity_events DROP COLUMN IF EXISTS operation_key CASCADE;
+          ALTER TABLE work_activities DROP COLUMN IF EXISTS revision CASCADE;
           ALTER TABLE students DROP COLUMN IF EXISTS custom_fields CASCADE;
           ALTER TABLE tenants DROP COLUMN IF EXISTS organization_id CASCADE;
           ALTER TABLE mira_users DROP COLUMN IF EXISTS custom_role_id CASCADE;
