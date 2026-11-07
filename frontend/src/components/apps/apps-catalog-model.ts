@@ -45,15 +45,15 @@ function categoryOf(value?: string | null): AppsCategory {
   const key = (value || "").toLowerCase();
   if (/academic|educa|lms|learning|school|student|ensino/.test(key)) return "Acadêmico";
   if (/crm|relationship/.test(key)) return "CRM e relacionamento";
-  if (/support|helpdesk|customer_service/.test(key)) return "Atendimento e suporte";
+  if (/support|suporte|atendimento|helpdesk|customer_service/.test(key)) return "Atendimento e suporte";
   if (/marketing|campaign/.test(key)) return "Marketing institucional";
-  if (/calendar|schedul|appointment/.test(key)) return "Agenda e agendamento";
-  if (/document|storage|file|drive|sharepoint/.test(key)) return "Documentos e arquivos";
-  if (/spreadsheet|analysis|analytics|database/.test(key)) return "Dados e análise";
+  if (/calendar|schedul|appointment|agenda|agendamento/.test(key)) return "Agenda e agendamento";
+  if (/document|arquivo|storage|file|drive|sharepoint/.test(key)) return "Documentos e arquivos";
+  if (/spreadsheet|planilha|analise|análise|analysis|analytics|database/.test(key)) return "Dados e análise";
   if (/finan|billing|payment|erp|accounting|bank/.test(key)) return "Financeiro";
   if (/communicat|messag|email|mail|collaborat|social|crm|support|marketing|telephony/.test(key)) return "Comunicação";
   if (/ai|artificial|llm|machine_learning/.test(key)) return "IA";
-  if (/document|calendar|productiv|file|spreadsheet|task|project|storage|data|schedule/.test(key)) return "Produtividade";
+  if (/document|calendar|productiv|produtiv|file|spreadsheet|task|project|storage|data|schedule/.test(key)) return "Produtividade";
   return "Outros";
 }
 function nameInitials(name: string) {
