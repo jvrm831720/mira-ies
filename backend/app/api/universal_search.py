@@ -10,12 +10,14 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthContext, get_current_tenant
 from app.db.session import get_db
+from app.models.organization import ModuleEntitlement, Organization
+from app.models.tenant import Tenant
 from app.services.federated_search_providers import ORDER, PROVIDERS, SearchContext
 
 router = APIRouter(prefix="/search", tags=["Busca Universal"])
@@ -53,7 +55,32 @@ async def search_universal(
     if len(needle) < 2:
         raise HTTPException(status_code=422, detail="Digite ao menos dois caracteres.")
     requested = parse_providers(providers)
-    context = SearchContext(auth=auth, db=db, query=needle, limit=limit)
+    # Authoritative module entitlements are resolved from the same DB and
+    # active organization profile as GET /org/me, not inferred on the client.
+    tenant = getattr(auth, "tenant", None) or await db.get(Tenant, auth.tenant_id)
+    if tenant is None or not tenant.is_active:
+        raise HTTPException(status_code=403, detail="Workspace indisponível.")
+    if tenant.organization_id:
+        profile = (await db.execute(select(Organization.operation_profile).where(
+            Organization.id == tenant.organization_id,
+            Organization.is_active.is_(True),
+        ))).scalar_one_or_none() or "unknown"
+    else:
+        segment = (tenant.segment or "").strip().lower()
+        profile = "institution" if segment in (
+            "higher_education", "institution", "university", "ies",
+        ) else (segment or "unknown")
+    at = datetime.now(timezone.utc)
+    module_rows = (await db.execute(select(ModuleEntitlement.module_key).where(
+        ModuleEntitlement.tenant_id == auth.tenant_id,
+        ModuleEntitlement.status.in_(("enabled", "trial")),
+        ((ModuleEntitlement.expires_at.is_(None)) |
+         (ModuleEntitlement.expires_at > at)),
+    ))).scalars().all()
+    context = SearchContext(
+        auth=auth, db=db, query=needle, limit=limit,
+        operation_profile=profile, enabled_modules=frozenset(module_rows),
+    )
     entries: list[dict] = []
     statuses: dict[str, dict] = {}
 
