@@ -54,6 +54,8 @@ async def _seed_tenant(db, tenant, label: str):
         curso="Engenharia", risk_score=83, risk_level="critico",
         communication_preferences={}, behavior_properties={},
     )
+    db.add(student)
+    await db.flush()
     task = WorkActivity(
         tenant_id=tenant.id, title="Revisar caso Aline " + label,
         status="open", priority="high", origin_type="manual",
@@ -76,7 +78,7 @@ async def _seed_tenant(db, tenant, label: str):
         audience_total=0, outreach_eligible_count=0, blocked_count=0,
         internal_action_count=0,
     )
-    db.add_all([student, task, view, proposal])
+    db.add_all([task, view, proposal])
     await db.commit()
     token, _ = await create_user_session(db, user, tenant, aal=2)
     viewer_token, _ = await create_user_session(db, viewer, tenant, aal=2)
