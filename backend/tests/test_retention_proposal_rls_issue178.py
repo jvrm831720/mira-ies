@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 import pytest
+import pytest_asyncio
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -31,6 +32,25 @@ def _proposal(tenant_id: str, suffix: str) -> RetentionCampaignProposal:
     )
 
 
+@pytest_asyncio.fixture
+async def temporary_retention_proposal_rls():
+    """Restore the disposable ORM test schema after testing FORCE RLS."""
+    yield
+    import app.db.session as session_module
+    async with session_module.engine.begin() as conn:
+        await conn.execute(text(
+            "DROP POLICY IF EXISTS retention_proposals_tenant_isolation "
+            "ON retention_campaign_proposals"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE retention_campaign_proposals NO FORCE ROW LEVEL SECURITY"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE retention_campaign_proposals DISABLE ROW LEVEL SECURITY"
+        ))
+
+
+@pytest.mark.usefixtures("temporary_retention_proposal_rls")
 @pytest.mark.asyncio
 async def test_retention_proposal_rls_enforces_tenant_for_read_write(
     db_session, tenant_factory
