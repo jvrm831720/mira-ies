@@ -87,9 +87,23 @@ def test_permissions_fail_closed_without_human_session_and_sensitive_grant():
     assert not search.permitted(own, "campaigns")
     assert not search.permitted(own, "work")  # access.operator is separately required
     privileged = identity(str(uuid4()), str(uuid4()), {
-        "students.view", "access.operator", "campaigns.view", "audit.view",
+        "students.view", "students.edit", "access.operator", "campaigns.view", "audit.view",
     })
     assert all(search.permitted(privileged, x) for x in search.PROVIDERS)
+    builtin_operator = SimpleNamespace(
+        tenant_id=str(uuid4()), user_id=str(uuid4()), session_id="session",
+        role="operator", permissions=None, custom_role_id=None,
+    )
+    assert not search.permitted(builtin_operator, "campaigns")
+    assert search.permitted(builtin_operator, "work")
+    builtin_coordinator = SimpleNamespace(
+        tenant_id=str(uuid4()), user_id=str(uuid4()), session_id="session",
+        role="coordinator", permissions=None, custom_role_id=None,
+    )
+    assert search.permitted(builtin_coordinator, "campaigns")
+    with_custom_read_only = identity(str(uuid4()), str(uuid4()), {"campaigns.view"})
+    assert search.permitted(with_custom_read_only, "campaigns")
+    assert not search.permitted(with_custom_read_only, "work")
 
 
 def test_fuzzy_ranking_escaping_limits_and_no_financial_inference():
@@ -121,7 +135,7 @@ async def test_tenant_isolation_all_categories_and_minimal_projection(
         return []
     monkeypatch.setitem(search._SEARCHERS, "collections", no_collection)
     granted = identity(a_id, user_a, {
-        "students.view", "students.sensitive.view", "access.operator",
+        "students.view", "students.sensitive.view", "students.edit", "access.operator",
         "campaigns.view", "audit.view",
     })
     for query, expected in (
