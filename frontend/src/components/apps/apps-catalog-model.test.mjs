@@ -84,3 +84,19 @@ test("live toolkit metadata does not erase curated category",()=>{
  assert.equal(rows.length,1);
  assert.equal(rows[0].category,"Atendimento e suporte");
 });
+
+test("live provider logos and websites survive curated and native catalog deduplication",()=>{
+ const rows=unifyAppsCatalog(
+  [{id:"jacad",name:"JACAD"}],
+  [
+   {slug:"jacad",name:"JACAD",mira_category_label:"Acadêmico"},
+   {slug:"jacad",name:"JACAD atualizado",logo:"https://cdn.example.com/jacad.svg",app_url:"https://www.jacad.com.br"},
+   {slug:"zendesk",name:"Zendesk",mira_category_label:"Atendimento e suporte"},
+   {slug:"zendesk",name:"Zendesk Live",logo:"https://cdn.example.com/zendesk.svg"},
+  ],[]);
+ const jacad=rows.find(row=>row.id==="jacad");
+ assert.equal(jacad.logoUrl,"https://cdn.example.com/jacad.svg");
+ assert.equal(jacad.website,"https://www.jacad.com.br");
+ assert.equal(jacad.native,true);
+ assert.equal(rows.find(row=>row.id==="zendesk").logoUrl,"https://cdn.example.com/zendesk.svg");
+});
