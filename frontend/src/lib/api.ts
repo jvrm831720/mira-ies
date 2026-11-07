@@ -694,6 +694,7 @@ export const api = {
     request<{ source: string; total: number; items: Array<{
       slug: string; name: string; description?: string | null;
       categories?: string[]; category?: string | null;
+      logo?: string | null; app_url?: string | null;
       enabled: boolean; selected_tool_slugs?: string[];
     }> }>("/api/v1/integrations/composio/catalog"),
 
