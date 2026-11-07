@@ -51,12 +51,12 @@ class SearchContext:
 
     @property
     def pattern(self) -> str:
-        escaped = self.query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        escaped = self.needle.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         return f"%{escaped}%"
 
     @property
     def prefix(self) -> str:
-        escaped = self.query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        escaped = self.needle.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         return f"{escaped}%"
 
 
