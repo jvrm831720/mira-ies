@@ -382,27 +382,36 @@ def require_min_role(min_role: str):
     return _dep
 
 
+# Single rank contract for built-in roles. Custom roles always use explicit
+# grants; unknown roles/permissions fail closed. A service key is never human.
+_BUILTIN_PERMISSION_MIN_RANK = {
+    "access.viewer": 1, "access.operator": 2, "access.coordinator": 3,
+    "dashboard.view": 1, "students.view": 1, "members.view": 2,
+    "students.create": 2, "students.edit": 2, "data.import": 3,
+    "campaigns.view": 2, "campaigns.create": 2, "campaigns.edit": 2,
+    "campaigns.approve": 3, "campaigns.execute": 3,
+    "members.manage": 4, "permissions.manage": 4, "settings.manage": 4,
+    "students.delete": 4, "campaigns.delete": 4, "critical.manage": 4,
+    "audit.view": 3, "data.view": 2, "students.sensitive.view": 3,
+}
+
+
+def has_effective_permission(auth: AuthContext, permission: str) -> bool:
+    """Exact same grant decision for API dependencies, views and search."""
+    if auth.permissions is not None:
+        return permission in auth.permissions
+    if auth.role is None:  # API keys do not inherit viewer permissions.
+        return False
+    return ROLE_RANK.get(auth.role, 0) >= _BUILTIN_PERMISSION_MIN_RANK.get(permission, 99)
+
+
 def require_permission(permission: str, *, allow_service_key: bool = False):
     """Exige permissão explícita, com opção específica para chaves de integração."""
     async def _dep(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
         # A chave de API é autenticada em get_current_tenant e não representa papel humano.
         if allow_service_key and auth.role is None and auth.permissions is None:
             return auth
-        if auth.permissions is not None:
-            allowed = permission in auth.permissions
-        else:
-            role = auth.role or "viewer"
-            rank = ROLE_RANK.get(role, 0)
-            defaults = {
-                "dashboard.view": 1, "students.view": 1, "members.view": 2,
-                "students.create": 2, "students.edit": 2, "data.import": 3,
-                "campaigns.view": 2, "campaigns.create": 2, "campaigns.edit": 2,
-                "campaigns.approve": 3, "campaigns.execute": 3,
-                "members.manage": 4, "permissions.manage": 4, "settings.manage": 4,
-                "students.delete": 4, "campaigns.delete": 4, "critical.manage": 4,
-                "audit.view": 3, "data.view": 2, "students.sensitive.view": 3,
-            }
-            allowed = rank >= defaults.get(permission, 99)
+        allowed = has_effective_permission(auth, permission)
         if not allowed:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Você não tem permissão para esta ação.")
         return auth
