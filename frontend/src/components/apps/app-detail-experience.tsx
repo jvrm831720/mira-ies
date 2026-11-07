@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { hasNavigationPermission } from "@/components/layout/navigation";
 import { ArrowRight, Check, Info, RefreshCw } from "@/components/ui/icons";
-import { AppBrandIcon } from "./app-brand-icon";
+import { AppBrandIcon, safeHttpsUrl } from "./app-brand-icon";
 import { profileFor } from "./apps-brand-profiles";
 import { normalizeAppKey, unifyAppsCatalog, type CatalogApp } from "./apps-catalog-model";
 
@@ -68,6 +68,7 @@ export function AppDetailExperience({ slug }: { slug: string }) {
   ),[nativeCatalog.data,curatedApps,externalCatalog.data,accounts.data,jacad.data,sponte.data]);
   const item = rows.find(app => app.id === id);
   const otherApps = item ? rows.filter(app => app.id !== id && app.category === item.category).slice(0,4) : [];
+  const website = safeHttpsUrl(profileFor(id)?.website || item?.website);
   const option = item && authOptions.data?.items.find(row =>
     normalizeAppKey(row.toolkit_slug) === normalizeAppKey(item.slug));
   const busy = nativeCatalog.isLoading || curatedCatalog.isLoading ||
@@ -201,8 +202,8 @@ export function AppDetailExperience({ slug }: { slug: string }) {
               <div><p className="text-xs text-[var(--mira-apps-muted)]">Tipo de integração</p>
                 <p className="mt-1 font-medium">{item.native && item.external ? "Nativa e via aplicativo" : item.native ? "Conector nativo" : "Aplicativo externo"}</p></div>
               <div><p className="text-xs text-[var(--mira-apps-muted)]">Recursos</p>
-                {profileFor(item.id)?.website ?
-                  <a href={profileFor(item.id)?.website} target="_blank" rel="noopener noreferrer"
+                {website ?
+                  <a href={website} target="_blank" rel="noopener noreferrer"
                     className="mt-2 inline-flex items-center gap-1.5 font-medium text-[var(--mira-apps-blue-light)] hover:underline">
                     Site oficial <ArrowRight size={15} aria-hidden="true"/>
                   </a> : <p className="mt-1 text-sm text-[var(--mira-apps-muted)]">Consulte o administrador para obter a documentação do provedor.</p>}
