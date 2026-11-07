@@ -396,7 +396,7 @@
   --color-slate-600: #505967;
   --color-slate-500: #505155;
   --color-steel: #383E47;
-  --color-muted: #75777C;
+  --color-muted: #65686F; /* >=4.5:1 over canvas, panel and blue-tint */
   --color-faint: #9FA1A7;
   --color-divider: #E4E7EC;
   --color-line: #E4E7EC;
@@ -407,7 +407,7 @@
   --color-canvas: #FFFFFF;
 
   /* ── Attio interactive & semantic tags ── */
-  --color-blue: #266DF0;
+  --color-blue: #1B62DB; /* readable over both white and blue-tint */
   --color-blue-ink: #006699;
   --color-blue-tint: #E5EEFF;
   --color-blue-tint-border: #D6E5FF;
