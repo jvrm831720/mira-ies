@@ -20,7 +20,7 @@ from app.api.object_views import PERMISSION as VIEW_PERMISSION, has_permission
 from app.core.auth import AuthContext, get_current_tenant
 from app.db.session import get_db
 from app.models.object_view import ObjectView
-from app.models.retention_campaign import RetentionCampaign
+from app.models.retention_campaign import RetentionCampaignProposal
 from app.models.student import Student
 from app.models.work_activity import WorkActivity
 
@@ -177,25 +177,22 @@ async def _work(db: AsyncSession, auth: AuthContext, query: str, limit: int) -> 
 
 
 async def _campaigns(db: AsyncSession, auth: AuthContext, query: str, limit: int) -> list[dict]:
+    # /campanhas is the operational *proposal* index, not the legacy campaign rules table.
     base = select(
-        RetentionCampaign.id, RetentionCampaign.name, RetentionCampaign.slug,
-        RetentionCampaign.version, RetentionCampaign.status,
-    ).where(
-        RetentionCampaign.tenant_id == auth.tenant_id,
-        RetentionCampaign.archived.is_(False),
-    )
+        RetentionCampaignProposal.id, RetentionCampaignProposal.title,
+        RetentionCampaignProposal.revision, RetentionCampaignProposal.status,
+    ).where(RetentionCampaignProposal.tenant_id == auth.tenant_id)
     rows = await _orm_candidates(
-        db, base, (RetentionCampaign.name, RetentionCampaign.slug),
-        query, RetentionCampaign.updated_at, limit,
+        db, base, (RetentionCampaignProposal.title,), query,
+        RetentionCampaignProposal.updated_at, limit,
     )
     return [
         item for row in rows if (item := _item(
-            "campaigns", row.id, row.name,
-            f"Campanha de permanência · v{row.version} · {row.status}",
-            "/campanhas", query, row.slug,
+            "campaigns", row.id, row.title,
+            f"Proposta de campanha · revisão {row.revision} · {row.status}",
+            "/campanhas?proposal=" + quote(row.id, safe=""), query,
         ))
     ]
-
 
 async def _views(db: AsyncSession, auth: AuthContext, query: str, limit: int) -> list[dict]:
     # The Wave 3 RLS policy uses a transaction-local sensitivity flag.
