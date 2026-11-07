@@ -26,6 +26,9 @@ from app.services.federated_search_providers import PROVIDERS
 
 
 async def _seed_tenant(db, tenant, label: str):
+    # Full-suite tests may leave dedicated FORCE RLS policies in place.
+    # Fixture writes must meet the same tenant context as authenticated API calls.
+    await bind_tenant(db, tenant.id)
     tenant.segment = "institution"
     db.add_all([
         ModuleEntitlement(tenant_id=tenant.id, module_key=module,
@@ -49,6 +52,12 @@ async def _seed_tenant(db, tenant, label: str):
     )
     db.add_all([batch, user, viewer])
     await db.flush()
+    # View and campaign inserts may require the signed-human claim as well
+    # as the tenant id. Do not disable RLS or run tests as superuser.
+    await db.execute(
+        text("SELECT set_config('app.user_id', :actor, true)"),
+        {"actor": user.id},
+    )
     student = Student(
         tenant_id=tenant.id, batch_id=batch.id, matricula="W7-" + label,
         nome="Aline Homologacao " + label,
