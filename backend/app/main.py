@@ -16,6 +16,7 @@ from app.api import (
     smart_import, custom_fields, object_index, object_views, native_academic, academic_catalog, academic_portal, academic_operations, student_services, student_service_operations, student_finance_composio, student_document_attestation, finance_reconciliation, student_payments, asaas_official, dispatch, dispatch_integrations, dispatch_interventions, dispatch_providers, dispatch_native_webhooks, dispatch_source_keys, dispatch_composio, collections,
 )
 from app.db.session import init_db, apply_runtime_schema_patches, SchemaPatchError
+from app.core.schema_readiness import assert_schema_ready
 from app.ml.model import load_model
 
 settings = get_settings()
@@ -72,6 +73,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"ERRO ao alinhar schema: {e}")
         raise
+
+    if settings.app_env in ("production", "staging"):
+        # External deployment launchers may suppress an Alembic exit code.
+        # No tenant/bootstrap, model load, or HTTP traffic is allowed until
+        # the deployed revision matches the actual database.
+        expected_head = await assert_schema_ready()
+        print(f"Schema readiness verified: {expected_head}")
 
     try:
         from app.core.security import hash_api_key
