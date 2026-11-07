@@ -77,6 +77,7 @@ def test_production_requires_staging_backup_rollback_and_human_approval():
             "staging_p95_measured", "render_health_verified",
             "frontend_deployment_ready", "rollback_rehearsed",
             "manual_release_approval", "external_required_checks_green",
+            "security_advisors_triaged", "public_definer_rpc_grants_reviewed",
         )
     }
     assert gate.evaluate(data, stage="production")["decision"] == "GO"
