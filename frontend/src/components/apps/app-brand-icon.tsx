@@ -17,30 +17,39 @@ const localLogos: Record<string, string> = {
   zapier: "/apps/zapier.svg",
 };
 
-export function logoSourcesFor(id: string): string[] {
-  const profile = profileFor(id);
+function safeHttpsUrl(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password ? url.toString() : undefined;
+  } catch { return undefined; }
+}
+
+export function logoSourcesFor(item: Pick<CatalogApp, "id" | "logoUrl" | "website">): string[] {
+  const profile = profileFor(item.id);
   const sources: string[] = [];
-  if (localLogos[id]) sources.push(localLogos[id]);
-  // The icon set only accepts normalised slugs; remote toolkit names are untrusted.
-  const simpleIcon = profile?.logo || id;
+  if (localLogos[item.id]) sources.push(localLogos[item.id]);
+  const remoteLogo = safeHttpsUrl(item.logoUrl);
+  if (remoteLogo) sources.push(remoteLogo);
+  // The icon set only accepts normalized slugs; remote toolkit names are untrusted.
+  const simpleIcon = profile?.logo || item.id;
   if (/^[a-z0-9]+$/.test(simpleIcon)) sources.push(`https://cdn.simpleicons.org/${simpleIcon}`);
-  if (profile?.website) {
-    try {
-      const domain = new URL(profile.website).hostname;
-      if (domain) sources.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`);
-    } catch { /* Invalid editorial URL: use the next supported artwork. */ }
+  const site = safeHttpsUrl(profile?.website) || safeHttpsUrl(item.website);
+  if (site) {
+    const domain = new URL(site).hostname;
+    sources.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`);
   }
   return [...new Set(sources)];
 }
 
 export function AppBrandIcon({item, large = false}: {item: CatalogApp; large?: boolean}) {
   const [sourceIndex, setSourceIndex] = useState(0);
-  const sources = logoSourcesFor(item.id);
+  const sources = logoSourcesFor(item);
   const source = sources[sourceIndex];
   const dimension = large ? 52 : 30;
   return (
     <span className={"grid shrink-0 place-items-center overflow-hidden rounded-2xl border border-[var(--mira-apps-border)] bg-white " +
-      (large ? "h-20 w-20" : "h-12 w-12")} aria-label={`Logo de ${item.name}`} role="img">
+      (large ? "h-20 w-20" : "h-12 w-12")} aria-label={`Identidade visual de ${item.name}`} role="img">
       {source ? source.startsWith("/") ?
         <Image src={source} alt="" width={dimension} height={dimension} unoptimized onError={() => setSourceIndex(i => i + 1)} /> :
         // eslint-disable-next-line @next/next/no-img-element
