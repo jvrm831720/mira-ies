@@ -78,7 +78,8 @@ def permitted(auth: AuthContext, provider: str) -> bool:
         return has_permission(auth, "audit.view")
     if provider == "work":
         return has_permission(auth, "students.view") and (
-            auth.permissions is not None or auth.role in ("operator", "coordinator", "admin")
+            "access.operator" in auth.permissions if auth.permissions is not None
+            else auth.role in ("operator", "coordinator", "admin")
         )
     if provider == "campaigns":
         return has_permission(auth, "campaigns.view")
