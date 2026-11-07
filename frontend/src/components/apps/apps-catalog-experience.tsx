@@ -18,15 +18,6 @@ const brandLogos:Record<string,string> = {
  googledrive:"/apps/googledrive.svg",moodle:"/apps/moodle.svg",canvas:"/apps/canvas.svg",
  googlesheets:"/apps/googlesheets.svg",zapier:"/apps/zapier.svg",
 };
-const tone:Record<string,string> = {
- green:"bg-[var(--mira-apps-green)] text-[var(--mira-apps-white)]",
- red:"bg-[var(--mira-apps-red)] text-[var(--mira-apps-white)]",
- blue:"bg-[var(--mira-apps-blue)] text-[var(--mira-apps-white)]",
- orange:"bg-[var(--mira-apps-orange)] text-[var(--mira-apps-white)]",
- purple:"bg-[var(--mira-apps-purple)] text-[var(--mira-apps-white)]",
- cyan:"bg-[var(--mira-apps-cyan)] text-[var(--mira-apps-dark)]",
- gray:"bg-[var(--mira-apps-icon-gray)] text-[var(--mira-apps-white)]",
-};
 function BrandIcon({item,large=false}:{item:CatalogApp;large?:boolean}) {
  const [failed,setFailed]=useState(false);
  const local=brandLogos[item.id];
@@ -189,11 +180,11 @@ export function AppsCatalogExperience() {
      <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {shown.map(item=><button key={item.id} type="button" onClick={()=>setSelected(item)}
        aria-label={"Abrir detalhes de "+item.name}
-       className="group flex min-h-[142px] flex-col justify-between rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)] p-4 text-left transition-[border-color,background-color,transform] duration-150 hover:-translate-y-0.5 hover:border-[var(--mira-apps-blue)] hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)] motion-reduce:transform-none">
+       className="group flex min-h-[172px] flex-col justify-between rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)] p-4 text-left transition-[border-color,background-color,transform] duration-150 hover:-translate-y-0.5 hover:border-[var(--mira-apps-blue)] hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)] motion-reduce:transform-none">
        <span className="flex min-w-0 items-center gap-3">
         <BrandIcon item={item}/>
         <span className="min-w-0"><span className="block truncate text-sm font-semibold">{item.name}</span>
-         <span className="mt-1 block truncate text-xs text-[var(--mira-apps-muted)]">{profileFor(item.id)?.about||item.description}</span>
+         <span className="mt-1 block line-clamp-2 text-xs leading-5 text-[var(--mira-apps-muted)]">{profileFor(item.id)?.about||item.description}</span>
         </span>
        </span>
        <span className="flex items-end justify-between gap-2">
