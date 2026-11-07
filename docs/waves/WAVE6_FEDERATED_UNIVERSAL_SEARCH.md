@@ -10,7 +10,7 @@ A Command Palette existente (**Ctrl/Cmd+K**) agora consulta a API federada e int
 | Casos financeiros | `dispatch_obligations` | id, referência, estado de origem | `/cobranca/casos/{id}` |
 | Meu Trabalho | `WorkActivity` | id, título e estado humano | `/trabalho?activity={id}` (apenas inspeção) |
 | Views | `ObjectView` | id, nome, domínio e escopo | Índice de objeto com `saved_view={id}` |
-| Campanhas | `RetentionCampaign` | id, nome, versão e estado | `/campanhas` (somente navegação) |
+| Campanhas | `RetentionCampaignProposal` | id, título, revisão e estado | `/campanhas?proposal={id}` (somente inspeção) |
 | Páginas | Menu filtrado por permissão, perfil, módulo e feature | label e rota | Rota autorizada |
 
 **Não substitui os endpoints existentes.** A busca não grava cópias de registros, configurações de view, embeddings ou payloads sensíveis. O portal do aluno e o Control Center interno não participam do catálogo federado.
@@ -40,7 +40,7 @@ As teclas existentes continuam funcionais: Ctrl/Cmd+K, ↑/↓, Enter, Escape e 
 
 ## Limitações declaradas
 
-- Primeira versão consulta campanhas de permanência de `RetentionCampaign`; campanhas de dispatch são um domínio separado e não têm provider nesta wave.
+- A busca consulta propostas de campanhas de permanência realmente exibidas em `/campanhas`, não as regras legadas de `RetentionCampaign`; campanhas de dispatch são um domínio separado e não têm provider nesta wave.
 - Views dos objetos com uma rota sem resolver a view diretamente podem abrir o índice de domínio sem aplicar automaticamente a configuração. Views de alunos e cobrança usam o parâmetro `saved_view` suportado.
 - Resultados aproximados não são completos quando o tenant tem mais registros compatíveis que o limite de candidatos; se necessário, uma wave posterior poderá introduzir índice trigram após homologação do banco.
 
