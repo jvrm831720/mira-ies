@@ -11,7 +11,7 @@ import { ArrowRight, Check, Info, Plus, RefreshCw, Search, X } from "@/component
 import { filterAppsCatalog, unifyAppsCatalog, type AppsCategory, type CatalogApp } from "./apps-catalog-model";
 
 type Tab = "Mais usados" | "Conectados" | "Descobrir";
-const categories: Array<"Todos" | AppsCategory> = ["Todos", "Comunicação", "Acadêmico", "Financeiro", "Produtividade", "IA", "Outros"];
+const categories: Array<"Todos" | AppsCategory> = ["Todos", "Comunicação", "CRM e relacionamento", "Documentos e arquivos", "Dados e análise", "Atendimento e suporte", "Agenda e agendamento", "Marketing institucional", "Acadêmico", "Financeiro", "Produtividade", "IA", "Outros"];
 const brandLogos:Record<string,string> = {
  whatsapp:"/apps/whatsapp.svg",gmail:"/apps/gmail.svg",googlecalendar:"/apps/googlecalendar.svg",
  googledrive:"/apps/googledrive.svg",moodle:"/apps/moodle.svg",canvas:"/apps/canvas.svg",
@@ -54,6 +54,10 @@ export function AppsCatalogExperience() {
   queryKey:["apps-catalog",tenant,"native"],
   queryFn:api.listConnectors,enabled:canRead,staleTime:300_000,retry:1,
  });
+ const curatedCatalog=useQuery({
+  queryKey:["apps-catalog",tenant,"curated"],
+  queryFn:api.composioCuratedCategories,enabled:canRead,staleTime:300_000,retry:1,
+ });
  const externalCatalog=useQuery({
   queryKey:["apps-catalog",tenant,"external"],
   queryFn:api.composioCatalog,enabled:canRead&&canManage,staleTime:300_000,retry:false,
@@ -70,19 +74,25 @@ export function AppsCatalogExperience() {
   queryKey:["apps-catalog",tenant,"sponte"],
   queryFn:api.sponteConnection,enabled:canRead&&canManage,staleTime:60_000,retry:false,
  });
+ const curatedApps=useMemo(()=>curatedCatalog.data?.items.flatMap(group=>
+  group.composio_toolkits.map(tool=>({
+   slug:tool.slug,name:tool.name,description:group.name,
+   mira_category_label:group.name,
+  }))
+ )||[],[curatedCatalog.data]);
  const rows=useMemo(()=>unifyAppsCatalog(
   nativeCatalog.data?.connectors||[],
-  externalCatalog.data?.items||[],
+  [...curatedApps,...(externalCatalog.data?.items||[])],
   accounts.data?.items||[],
   {jacad:jacad.data,sponte:sponte.data},
- ),[nativeCatalog.data,externalCatalog.data,accounts.data,jacad.data,sponte.data]);
+ ),[nativeCatalog.data,curatedApps,externalCatalog.data,accounts.data,jacad.data,sponte.data]);
  const visible=useMemo(()=>filterAppsCatalog(rows,query,category,tab),[rows,query,category,tab]);
  const shown=visible.slice(0,limit);
  const partial=canManage && externalCatalog.isError;
- const loading=nativeCatalog.isLoading && !nativeCatalog.data;
+ const loading=(nativeCatalog.isLoading && !nativeCatalog.data) || (curatedCatalog.isLoading && !curatedCatalog.data);
 
  function refresh(){
-  void nativeCatalog.refetch();
+  void nativeCatalog.refetch();void curatedCatalog.refetch();
   if(canManage){
    void externalCatalog.refetch();void accounts.refetch();void jacad.refetch();void sponte.refetch();
   }
@@ -135,12 +145,12 @@ export function AppsCatalogExperience() {
      <span className="ml-auto rounded-full bg-[var(--mira-apps-chip)] px-3 py-2 text-xs text-[var(--mira-apps-muted)]">{rows.length} no catálogo</span>
     </div>
     {partial && <p role="status" className="mt-5 rounded-lg border border-[var(--mira-apps-border)] p-3 text-xs text-[var(--mira-apps-muted)]">
-      Parte do catálogo está temporariamente indisponível. As integrações nativas continuam visíveis.
+      O catálogo ao vivo está temporariamente indisponível. As ferramentas conhecidas da MIRA continuam visíveis, mas podem exigir configuração para conectar.
      </p>}
     {!canManage && <p className="mt-4 text-xs text-[var(--mira-apps-muted)]">Você está visualizando as integrações acessíveis ao seu perfil. Consulte um administrador para gerenciar conexões.</p>}
     {loading ? <div role="status" className="mt-9 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
      {Array.from({length:8},(_,i)=><div key={i} className="h-[140px] animate-pulse rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)]" />)}
-    </div> : nativeCatalog.isError && !nativeCatalog.data ?
+    </div> : nativeCatalog.isError && !nativeCatalog.data && curatedCatalog.isError && !curatedCatalog.data ?
      <div role="alert" className="mt-9 rounded-xl border border-[var(--mira-apps-border)] p-6 text-sm">Não foi possível carregar o catálogo. <button type="button" onClick={refresh} className="underline">Tentar novamente</button></div> :
      visible.length===0 ? <div className="mt-9 rounded-xl border border-[var(--mira-apps-border)] px-5 py-16 text-center text-sm text-[var(--mira-apps-muted)]">Nenhum app encontrado com os filtros selecionados.</div> :
      <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -160,7 +170,7 @@ export function AppsCatalogExperience() {
       </button>)}
      </div>}
     {visible.length>shown.length && <div className="mt-6 flex justify-center"><button type="button" onClick={()=>setLimit(value=>value+32)} className="rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-chip)] px-5 py-2.5 text-sm font-medium hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)]">Mostrar mais ({shown.length} de {visible.length})</button></div>}
-    <p className="mt-6 text-xs leading-5 text-[var(--mira-apps-muted)]">O catálogo mostra ferramentas reconhecidas pela MIRA. Disponibilidade, autorização e conexão ativa são verificações distintas. Nenhuma integração é ativada automaticamente.</p>
+    <p className="mt-6 text-xs leading-5 text-[var(--mira-apps-muted)]">O catálogo inclui ferramentas conhecidas pela MIRA mesmo sem Composio ativo. Disponibilidade, autorização e conexão ativa são verificações distintas. Nenhuma integração é ativada automaticamente.</p>
    </>}
   </main>
   {selected && <div className="fixed inset-0 z-[80] flex justify-end bg-[var(--mira-apps-backdrop)]" onMouseDown={event=>{if(event.target===event.currentTarget)setSelected(null);}}>
