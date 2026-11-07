@@ -581,7 +581,7 @@ textarea {
 }
 
 .mira-page thead th {
-  color: var(--color-legacy-6f7988);
+  color: var(--color-slate-600); /* WCAG AA on --color-panel; resolves legacy 4.17:1 header text */
   background: var(--color-panel);
   font-size: var(--type-caption);
   font-weight: 600;
