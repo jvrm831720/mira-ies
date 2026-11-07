@@ -8,7 +8,7 @@ from starlette.requests import Request
 
 from app.core.config import get_settings
 from app.api import (
-    global_student_auth, upload, health, scoring, connectors, jacad, sponte, sophia, sophia_sync,
+    global_student_auth, global_debt, upload, health, scoring, connectors, jacad, sponte, sophia, sophia_sync,
     outcomes, academic_outcomes, outcome_analytics, agents, auth, mfa, delivery_webhooks, org, billing,
     retention_campaigns, retention_campaign_execution, retention_campaign_intelligence, retention_campaign_proposal_workflow, retention_campaign_scheduling, control_center_auth,
     control_center_admin, mira_admin, work_activities, work_inbox, universal_search, student_work_timeline, composio,
@@ -161,6 +161,8 @@ app.add_middleware(
 
 app.include_router(health.router, tags=["Health"])
 app.include_router(global_student_auth.router, prefix="/api/v1")
+app.include_router(global_debt.router, prefix="/api/v1")
+app.include_router(global_debt.institution_router, prefix="/api/v1")
 app.include_router(composio.router, prefix="/api/v1")
 app.include_router(omie.router, prefix="/api/v1")
 app.include_router(upload.router, prefix="/api/v1", tags=["Upload & Students"])
