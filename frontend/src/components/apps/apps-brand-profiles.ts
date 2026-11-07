@@ -55,7 +55,7 @@ export const appProfiles: Record<string,{about:string; website?:string; logo?:st
  totvsrm:{about:"Utilize dados autorizados do TOTVS RM em jornadas operacionais da MIRA.",website:"https://www.totvs.com/"},
  wpensar:{about:"Aproveite informações educacionais autorizadas do WPensar.",website:"https://www.wpensar.com.br/"},
  isaac:{about:"Relacione informações financeiras autorizadas do Isaac ao contexto de cobrança.",website:"https://isaac.com.br/"},
- marlim:{about:"Conecte dados financeiros autorizados da plataforma Marlim.",website:"https://marlim.com.br/"},
+ marlim:{about:"Conecte dados financeiros autorizados da plataforma Marlim.",website:"https://marlim.co/"},
 };
 export function profileFor(id:string){return appProfiles[id];}
 export function logoUrl(id:string):string|undefined{
