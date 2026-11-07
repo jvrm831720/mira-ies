@@ -57,9 +57,9 @@ export function AppBrandIcon({item, large = false}: {item: CatalogApp; large?: b
           className="max-h-[75%] max-w-[75%] object-contain" onError={() => setSourceIndex(i => i + 1)} /> :
         // A neutral product icon is an explicit fallback, not an invented vendor logo.
         <svg viewBox="0 0 40 40" width={dimension} height={dimension} fill="none" aria-hidden="true">
-          <rect x="5" y="5" width="30" height="30" rx="9" fill="#eef2ff"/>
-          <path d="M13 20h14M20 13v14" stroke="#4556c9" strokeWidth="3" strokeLinecap="round"/>
-          <circle cx="20" cy="20" r="4" fill="#4556c9"/>
+          <rect x="5" y="5" width="30" height="30" rx="9" fill="var(--mira-apps-chip)"/>
+          <path d="M13 20h14M20 13v14" stroke="var(--mira-apps-blue)" strokeWidth="3" strokeLinecap="round"/>
+          <circle cx="20" cy="20" r="4" fill="var(--mira-apps-blue)"/>
         </svg>}
     </span>
   );
