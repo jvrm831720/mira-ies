@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api";
@@ -41,6 +42,8 @@ function errorText(error: unknown): string {
 /** Same WorkActivity queue as the legacy Work Center; no mirrored tasks or financial outcomes. */
 export function WorkInbox() {
   const qc = useQueryClient();
+  const search = useSearchParams();
+  const requestedId = search.get("activity");
   const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
   const tenant = me.data?.tenant_id || "";
   const user = me.data?.user_id || "";
@@ -55,6 +58,12 @@ export function WorkInbox() {
   const [error, setError] = useState<string | null>(null);
   const pendingOperation = useRef<{ signature: string; key: string } | null>(null);
   const lastScope = useRef<string>("");
+  useEffect(() => {
+    // A search result opens the audited inspector, never executes or claims a task.
+    if (requestedId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedId)) {
+      setSelectedId(requestedId);
+    }
+  }, [requestedId]);
 
   useEffect(() => {
     const scope = tenant + ":" + user;
