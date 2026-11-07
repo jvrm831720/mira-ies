@@ -45,10 +45,14 @@ def _uuid(raw: str) -> str:
 def priority_reasons(item: WorkActivity, at: datetime) -> list[dict[str, str]]:
     """Only documented stored signals: never infer student risk, payment or delivery."""
     reasons: list[dict[str, str]] = []
-    for level, label in (("urgent", "Prioridade urgente definida"), ("high", "Prioridade alta definida")):
-        if item.priority == level:
-            reasons.append({"code": "manual_priority", "label": label})
-            break
+    priority_labels = {
+        "urgent": "Prioridade urgente definida",
+        "high": "Prioridade alta definida",
+        "normal": "Prioridade normal definida",
+        "low": "Prioridade baixa definida",
+    }
+    if item.priority in priority_labels:
+        reasons.append({"code": "manual_priority", "label": priority_labels[item.priority]})
     if item.status in ("open", "in_progress") and item.due_at:
         due = item.due_at
         if due.tzinfo is None:
