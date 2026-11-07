@@ -22,6 +22,7 @@ import type { InterventionLog } from "@/types/api";
 import type { CreateFromLogDraft } from "@/types/work";
 import { cn } from "@/lib/utils";
 import { WorkActivitiesPanel } from "@/components/work/work-activities-panel";
+import { WorkInbox } from "@/components/work/work-inbox";
 
 type WorkTab = "planned" | "sending" | "failed" | "critical";
 
@@ -169,10 +170,16 @@ export default function WorkCenterPage() {
   return (
     <>
       <Header
-        title="Central de trabalho"
-        subtitle="Fila operacional de decisões e intervenções — dados reais do tenant."
+        title="Meu Trabalho"
+        subtitle="Entrada operacional central · atividades humanas com prioridade explicada e execução auditável."
       />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10">
+        <WorkInbox />
+        <details className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-3">
+          <summary className="cursor-pointer px-2 py-2 text-xs font-semibold text-[var(--color-slate-600)]">
+            Explorar diagnósticos legados: envios, intervenções e ferramentas avançadas
+          </summary>
+          <div className="mt-4 space-y-5">
         <section className="flex flex-col justify-between gap-4 border-b border-[var(--color-border)] pb-5 sm:flex-row sm:items-center">
           <div className="max-w-2xl">
             <p className="mb-1 flex items-center gap-2 text-[length:var(--type-caption)] font-semibold uppercase tracking-[0.12em] text-[var(--color-blue)]">
@@ -359,6 +366,8 @@ export default function WorkCenterPage() {
             </div>
           )}
         </section>
+          </div>
+        </details>
       </main>
       <StudentDrawer studentId={selectedId} onClose={() => setSelectedId(null)} />
     </>
