@@ -4,13 +4,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/header";
 import { useObjectNavigationState, useObjectScrollRestoration } from "@/components/layout/navigation-context-provider";
-import { hasNavigationPermission } from "@/components/layout/navigation";
 import { api } from "@/lib/api";
 import { collectionsApi, type CollectionCase } from "@/lib/collections-api";
 import { ObjectIndex } from "@/components/object-index/object-index";
 import { activeSorts, encodeSorts } from "@/components/object-index/object-index-experience";
 import type { ObjectField } from "@/components/object-index/object-index-types";
-import { CaseDetail, Currency, Time } from "./collection-case-detail";
+import { Currency, Time } from "./collection-case-detail";
+import { CollectionCaseDrawer } from "./collection-record-experience";
+import { canReadCollectionRecord } from "./collection-record-access";
 
 const STATUS = [
   { value: "open", label: "Aberta" }, { value: "agreement", label: "Em acordo" },
@@ -44,12 +45,7 @@ export function CollectionsExperience() {
     fields: FIELDS, views: DEFAULT_VIEWS,
     tenantId: me.data?.tenant_id, userId: me.data?.user_id,
   });
-  const profile = me.data?.operation_profile;
-  const educationWithBilling = profile === "institution"
-    && Array.isArray(me.data?.enabled_modules) && me.data.enabled_modules.includes("billing");
-  const allowedProfile = ["collection", "debt_collection", "billing", "cobranca"].includes(profile ?? "") || educationWithBilling;
-  const allowed = allowedProfile && hasNavigationPermission(me.data, "audit.view")
-    && (!Array.isArray(me.data?.enabled_modules) || me.data.enabled_modules.includes("billing"));
+  const allowed = canReadCollectionRecord(me.data);
   const tenant = me.data?.tenant_id ?? "";
   const user = me.data?.user_id ?? "";
   const sorts = activeSorts(state).filter(item => FIELDS.some(field => field.key === item.key && field.sortable));
@@ -70,11 +66,6 @@ export function CollectionsExperience() {
     }),
     enabled: allowed && Boolean(tenant), retry: false, staleTime: 20_000,
   });
-  const detail = useQuery({
-    queryKey: ["collections", "detail", tenant, user, selectedId],
-    queryFn: () => collectionsApi.detail(selectedId!),
-    enabled: allowed && Boolean(selectedId) && Boolean(tenant), retry: false, staleTime: 20_000,
-  });
   useObjectScrollRestoration({
     tenantId: tenant, userId: user, listingHref, selectedId,
     ready: Boolean(cases.data && !cases.isError && !cases.isFetching),
@@ -87,10 +78,10 @@ export function CollectionsExperience() {
       Consulta somente leitura. Não é possível criar acordos, alterar dívidas ou enviar cobranças nesta tela.
       Filtros de estado e ordenação são aplicados no servidor a todo o conjunto do workspace.
     </p>
-    <div className={selectedId ? "grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]" : ""}>
+    <div>
       <ObjectIndex<CollectionCase>
         objectKey="collections" title="Casos financeiros"
-        description="Origem verificada · contagem integral · visualizações pessoais"
+        description="Origem verificada · contagem integral · views pessoais e do workspace"
         fields={FIELDS} rows={cases.data?.items ?? []} state={state}
         onStateChange={onStateChange}
         defaultViews={DEFAULT_VIEWS} remote total={cases.data?.total} hasMore={cases.data?.has_more}
@@ -99,8 +90,8 @@ export function CollectionsExperience() {
         refreshing={cases.isFetching} onOpen={row => openRecord(row.id)}
         emptyTitle="Nenhum caso corresponde aos filtros."
       />
-      {selectedId && <CaseDetail record={detail.data} loading={detail.isLoading}
-        error={detail.isError} onClose={closeRecord} />}
     </div>
+    <CollectionCaseDrawer caseId={selectedId} onClose={closeRecord} listingHref={listingHref}
+      tenantId={tenant} userId={user} allowed={allowed} />
   </main>;
 }

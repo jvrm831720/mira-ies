@@ -6,7 +6,7 @@ import type { RecordActivityEvent } from "./record-types";
 const META: Record<RecordActivityEvent["kind"],{label:string;Icon:typeof Activity}> = {
   academic:{label:"Evento acadêmico",Icon:BookOpen},contact:{label:"Contato/engajamento",Icon:MessageCircle},
   intervention:{label:"Intervenção",Icon:Shield},activity:{label:"Atividade",Icon:Activity},
-  risk:{label:"Avaliação de risco",Icon:Shield},finance:{label:"Registro financeiro confirmado",Icon:Wallet},
+  risk:{label:"Avaliação de risco",Icon:Shield},finance:{label:"Evento financeiro informado pela origem",Icon:Wallet},
   status:{label:"Mudança de estado",Icon:Clock3},
 };
 function formatDate(iso:string|null) {

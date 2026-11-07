@@ -4,7 +4,7 @@ export type RecordKind = "student" | "campaign" | "class" | "person" | "company"
 export type RecordIdentity = { kind: RecordKind; id: string; title: string; subtitle?: string | null; caption?: string | null };
 export type RecordProperty = {
   key: string; label: string; value: string | number | boolean | null | undefined;
-  type?: "text" | "number" | "currency" | "percentage" | "date" | "boolean" | "status";
+  type?: "text" | "number" | "currency" | "percentage" | "date" | "datetime" | "boolean" | "status";
   /** A writable field must provide an explicitly authorized handler. */
   onEdit?: (value: string) => Promise<void>;
   editable?: boolean;
