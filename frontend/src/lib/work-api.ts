@@ -11,6 +11,12 @@ import type {
   WorkActivitiesResponse,
   WorkActivity,
   WorkActivityEventsResponse,
+  WorkInboxResponse,
+  WorkInboxCounts,
+  WorkPerspective,
+  ClaimWorkBody,
+  ResolveWorkBody,
+  WorkActionResponse,
 } from "@/types/work";
 
 const BASE =
@@ -75,6 +81,15 @@ export type NoContactPriority = {
 };
 
 export const workApi = {
+  inbox: (view: WorkPerspective, offset = 0, limit = 25): Promise<WorkInboxResponse> =>
+    workRequest<WorkInboxResponse>(`/api/v1/work/inbox?view=${encodeURIComponent(view)}&offset=${offset}&limit=${limit}`),
+  inboxCounts: (): Promise<WorkInboxCounts> => workRequest("/api/v1/work/inbox/counts"),
+  claim: (id: string, body: ClaimWorkBody): Promise<WorkActionResponse> =>
+    workRequest(`/api/v1/work/activities/${encodeURIComponent(id)}/claim`,
+      { method: "POST", body: JSON.stringify(body) }),
+  resolve: (id: string, body: ResolveWorkBody): Promise<WorkActionResponse> =>
+    workRequest(`/api/v1/work/activities/${encodeURIComponent(id)}/resolve`,
+      { method: "POST", body: JSON.stringify(body) }),
   list: (params?: {
     status?: string;
     assignee?: string;
