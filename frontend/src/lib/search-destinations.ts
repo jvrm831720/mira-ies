@@ -30,7 +30,8 @@ export function safeSearchDestination(hit: UniversalSearchHit, permittedRoots: s
         !UUID.test(url.searchParams.get("saved_view") || "")) return false;
   } else {
     root = "/campanhas";
-    if (p !== root || params.length) return false;
+    if (p !== root || params.length !== 1 || params[0] !== "proposal" ||
+        !UUID.test(url.searchParams.get("proposal") || "")) return false;
   }
   return permittedRoots.includes(root);
 }
