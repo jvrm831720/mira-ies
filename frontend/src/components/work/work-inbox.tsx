@@ -110,8 +110,8 @@ export function WorkInbox() {
       qc.invalidateQueries({ queryKey: ["work-inbox", tenant, user] }),
       qc.invalidateQueries({ queryKey: ["work-inbox-counts", tenant, user] }),
       qc.invalidateQueries({ queryKey: ["work-activities"] }),
-      qc.invalidateQueries({ queryKey: ["work-activity", tenant, user] }),
-      qc.invalidateQueries({ queryKey: ["work-activity-events", tenant, user] }),
+      qc.invalidateQueries({ queryKey: ["work-activity"] }),
+      qc.invalidateQueries({ queryKey: ["work-activity-events"] }),
       qc.invalidateQueries({ queryKey: ["work-activity-summary"] }),
     ]);
   }
@@ -244,7 +244,8 @@ export function WorkInbox() {
       </div>
       {selectedId && <div className="min-w-0">
         {inspector ? <WorkItemInspector key={inspector.id} activity={inspector}
-          activeUserId={user} canEdit={allowed} kind={kind} setKind={value => {setKind(value); setError(null);}}
+          activeUserId={user} canEdit={allowed}
+          canOpenStudent={hasNavigationPermission(me.data, "students.sensitive.view")} kind={kind} setKind={value => {setKind(value); setError(null);}}
           note={note} setNote={value => {setNote(value); setError(null);}}
           deferUntil={deferUntil} setDeferUntil={value => {setDeferUntil(value); setError(null);}}
           error={error} busy={busy}
