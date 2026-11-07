@@ -172,6 +172,50 @@ async def test_partial_provider_failure_survives_without_sql_disclosure(
 
 
 @pytest.mark.asyncio
+async def test_financial_provider_projects_only_authorized_identifier_fields():
+    row_id = str(uuid4())
+    queries = []
+
+    class Result:
+        def __init__(self, data):
+            self.data = data
+        def mappings(self):
+            return self
+        def all(self):
+            return self.data
+
+    class Db:
+        async def execute(self, statement, params=None):
+            queries.append((str(statement), params))
+            if "FROM dispatch_obligations" in str(statement):
+                return Result([{
+                    "id": row_id, "external_ref": "CASO-78",
+                    "subject_ref": "MAT-78", "status": "open",
+                    "source": "erp", "balance": "9999999",
+                    "payload": "private",
+                }])
+            return Result([])
+
+    tenant = str(uuid4())
+    rows = await search._collections(Db(), identity(
+        tenant, str(uuid4()), {"audit.view"},
+    ), "CASO", 2)
+    assert len(rows) == 1
+    assert rows[0]["href"] == "/cobranca/casos/" + row_id
+    assert rows[0]["provider"] == "collections"
+    assert rows[0]["action"] == "navigate"
+    assert rows[0]["match"] in {"prefix", "contains"}
+    assert "9999999" not in json.dumps(rows)
+    assert "private" not in json.dumps(rows)
+    scoped = [(sql, params) for sql, params in queries if "dispatch_obligations" in sql]
+    assert len(scoped) >= 1
+    assert all("tenant_id = :tenant" in sql and params["tenant"] == tenant
+               for sql, params in scoped)
+    assert all(params["cap"] <= search.MAX_PER_PROVIDER * 4
+               for _, params in scoped)
+
+
+@pytest.mark.asyncio
 async def test_service_key_denied_without_scanning_providers(db_session, monkeypatch):
     async def fail_if_called(*args):
         raise AssertionError("service key must never enumerate a provider")
