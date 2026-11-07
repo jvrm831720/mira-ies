@@ -348,6 +348,9 @@ jobs:
       - name: Validate Wave 3 view sharing and RLS
         working-directory: backend
         run: PYTHONPATH=. pytest -q tests/test_object_views_wave3.py -x
+      - name: Validate Wave 5 Work Inbox, concurrency and idempotency
+        working-directory: backend
+        run: PYTHONPATH=. pytest -q tests/test_work_inbox_wave5.py -x
       - name: Run tests (pytest)
         working-directory: backend
         run: PYTHONPATH=. pytest -v --maxfail=1
