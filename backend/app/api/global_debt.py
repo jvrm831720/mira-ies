@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.global_student_auth import _action, _configured, _session
@@ -23,6 +23,7 @@ from app.db.session import get_db
 from app.models.finance_reconciliation import FinanceObservation
 from app.models.global_debt import GlobalDebtGrant, GlobalDebtSnapshot
 from app.models.global_student_identity import GlobalStudentAccount
+from app.models.tenant import Tenant
 
 router = APIRouter(prefix="/global-portal/debts", tags=["Portal MIRA — agregador"])
 institution_router = APIRouter(prefix="/native-academic/global-debt", tags=["Portal MIRA — concessões"])
@@ -45,6 +46,8 @@ class GrantInput(BaseModel):
     student_id: UUID
     observation_ids: list[UUID] = Field(min_length=1, max_length=100)
     evidence_reference: str = Field(min_length=12, max_length=120)
+    # The institution must record a verifiable, reviewed evidence reference.
+    # Account UUID is NOT proof of identity or enrollment.
 
 
 async def _staff(auth: AuthContext, db: AsyncSession):
@@ -118,9 +121,25 @@ async def pending_consents(request: Request, db: AsyncSession = Depends(get_db))
         GlobalDebtGrant.account_id == account.id,
         GlobalDebtGrant.state == "pending",
     ).order_by(GlobalDebtGrant.created_at.desc()).limit(100))).scalars().all()
-    # Do not disclose creditor, amounts or enrollment details before consent.
-    return {"items": [{"grant_id": row.id, "created_at": row.created_at.isoformat()}
-                      for row in rows]}
+    # Creditor identity and the exact scope are mandatory for informed consent.
+    tenant_ids = {row.tenant_id for row in rows}
+    creditors = {}
+    if tenant_ids:
+        creditors = dict((await db.execute(select(Tenant.id, Tenant.name).where(
+            Tenant.id.in_(tenant_ids), Tenant.is_active.is_(True)
+        ))).all())
+    counts = {}
+    if rows:
+        counts = dict((await db.execute(select(
+            GlobalDebtSnapshot.grant_id, func.count(GlobalDebtSnapshot.id)
+        ).where(GlobalDebtSnapshot.grant_id.in_([row.id for row in rows]))
+         .group_by(GlobalDebtSnapshot.grant_id))).all())
+    return {"items": [{
+        "grant_id": row.id, "created_at": row.created_at.isoformat(),
+        "creditor_name": creditors.get(row.tenant_id, "Instituição não identificada"),
+        "record_count": counts.get(row.id, 0),
+        "scope": "Exibição de registros financeiros históricos desta instituição",
+    } for row in rows if row.tenant_id in creditors and counts.get(row.id, 0) > 0]}
 
 
 @router.post("/consents/{grant_id}/accept")
@@ -134,6 +153,7 @@ async def accept_consent(grant_id: UUID, request: Request, db: AsyncSession = De
     ).with_for_update())).scalar_one_or_none()
     if not grant or grant.state != "pending":
         raise HTTPException(404, "Autorização pendente não encontrada.")
+    # A revoked or stale identity proof must not authorize new disclosure.
     grant.state = "accepted"
     grant.accepted_at = datetime.now(timezone.utc)
     await db.commit()
@@ -163,9 +183,9 @@ async def list_debts(request: Request, db: AsyncSession = Depends(get_db)):
     _, account = await _session(request, db, _configured())
     _verified(account)
     rows = (await db.execute(
-        select(GlobalDebtSnapshot, GlobalDebtGrant).join(
+        select(GlobalDebtSnapshot, GlobalDebtGrant, Tenant.name).join(
             GlobalDebtGrant, GlobalDebtGrant.id == GlobalDebtSnapshot.grant_id,
-        ).where(
+        ).join(Tenant, and_(Tenant.id == GlobalDebtGrant.tenant_id, Tenant.is_active.is_(True))).where(
             GlobalDebtGrant.account_id == account.id,
             GlobalDebtGrant.state == "accepted",
         ).order_by(GlobalDebtSnapshot.due_at, GlobalDebtSnapshot.id).limit(500)
@@ -173,6 +193,7 @@ async def list_debts(request: Request, db: AsyncSession = Depends(get_db)):
     # Snapshots are immutable historical observations, NOT real-time settlement.
     items = [{
         "id": snap.id, "workspace_id": grant.tenant_id,
+        "creditor_name": creditor_name,
         "label": snap.label, "amount": str(snap.amount),
         "paid_amount": str(snap.paid_amount),
         "remaining": str(max(Decimal("0"), snap.amount - snap.paid_amount)),
@@ -181,6 +202,6 @@ async def list_debts(request: Request, db: AsyncSession = Depends(get_db)):
         "observed_at": snap.observed_at.isoformat(),
         "snapshotted_at": snap.snapshotted_at.isoformat(),
         "grant_id": grant.id,
-    } for snap, grant in rows]
+    } for snap, grant, creditor_name in rows]
     return {"items": items, "count": len(items), "limit": 500,
             "freshness": "historical_snapshot", "payment_execution_enabled": False}
