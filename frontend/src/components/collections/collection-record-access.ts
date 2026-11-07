@@ -1,4 +1,5 @@
 import type { api } from "@/lib/api";
+import { hasNavigationPermission } from "@/components/layout/navigation";
 
 type WorkspaceProfile = Awaited<ReturnType<typeof api.me>> | undefined | null;
 
@@ -10,8 +11,6 @@ export function canReadCollectionRecord(me: WorkspaceProfile): boolean {
   const allowedProfile = ["collection", "debt_collection", "billing", "cobranca"].includes(me.operation_profile ?? "") ||
     institutionWithBilling;
   // Object and module grants must both pass; API/RLS remain authoritative.
-  if (!allowedProfile || (modules && !modules.includes("billing"))) return false;
-  if (me.permissions != null) return me.permissions.includes("audit.view");
-  if (me.custom_role_id) return false;
-  return me.role === "admin" || me.role === "coordinator";
+  return allowedProfile && (!modules || modules.includes("billing")) &&
+    hasNavigationPermission(me, "audit.view");
 }
