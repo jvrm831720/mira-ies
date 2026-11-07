@@ -59,6 +59,15 @@ async def seed(db, tenant_id: str, tag: str, *, sensitive=False):
     await db.flush()
     user_id = user.id
 
+    # Some earlier Wave 3 tests enable FORCE RLS in the shared disposable
+    # database. Fixture writes must use the same explicit tenant/user context
+    # that the real authenticated API provides; never bypass or disable RLS.
+    await bind_tenant(db, tenant_id)
+    await db.execute(
+        text("SELECT set_config('app.user_id', :user_id, true)"),
+        {"user_id": user_id},
+    )
+
     batch = UploadBatch(
         tenant_id=tenant_id, filename="wave6.csv",
         original_filename="wave6.csv", status="processed",
