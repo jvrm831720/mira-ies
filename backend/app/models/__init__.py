@@ -1,4 +1,5 @@
 from app.models.student import UploadBatch, Student
+from app.models.global_student_identity import GlobalStudentAccount, GlobalStudentChallenge, GlobalStudentSession
 from app.models.custom_field import CustomFieldDefinition
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.models.educational_outcome import AcademicOutcome
