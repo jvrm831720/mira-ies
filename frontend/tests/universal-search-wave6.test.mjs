@@ -33,7 +33,7 @@ test("the palette permits only grounded in-product destinations", () => {
   assert.equal(safeSearchDestination(hit("collections", "/cobranca/casos/" + id), roots), true);
   assert.equal(safeSearchDestination(hit("work", "/trabalho?activity=" + id), roots), true);
   assert.equal(safeSearchDestination(hit("views", "/cobranca?saved_view=" + id), roots), true);
-  assert.equal(safeSearchDestination(hit("campaigns", "/campanhas"), roots), true);
+  assert.equal(safeSearchDestination(hit("campaigns", "/campanhas?proposal=" + id), roots), true);
   assert.equal(safeSearchDestination(hit("students", "/alunos/" + id), ["/campanhas"]), false);
   assert.equal(safeSearchDestination(hit("views", "/academico?saved_view=" + id), ["/academico"]), true);
 });
@@ -48,6 +48,8 @@ test("external URLs, malformed IDs, mutation links and forged categories fail cl
     hit("work", "/trabalho?activity=" + id + "&execute=1"),
     hit("views", "/cobranca?saved_view=invalid"),
     hit("campaigns", "/api/v1/agents/retention/campaigns/execute"),
+    hit("campaigns", "/campanhas"),
+    hit("campaigns", "/campanhas?proposal=" + id + "&approve=1"),
     hit("campaigns", "/campanhas", "execute"),
     hit("unknown", "/campanhas"),
   ]) assert.equal(safeSearchDestination(candidate, roots), false, candidate.href);
@@ -93,4 +95,8 @@ test("searching WorkActivity opens an inspector but does not claim or resolve", 
   assert.match(inbox, /setSelectedId\(requestedId\)/);
   assert.match(page, /<Suspense fallback=/);
   assert.match(page, /<WorkInbox \/>/);
+  const campaigns = source("app/(app)/campanhas/page.tsx");
+  assert.match(campaigns, /searchParams\.get\("proposal"\)/);
+  assert.match(campaigns, /setPreviewId\(requestedProposal\)/);
+  assert.match(campaigns, /<Suspense fallback=/);
 });
