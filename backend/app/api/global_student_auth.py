@@ -328,8 +328,10 @@ async def provider_attestation(
     proof_secret = getattr(settings, "global_student_identity_proof_secret", None)
     if not (settings.global_student_identity_proof_enabled and proof_secret and len(proof_secret) >= 32):
         raise HTTPException(503, "Verificação externa de titularidade não habilitada.")
+    if body.verified_at.utcoffset() is None:
+        raise HTTPException(401, "Atestado inválido ou expirado.")
     verified_at = body.verified_at.astimezone(timezone.utc)
-    if body.verified_at.utcoffset() is None or abs((_now() - verified_at).total_seconds()) > 300:
+    if abs((_now() - verified_at).total_seconds()) > 300:
         raise HTTPException(401, "Atestado inválido ou expirado.")
     message = "|".join((str(body.account_id), body.cpf_digest, body.provider,
                         verified_at.isoformat(), body.nonce))
