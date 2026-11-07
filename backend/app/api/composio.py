@@ -107,7 +107,7 @@ async def get_catalog(
 
 @router.get("/catalog/categories")
 async def get_catalog_categories(
-    auth: AuthContext = Depends(require_permission("settings.manage")),
+    auth: AuthContext = Depends(require_permission("data.view")),
 ):
     """Return MIRA's curated integration categories and native channel providers."""
     return {
