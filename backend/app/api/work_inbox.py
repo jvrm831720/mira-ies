@@ -250,8 +250,9 @@ async def claim_work_activity(
         payload={"from": previous, "to": user_id, "domain": "human_work"},
     )
     db.add(event)
+    assignee = await _assignee(db, auth.tenant_id, user_id)
     await db.commit()
-    return {"activity": _task(item, now_utc(), await _assignee(db, auth.tenant_id, user_id)),
+    return {"activity": _task(item, now_utc(), assignee),
             "idempotent_replay": False, "event_id": event.id}
 
 
@@ -295,6 +296,7 @@ async def resolve_work_activity(
         payload={**payload, "from_status": previous, "to_status": item.status},
     )
     db.add(event)
+    assignee = await _assignee(db, auth.tenant_id, item.assignee_user_id)
     await db.commit()
-    return {"activity": _task(item, now_utc(), await _assignee(db, auth.tenant_id, item.assignee_user_id)),
+    return {"activity": _task(item, now_utc(), assignee),
             "event_id": event.id, "idempotent_replay": False}
