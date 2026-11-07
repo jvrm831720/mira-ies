@@ -330,6 +330,9 @@ jobs:
           END
           $mira$;
           SQL
+      - name: Wave 7 read-only schema drift and search indexes gate
+        working-directory: backend
+        run: python scripts/wave7_schema_preflight.py --output ../wave7-schema-preflight.json
       - name: Create separate disposable database for ORM tests
         env:
           ADMIN_DATABASE_URL: postgresql://beacon:beacon_secret@localhost:5432/postgres
@@ -360,6 +363,9 @@ jobs:
       - name: Validate Wave 7 release gate
         working-directory: backend
         run: PYTHONPATH=. pytest -q tests/test_wave7_release_gate.py -x
+      - name: Validate Wave 7 schema preflight policy
+        working-directory: backend
+        run: PYTHONPATH=. pytest -q tests/test_wave7_schema_preflight.py -x
       - name: Run tests (pytest)
         working-directory: backend
         run: PYTHONPATH=. pytest -v --maxfail=1
