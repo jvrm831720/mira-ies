@@ -238,7 +238,7 @@ async def claim_work_activity(
         return {"activity": _task(item, now_utc(), await _assignee(db, auth.tenant_id, item.assignee_user_id)),
                 "idempotent_replay": True, "event_id": prior.id}
     _guard_revision(item, body.expected_revision)
-    if item.status not in ("open", "in_progress") or item.assignee_user_id not in (None, user_id):
+    if item.status not in ("open", "in_progress") or item.assignee_user_id is not None:
         raise HTTPException(status_code=409, detail="Atividade indisponível para atribuição.")
     previous = item.assignee_user_id
     item.assignee_user_id = user_id
