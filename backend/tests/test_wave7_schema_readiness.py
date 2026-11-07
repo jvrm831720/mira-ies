@@ -9,7 +9,7 @@ from app.api import health as health_api
 
 def test_single_known_head_matches_alembic_migration_chain():
     head = expected_schema_revision()
-    assert head == "073_global_student_identity"
+    assert head == "074_global_debt_aggregation"
     validate_schema_revision(head, head)
 
 
