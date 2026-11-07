@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.db.session import Base
 import app.models.student  # noqa: F401
 import app.models.global_student_identity  # noqa: F401
+import app.models.global_debt  # noqa: F401
 import app.models.native_academic  # noqa: F401
 import app.models.academic_catalog  # noqa: F401
 import app.models.academic_operations  # noqa: F401

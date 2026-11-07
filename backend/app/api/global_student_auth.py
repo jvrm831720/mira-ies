@@ -294,7 +294,8 @@ async def _session(request: Request, db: AsyncSession, secret: str):
 async def me(request: Request, db: AsyncSession = Depends(get_db)):
     secret = _configured()
     _, account = await _session(request, db, secret)
-    return {"authenticated": True, "email": account.email, "whatsapp": account.whatsapp,
+    return {"authenticated": True, "account_id": account.id if account.identity_verified_at else None,
+            "email": account.email, "whatsapp": account.whatsapp,
             "identity_verified": bool(account.identity_verified_at),
             "requires_identity_verification": account.identity_verified_at is None,
             "debts_available": False, "agreements_available": False}
