@@ -94,7 +94,7 @@ async def _seed_tenant(db, tenant, label: str):
         VALUES (:id, :tenant, :ref, 'student', :subject, 'open', 149.90,
                 'wave7_synthetic', 1, 'test-only', :verified)
     """), {
-        "id": case_id, "tenant": tenant.id, "ref": "W7-FIN-" + label,
+        "id": case_id, "tenant": tenant.id, "ref": "W7-FIN-Aline-" + label,
         "subject": student.matricula, "verified": datetime.now(timezone.utc),
     })
     await db.commit()
