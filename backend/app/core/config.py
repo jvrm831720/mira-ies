@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # Native Education / student self-service. Gated until migration and security tests.
     native_academic_enabled: bool = False
     student_portal_enabled: bool = False
+    global_student_portal_enabled: bool = False
+    global_student_identity_secret: str | None = None
+    # Identity proof adapter is NOT inferred from email or CPF.
+    global_student_identity_proof_enabled: bool = False
+    global_student_identity_proof_secret: str | None = None
     native_academic_catalog_enabled: bool = False
     native_academic_services_enabled: bool = False
     native_academic_operations_enabled: bool = False

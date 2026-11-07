@@ -1,4 +1,7 @@
 from app.models.student import UploadBatch, Student
+from app.models.global_student_identity import (
+    GlobalStudentAccount, GlobalStudentChallenge, GlobalStudentSession, GlobalStudentAttestation,
+)
 from app.models.custom_field import CustomFieldDefinition
 from app.models.tenant import Tenant, TrainingEvent, ModelArtifact
 from app.models.educational_outcome import AcademicOutcome
@@ -46,6 +49,7 @@ from app.models.composio_approval import TenantComposioToolApproval
 from app.models.omie_connection import TenantOmieConnection
 
 __all__ = [
+    "GlobalStudentAccount", "GlobalStudentChallenge", "GlobalStudentSession", "GlobalStudentAttestation",
     "UploadBatch", "Student", "CustomFieldDefinition", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
     "AuthChallenge", "MfaLoginChallenge", "MfaRecoveryCode", "MfaAuditEvent",
     "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User", "TenantRole", "TenantRoleAudit",

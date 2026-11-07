@@ -13,7 +13,7 @@ spec.loader.exec_module(check)
 
 def complete():
     return {
-        "revision": "072_federated_search",
+        "revision": check.REQUIRED_REVISION,
         "pg_trgm": True, "is_superuser": False, "bypass_rls": False,
         "rls": {
             table: {"rls": True, "force": True}

@@ -9,7 +9,7 @@ from app.api import health as health_api
 
 def test_single_known_head_matches_alembic_migration_chain():
     head = expected_schema_revision()
-    assert head == "072_federated_search"
+    assert head == "073_global_student_identity"
     validate_schema_revision(head, head)
 
 
@@ -22,10 +22,10 @@ def test_missing_or_stale_revision_blocks_service(actual):
 @pytest.mark.asyncio
 async def test_readiness_endpoint_reports_real_revision(monkeypatch):
     async def available():
-        return "072_federated_search"
+        return expected_schema_revision()
     monkeypatch.setattr(health_api, "assert_schema_ready", available)
     assert await health_api.readiness_check() == {
-        "status": "ready", "schema_revision": "072_federated_search"
+        "status": "ready", "schema_revision": expected_schema_revision()
     }
 
 

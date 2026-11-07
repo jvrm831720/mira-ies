@@ -11,8 +11,22 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
-REQUIRED_REVISION = "072_federated_search"
+
+def _current_revision():
+    backend = Path(__file__).resolve().parents[1]
+    cfg = Config(str(backend / 'alembic.ini'))
+    cfg.set_main_option('script_location', str(backend / 'alembic'))
+    heads = ScriptDirectory.from_config(cfg).get_heads()
+    if len(heads) != 1:
+        raise RuntimeError('Alembic deve possuir exatamente um head')
+    return heads[0]
+
+
+REQUIRED_REVISION = _current_revision()
 REQUIRED_INDEXES = frozenset({
     "ix_search_students_name_trgm",
     "ix_search_students_enrollment_trgm",
