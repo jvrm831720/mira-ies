@@ -109,6 +109,8 @@ export function WorkInbox() {
       qc.invalidateQueries({ queryKey: ["work-inbox", tenant, user] }),
       qc.invalidateQueries({ queryKey: ["work-inbox-counts", tenant, user] }),
       qc.invalidateQueries({ queryKey: ["work-activities"] }),
+      qc.invalidateQueries({ queryKey: ["work-activity", tenant, user] }),
+      qc.invalidateQueries({ queryKey: ["work-activity-events", tenant, user] }),
       qc.invalidateQueries({ queryKey: ["work-activity-summary"] }),
     ]);
   }
