@@ -85,6 +85,7 @@ jobs:
           -- Legacy 002/004 bootstrap create_all uses the current ORM metadata.
           -- Remove later-wave tables/columns before replaying revisions 039..head.
           DROP TABLE IF EXISTS
+            mira_object_view_favorites, mira_object_view_revisions,
             mira_object_views,
             mira_asaas_destination_reviews, mira_asaas_webhook_applications, mira_asaas_webhook_events,
             mira_asaas_charges, mira_asaas_customer_bindings,
@@ -340,6 +341,9 @@ jobs:
       - name: Lint (ruff)
         working-directory: backend
         run: ruff check app
+      - name: Validate Wave 3 view sharing and RLS
+        working-directory: backend
+        run: PYTHONPATH=. pytest -q tests/test_object_views_wave3.py -x
       - name: Run tests (pytest)
         working-directory: backend
         run: PYTHONPATH=. pytest -v --maxfail=1
