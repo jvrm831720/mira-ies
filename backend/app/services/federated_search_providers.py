@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from sqlalchemy import and_, case, desc, func, or_, select, text
+from sqlalchemy import case, desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.object_views import PERMISSION, can_sensitive, has_permission
