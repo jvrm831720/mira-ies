@@ -48,6 +48,7 @@ class GlobalDebtSnapshot(Base):
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
     observation_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     label: Mapped[str] = mapped_column(String(180), nullable=False)
+    creditor_name: Mapped[str] = mapped_column(String(255), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     paid_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
