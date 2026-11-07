@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,6 +39,7 @@ class WorkActivity(Base):
         Index("ix_work_activities_tenant_student", "tenant_id", "student_id"),
         Index("ix_work_activities_tenant_origin_status", "tenant_id", "origin_type", "status"),
         Index("ix_work_activities_tenant_priority_due", "tenant_id", "priority", "due_at"),
+        CheckConstraint("revision >= 1", name="ck_work_activities_revision"),
         Index(
             "uq_work_activities_tenant_source_key",
             "tenant_id",
@@ -63,6 +64,7 @@ class WorkActivity(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     activity_type: Mapped[str] = mapped_column(String(40), nullable=False, default="follow_up")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     priority: Mapped[str] = mapped_column(String(20), nullable=False, default="normal")
     origin_type: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
     campaign_id: Mapped[Optional[str]] = mapped_column(
@@ -93,6 +95,8 @@ class WorkActivityEvent(Base):
     __tablename__ = "work_activity_events"
     __table_args__ = (
         Index("ix_work_activity_events_tenant_activity", "tenant_id", "activity_id", "created_at"),
+        Index("uq_work_activity_events_operation_key", "tenant_id", "activity_id", "operation_key",
+              unique=True, postgresql_where=text("operation_key IS NOT NULL")),
     )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
@@ -106,5 +110,6 @@ class WorkActivityEvent(Base):
         UUID(as_uuid=False), ForeignKey("mira_users.id", ondelete="SET NULL"), nullable=True
     )
     event_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    operation_key: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     payload: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
