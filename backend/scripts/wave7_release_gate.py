@@ -82,6 +82,7 @@ def evaluate(data: dict, stage: str = "integration") -> dict:
             "staging_p95_measured", "render_health_verified",
             "frontend_deployment_ready", "rollback_rehearsed",
             "manual_release_approval", "external_required_checks_green",
+            "security_advisors_triaged", "public_definer_rpc_grants_reviewed",
         ):
             if delivery.get(required) is not True:
                 failed.append(f"production_evidence_missing:{required}")
