@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, require_min_role
+from app.core.auth import AuthContext, get_current_tenant, has_effective_permission
 from app.db.session import get_db
 from app.models.auth import User
 from app.models.work_activity import WorkActivity, WorkActivityEvent
@@ -23,6 +23,20 @@ from app.models.work_activity import WorkActivity, WorkActivityEvent
 router = APIRouter(prefix="/work", tags=["Meu Trabalho / Work Inbox"])
 Perspective = Literal["mine", "team", "unassigned", "history"]
 Outcome = Literal["done", "unreachable", "deferred", "referred"]
+
+
+def require_work_access(*required: str):
+    """Guard the actual Work Inbox contract, not a legacy URL permission alias."""
+    async def _dependency(auth: AuthContext = Depends(get_current_tenant)) -> AuthContext:
+        _human(auth)
+        if auth.aal < 2 or any(
+            not has_effective_permission(auth, permission)
+            for permission in required
+        ):
+            raise HTTPException(status_code=403, detail="Permissão operacional insuficiente.")
+        return auth
+
+    return _dependency
 
 
 def now_utc() -> datetime:
@@ -182,7 +196,7 @@ async def work_inbox(
     view: Perspective = "mine",
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0, le=1000000),
-    auth: AuthContext = Depends(require_min_role("operator")),
+    auth: AuthContext = Depends(require_work_access("access.operator", "students.view")),
     db: AsyncSession = Depends(get_db),
 ):
     user_id = _human(auth)
@@ -214,7 +228,7 @@ async def work_inbox(
 
 @router.get("/inbox/counts")
 async def work_inbox_counts(
-    auth: AuthContext = Depends(require_min_role("operator")),
+    auth: AuthContext = Depends(require_work_access("access.operator", "students.view")),
     db: AsyncSession = Depends(get_db),
 ):
     user = _human(auth)
@@ -230,7 +244,7 @@ async def work_inbox_counts(
 async def claim_work_activity(
     activity_id: str,
     body: ClaimBody,
-    auth: AuthContext = Depends(require_min_role("operator")),
+    auth: AuthContext = Depends(require_work_access("access.operator", "students.view", "students.edit")),
     db: AsyncSession = Depends(get_db),
 ):
     user_id = _human(auth)
@@ -264,7 +278,7 @@ async def claim_work_activity(
 async def resolve_work_activity(
     activity_id: str,
     body: ResolveBody,
-    auth: AuthContext = Depends(require_min_role("operator")),
+    auth: AuthContext = Depends(require_work_access("access.operator", "students.view", "students.edit")),
     db: AsyncSession = Depends(get_db),
 ):
     user_id = _human(auth)
