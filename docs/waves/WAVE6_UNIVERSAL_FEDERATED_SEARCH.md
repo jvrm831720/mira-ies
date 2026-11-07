@@ -20,6 +20,12 @@ não inicia campanhas, não edita registros nem executa operações financeiras.
 | Campanhas | retention_campaign_proposals (título) | campaigns.view | /campanhas?proposal={id} |
 | Páginas | getVisibleNavigation do usuário | permissões, módulos, perfil e features | rota original |
 
+Os provedores também verificam **server-side** o perfil da organização e os
+módulos ativos do workspace (a mesma fonte de GET /org/me). A ausência de
+permissão, módulo ou perfil compatível resulta em zero resultados, mesmo que
+o cargo possua o grant nominal. Um workspace sem billing não recebe casos
+financeiros nem views financeiras no payload da API.
+
 Os provedores de registros aplicam **tenant_id** na consulta e retornam somente
 campos seguros de identificação. A view pessoal é visível apenas ao proprietário;
 uma view de workspace só é visível aos usuários autorizados e não pode
