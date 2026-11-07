@@ -73,3 +73,15 @@ O gate de produção exige, adicionalmente, métricas reais em staging, compatib
 6. Revalidar health, login MFA, dois tenants, busca, fila humana e métricas antes de reabrir canary.
 
 Este documento especifica o processo. Aprovação de publicação só pode ser concedida após os gates e evidências do ambiente efetivo.
+
+## 8. Achados de segurança/performance do Supabase mira-testes — inspeção sem alterações
+
+Advisors lidos em 2026-11-07. São alertas de auditoria, não demonstração de exploração nem comprovação de prontidão:
+
+- **SECURITY WARN** — `public.mira_asaas_resolve_payment(text)` é `SECURITY DEFINER` sob proprietário `postgres`, com EXECUTE para `anon` e `authenticated`. O corpo possui barreira baseada em configuração autenticada do webhook e ambiente, mas conceder acesso RPC público exige revisão específica. Antes de uma mudança, identificar o papel real do backend Render e validar se revogar EXECUTE de PUBLIC/anon/authenticated preserva o webhook. [Linter 0028](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable).
+- **SECURITY WARN** — 22 funções com search_path mutável, muitas triggers de imutabilidade. Auditar SECURITY DEFINER e referências antes de corrigir. [Linter 0011](https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable).
+- **SECURITY WARN** — extensão pg_trgm em public; não mover sem validar dependências dos índices. [Linter 0014](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public).
+- **SECURITY INFO** — 19 tabelas com RLS habilitado e sem policies; pode ser intencionalmente fail-closed, não liberar acesso por conveniência. [Linter 0008](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+- **PERFORMANCE** — 64 FKs sem índices de cobertura, 11 avisos de planejamento de auth/RLS, 167 índices aparentemente não utilizados e cinco ocorrências de policies permissivas múltiplas. Revisar sob carga representativa, não remover índices com base em estatísticas de base quase vazia.
+
+O gate de produção requer `security_advisors_triaged` e `public_definer_rpc_grants_reviewed` como aprovação documentada, além dos gates prévios. Nenhum REVOKE, ALTER EXTENSION ou migration real foi executado nesta Wave 7.
