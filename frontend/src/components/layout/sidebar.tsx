@@ -394,6 +394,7 @@ export function Sidebar() {
         onOpenChange={setCommandOpen}
         groups={groups}
         tenantId={me.data?.tenant_id}
+        userId={me.data?.user_id ?? undefined}
         loading={me.isLoading}
         error={me.isError}
       />
