@@ -1,0 +1,111 @@
+name: Wave 7 authenticated release homologation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/wave7-homologation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  signed-mfa-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: beacon
+          POSTGRES_PASSWORD: beacon_secret
+          POSTGRES_DB: beacon_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U beacon -d beacon_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: testing
+      DATABASE_URL: postgresql+asyncpg://mira_e2e_runner:mira_e2e_runner_secret@127.0.0.1:5432/beacon_test
+      DATABASE_URL_SYNC: postgresql://mira_e2e_runner:mira_e2e_runner_secret@127.0.0.1:5432/beacon_test
+      SECRET_KEY: test-secret-key-not-for-production-use
+      WAVE7_BROWSER_BASE_URL: http://127.0.0.1:3000
+      WAVE7_ARTIFACT_DIR: ../wave7-artifacts
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_MIRA_UNIFIED_ROLLOUT: "on"
+      SHAP_ON_BATCH: "false"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Create disposable non-superuser database owner
+        run: |
+          psql "postgresql://beacon:beacon_secret@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE mira_e2e_runner LOGIN PASSWORD 'mira_e2e_runner_secret'
+            NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+          ALTER DATABASE beacon_test OWNER TO mira_e2e_runner;
+          SQL
+          psql "postgresql://beacon:beacon_secret@127.0.0.1:5432/beacon_test" -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER SCHEMA public OWNER TO mira_e2e_runner;
+          GRANT ALL ON SCHEMA public TO mira_e2e_runner;
+          SQL
+      - name: Install real ASGI and browser test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install "playwright==1.58.0"
+          python -m playwright install --with-deps chromium
+      - name: Install frontend and local axe accessibility engine
+        working-directory: frontend
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false axe-core@4.10.3
+      - name: Build frontend release candidate (no dev compile in performance data)
+        working-directory: frontend
+        run: npm run build
+      - name: Start frontend release candidate with local safe test URL
+        working-directory: frontend
+        run: |
+          (npm run start -- --hostname 127.0.0.1 > ../wave7-next.log 2>&1 & echo $! > ../wave7-next.pid)
+          for attempt in $(seq 1 80); do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:3000/login; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat ../wave7-next.log
+          exit 1
+      - name: Run six real authenticated workflows on desktop and mobile
+        working-directory: backend
+        run: |
+          PYTHONPATH=. pytest -q tests/test_wave7_live_browser.py --tb=short --maxfail=6
+      - name: Apply integration GO/NO-GO decision from collected evidence
+        working-directory: backend
+        run: |
+          python scripts/wave7_release_gate.py \
+            --evidence "$WAVE7_ARTIFACT_DIR/wave7-evidence.json" \
+            --stage integration \
+            --output "$WAVE7_ARTIFACT_DIR/integration-decision.json"
+      - name: Upload evidence and screenshots even when tests fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave7-authenticated-browser
+          path: |
+            wave7-artifacts/
+            wave7-next.log
+          if-no-files-found: warn
+          retention-days: 14

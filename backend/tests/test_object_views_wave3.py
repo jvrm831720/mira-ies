@@ -134,6 +134,31 @@ async def collaboration_rls(_prepare_test_database):
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
         """))
     yield
+    # Test-only policy changes must not escape their module. Other tests
+    # share the same disposable ORM database and must not inherit FORCE RLS
+    # and user-scoped policies installed exclusively by this fixture.
+    async with engine.begin() as conn:
+        for name in ("mira_object_views_read", "mira_object_views_insert",
+                     "mira_object_views_update", "mira_object_views_delete"):
+            await conn.execute(text(f"DROP POLICY IF EXISTS {name} ON mira_object_views"))
+        for name in ("mira_view_revisions_select", "mira_view_revisions_insert"):
+            await conn.execute(text(
+                f"DROP POLICY IF EXISTS {name} ON mira_object_view_revisions"
+            ))
+        for name in ("mira_view_favorites_select", "mira_view_favorites_insert",
+                     "mira_view_favorites_delete"):
+            await conn.execute(text(
+                f"DROP POLICY IF EXISTS {name} ON mira_object_view_favorites"
+            ))
+        await conn.execute(text(
+            "DROP POLICY IF EXISTS custom_field_definitions_tenant_isolation "
+            "ON custom_field_definitions"
+        ))
+        for table in ("mira_object_views", "mira_object_view_revisions",
+                      "mira_object_view_favorites", "custom_field_definitions"):
+            await conn.execute(text(f"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY"))
+            await conn.execute(text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
+
 
 def context(tenant, user, *, role="coordinator", permissions=None):
     return SimpleNamespace(

@@ -16,6 +16,7 @@ from app.api import (
     smart_import, custom_fields, object_index, object_views, native_academic, academic_catalog, academic_portal, academic_operations, student_services, student_service_operations, student_finance_composio, student_document_attestation, finance_reconciliation, student_payments, asaas_official, dispatch, dispatch_integrations, dispatch_interventions, dispatch_providers, dispatch_native_webhooks, dispatch_source_keys, dispatch_composio, collections,
 )
 from app.db.session import init_db, apply_runtime_schema_patches, SchemaPatchError
+from app.core.schema_readiness import assert_schema_ready
 from app.ml.model import load_model
 
 settings = get_settings()
@@ -73,46 +74,54 @@ async def lifespan(app: FastAPI):
         print(f"ERRO ao alinhar schema: {e}")
         raise
 
-    try:
-        from app.core.security import hash_api_key
-        from app.core.mira_security import hash_password
-        from app.db.session import AsyncSessionLocal
-        from app.models.tenant import Tenant
-        from app.models.auth import User
-        from sqlalchemy import select
+    if settings.app_env in ("production", "staging"):
+        # External deployment launchers may suppress an Alembic exit code.
+        # No tenant/bootstrap, model load, or HTTP traffic is allowed until
+        # the deployed revision matches the actual database.
+        expected_head = await assert_schema_ready()
+        print(f"Schema readiness verified: {expected_head}")
 
-        async with AsyncSessionLocal() as session:
-            r = await session.execute(select(Tenant).where(Tenant.slug == "default"))
-            t = r.scalar_one_or_none()
-            if not t:
-                t = Tenant(
-                    slug="default", name="IES Demo", is_active=True,
-                    api_key_hash=hash_api_key(settings.dev_api_key),
-                )
-                session.add(t)
-                await session.commit()
-                await session.refresh(t)
-                print("Tenant default criado; credencial de API omitida dos logs.")
-            elif not t.api_key_hash:
-                t.api_key_hash = hash_api_key(settings.dev_api_key)
-                await session.commit()
-                print("API key hash do tenant default atualizado.")
+    if settings.app_env == "development":
+        try:
+            from app.core.security import hash_api_key
+            from app.core.mira_security import hash_password
+            from app.db.session import AsyncSessionLocal
+            from app.models.tenant import Tenant
+            from app.models.auth import User
+            from sqlalchemy import select
 
-            if settings.app_env == "development" and t:
-                existing = await session.execute(select(User).where(User.email == _DEV_ADMIN_EMAIL))
-                admin = existing.scalar_one_or_none()
-                if not admin:
-                    admin = User(
-                        tenant_id=t.id, display_name="Admin Mira", email=_DEV_ADMIN_EMAIL,
-                        password_hash=hash_password(_DEV_ADMIN_PASSWORD), role="admin", is_active=True,
+            async with AsyncSessionLocal() as session:
+                r = await session.execute(select(Tenant).where(Tenant.slug == "default"))
+                t = r.scalar_one_or_none()
+                if not t:
+                    t = Tenant(
+                        slug="default", name="IES Demo", is_active=True,
+                        api_key_hash=hash_api_key(settings.dev_api_key),
                     )
-                    session.add(admin)
+                    session.add(t)
                     await session.commit()
-                    print("Usuário admin de desenvolvimento criado; senha omitida dos logs.")
-                else:
-                    print(f"Admin de desenvolvimento já existe: {_DEV_ADMIN_EMAIL}")
-    except Exception as e:
-        print(f"Aviso bootstrap tenant/admin: {e}")
+                    await session.refresh(t)
+                    print("Tenant default criado; credencial de API omitida dos logs.")
+                elif not t.api_key_hash:
+                    t.api_key_hash = hash_api_key(settings.dev_api_key)
+                    await session.commit()
+                    print("API key hash do tenant default atualizado.")
+
+                if settings.app_env == "development" and t:
+                    existing = await session.execute(select(User).where(User.email == _DEV_ADMIN_EMAIL))
+                    admin = existing.scalar_one_or_none()
+                    if not admin:
+                        admin = User(
+                            tenant_id=t.id, display_name="Admin Mira", email=_DEV_ADMIN_EMAIL,
+                            password_hash=hash_password(_DEV_ADMIN_PASSWORD), role="admin", is_active=True,
+                        )
+                        session.add(admin)
+                        await session.commit()
+                        print("Usuário admin de desenvolvimento criado; senha omitida dos logs.")
+                    else:
+                        print(f"Admin de desenvolvimento já existe: {_DEV_ADMIN_EMAIL}")
+        except Exception as e:
+            print(f"Aviso bootstrap tenant/admin: {e}")
 
     try:
         load_model()

@@ -36,6 +36,15 @@ async def prepare_trigrams(db):
     await db.commit()
 
 
+async def bind_search_actor(db, tenant_id: str, user_id: str) -> None:
+    """Emulate both transaction-local claims of a verified human session."""
+    await bind_tenant(db, tenant_id)
+    await db.execute(
+        text("SELECT set_config('app.user_id', :user_id, true)"),
+        {"user_id": user_id},
+    )
+
+
 async def seed(db, tenant_id: str, tag: str, *, sensitive=False):
     # Match the server-authoritative GET /org/me profile/module contract.
     tenant = await db.get(Tenant, tenant_id)
@@ -58,6 +67,15 @@ async def seed(db, tenant_id: str, tag: str, *, sensitive=False):
     db.add(user)
     await db.flush()
     user_id = user.id
+
+    # Some earlier Wave 3 tests enable FORCE RLS in the shared disposable
+    # database. Fixture writes must use the same explicit tenant/user context
+    # that the real authenticated API provides; never bypass or disable RLS.
+    await bind_tenant(db, tenant_id)
+    await db.execute(
+        text("SELECT set_config('app.user_id', :user_id, true)"),
+        {"user_id": user_id},
+    )
 
     batch = UploadBatch(
         tenant_id=tenant_id, filename="wave6.csv",
@@ -123,8 +141,8 @@ async def test_all_providers_are_disambiguated_bounded_and_tenant_scoped(db_sess
     a_id, b_id = a.id, b.id
     owner = await seed(db_session, a_id, "ALPHA")
     foreign = await seed(db_session, b_id, "BETA")
-    # The direct endpoint call must emulate the request auth dependency RLS bind.
-    await bind_tenant(db_session, a_id)
+    # Direct function calls bypass the real signed-user auth dependency.
+    await bind_search_actor(db_session, a_id, owner["user"])
     response = await search_universal(
         q="Aline", limit=5, providers=None,
         auth=human(a_id, owner["user"]), db=db_session,
@@ -150,8 +168,10 @@ async def test_custom_role_does_not_enumerate_forbidden_providers(db_session, te
     a, _ = await tenant_factory(slug="search6-rbac")
     tenant_id = a.id
     owner = await seed(db_session, tenant_id, "RBAC", sensitive=True)
+    await bind_tenant(db_session, tenant_id)
     only_students = human(tenant_id, owner["user"],
                           grants=frozenset({"students.view"}), role="viewer")
+    await bind_search_actor(db_session, tenant_id, owner["user"])
     result = await search_universal(
         q="Aline", limit=5, providers=None, auth=only_students, db=db_session,
     )
@@ -176,6 +196,7 @@ async def test_partial_provider_error_is_isolated_and_opaque(db_session, tenant_
     tenant, _ = await tenant_factory(slug="search6-partial")
     tenant_id = tenant.id
     ids = await seed(db_session, tenant_id, "PARTIAL")
+    await bind_search_actor(db_session, tenant_id, ids["user"])
 
     async def broken_provider(_context):
         raise SQLAlchemyError("internal SQL with private text")
@@ -209,6 +230,7 @@ async def test_approximate_typo_and_limits(db_session, tenant_factory):
     )
     db_session.add(student)
     await db_session.commit()
+    await bind_search_actor(db_session, tenant_id, ids["user"])
     typo = await search_universal(
         q="Marina", limit=2, providers="students",
         auth=human(tenant_id, ids["user"]), db=db_session,
@@ -233,7 +255,7 @@ async def test_disabled_billing_module_never_returns_financial_projections(db_se
         ModuleEntitlement.module_key == "billing",
     ).values(status="disabled"))
     await db_session.commit()
-    await bind_tenant(db_session, tenant_id)
+    await bind_search_actor(db_session, tenant_id, owner["user"])
     response = await search_universal(
         q="Aline", limit=5, providers=None,
         auth=human(tenant_id, owner["user"]), db=db_session,

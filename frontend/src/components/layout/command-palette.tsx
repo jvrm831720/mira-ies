@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Search, ArrowRight, X, Users, CreditCard, BriefcaseBusiness, FileClock, Layers } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
+import { isUnifiedExperienceEnabled } from "@/lib/experience-rollout";
 import { universalSearch } from "@/lib/universal-search-api";
 import { mergeSearchResults, type SearchPaletteEntry } from "@/lib/search-providers";
 import type { NavigationGroup } from "./navigation";
@@ -41,20 +42,21 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, userId, l
     return () => window.clearTimeout(timeout);
   }, [query]);
 
+  const federated = isUnifiedExperienceEnabled(tenantId);
   const searching = debouncedQuery.length >= 2 && debouncedQuery === query.trim();
   const remote = useQuery({
     queryKey: ["universal-search", tenantId, userId, debouncedQuery],
     queryFn: ({ signal }) => universalSearch(debouncedQuery, signal),
-    enabled: open && !!tenantId && !!userId && searching && !loading && !error,
+    enabled: federated && open && !!tenantId && !!userId && searching && !loading && !error,
     staleTime: 15_000, retry: false,
   });
   const results = useMemo<SearchPaletteEntry[]>(() => mergeSearchResults(
-    searching && !remote.isError ? remote.data?.results || [] : [],
+    federated && searching && !remote.isError ? remote.data?.results || [] : [],
     loading || error ? [] : groups,
     query,
-  ), [remote.data, remote.isError, searching, loading, error, groups, query]);
+  ), [remote.data, remote.isError, federated, searching, loading, error, groups, query]);
   const safeSelected = results.length ? Math.min(selected, results.length - 1) : 0;
-  const unavailable = Object.entries(remote.data?.providers || {})
+  const unavailable = Object.entries(federated ? remote.data?.providers || {} : {})
     .filter(([, value]) => value.status === "unavailable")
     .map(([key]) => key);
 
@@ -140,7 +142,7 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, userId, l
           onKeyDown={onInputKeyDown} role="combobox" aria-expanded="true" aria-controls={listId}
           aria-activedescendant={results[safeSelected] ? listId + "-item-" + safeSelected : undefined}
           aria-autocomplete="list" aria-label="Pesquisar registros, atividades, views, campanhas e páginas"
-          placeholder="Buscar em todo o workspace…" autoComplete="off"
+          placeholder={federated ? "Buscar em todo o workspace…" : "Buscar páginas autorizadas…"} autoComplete="off"
           className="h-full min-w-0 flex-1 border-0 bg-transparent text-[length:var(--type-body-compact)] text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)]" />
         <kbd className="hidden shrink-0 rounded border border-[var(--color-border)] px-1.5 py-0.5 text-[length:var(--type-caption)] text-[var(--color-muted)] sm:block">
           Esc
@@ -180,20 +182,20 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, userId, l
                 {index === safeSelected && <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />}
               </button>;
             })}
-            {query.trim().length >= 2 && (!searching || remote.isFetching) &&
+            {federated && query.trim().length >= 2 && (!searching || remote.isFetching) &&
               <p role="status" className="px-3 py-2 text-xs text-[var(--color-muted)]">
                 Buscando em registros, tarefas, views e campanhas…
               </p>}
-            {searching && remote.isError &&
+            {federated && searching && remote.isError &&
               <p role="alert" className="px-3 py-2 text-xs text-[var(--color-red)]">
                 A busca de registros está indisponível; páginas autorizadas continuam acessíveis.
               </p>}
-            {searching && remote.data?.partial &&
+            {federated && searching && remote.data?.partial &&
               <p role="status" className="px-3 py-2 text-xs text-[var(--color-slate-600)]">
                 Busca parcial: algumas categorias estão temporariamente indisponíveis
                 {unavailable.length ? " (" + unavailable.length + ")" : ""}. Outros resultados permanecem acessíveis.
               </p>}
-            {!results.length && !remote.isFetching && (!query.trim() || searching) &&
+            {!results.length && (!federated || !remote.isFetching) && (!query.trim() || searching) &&
               <p className="px-3 py-10 text-center text-xs text-[var(--color-slate-600)]">
                 Nenhum resultado autorizado para esta busca.
               </p>}
