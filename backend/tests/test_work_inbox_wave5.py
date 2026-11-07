@@ -228,6 +228,21 @@ async def test_concurrent_resolution_uses_for_update_and_revision(tenant_factory
     await assert_audit(db_session, tenant_id, activity, "human_result_resolved", 1)
 
 
+@pytest.mark.asyncio
+async def test_inbox_denies_service_api_keys_without_a_human_session(client, tenant_factory):
+    _, key = await tenant_factory(slug="work5-no-service-claim")
+    headers = {"X-API-Key": key}
+    response = await client.get("/api/v1/work/inbox?view=mine", headers=headers)
+    assert response.status_code == 403
+    count = await client.get("/api/v1/work/inbox/counts", headers=headers)
+    assert count.status_code == 403
+    claim = await client.post(
+        f"/api/v1/work/activities/{uuid4()}/claim", headers=headers,
+        json={"expected_revision": 1, "operation_key": str(uuid4()).replace("-", "")},
+    )
+    assert claim.status_code == 403
+
+
 def test_priority_reasons_are_documented_signals_not_recovery_scores():
     now = datetime.now(timezone.utc)
     row = SimpleNamespace(priority="urgent", due_at=now - timedelta(hours=2),
