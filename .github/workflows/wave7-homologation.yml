@@ -73,10 +73,13 @@ jobs:
         run: |
           npm ci
           npm install --no-save --package-lock=false axe-core@4.10.3
-      - name: Start frontend server with explicit safe test URL
+      - name: Build frontend release candidate (no dev compile in performance data)
+        working-directory: frontend
+        run: npm run build
+      - name: Start frontend release candidate with local safe test URL
         working-directory: frontend
         run: |
-          (npm run dev -- --hostname 127.0.0.1 > ../wave7-next.log 2>&1 & echo $! > ../wave7-next.pid)
+          (npm run start -- --hostname 127.0.0.1 > ../wave7-next.log 2>&1 & echo $! > ../wave7-next.pid)
           for attempt in $(seq 1 80); do
             if curl --fail --silent --output /dev/null http://127.0.0.1:3000/login; then
               exit 0
