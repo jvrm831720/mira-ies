@@ -29,8 +29,8 @@ test("sequential outcome processing preserves queue position and moves to next h
   assert.match(inbox, /invalidateQueries\(\{ queryKey: \["work-inbox"/);
   assert.match(inbox, /pendingOperation\.current/);
   assert.match(inbox, /crypto\.randomUUID/);
-  assert.match(api, /expected_revision/);
-  assert.match(api, /operation_key/);
+  assert.match(inbox, /expected_revision/);
+  assert.match(inbox, /operation_key/);
 });
 
 test("inspector asks for explicit human outcome and authorizes based on assignment", () => {
