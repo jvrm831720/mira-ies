@@ -68,6 +68,15 @@ def relevance(query: str, *values: str | None) -> tuple[int, str]:
     return score, label
 
 
+def can_search_campaigns(auth: AuthContext) -> bool:
+    # The real /agents/retention/campaigns/intelligence/proposals GET endpoint
+    # requires coordinator rank for built-in roles, or campaigns.view for
+    # custom roles under request-based permission resolution.
+    return has_permission(auth, "campaigns.view") and (
+        auth.permissions is not None or auth.role in ("coordinator", "admin")
+    )
+
+
 def permitted(auth: AuthContext, provider: str) -> bool:
     # API keys, revoked/old user tokens and workspaces without a human session
     # cannot inspect an aggregate index.
@@ -78,12 +87,14 @@ def permitted(auth: AuthContext, provider: str) -> bool:
     if provider == "collections":
         return has_permission(auth, "audit.view")
     if provider == "work":
-        return has_permission(auth, "students.view") and (
-            "access.operator" in auth.permissions if auth.permissions is not None
+        return (
+            all(grant in auth.permissions for grant in
+                ("students.view", "students.edit", "access.operator"))
+            if auth.permissions is not None
             else auth.role in ("operator", "coordinator", "admin")
         )
     if provider == "campaigns":
-        return has_permission(auth, "campaigns.view")
+        return can_search_campaigns(auth)
     if provider == "views":
         return any(has_permission(auth, p) for p in VIEW_PERMISSION.values())
     return False
@@ -202,6 +213,7 @@ async def _views(db: AsyncSession, auth: AuthContext, query: str, limit: int) ->
     authorized_types = tuple(
         key for key, permission in VIEW_PERMISSION.items()
         if has_permission(auth, permission) and _page_for_view(key)
+        and (key != "campaigns" or can_search_campaigns(auth))
     )
     if not authorized_types:
         return []
