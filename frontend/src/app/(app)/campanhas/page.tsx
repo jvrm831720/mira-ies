@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ObjectIndex, initialObjectIndexState } from "@/components/object-index/object-index";
 import { RecordDrawer } from "@/components/record/record-drawer";
 import { RecordProperties } from "@/components/record/record-properties";
@@ -112,6 +113,8 @@ const CAMPAIGN_INDEX_FIELDS: ObjectField<RetentionCampaignProposal>[] = [
 ];
 
 function CampaignProposalsContent() {
+  const searchParams = useSearchParams();
+  const requestedProposal = searchParams.get("proposal");
   const queryClient = useQueryClient();
   const proposalsQuery = useQuery({
     queryKey: ["retention-campaign-proposals"],
@@ -125,6 +128,13 @@ function CampaignProposalsContent() {
   const proposals = proposalsQuery.data?.proposals ?? [];
   const [selectedId, setSelectedId] = useState("");
   const [previewId, setPreviewId] = useState<string|null>(null);
+  useEffect(() => {
+    // Search results only select/read an existing proposal, never mutate/approve it.
+    if (requestedProposal && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedProposal)) {
+      setSelectedId(requestedProposal);
+      setPreviewId(requestedProposal);
+    }
+  }, [requestedProposal]);
   const [objectIndexState, setObjectIndexState] = useState(() => initialObjectIndexState(CAMPAIGN_INDEX_FIELDS));
   const selected = proposals.find((item) => item.id === selectedId) ?? null;
   const previewProposal = proposals.find(item => item.id === previewId) ?? null;
@@ -639,5 +649,9 @@ function CampaignProposalsContent() {
 }
 
 export default function CampaignProposalsPage() {
-  return <CampaignProposalsContent />;
+  return <Suspense fallback={<main className="mira-page p-6 text-xs" role="status">
+    Carregando campanhas autorizadas…
+  </main>}>
+    <CampaignProposalsContent />
+  </Suspense>;
 }
