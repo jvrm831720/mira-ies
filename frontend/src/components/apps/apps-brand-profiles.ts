@@ -47,9 +47,15 @@ export const appProfiles: Record<string,{about:string; website?:string; logo?:st
  moodle:{about:"Consulte sinais de engajamento do ambiente de aprendizagem Moodle.",website:"https://moodle.org",logo:"moodle"},
  canvas:{about:"Utilize sinais de atividade do Canvas LMS para enriquecer análises de permanência.",website:"https://www.instructure.com/canvas",logo:"canvas"},
  openai:{about:"Conecte recursos de inteligência artificial a fluxos autorizados da organização.",website:"https://openai.com",logo:"openai"},
- jacad:{about:"Importe dados acadêmicos autorizados para análises preditivas e operações da MIRA.",logo:""},
- sponte:{about:"Conecte dados institucionais autorizados do Sponte à MIRA.",logo:""},
- sophia:{about:"Utilize registros acadêmicos autorizados do SophiA para inteligência de dados.",logo:""},
+ jacad:{about:"Importe dados acadêmicos autorizados para análises preditivas e operações da MIRA.",website:"https://www.jacad.com.br/"},
+ sponte:{about:"Conecte dados institucionais autorizados do Sponte à MIRA.",website:"https://www.sponte.com.br/"},
+ sophia:{about:"Utilize registros acadêmicos autorizados do SophiA para inteligência de dados.",website:"https://sophia.com.br/"},
+ gvcollege:{about:"Consulte informações acadêmicas autorizadas do GVcollege para sinais e inteligência de dados.",website:"https://www.gvdasa.com.br/"},
+ gvdasa:{about:"Integre dados institucionais autorizados do ecossistema GVDASA.",website:"https://www.gvdasa.com.br/"},
+ totvsrm:{about:"Utilize dados autorizados do TOTVS RM em jornadas operacionais da MIRA.",website:"https://www.totvs.com/"},
+ wpensar:{about:"Aproveite informações educacionais autorizadas do WPensar.",website:"https://www.wpensar.com.br/"},
+ isaac:{about:"Relacione informações financeiras autorizadas do Isaac ao contexto de cobrança.",website:"https://isaac.com.br/"},
+ marlim:{about:"Conecte dados financeiros autorizados da plataforma Marlim.",website:"https://marlim.com.br/"},
 };
 export function profileFor(id:string){return appProfiles[id];}
 export function logoUrl(id:string):string|undefined{
