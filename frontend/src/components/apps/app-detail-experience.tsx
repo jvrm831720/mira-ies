@@ -73,7 +73,7 @@ export function AppDetailExperience({ slug }: { slug: string }) {
   const busy = nativeCatalog.isLoading || curatedCatalog.isLoading ||
     (canManage && externalCatalog.isLoading && !externalCatalog.data);
 
-  async function connectApp(app: CatalogApp) {
+  async function connectApp() {
     if (connecting || !option) return;
     setConnecting(true);
     try {
@@ -128,7 +128,7 @@ export function AppDetailExperience({ slug }: { slug: string }) {
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[185px]">
             {canManage && item.external && option &&
-              <button type="button" onClick={() => void connectApp(item)} disabled={connecting}
+              <button type="button" onClick={() => void connectApp()} disabled={connecting}
                 className={actionClass + " bg-[var(--mira-apps-blue)] text-white disabled:cursor-not-allowed disabled:opacity-60"}>
                 {connecting ? "Abrindo autorização…" : item.status === "configured" ? "Conectar outra conta" : "Conectar aplicativo"}
                 <ArrowRight size={16} aria-hidden="true"/>
