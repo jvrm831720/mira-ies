@@ -92,7 +92,7 @@ def test_fuzzy_ranking_escaping_limits_and_no_financial_inference():
     assert search.normalized("JoÃO") == "joao"
     assert search.relevance("maria", "Maria") == (100, "exact")
     assert search.relevance("mari", "Maria")[1] == "prefix"
-    score, match = search.relevance("joau", "Joao")
+    score, match = search.relevance("joau", "Joao Silva")
     assert score > 0 and match == "approximate"
     assert search.relevance("xx", "João")[0] == 0
     assert search.MAX_RESULTS == len(search.PROVIDERS) * search.MAX_PER_PROVIDER
