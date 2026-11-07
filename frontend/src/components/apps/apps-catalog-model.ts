@@ -109,6 +109,8 @@ export function unifyAppsCatalog(
       status:existing.status==="available" ? state.status : existing.status,
       statusText:existing.status==="available" ? state.statusText : existing.statusText,
       connectedAccountName:base.connectedAccountName,
+      logoUrl:base.logoUrl||existing.logoUrl,
+      website:base.website||existing.website,
     }:base);
   }
   return [...apps.values()].sort((a,b)=>{
