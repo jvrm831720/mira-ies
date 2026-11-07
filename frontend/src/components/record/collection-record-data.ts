@@ -43,8 +43,8 @@ export function collectionRecordProperties(row: CollectionCase): RecordPropertyG
     { id: "financial", title: "Estado financeiro informado", properties: [
       { key: "status", label: "Estado da origem", value: STATUS[row.status] || row.status, type: "status" },
       { key: "balance", label: "Saldo informado", value: amount(row.balance), type: "currency" },
-      { key: "verified_at", label: "Verificado em", value: date(row.verified_at), type: "date" },
-      { key: "updated_at", label: "Atualizado em", value: date(row.updated_at), type: "date" },
+      { key: "verified_at", label: "Verificado em", value: date(row.verified_at), type: "datetime" },
+      { key: "updated_at", label: "Atualizado em", value: date(row.updated_at), type: "datetime" },
     ] },
   ];
 }
