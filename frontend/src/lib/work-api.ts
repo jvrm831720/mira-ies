@@ -59,9 +59,14 @@ async function workRequest<T>(path: string, init: RequestInit = {}): Promise<T> 
     let detail: string = `Erro ${res.status}`;
     try {
       const body = await res.json();
-      detail = body.detail || body.message || detail;
-      if (Array.isArray(detail))
-        detail = detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join(", ");
+      const reported: unknown = body.detail || body.message;
+      if (Array.isArray(reported)) {
+        detail = reported.map((item: { msg?: string }) => item.msg || JSON.stringify(item)).join(", ");
+      } else if (reported && typeof reported === "object" && "message" in reported) {
+        detail = String((reported as { message?: unknown }).message || detail);
+      } else if (typeof reported === "string") {
+        detail = reported;
+      }
     } catch {
       /* ignore */
     }
