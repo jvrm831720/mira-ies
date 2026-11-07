@@ -1,33 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { logoUrl, profileFor } from "./apps-brand-profiles";
+import { profileFor } from "./apps-brand-profiles";
+import { AppBrandIcon } from "./app-brand-icon";
 import Link from "next/link";
-import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { hasNavigationPermission } from "@/components/layout/navigation";
 import { ArrowRight, Check, Info, Plus, RefreshCw, Search, X } from "@/components/ui/icons";
-import { filterAppsCatalog, normalizeAppKey, unifyAppsCatalog, type AppsCategory, type CatalogApp } from "./apps-catalog-model";
+import { filterAppsCatalog, unifyAppsCatalog, type AppsCategory, type CatalogApp } from "./apps-catalog-model";
 
 type Tab = "Mais usados" | "Conectados" | "Descobrir";
 const categories: Array<"Todos" | AppsCategory> = ["Todos", "Comunicação", "CRM e relacionamento", "Documentos e arquivos", "Dados e análise", "Atendimento e suporte", "Agenda e agendamento", "Marketing institucional", "Acadêmico", "Financeiro", "Produtividade", "IA", "Outros"];
-const brandLogos:Record<string,string> = {
- whatsapp:"/apps/whatsapp.svg",gmail:"/apps/gmail.svg",googlecalendar:"/apps/googlecalendar.svg",
- googledrive:"/apps/googledrive.svg",moodle:"/apps/moodle.svg",canvas:"/apps/canvas.svg",
- googlesheets:"/apps/googlesheets.svg",zapier:"/apps/zapier.svg",
-};
-function BrandIcon({item,large=false}:{item:CatalogApp;large?:boolean}) {
- const [failed,setFailed]=useState(false);
- const local=brandLogos[item.id];
- const remote=logoUrl(item.id);
- return <span className={"grid shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--mira-apps-border)] bg-white font-semibold text-slate-700 "+(large?"h-16 w-16 text-lg":"h-12 w-12 text-sm")} aria-hidden="true">
-  {local ? <Image src={local} alt="" width={large?40:30} height={large?40:30} unoptimized/> :
-   remote && !failed ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={remote} alt="" width={large?40:30} height={large?40:30} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/> :
-   <span>{item.initials}</span>}
- </span>;
-}
 function State({ item }: { item: CatalogApp }) {
  const isConnected=item.status==="connected"||item.status==="configured";
  return <span className={"inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs leading-none " +
@@ -43,9 +28,7 @@ export function AppsCatalogExperience() {
  const [category,setCategory]=useState<(typeof categories)[number]>("Todos");
  const [query,setQuery]=useState("");
  const [limit,setLimit]=useState(32);
- const [selected,setSelected]=useState<CatalogApp|null>(null);
  const [requestOpen,setRequestOpen]=useState(false);
- const [connecting,setConnecting]=useState(false);
  const [requestName,setRequestName]=useState("");
  const [requestGoal,setRequestGoal]=useState("");
 
@@ -68,10 +51,6 @@ export function AppsCatalogExperience() {
  const accounts=useQuery({
   queryKey:["apps-catalog",tenant,"accounts"],
   queryFn:api.composioConnections,enabled:canRead&&canManage,staleTime:60_000,retry:false,
- });
- const authOptions=useQuery({
-  queryKey:["apps-catalog",tenant,"auth-options"],
-  queryFn:api.composioOnboardingAuthOptions,enabled:canRead&&canManage,retry:false,
  });
  const jacad=useQuery({
   queryKey:["apps-catalog",tenant,"jacad"],
@@ -98,27 +77,10 @@ export function AppsCatalogExperience() {
  const partial=canManage && externalCatalog.isError;
  const loading=(nativeCatalog.isLoading && !nativeCatalog.data) || (curatedCatalog.isLoading && !curatedCatalog.data);
 
- async function connectApp(item: CatalogApp) {
-  if(connecting) return;
-  const option=authOptions.data?.items.find(row=>normalizeAppKey(row.toolkit_slug)===normalizeAppKey(item.slug));
-  if(!option){toast.error("Conexão indisponível: autenticação não configurada.");return;}
-  setConnecting(true);
-  try{
-   const response=await api.startComposioOnboardingConnection({toolkit_slug:option.toolkit_slug,auth_config_id:option.auth_config_id});
-   const target=new URL(response.redirect_url);
-   if(target.protocol!=="https:" && !(process.env.NODE_ENV==="development" && target.hostname==="localhost" && target.protocol==="http:")){
-    throw new Error("Endereço de autorização inválido.");
-   }
-   window.location.assign(target.toString());
-  }catch(error){
-   toast.error(error instanceof Error?error.message:"Não foi possível iniciar a conexão.");
-   setConnecting(false);
-  }
- }
  function refresh(){
   void nativeCatalog.refetch();void curatedCatalog.refetch();
   if(canManage){
-   void authOptions.refetch();void externalCatalog.refetch();void accounts.refetch();void jacad.refetch();void sponte.refetch();
+   void externalCatalog.refetch();void accounts.refetch();void jacad.refetch();void sponte.refetch();
   }
  }
  async function copyRequest(){
@@ -178,11 +140,11 @@ export function AppsCatalogExperience() {
      <div role="alert" className="mt-9 rounded-xl border border-[var(--mira-apps-border)] p-6 text-sm">Não foi possível carregar o catálogo. <button type="button" onClick={refresh} className="underline">Tentar novamente</button></div> :
      visible.length===0 ? <div className="mt-9 rounded-xl border border-[var(--mira-apps-border)] px-5 py-16 text-center text-sm text-[var(--mira-apps-muted)]">Nenhum app encontrado com os filtros selecionados.</div> :
      <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-      {shown.map(item=><button key={item.id} type="button" onClick={()=>setSelected(item)}
-       aria-label={"Abrir detalhes de "+item.name}
+      {shown.map(item=><Link key={item.id} href={`/apps/${encodeURIComponent(item.id)}`}
+       aria-label={"Abrir página de "+item.name}
        className="group flex min-h-[172px] flex-col justify-between rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)] p-4 text-left transition-[border-color,background-color,transform] duration-150 hover:-translate-y-0.5 hover:border-[var(--mira-apps-blue)] hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)] motion-reduce:transform-none">
        <span className="flex min-w-0 items-center gap-3">
-        <BrandIcon item={item}/>
+        <AppBrandIcon item={item}/>
         <span className="min-w-0"><span className="block truncate text-sm font-semibold">{item.name}</span>
          <span className="mt-1 block line-clamp-2 text-xs leading-5 text-[var(--mira-apps-muted)]">{profileFor(item.id)?.about||item.description}</span>
         </span>
@@ -191,45 +153,12 @@ export function AppsCatalogExperience() {
         <State item={item}/>
         <span className="text-[var(--mira-apps-muted)] group-hover:text-[var(--mira-apps-white)]"><ArrowRight size={16} aria-hidden="true"/></span>
        </span>
-      </button>)}
+      </Link>)}
      </div>}
     {visible.length>shown.length && <div className="mt-6 flex justify-center"><button type="button" onClick={()=>setLimit(value=>value+32)} className="rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-chip)] px-5 py-2.5 text-sm font-medium hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)]">Mostrar mais ({shown.length} de {visible.length})</button></div>}
     <p className="mt-6 text-xs leading-5 text-[var(--mira-apps-muted)]">O catálogo inclui ferramentas conhecidas pela MIRA mesmo sem Composio ativo. Disponibilidade, autorização e conexão ativa são verificações distintas. Nenhuma integração é ativada automaticamente.</p>
    </>}
   </main>
-  {selected && <div className="fixed inset-0 z-[80] flex justify-end bg-[var(--mira-apps-backdrop)]" onMouseDown={event=>{if(event.target===event.currentTarget)setSelected(null);}}>
-    <section role="dialog" aria-modal="true" aria-label={"Detalhes de "+selected.name} className="flex h-full w-full max-w-[460px] flex-col border-l border-[var(--mira-apps-border)] bg-[var(--mira-apps-dark)] p-6 shadow-2xl">
-     <div className="flex items-center justify-between gap-4">
-      <span className="text-xs text-[var(--mira-apps-muted)]">Detalhes do aplicativo</span>
-      <button type="button" onClick={()=>setSelected(null)} aria-label="Fechar detalhes" className="rounded-lg p-2 hover:bg-[var(--mira-apps-hover)]"><X size={18}/></button>
-     </div>
-     <div className="mt-8 flex items-center gap-4">
-      <BrandIcon item={selected} large/>
-      <div><h2 className="text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-[var(--mira-apps-muted)]">{selected.category}</p></div>
-     </div>
-     <div className="mt-7 space-y-3"><h3 className="text-sm font-semibold">Sobre a ferramenta</h3><p className="text-sm leading-6 text-[var(--mira-apps-muted)]">{profileFor(selected.id)?.about||selected.description}</p>{profileFor(selected.id)?.website && <a href={profileFor(selected.id)?.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-[var(--mira-apps-blue-light)] hover:underline">Conhecer o aplicativo <ArrowRight size={14} aria-hidden="true"/></a>}</div>
-     <div className="mt-6 border-t border-[var(--mira-apps-border)] pt-5">
-      <p className="mb-2 text-xs text-[var(--mira-apps-muted)]">Estado no workspace</p><State item={selected}/>
-      {selected.connectedAccountName && <p className="mt-3 text-xs text-[var(--mira-apps-muted)]">Conta registrada: {selected.connectedAccountName}</p>}
-      {selected.status==="available" && <p className="mt-4 text-xs leading-5 text-[var(--mira-apps-muted)]">Esta ferramenta consta do catálogo, mas nenhuma conexão ativa foi confirmada para este workspace.</p>}
-     </div>
-     <div className="mt-auto border-t border-[var(--mira-apps-border)] pt-5">
-      {canManage ? <div className="flex flex-col gap-2">
-        {selected.external && authOptions.data?.items.some(row=>normalizeAppKey(row.toolkit_slug)===normalizeAppKey(selected.slug)) ?
-         <button type="button" disabled={connecting} onClick={()=>void connectApp(selected)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--mira-apps-blue)] px-4 py-3 text-sm font-semibold text-[var(--mira-apps-white)] disabled:opacity-50">
-          {connecting?"Abrindo autorização…":"Conectar conta"} <ArrowRight size={15} aria-hidden="true"/>
-         </button> : null}
-        <Link href={selected.route} onClick={()=>setSelected(null)}
-         className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--mira-apps-border)] px-4 py-3 text-sm font-semibold text-[var(--mira-apps-white)] hover:brightness-110">
-         Gerenciar no Data Hub <ArrowRight size={15} aria-hidden="true"/>
-        </Link>
-        {selected.external && !authOptions.data?.items.some(row=>normalizeAppKey(row.toolkit_slug)===normalizeAppKey(selected.slug)) ?
-         <p className="text-xs text-[var(--mira-apps-muted)]">Conexão direta indisponível até configurar a autenticação deste aplicativo.</p> : null}
-       </div> : <p className="text-sm text-[var(--mira-apps-muted)]">Solicite permissão de administração para configurar esta integração.</p>}
-     </div>
-    </section>
-  </div>}
   {requestOpen && <div className="fixed inset-0 z-[90] grid place-items-center bg-[var(--mira-apps-backdrop)] p-4" onMouseDown={e=>{if(e.target===e.currentTarget)setRequestOpen(false);}}>
     <section role="dialog" aria-modal="true" aria-label="Solicitar integração" className="w-full max-w-[470px] rounded-2xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)] p-6 shadow-2xl">
      <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Solicitar integração</h2>
