@@ -37,6 +37,7 @@ def upgrade():
         sa.Column("tenant_id", U, sa.ForeignKey("tenants.id"), nullable=False),
         sa.Column("observation_id", U, nullable=False),
         sa.Column("label", sa.String(180), nullable=False),
+        sa.Column("creditor_name", sa.String(255), nullable=False),
         sa.Column("amount", sa.Numeric(12, 2), nullable=False),
         sa.Column("paid_amount", sa.Numeric(12, 2), nullable=False),
         sa.Column("currency", sa.String(3), nullable=False),
