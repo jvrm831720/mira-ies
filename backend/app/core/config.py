@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # Identity proof adapter is NOT inferred from email or CPF.
     global_student_identity_proof_enabled: bool = False
     global_student_identity_proof_secret: str | None = None
+    global_student_debt_aggregation_enabled: bool = False
     native_academic_catalog_enabled: bool = False
     native_academic_services_enabled: bool = False
     native_academic_operations_enabled: bool = False
