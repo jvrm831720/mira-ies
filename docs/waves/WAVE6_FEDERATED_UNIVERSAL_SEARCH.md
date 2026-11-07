@@ -27,7 +27,7 @@ A Command Palette existente (**Ctrl/Cmd+K**) agora consulta a API federada e int
 - Consultas são tenant-scoped com filtros SQL bindados e RLS existente. Cada provider usa SAVEPOINT isolado, timeout SQL local de 400 ms, teto 24 candidatos exatos e 80 candidatos aproximados. No máximo 30 resultados agregados.
 - Campos sensíveis (risco, SHAP, telefone, e-mail, dívida, regras de campanhas e JSON das views) **não são projetados**.
 - O provider de views respeita dono ou escopo workspace, `is_sensitive`, grant de domínio e RLS com `app.view_sensitive`.
-- Trabalho humano exige `students.view` e acesso de operador; casos financeiros exigem `audit.view`; campanhas exigem `campaigns.view`.
+- Trabalho humano exige `students.view`, `students.edit` e acesso operacional (cargos embutidos operator+ ou concessões explícitas); casos financeiros exigem `audit.view`; propostas de campanhas exigem coordenador/admin em cargos embutidos ou `campaigns.view` efetivo em cargos personalizados, igual ao endpoint real.
 - Exceções não entram no payload da resposta. Falha em um provider não impede os demais.
 - Ordenação lexical: exata, prefixo, contém e similaridade com Python `SequenceMatcher`; nenhuma probabilidade de cobrança, evasão ou envio é inferida.
 - Busca aproximada é **best effort** dentro de candidatos SQL restritos ao tenant, baseados nos dois primeiros caracteres. Não é busca fonética ou varredura global. Um registro antigo fora do teto de candidatos pode não aparecer. Não foi incluída extensão no PostgreSQL ou migration.
