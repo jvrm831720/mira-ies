@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { logoUrl, profileFor } from "./apps-brand-profiles";
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
@@ -17,15 +18,16 @@ const brandLogos:Record<string,string> = {
  googledrive:"/apps/googledrive.svg",moodle:"/apps/moodle.svg",canvas:"/apps/canvas.svg",
  googlesheets:"/apps/googlesheets.svg",zapier:"/apps/zapier.svg",
 };
-const tone:Record<string,string> = {
- green:"bg-[var(--mira-apps-green)] text-[var(--mira-apps-white)]",
- red:"bg-[var(--mira-apps-red)] text-[var(--mira-apps-white)]",
- blue:"bg-[var(--mira-apps-blue)] text-[var(--mira-apps-white)]",
- orange:"bg-[var(--mira-apps-orange)] text-[var(--mira-apps-white)]",
- purple:"bg-[var(--mira-apps-purple)] text-[var(--mira-apps-white)]",
- cyan:"bg-[var(--mira-apps-cyan)] text-[var(--mira-apps-dark)]",
- gray:"bg-[var(--mira-apps-icon-gray)] text-[var(--mira-apps-white)]",
-};
+function BrandIcon({item,large=false}:{item:CatalogApp;large?:boolean}) {
+ const [failed,setFailed]=useState(false);
+ const local=brandLogos[item.id];
+ const remote=logoUrl(item.id);
+ return <span className={"grid shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--mira-apps-border)] bg-white font-semibold text-slate-700 "+(large?"h-16 w-16 text-lg":"h-12 w-12 text-sm")} aria-hidden="true">
+  {local ? <Image src={local} alt="" width={large?40:30} height={large?40:30} unoptimized/> :
+   remote && !failed ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={remote} alt="" width={large?40:30} height={large?40:30} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/> :
+   <span>{item.initials}</span>}
+ </span>;
+}
 function State({ item }: { item: CatalogApp }) {
  const isConnected=item.status==="connected"||item.status==="configured";
  return <span className={"inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs leading-none " +
@@ -178,11 +180,11 @@ export function AppsCatalogExperience() {
      <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {shown.map(item=><button key={item.id} type="button" onClick={()=>setSelected(item)}
        aria-label={"Abrir detalhes de "+item.name}
-       className="group flex min-h-[142px] flex-col justify-between rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)] p-4 text-left transition-[border-color,background-color,transform] duration-150 hover:-translate-y-0.5 hover:border-[var(--mira-apps-blue)] hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)] motion-reduce:transform-none">
+       className="group flex min-h-[172px] flex-col justify-between rounded-xl border border-[var(--mira-apps-border)] bg-[var(--mira-apps-card)] p-4 text-left transition-[border-color,background-color,transform] duration-150 hover:-translate-y-0.5 hover:border-[var(--mira-apps-blue)] hover:bg-[var(--mira-apps-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mira-apps-blue)] motion-reduce:transform-none">
        <span className="flex min-w-0 items-center gap-3">
-        <span className={"grid h-12 w-12 shrink-0 place-items-center rounded-[11px] text-base font-semibold shadow-sm "+(tone[item.color]||tone.gray)} aria-hidden="true">{brandLogos[item.id] ? <Image src={brandLogos[item.id]} alt="" width={27} height={27} unoptimized /> : item.initials}</span>
+        <BrandIcon item={item}/>
         <span className="min-w-0"><span className="block truncate text-sm font-semibold">{item.name}</span>
-         <span className="mt-1 block truncate text-xs text-[var(--mira-apps-muted)]">{item.description}</span>
+         <span className="mt-1 block line-clamp-2 text-xs leading-5 text-[var(--mira-apps-muted)]">{profileFor(item.id)?.about||item.description}</span>
         </span>
        </span>
        <span className="flex items-end justify-between gap-2">
@@ -202,10 +204,10 @@ export function AppsCatalogExperience() {
       <button type="button" onClick={()=>setSelected(null)} aria-label="Fechar detalhes" className="rounded-lg p-2 hover:bg-[var(--mira-apps-hover)]"><X size={18}/></button>
      </div>
      <div className="mt-8 flex items-center gap-4">
-      <span className={"grid h-16 w-16 shrink-0 place-items-center rounded-xl text-xl font-bold "+(tone[selected.color]||tone.gray)} aria-hidden="true">{brandLogos[selected.id] ? <Image src={brandLogos[selected.id]} alt="" width={36} height={36} unoptimized /> : selected.initials}</span>
+      <BrandIcon item={selected} large/>
       <div><h2 className="text-xl font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-[var(--mira-apps-muted)]">{selected.category}</p></div>
      </div>
-     <p className="mt-6 text-sm leading-6 text-[var(--mira-apps-muted)]">{selected.description}</p>
+     <div className="mt-7 space-y-3"><h3 className="text-sm font-semibold">Sobre a ferramenta</h3><p className="text-sm leading-6 text-[var(--mira-apps-muted)]">{profileFor(selected.id)?.about||selected.description}</p>{profileFor(selected.id)?.website && <a href={profileFor(selected.id)?.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-[var(--mira-apps-blue-light)] hover:underline">Conhecer o aplicativo <ArrowRight size={14} aria-hidden="true"/></a>}</div>
      <div className="mt-6 border-t border-[var(--mira-apps-border)] pt-5">
       <p className="mb-2 text-xs text-[var(--mira-apps-muted)]">Estado no workspace</p><State item={selected}/>
       {selected.connectedAccountName && <p className="mt-3 text-xs text-[var(--mira-apps-muted)]">Conta registrada: {selected.connectedAccountName}</p>}
