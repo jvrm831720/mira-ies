@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -13,7 +14,7 @@ from app.api import universal_search as search
 from app.models.auth import User
 from app.models.student import Student, UploadBatch
 from app.models.work_activity import WorkActivity
-from app.models.retention_campaign import RetentionCampaign
+from app.models.retention_campaign import RetentionCampaignProposal
 from app.models.object_view import ObjectView
 
 
@@ -55,10 +56,14 @@ async def create_data(db, tenant: str, suffix: str):
         tenant_id=tenant, title="Revisar documento " + suffix, priority="high",
         status="open", assignee_user_id=owner, origin_type="manual",
     ))
-    db.add(RetentionCampaign(
-        tenant_id=tenant, slug="camp-" + suffix.lower(),
-        name="Campanha revisão " + suffix, version=1, status="draft",
-        archived=False, rules=[],
+    db.add(RetentionCampaignProposal(
+        tenant_id=tenant, title="Campanha revisão " + suffix,
+        status="draft", revision=1, source_group_ids=[],
+        source_catalog_version="v1", recommendation_engine="test",
+        source_evaluated_at=datetime.now(timezone.utc),
+        objective="Acompanhar estudante", strategy="Acompanhamento interno",
+        recommended_channels=[], cadence_days=[], message_brief="Interno",
+        audience_snapshot=[], audience_hash="0" * 64, audience_total=0,
     ))
     db.add(ObjectView(
         tenant_id=tenant, owner_user_id=owner, object_key="students",
