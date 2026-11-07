@@ -57,7 +57,7 @@ test("priority reasoning never invents a score or financial recovery estimate", 
 test("new work entry keeps legacy interventions and old activity management available", () => {
   assert.match(center, /<WorkInbox \/>/);
   assert.match(center, /<WorkActivitiesPanel createDraft=/);
-  assert.match(center, /<details className=/);
+  assert.match(center, /<details key=\{unified \? "unified" : "legacy"\} open=\{!unified\}/);
   assert.match(center, /<StudentDrawer studentId=/);
   assert.match(center, /Explorar diagnósticos legados/);
 });
