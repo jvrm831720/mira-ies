@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { workApi } from "@/lib/work-api";
 import { hasNavigationPermission } from "@/components/layout/navigation";
-import { WorkPriorityReason } from "./work-priority-reason";
 import { WorkItemInspector } from "./work-item-inspector";
 import type { WorkActivity, WorkPerspective, WorkResultKind } from "@/types/work";
 
@@ -194,7 +193,7 @@ export function WorkInbox() {
         </button>)}
       </div>
     </header>
-    <div className={"grid min-h-[420px] lg:grid-cols-[minmax(0,1fr)_" + (selectedId ? "minmax(300px,0.88fr)" : "0px]")}>
+    <div className={selectedId ? "grid min-h-[420px] lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.88fr)]" : "grid min-h-[420px]"}>
       <div role="tabpanel" aria-label={VIEWS.find(item => item.id === view)?.label} className="min-w-0">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
           <p className="text-xs text-[var(--color-slate-600)]">{VIEWS.find(item => item.id === view)?.description}</p>
@@ -267,4 +266,3 @@ export function WorkInbox() {
   </section>;
 }
 
-void WorkPriorityReason;
