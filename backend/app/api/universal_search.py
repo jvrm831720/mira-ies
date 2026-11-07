@@ -6,7 +6,6 @@ navigates; it does not execute operations.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import unicodedata
 from difflib import SequenceMatcher
@@ -299,7 +298,7 @@ async def federated_search(
             results.extend(sorted(matched, key=lambda item: (
                 -item["rank"], item["title"].casefold(), item["id"]
             ))[:per_provider])
-        except (Exception, asyncio.CancelledError) as exc:
+        except Exception as exc:
             # Never surface exceptions, SQL, identifiers or raw source values.
             logger.warning("Federated search provider %s unavailable (%s)", provider, type(exc).__name__)
             unavailable.append(provider)
