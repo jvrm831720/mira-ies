@@ -159,6 +159,7 @@ async def test_custom_role_does_not_enumerate_forbidden_providers(db_session, te
     a, _ = await tenant_factory(slug="search6-rbac")
     tenant_id = a.id
     owner = await seed(db_session, tenant_id, "RBAC", sensitive=True)
+    await bind_tenant(db_session, tenant_id)
     only_students = human(tenant_id, owner["user"],
                           grants=frozenset({"students.view"}), role="viewer")
     result = await search_universal(
@@ -185,6 +186,9 @@ async def test_partial_provider_error_is_isolated_and_opaque(db_session, tenant_
     tenant, _ = await tenant_factory(slug="search6-partial")
     tenant_id = tenant.id
     ids = await seed(db_session, tenant_id, "PARTIAL")
+    # Direct function invocation skips get_current_tenant's RLS context binding.
+    # Emulate the request dependency without weakening the provider policy.
+    await bind_tenant(db_session, tenant_id)
 
     async def broken_provider(_context):
         raise SQLAlchemyError("internal SQL with private text")
