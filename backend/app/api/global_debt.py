@@ -140,3 +140,68 @@ async def pending_consents(request: Request, db: AsyncSession = Depends(get_db))
         "creditor_name": creditors[row.id], "record_count": counts[row.id],
         "scope": "Exibição de registros financeiros históricos desta instituição",
     } for row in rows if row.id in creditors and counts.get(row.id, 0) > 0]}
+
+
+@router.post("/consents/{grant_id}/accept")
+async def accept_consent(grant_id: UUID, request: Request, db: AsyncSession = Depends(get_db)):
+    _enabled()
+    _action(request)
+    _, account = await _session(request, db, _configured())
+    _verified(account)
+    grant = (await db.execute(select(GlobalDebtGrant).where(
+        GlobalDebtGrant.id == str(grant_id), GlobalDebtGrant.account_id == account.id,
+    ).with_for_update())).scalar_one_or_none()
+    if not grant or grant.state != "pending":
+        raise HTTPException(404, "Autorização pendente não encontrada.")
+    # A revoked or stale identity proof must not authorize new disclosure.
+    grant.state = "accepted"
+    grant.accepted_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"state": "accepted"}
+
+
+@router.post("/consents/{grant_id}/revoke")
+async def revoke_consent(grant_id: UUID, request: Request, db: AsyncSession = Depends(get_db)):
+    _enabled()
+    _action(request)
+    _, account = await _session(request, db, _configured())
+    _verified(account)
+    grant = (await db.execute(select(GlobalDebtGrant).where(
+        GlobalDebtGrant.id == str(grant_id), GlobalDebtGrant.account_id == account.id,
+    ).with_for_update())).scalar_one_or_none()
+    if not grant:
+        raise HTTPException(404, "Autorização não encontrada.")
+    grant.state = "revoked"
+    grant.revoked_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"state": "revoked"}
+
+
+@router.get("")
+async def list_debts(request: Request, db: AsyncSession = Depends(get_db)):
+    _enabled()
+    _, account = await _session(request, db, _configured())
+    _verified(account)
+    rows = (await db.execute(
+        select(GlobalDebtSnapshot, GlobalDebtGrant).join(
+            GlobalDebtGrant, GlobalDebtGrant.id == GlobalDebtSnapshot.grant_id,
+        ).where(
+            GlobalDebtGrant.account_id == account.id,
+            GlobalDebtGrant.state == "accepted",
+        ).order_by(GlobalDebtSnapshot.due_at, GlobalDebtSnapshot.id).limit(500)
+    )).all()
+    # Snapshots are immutable historical observations, NOT real-time settlement.
+    items = [{
+        "id": snap.id, "workspace_id": grant.tenant_id,
+        "creditor_name": snap.creditor_name,
+        "label": snap.label, "amount": str(snap.amount),
+        "paid_amount": str(snap.paid_amount),
+        "remaining": str(max(Decimal("0"), snap.amount - snap.paid_amount)),
+        "currency": snap.currency, "state": snap.state,
+        "due_at": snap.due_at.isoformat() if snap.due_at else None,
+        "observed_at": snap.observed_at.isoformat(),
+        "snapshotted_at": snap.snapshotted_at.isoformat(),
+        "grant_id": grant.id,
+    } for snap, grant in rows]
+    return {"items": items, "count": len(items), "limit": 500,
+            "freshness": "historical_snapshot", "payment_execution_enabled": False}
