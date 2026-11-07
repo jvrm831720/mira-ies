@@ -264,6 +264,7 @@ async def test_live_browser_six_journeys(
             serious = len(violations)
             MEASURED["accessibility"]["serious_critical_count"] += serious
             if violations:
+                ARTIFACTS.mkdir(parents=True, exist_ok=True)
                 finding = [{
                     "rule": item["id"], "impact": item["impact"],
                     "nodes": [
