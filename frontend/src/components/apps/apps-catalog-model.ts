@@ -14,9 +14,11 @@ export type CatalogApp = {
   initials: string;
   color: string;
   connectedAccountName?: string;
+  logoUrl?: string;
+  website?: string;
 };
 export type NativeApp = { id: string; name: string; description?: string; category?: string };
-export type RemoteApp = { slug: string; name: string; description?: string | null; categories?: string[]; category?: string | null; mira_category?: string | null; mira_category_label?: string | null; enabled?: boolean };
+export type RemoteApp = { slug: string; name: string; description?: string | null; logo?: string | null; app_url?: string | null; categories?: string[]; category?: string | null; mira_category?: string | null; mira_category_label?: string | null; enabled?: boolean };
 export type RemoteAccount = { toolkit_slug: string; status: string; display_name?: string | null };
 export type NativeEvidence = { configured: boolean; enabled?: boolean; status?: string | null; last_sync_status?: string | null };
 const editorial: Record<string, { name: string; description: string; category: AppsCategory; initials: string; color: string; rank: number }> = {
@@ -100,6 +102,7 @@ export function unifyAppsCatalog(
       status:state.status,statusText:state.statusText,
       native:false,external:true,route:"/dados",
       connectedAccountName:active?.display_name||undefined,
+      logoUrl:source.logo||undefined,website:source.app_url||undefined,
     };
     apps.set(key,existing ? {
       ...base,...existing,external:true,native:true,
