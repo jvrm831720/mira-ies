@@ -56,7 +56,7 @@ function CaseSections({
   ]} />;
 }
 
-function useCaseDetail(id: string | null, tenantId: string | undefined, userId: string | undefined, allowed: boolean) {
+function useCaseDetail(id: string | null, tenantId: string | null | undefined, userId: string | null | undefined, allowed: boolean) {
   return useQuery({
     queryKey: ["collections", "detail", tenantId, userId, id],
     queryFn: () => collectionsApi.detail(id!),
