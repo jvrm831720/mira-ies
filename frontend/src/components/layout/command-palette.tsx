@@ -3,9 +3,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Search, ArrowRight, X, Users } from "@/components/ui/icons";
+import {
+  ArrowRight, BriefcaseBusiness, CreditCard, FileClock, Layers, Search, Users, X,
+} from "@/components/ui/icons";
 import type { LucideIcon } from "@/components/ui/icons";
-import { listStudentIndex } from "@/lib/object-index-api";
+import { searchUniversal, type SearchProvider, type UniversalSearchHit } from "@/lib/universal-search-api";
 import { cn } from "@/lib/utils";
 import { searchNavigation, type NavigationGroup } from "./navigation";
 
@@ -14,63 +16,115 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   groups: NavigationGroup[];
   tenantId?: string;
+  userId?: string | null;
   loading?: boolean;
   error?: boolean;
 };
-type Command = { href: string; label: string; category: string; icon: LucideIcon; detail?: string };
+type Command = {
+  id: string; href: string; label: string; category: string;
+  icon: LucideIcon; detail?: string; provider?: SearchProvider; approximate?: boolean;
+};
 
-const QUICK_ACTIONS = [
-  { href: "/trabalho", label: "Abrir fila do coordenador", category: "Ação rápida", icon: Users, terms: "fila pendencias atividades" },
-  { href: "/campanhas", label: "Gerenciar campanhas", category: "Ação rápida", icon: ArrowRight, terms: "campanha retencao" },
-  { href: "/resultados", label: "Consultar permanência", category: "Ação rápida", icon: ArrowRight, terms: "resultados permanencia relatorio" },
-];
+const PROVIDERS: Record<SearchProvider, {
+  category: string; icon: LucideIcon; root: string | null;
+}> = {
+  students: { category: "Aluno", icon: Users, root: "/alunos" },
+  collections: { category: "Caso financeiro", icon: CreditCard, root: "/cobranca" },
+  work: { category: "Trabalho humano", icon: BriefcaseBusiness, root: "/trabalho" },
+  views: { category: "Visualização salva", icon: Layers, root: null },
+  campaigns: { category: "Campanha de permanência", icon: FileClock, root: "/campanhas" },
+};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function CommandPalette({ open, onOpenChange, groups, tenantId, loading, error }: Props) {
+/** Accept the exact known routes, never arbitrarily supplied URLs or query commands. */
+export function safeSearchDestination(hit: UniversalSearchHit, permittedRoots: string[]): boolean {
+  if (!hit || hit.action !== "navigate" || typeof hit.href !== "string" ||
+      !hit.href.startsWith("/") || hit.href.startsWith("//") || hit.href.length > 1200) {
+    return false;
+  }
+  let url: URL;
+  try { url = new URL(hit.href, "https://mira.invalid"); } catch { return false; }
+  if (url.origin !== "https://mira.invalid" || url.hash ||
+      !Object.hasOwn(PROVIDERS, hit.provider)) return false;
+  const params = [...url.searchParams.keys()];
+  const p = url.pathname;
+  let root: string;
+  if (hit.provider === "students") {
+    root = "/alunos";
+    if (!p.startsWith(root + "/") || !UUID.test(p.slice(root.length + 1)) || params.length) return false;
+  } else if (hit.provider === "collections") {
+    root = "/cobranca";
+    if (!p.startsWith("/cobranca/casos/") || !UUID.test(p.slice(16)) || params.length) return false;
+  } else if (hit.provider === "work") {
+    root = "/trabalho";
+    if (p !== root || params.length !== 1 || params[0] !== "activity" ||
+        !UUID.test(url.searchParams.get("activity") || "")) return false;
+  } else if (hit.provider === "views") {
+    root = p;
+    if (!["/alunos", "/cobranca", "/campanhas", "/academico"].includes(root) ||
+        params.length !== 1 || params[0] !== "saved_view" ||
+        !UUID.test(url.searchParams.get("saved_view") || "")) return false;
+  } else {
+    root = "/campanhas";
+    if (p !== root || params.length) return false;
+  }
+  return permittedRoots.includes(root);
+}
+
+export function CommandPalette({ open, onOpenChange, groups, tenantId, userId, loading, error }: Props) {
   const router = useRouter();
   const labelId = useId();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const navigating = useRef(false);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selected, setSelected] = useState(0);
-  const canSearchStudents = groups.some(group => group.items.some(item => item.href === "/alunos"));
+
+  const trimmed = query.trim();
+  const allowedRoots = useMemo(() =>
+    [...new Set(groups.flatMap(group => group.items.map(item => item.href)))],
+  [groups]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 180);
+    const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
     return () => window.clearTimeout(timeout);
   }, [query]);
 
-  const studentResults = useQuery({
-    queryKey: ["command-students", tenantId, debouncedQuery],
-    queryFn: () => listStudentIndex({ limit: 8, offset: 0, q: debouncedQuery, sort: "name_asc", view: "todos" }),
-    enabled: open && !!tenantId && canSearchStudents && debouncedQuery.length >= 2 && !loading && !error,
-    staleTime: 20_000,
-    retry: false,
+  const federated = useQuery({
+    queryKey: ["federated-search", tenantId, userId, debouncedQuery],
+    queryFn: ({ signal }) => searchUniversal(debouncedQuery, signal),
+    enabled: open && Boolean(tenantId && userId) && !loading && !error &&
+      debouncedQuery.length >= 2 && debouncedQuery.length <= 80,
+    retry: false, staleTime: 15_000,
   });
+
+  const serverCurrent = debouncedQuery === trimmed && trimmed.length >= 2;
   const results = useMemo<Command[]>(() => {
-    const needle = query.trim().toLocaleLowerCase("pt-BR");
-    const navigation: Command[] = searchNavigation(groups, query).map(item =>
-      ({ href: item.href, label: item.label, category: item.category, icon: item.icon }));
-    const actions: Command[] = QUICK_ACTIONS.filter(action =>
-      groups.some(group => group.items.some(item => item.href === action.href)) &&
-      (!needle || (action.label + " " + action.terms).toLocaleLowerCase("pt-BR").includes(needle))
-    ).map(action => ({ href: action.href, label: action.label, category: action.category, icon: action.icon }));
-    const students: Command[] = debouncedQuery === query.trim() && debouncedQuery.length >= 2
-      ? (studentResults.data?.students || []).map(student => ({
-        href: "/alunos/" + encodeURIComponent(student.id),
-        label: student.nome || "Aluno sem nome",
-        category: "Aluno",
-        icon: Users,
-        detail: student.matricula || student.curso || undefined,
-      }))
+    const navigation: Command[] = searchNavigation(groups, query).map(item => ({
+      id: "nav:" + item.href, href: item.href, label: item.label,
+      category: item.category, icon: item.icon,
+    }));
+    const remote: Command[] = serverCurrent
+      ? (federated.data?.results || [])
+        .filter(item => safeSearchDestination(item, allowedRoots))
+        .map(item => ({
+          id: item.provider + ":" + item.id,
+          href: item.href, label: item.title, category: PROVIDERS[item.provider].category,
+          icon: PROVIDERS[item.provider].icon, detail: item.subtitle,
+          provider: item.provider, approximate: item.match === "approximate",
+        }))
       : [];
-    const unique = new Map<string, Command>();
-    for (const item of [...students, ...actions, ...navigation]) if (!unique.has(item.href)) unique.set(item.href, item);
-    return [...unique.values()];
-  }, [groups, query, studentResults.data, debouncedQuery]);
+    const distinct = new Map<string, Command>();
+    // Never dedupe two different campaigns merely because both open /campanhas.
+    for (const item of [...remote, ...navigation]) {
+      if (!distinct.has(item.id)) distinct.set(item.id, item);
+    }
+    return [...distinct.values()].slice(0, 40);
+  }, [groups, query, serverCurrent, federated.data, allowedRoots]);
   const safeSelected = results.length ? Math.min(selected, results.length - 1) : 0;
 
   useEffect(() => {
@@ -89,15 +143,17 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, loading, 
 
   useEffect(() => {
     if (!open) return;
+    navigating.current = false;
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const oldOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     setQuery("");
+    setDebouncedQuery("");
     setSelected(0);
     requestAnimationFrame(() => inputRef.current?.focus());
     return () => {
       document.body.style.overflow = oldOverflow;
-      previousFocus.current?.focus();
+      if (!navigating.current) previousFocus.current?.focus();
     };
   }, [open]);
 
@@ -107,6 +163,8 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, loading, 
   }, [safeSelected, open, results.length]);
 
   function navigate(href: string) {
+    // Only navigation: no action execution, side-effect API or confirmation bypass.
+    navigating.current = true;
     onOpenChange(false);
     router.push(href);
   }
@@ -124,7 +182,9 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, loading, 
   }
   function trapFocus(event: React.KeyboardEvent<HTMLElement>) {
     if (event.key !== "Tab") return;
-    const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('input, button:not(:disabled):not([tabindex="-1"])') || []);
+    const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+      'input, button:not(:disabled):not([tabindex="-1"])',
+    ) || []);
     if (!controls.length) return;
     if (event.shiftKey && document.activeElement === controls[0]) {
       event.preventDefault();
@@ -139,46 +199,70 @@ export function CommandPalette({ open, onOpenChange, groups, tenantId, loading, 
     <button type="button" aria-label="Fechar busca" tabIndex={-1} onClick={() => onOpenChange(false)}
       className="absolute inset-0 bg-[var(--color-ink)]/35" />
     <section ref={dialogRef} onKeyDown={trapFocus} role="dialog" aria-modal="true" aria-labelledby={labelId}
-      className="relative z-10 w-full max-w-[600px] overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-canvas)] shadow-[var(--shadow-overlay)]">
-      <h2 id={labelId} className="sr-only">Busca global da MIRA</h2>
+      className="relative z-10 w-full max-w-[620px] overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-canvas)] shadow-[var(--shadow-overlay)]">
+      <h2 id={labelId} className="sr-only">Busca universal da MIRA</h2>
       <div className="flex h-14 items-center gap-3 border-b border-[var(--color-border)] px-4">
         <Search className="h-[18px] w-[18px] shrink-0 text-[var(--color-muted)]" aria-hidden="true" />
-        <input ref={inputRef} value={query} onChange={event => { setQuery(event.target.value); setSelected(0); }}
+        <input ref={inputRef} value={query}
+          onChange={event => { setQuery(event.target.value); setSelected(0); }}
           onKeyDown={onInputKeyDown} role="combobox" aria-expanded="true" aria-controls={listId}
           aria-activedescendant={results[safeSelected] ? listId + "-item-" + safeSelected : undefined}
-          aria-autocomplete="list" aria-label="Buscar páginas, alunos e ações autorizadas"
-          placeholder="Buscar aluno, campanha, relatório ou ação…" autoComplete="off"
+          aria-autocomplete="list" aria-label="Buscar registros, atividades, views, campanhas e páginas"
+          placeholder="Buscar em todo o workspace…" maxLength={80} autoComplete="off"
           className="h-full min-w-0 flex-1 border-0 bg-transparent text-[length:var(--type-body-compact)] text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)]" />
         <button type="button" aria-label="Fechar" onClick={() => onOpenChange(false)}
-          className="rounded-md p-1 text-[var(--color-muted)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"><X className="h-4 w-4"/></button>
+          className="rounded-md p-1 text-[var(--color-muted)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"><X className="h-4 w-4" /></button>
       </div>
-      <div id={listId} role="listbox" aria-label="Resultados autorizados" className="max-h-[min(58vh,430px)] overflow-y-auto p-2">
-        {loading ? <p role="status" className="px-3 py-10 text-center text-[length:var(--type-body-compact)]">Carregando permissões…</p> :
-          error ? <p role="alert" className="px-3 py-10 text-center text-[length:var(--type-body-compact)]">Não foi possível verificar suas permissões.</p> : <>
-          {results.map((item, index) => {
-            const Icon = item.icon;
-            return <button key={item.href} id={listId + "-item-" + index}
-              ref={node => { itemRefs.current[index] = node; }} role="option" aria-selected={index === safeSelected}
-              type="button" onMouseEnter={() => setSelected(index)} onClick={() => navigate(item.href)}
-              className={cn("flex w-full items-center gap-3 rounded-[var(--radius-lg)] px-3 py-2.5 text-left text-[length:var(--type-body-compact)] transition-colors duration-[var(--motion-standard)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] motion-reduce:transition-none",
-                index === safeSelected ? "bg-[var(--color-panel)] text-[var(--color-ink)]" : "text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]")}>
-              <Icon className="h-4 w-4 shrink-0" aria-hidden="true"/>
-              <span className="min-w-0 flex-1 truncate font-medium">{item.label}{item.detail && <span className="block truncate text-[length:var(--type-caption)] font-normal text-[var(--color-muted)]">{item.detail}</span>}</span>
-              <span className="text-[length:var(--type-caption)] text-[var(--color-muted)]">{item.category}</span>
-              {index === safeSelected && <ArrowRight className="h-3.5 w-3.5" aria-hidden="true"/>}
-            </button>;
-          })}
-          {canSearchStudents && query.trim().length >= 2 && studentResults.isFetching &&
-            <p role="status" className="px-3 py-2 text-xs text-[var(--color-muted)]">Buscando alunos autorizados…</p>}
-          {studentResults.isError && <p role="alert" className="px-3 py-2 text-xs text-[var(--color-red)]">Busca de alunos indisponível. As páginas continuam acessíveis.</p>}
-          {!results.length && !studentResults.isFetching && <p className="px-3 py-10 text-center text-[length:var(--type-body-compact)] text-[var(--color-slate-600)]">
-            Nenhum resultado disponível para esta busca.
-          </p>}
-        </>}
+      <div id={listId} role="listbox" aria-label="Resultados autorizados" aria-busy={serverCurrent && federated.isFetching}
+        className="max-h-[min(60vh,450px)] overflow-y-auto p-2">
+        {loading ? <p role="status" className="px-3 py-10 text-center text-xs">Carregando permissões…</p> :
+          error ? <p role="alert" className="px-3 py-10 text-center text-xs">Não foi possível verificar suas permissões.</p> : <>
+            {results.map((item, index) => {
+              const Icon = item.icon;
+              return <button key={item.id} id={listId + "-item-" + index}
+                ref={node => { itemRefs.current[index] = node; }}
+                role="option" aria-selected={index === safeSelected} type="button"
+                onMouseEnter={() => setSelected(index)} onClick={() => navigate(item.href)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-[var(--radius-lg)] px-3 py-2.5 text-left text-[length:var(--type-body-compact)] transition-colors duration-[var(--motion-standard)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)] motion-reduce:transition-none",
+                  index === safeSelected ? "bg-[var(--color-panel)] text-[var(--color-ink)]" :
+                    "text-[var(--color-slate-600)] hover:bg-[var(--color-panel)]",
+                )}>
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {item.label}
+                  {item.detail && <span className="block truncate text-[length:var(--type-caption)] font-normal text-[var(--color-muted)]">
+                    {item.detail}{item.approximate ? " · Aproximação" : ""}
+                  </span>}
+                </span>
+                <span className="shrink-0 text-[length:var(--type-caption)] text-[var(--color-muted)]">{item.category}</span>
+                {index === safeSelected && <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+              </button>;
+            })}
+            {serverCurrent && federated.isFetching &&
+              <p role="status" className="px-3 py-2 text-xs text-[var(--color-muted)]">
+                Pesquisando fontes autorizadas…
+              </p>}
+            {serverCurrent && federated.isError &&
+              <p role="alert" className="px-3 py-2 text-xs text-[var(--color-red)]">
+                A busca federada está indisponível. A navegação permanece acessível.
+                <button type="button" className="ml-2 font-semibold underline"
+                  onClick={() => void federated.refetch()}>Tentar novamente</button>
+              </p>}
+            {serverCurrent && federated.data?.partial &&
+              <p role="status" className="px-3 py-2 text-xs text-[var(--color-muted)]">
+                Alguns provedores não responderam. Os resultados exibidos são parciais;
+                nenhum total global foi calculado.
+              </p>}
+            {!results.length && !federated.isFetching && <p className="px-3 py-10 text-center text-xs text-[var(--color-slate-600)]">
+              Nenhum resultado autorizado nesta busca.
+            </p>}
+          </>}
       </div>
-      <div className="flex justify-between border-t border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2 text-[length:var(--type-caption)] text-[var(--color-muted)]">
-        <span>↑ ↓ selecionar · Enter abrir · Esc fechar</span><span>Somente informações autorizadas</span>
-      </div>
+      <footer className="flex flex-wrap justify-between gap-2 border-t border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2 text-[length:var(--type-caption)] text-[var(--color-muted)]">
+        <span>↑ ↓ selecionar · Enter abrir · Esc fechar</span>
+        <span>Somente navegação · Fontes limitadas por segurança</span>
+      </footer>
     </section>
   </div>;
 }
