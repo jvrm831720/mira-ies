@@ -12,7 +12,7 @@ type Profile = {
   requires_identity_verification: boolean;
   debts_available: boolean;
 };
-const common = "h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-[15px] outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+const common = "h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
 async function requestApi<T>(path: string, method: "GET" | "POST" = "GET", body?: unknown): Promise<T> {
   const response = await fetch("/api/v1/global-portal" + path, {
@@ -95,9 +95,9 @@ export default function GlobalStudentAccessPage() {
   const isProfile = step === "profile";
 
   return (
-    <main className="min-h-dvh bg-[#f7f8fb] text-[#172033]">
+    <main className="min-h-dvh bg-slate-50 text-slate-900">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6 sm:px-8">
-        <a href="/portal/acesso" className="text-[28px] font-semibold tracking-[-0.09em]">mira<span className="text-blue-600">.</span></a>
+        <a href="/portal/acesso" className="text-3xl font-semibold tracking-[-0.09em]">mira<span className="text-blue-600">.</span></a>
         <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600">
           <ShieldCheck size={15} /> Ambiente protegido
         </span>
@@ -131,7 +131,7 @@ export default function GlobalStudentAccessPage() {
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-600">
                 {isCode ? <Mail size={23}/> : <LockKeyhole size={23}/>}
               </span>
-              <h2 className="mt-6 text-[26px] font-semibold leading-tight tracking-[-0.04em]">
+              <h2 className="mt-6 text-2xl font-semibold leading-tight tracking-[-0.04em]">
                 {isCode ? "Confirme seu e-mail" : isRegister ? "Crie sua conta" : "Acesse o Portal MIRA"}
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
