@@ -263,6 +263,19 @@ async def test_live_browser_six_journeys(
             ]
             serious = len(violations)
             MEASURED["accessibility"]["serious_critical_count"] += serious
+            if violations:
+                finding = [{
+                    "rule": item["id"], "impact": item["impact"],
+                    "nodes": [
+                        {"target": node.get("target"), "summary": node.get("failureSummary")}
+                        for node in item.get("nodes", [])[:12]
+                    ],
+                } for item in violations]
+                (ARTIFACTS / f"axe-{journey}-{viewport}.json").write_text(
+                    json.dumps(finding, ensure_ascii=False, indent=2), encoding="utf-8",
+                )
+                print("Wave7 axe violations", journey, viewport,
+                      json.dumps(finding, ensure_ascii=False)[:3500])
             assert serious == 0, [i["id"] for i in violations]
 
             assert not browser_errors, browser_errors[:3]
