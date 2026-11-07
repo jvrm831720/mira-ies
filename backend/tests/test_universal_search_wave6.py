@@ -88,7 +88,7 @@ def test_permissions_fail_closed_without_human_session_and_sensitive_grant():
 
 
 def test_fuzzy_ranking_escaping_limits_and_no_financial_inference():
-    assert search.escape_like(r"%_\") == r"\%\_\\"
+    assert search.escape_like("%_" + chr(92)) == chr(92) + "%" + chr(92) + "_" + chr(92) * 2
     assert search.normalized("JoÃO") == "joao"
     assert search.relevance("maria", "Maria") == (100, "exact")
     assert search.relevance("mari", "Maria")[1] == "prefix"
