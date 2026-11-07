@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
 "use client";
+
+import type { ReactNode } from "react";
 import { useEffect, useId, useRef } from "react";
 import Link from "next/link";
 import { ExternalLink, X } from "@/components/ui/icons";
@@ -16,9 +17,11 @@ export function RecordDrawer({ record,onClose,fullPageHref,status,actions=[],chi
   const onCloseRef=useRef(onClose);
   useEffect(()=>{onCloseRef.current=onClose;},[onClose]);
   const titleId=useId();const dialogRef=useRef<HTMLElement>(null);const origin=useRef<HTMLElement|null>(null);
+  const expanding=useRef(false);
   const recordId=record?.id;
   useEffect(()=>{
     if(!recordId)return;
+    expanding.current=false;
     origin.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
     const previous=document.body.style.overflow;document.body.style.overflow="hidden";
     dialogRef.current?.focus();
@@ -37,7 +40,7 @@ export function RecordDrawer({ record,onClose,fullPageHref,status,actions=[],chi
       }
     };
     window.addEventListener("keydown",trap);
-    return ()=>{window.removeEventListener("keydown",trap);document.body.style.overflow=previous;origin.current?.focus();};
+    return ()=>{window.removeEventListener("keydown",trap);document.body.style.overflow=previous;if(!expanding.current)origin.current?.focus();};
   },[recordId]);
   if(!record)return null;
   return <div className="fixed inset-0 z-[70] flex justify-end">
@@ -51,7 +54,7 @@ export function RecordDrawer({ record,onClose,fullPageHref,status,actions=[],chi
           <RecordHeading record={record} compact status={status} />
         </div>
         <div className="flex shrink-0 gap-1">
-          {fullPageHref&&<Link href={fullPageHref} aria-label="Abrir ficha completa"
+          {fullPageHref&&<Link href={fullPageHref} onClick={()=>{expanding.current=true;}} aria-label="Abrir ficha completa"
             className="grid h-8 w-8 place-items-center rounded-[var(--radius-md)] text-[var(--color-slate-600)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"><ExternalLink className="h-4 w-4"/></Link>}
           <button type="button" onClick={onClose} aria-label="Fechar painel"
             className="grid h-8 w-8 place-items-center rounded-[var(--radius-md)] text-[var(--color-slate-600)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]"><X className="h-4 w-4"/></button>
@@ -61,7 +64,7 @@ export function RecordDrawer({ record,onClose,fullPageHref,status,actions=[],chi
       {(fullPageHref||actions.length>0)&&<footer className="shrink-0 border-t border-[var(--color-border)] bg-white p-3 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <RecordActions actions={actions}/>
-          {fullPageHref&&<Link href={fullPageHref}
+          {fullPageHref&&<Link href={fullPageHref} onClick={()=>{expanding.current=true;}}
             className="inline-flex h-9 items-center gap-2 rounded-[var(--radius-md)] bg-[var(--color-ink)] px-3 text-xs font-semibold text-white hover:bg-[var(--color-ink-900)] focus-visible:ring-2 focus-visible:ring-[var(--color-blue)]">
             Abrir ficha completa <ExternalLink className="h-3.5 w-3.5"/>
           </Link>}
