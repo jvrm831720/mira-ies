@@ -21,10 +21,10 @@ function displayDate(value: string | null | undefined): string {
 }
 
 export function WorkItemInspector({
-  activity, activeUserId, canEdit, kind, setKind, note, setNote,
+  activity, activeUserId, canEdit, canOpenStudent, kind, setKind, note, setNote,
   deferUntil, setDeferUntil, busy, error, onClaim, onResolve, onDismiss,
 }: {
-  activity: WorkActivity; activeUserId: string; canEdit: boolean;
+  activity: WorkActivity; activeUserId: string; canEdit: boolean; canOpenStudent: boolean;
   kind: WorkResultKind; setKind: (value: WorkResultKind) => void;
   note: string; setNote: (value: string) => void;
   deferUntil: string; setDeferUntil: (value: string) => void;
@@ -69,8 +69,8 @@ export function WorkItemInspector({
     <WorkPriorityReason activity={activity} />
     {activity.student_id && <p className="text-xs text-[var(--color-slate-600)]">
       Vínculo: aluno <span className="font-mono">{activity.student_id}</span>.{" "}
-      <Link href={"/alunos/" + encodeURIComponent(activity.student_id)}
-        className="font-semibold text-[var(--color-blue)] hover:underline">Abrir ficha 360</Link>
+      {canOpenStudent && <Link href={"/alunos/" + encodeURIComponent(activity.student_id)}
+        className="font-semibold text-[var(--color-blue)] hover:underline">Abrir ficha 360</Link>}
     </p>}
     {claimable && <button type="button" disabled={busy || !activity.revision} onClick={onClaim}
       className="w-full rounded-md bg-[var(--color-ink)] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">
