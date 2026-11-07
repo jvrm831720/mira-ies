@@ -25,6 +25,25 @@ class SearchContext:
     db: AsyncSession
     query: str
     limit: int
+    operation_profile: str
+    enabled_modules: frozenset[str]
+
+    def supports(self, category: str) -> bool:
+        education = self.operation_profile == "institution"
+        collections_profile = self.operation_profile in (
+            "collection", "debt_collection", "billing", "cobranca",
+        )
+        if category == "students":
+            return education and "permanence" in self.enabled_modules
+        if category == "collections":
+            return (education or collections_profile) and "billing" in self.enabled_modules
+        if category == "work":
+            return "workspace" in self.enabled_modules
+        if category == "campaigns":
+            return (education and "permanence" in self.enabled_modules) or (
+                collections_profile and "billing" in self.enabled_modules
+            )
+        return False
 
     @property
     def needle(self) -> str:
@@ -73,7 +92,7 @@ def item(*, category: str, uid: str, title: str, subtitle: str, href: str,
 
 
 async def students(ctx: SearchContext) -> list[dict]:
-    if not allowed(ctx.auth, "students.view"):
+    if not ctx.supports("students") or not allowed(ctx.auth, "students.view"):
         return []
     name = func.coalesce(Student.nome, "")
     enrollment = func.coalesce(Student.matricula, "")
@@ -95,7 +114,7 @@ async def students(ctx: SearchContext) -> list[dict]:
 
 
 async def collections(ctx: SearchContext) -> list[dict]:
-    if not allowed(ctx.auth, "audit.view"):
+    if not ctx.supports("collections") or not allowed(ctx.auth, "audit.view"):
         return []
     # Source-confirmed obligations only. Do not project balances, payment evidence,
     # student data or provider payload from an aggregated search.
@@ -134,7 +153,7 @@ async def collections(ctx: SearchContext) -> list[dict]:
 
 
 async def work(ctx: SearchContext) -> list[dict]:
-    if not (allowed(ctx.auth, "access.operator") and allowed(ctx.auth, "students.view")):
+    if not (ctx.supports("work") and allowed(ctx.auth, "access.operator") and allowed(ctx.auth, "students.view")):
         return []
     title = func.coalesce(WorkActivity.title, "")
     term = ranking(title, ctx)
@@ -161,7 +180,7 @@ _VIEW_LABELS = {"students": "Alunos", "collections": "Casos financeiros", "campa
 async def views(ctx: SearchContext) -> list[dict]:
     if not ctx.auth.user_id or not ctx.auth.session_id:
         return []
-    keys = [key for key in _VIEW_ROUTES if allowed(ctx.auth, PERMISSION[key])]
+    keys = [key for key in _VIEW_ROUTES if ctx.supports(key) and allowed(ctx.auth, PERMISSION[key])]
     if not keys:
         return []
     # Existing view policies also use app.view_sensitive; set in the *current*
@@ -198,7 +217,7 @@ async def views(ctx: SearchContext) -> list[dict]:
 
 
 async def campaigns(ctx: SearchContext) -> list[dict]:
-    if not allowed(ctx.auth, "campaigns.view"):
+    if not ctx.supports("campaigns") or not allowed(ctx.auth, "campaigns.view"):
         return []
     name = func.coalesce(RetentionCampaignProposal.title, "")
     term = ranking(name, ctx)
