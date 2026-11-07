@@ -91,7 +91,7 @@ jobs:
       - name: Run six real authenticated workflows on desktop and mobile
         working-directory: backend
         run: |
-          PYTHONPATH=. pytest -q tests/test_wave7_live_browser.py -x
+          PYTHONPATH=. pytest -q tests/test_wave7_live_browser.py --tb=short --maxfail=6
       - name: Apply integration GO/NO-GO decision from collected evidence
         working-directory: backend
         run: |
