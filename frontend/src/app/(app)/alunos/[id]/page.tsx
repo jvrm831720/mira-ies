@@ -22,8 +22,7 @@ import { RiskBadge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { RecordPage } from "@/components/record/record-page";
-import { RecordProperties } from "@/components/record/record-properties";
-import { RecordRelations } from "@/components/record/record-relations";
+import { Record360Overview } from "@/components/record/record-360-overview";
 import { StudentRecordActivity } from "@/components/record/student-record-activity";
 import { studentPropertyGroups, studentRelations, studentRecordIdentity } from "@/components/record/student-record-data";
 import { getVisibleNavigation, hasNavigationPermission } from "@/components/layout/navigation";
@@ -228,10 +227,8 @@ function StudentDetailContent() {
                 {id:"refresh",label:isFetching?"Atualizando…":"Atualizar",onClick:()=>void refetch(),disabled:isFetching},
                 ...(canPrepareContact?[{id:"prepare",label:"Preparar contato",href:"/disparos?mode=individual&student="+encodeURIComponent(id)}]:[]),
               ]}
-              aside={<div className="space-y-4">
-                <RecordProperties compact groups={studentPropertyGroups(data,canSensitive)}/>
-                <RecordRelations relations={studentRelations(data)}/>
-              </div>}>
+              aside={<Record360Overview compact groups={studentPropertyGroups(data,canSensitive)}
+                relations={studentRelations(data)} />}>
               <div className="space-y-5">
 
             <nav aria-label="Seções da ficha do aluno" className="flex flex-wrap items-center gap-6 border-b border-[var(--color-border)]">
