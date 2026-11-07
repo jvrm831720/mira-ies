@@ -61,3 +61,26 @@ test("view keeps provider technical terms out of visible copy and protects permi
  assert.match(sidebar,/paths: \["\/apps", "\/dados"/);
  assert.match(view,/O pedido não será enviado automaticamente/);
 });
+
+
+test("curated Composio toolkits stay discoverable without a live connection",()=>{
+ const rows=unifyAppsCatalog([], [
+  {slug:"zendesk",name:"Zendesk",mira_category_label:"Atendimento e suporte"},
+  {slug:"calendly",name:"Calendly",mira_category_label:"Agenda e agendamento"},
+  {slug:"xero",name:"Xero",mira_category_label:"Financeiro e gestão financeira"},
+ ], []);
+ assert.equal(rows.length,3);
+ assert.equal(rows.find(x=>x.id==="zendesk").category,"Atendimento e suporte");
+ assert.equal(rows.find(x=>x.id==="calendly").category,"Agenda e agendamento");
+ assert.equal(rows.find(x=>x.id==="xero").category,"Financeiro");
+ assert.ok(rows.every(x=>x.status==="available"));
+});
+
+test("live toolkit metadata does not erase curated category",()=>{
+ const rows=unifyAppsCatalog([], [
+  {slug:"zendesk",name:"Zendesk",mira_category_label:"Atendimento e suporte"},
+  {slug:"zendesk",name:"Zendesk Live"},
+ ], []);
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].category,"Atendimento e suporte");
+});

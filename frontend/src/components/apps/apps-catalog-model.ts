@@ -1,4 +1,4 @@
-export type AppsCategory = "Comunicação" | "Acadêmico" | "Financeiro" | "Produtividade" | "IA" | "Outros";
+export type AppsCategory = "Comunicação" | "CRM e relacionamento" | "Documentos e arquivos" | "Dados e análise" | "Atendimento e suporte" | "Agenda e agendamento" | "Marketing institucional" | "Acadêmico" | "Financeiro" | "Produtividade" | "IA" | "Outros";
 export type AppsStatus = "connected" | "configured" | "available" | "inactive" | "error";
 export type CatalogApp = {
   id: string;
@@ -16,7 +16,7 @@ export type CatalogApp = {
   connectedAccountName?: string;
 };
 export type NativeApp = { id: string; name: string; description?: string; category?: string };
-export type RemoteApp = { slug: string; name: string; description?: string | null; categories?: string[]; category?: string | null; enabled?: boolean };
+export type RemoteApp = { slug: string; name: string; description?: string | null; categories?: string[]; category?: string | null; mira_category?: string | null; mira_category_label?: string | null; enabled?: boolean };
 export type RemoteAccount = { toolkit_slug: string; status: string; display_name?: string | null };
 export type NativeEvidence = { configured: boolean; enabled?: boolean; status?: string | null; last_sync_status?: string | null };
 const editorial: Record<string, { name: string; description: string; category: AppsCategory; initials: string; color: string; rank: number }> = {
@@ -44,10 +44,16 @@ export function normalizeAppKey(value: string): string {
 function categoryOf(value?: string | null): AppsCategory {
   const key = (value || "").toLowerCase();
   if (/academic|educa|lms|learning|school|student|ensino/.test(key)) return "Acadêmico";
+  if (/crm|relationship/.test(key)) return "CRM e relacionamento";
+  if (/support|suporte|atendimento|helpdesk|customer_service/.test(key)) return "Atendimento e suporte";
+  if (/marketing|campaign/.test(key)) return "Marketing institucional";
+  if (/calendar|schedul|appointment|agenda|agendamento/.test(key)) return "Agenda e agendamento";
+  if (/document|arquivo|storage|file|drive|sharepoint/.test(key)) return "Documentos e arquivos";
+  if (/spreadsheet|planilha|analise|análise|analysis|analytics|database/.test(key)) return "Dados e análise";
   if (/finan|billing|payment|erp|accounting|bank/.test(key)) return "Financeiro";
   if (/communicat|messag|email|mail|collaborat|social|crm|support|marketing|telephony/.test(key)) return "Comunicação";
   if (/ai|artificial|llm|machine_learning/.test(key)) return "IA";
-  if (/document|calendar|productiv|file|spreadsheet|task|project|storage|data|schedule/.test(key)) return "Produtividade";
+  if (/document|calendar|productiv|produtiv|file|spreadsheet|task|project|storage|data|schedule/.test(key)) return "Produtividade";
   return "Outros";
 }
 function nameInitials(name: string) {
@@ -89,7 +95,7 @@ export function unifyAppsCatalog(
     const base:CatalogApp={
       id:key,slug:source.slug,name:info?.name||source.name,
       description:info?.description||(source.description?.replace(/\bcomposio\b/gi, "MIRA").replace(/\btoolkits?\b/gi,"aplicativos") || "Conexão com o seu workspace"),
-      category:info?.category||categoryOf(source.category || source.categories?.[0]),
+      category:info?.category||(source.mira_category_label || source.mira_category || source.category || source.categories?.[0] ? categoryOf(source.mira_category_label || source.mira_category || source.category || source.categories?.[0]) : existing?.category || "Outros"),
       initials:info?.initials||nameInitials(source.name),color:info?.color||"gray",
       status:state.status,statusText:state.statusText,
       native:false,external:true,route:"/dados",
