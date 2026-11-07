@@ -18,6 +18,7 @@ import { RiskBadge } from "@/components/ui/badge";
 import { CriticalList } from "@/components/risk/critical-list";
 import { StudentDrawer } from "@/components/students/student-drawer";
 import { api } from "@/lib/api";
+import { isUnifiedExperienceEnabled } from "@/lib/experience-rollout";
 import type { InterventionLog } from "@/types/api";
 import type { CreateFromLogDraft } from "@/types/work";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,8 @@ function scoreLabel(value?: number | null) {
 }
 
 export default function WorkCenterPage() {
+  const me = useQuery({ queryKey: ["org-me"], queryFn: api.me, retry: false, staleTime: 60_000 });
+  const unified = isUnifiedExperienceEnabled(me.data?.tenant_id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createDraft, setCreateDraft] = useState<CreateFromLogDraft | null>(null);
   const [activeTab, setActiveTab] = useState<WorkTab>("planned");
@@ -174,10 +177,10 @@ export default function WorkCenterPage() {
         subtitle="Entrada operacional central · atividades humanas com prioridade explicada e execução auditável."
       />
       <main className="mira-page mx-auto w-full max-w-[1440px] space-y-6 px-4 pb-10 pt-5 md:px-8 md:pt-7 xl:px-10">
-        <Suspense fallback={<p role="status" className="p-5 text-xs">Carregando Meu Trabalho…</p>}><WorkInbox /></Suspense>
-        <details className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-3">
+        {unified && <Suspense fallback={<p role="status" className="p-5 text-xs">Carregando Meu Trabalho…</p>}><WorkInbox /></Suspense>}
+        <details key={unified ? "unified" : "legacy"} open={!unified} className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-3">
           <summary className="cursor-pointer px-2 py-2 text-xs font-semibold text-[var(--color-slate-600)]">
-            Explorar diagnósticos legados: envios, intervenções e ferramentas avançadas
+            {unified ? "Explorar diagnósticos legados: envios, intervenções e ferramentas avançadas" : "Central operacional clássica · manutenção de compatibilidade"}
           </summary>
           <div className="mt-4 space-y-5">
         <section className="flex flex-col justify-between gap-4 border-b border-[var(--color-border)] pb-5 sm:flex-row sm:items-center">
