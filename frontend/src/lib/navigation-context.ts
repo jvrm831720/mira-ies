@@ -184,6 +184,27 @@ export function studentDetailHref(id: string, listingHref: string): string {
   return back === "/alunos" ? base : base + "?from=" + encodeURIComponent(back);
 }
 
+/** Case pages can return only to /cobranca with query context; never to outside routes. */
+export function collectionReturnHref(candidate: string | null): string {
+  if (!candidate || candidate.length > 9000 || !candidate.startsWith("/cobranca")) return "/cobranca";
+  try {
+    const parsed = new URL(candidate, "https://mira.invalid");
+    if (parsed.origin !== "https://mira.invalid" || parsed.pathname !== "/cobranca" || parsed.hash) {
+      return "/cobranca";
+    }
+    parsed.searchParams.delete("record");
+    parsed.searchParams.delete("from");
+    return parsed.pathname + parsed.search;
+  } catch { return "/cobranca"; }
+}
+
+export function collectionDetailHref(id: string, listingHref: string): string {
+  if (!UUID.test(id)) return "/cobranca";
+  const base = "/cobranca/casos/" + encodeURIComponent(id);
+  const back = collectionReturnHref(listingHref);
+  return back === "/cobranca" ? base : base + "?from=" + encodeURIComponent(back);
+}
+
 /** Short hash for session-only scroll positions; never persist search terms as storage keys. */
 export function navigationFingerprint(scope: string, href: string): string {
   let hash = 2166136261;
