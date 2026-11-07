@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-type Consent = { grant_id: string; created_at: string };
+type Consent = { grant_id: string; created_at: string; creditor_name: string; record_count: number; scope: string };
 type Debt = {
-  id: string; workspace_id: string; label: string; amount: string;
+  id: string; workspace_id: string; creditor_name: string; label: string; amount: string;
   remaining: string; currency: string; state: string; observed_at: string;
   grant_id: string; due_at: string | null;
 };
@@ -55,7 +55,7 @@ export default function PendenciasPage() {
           <p className="mt-2 text-sm text-slate-600">Ao aceitar, você autoriza a exibição das informações financeiras associadas a esta solicitação.</p>
           <div className="mt-5 space-y-3">
             {consents.map(item => <div key={item.grant_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-4">
-              <span className="text-sm text-slate-600">Solicitação de {new Date(item.created_at).toLocaleDateString("pt-BR")}</span>
+              <span className="text-sm text-slate-600"><strong>{item.creditor_name}</strong> · {item.record_count} registros · {item.scope} · {new Date(item.created_at).toLocaleDateString("pt-BR")}</span>
               <button type="button" disabled={busy === item.grant_id} onClick={() => void accept(item.grant_id)}
                 className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
                 {busy === item.grant_id ? "Confirmando…" : "Autorizar exibição"}
@@ -70,7 +70,7 @@ export default function PendenciasPage() {
           </div>}
           {debts.map(item => <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-6">
             <div className="flex flex-wrap justify-between gap-4">
-              <div><h3 className="font-semibold">{item.label}</h3>
+              <div><p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-700">{item.creditor_name}</p><h3 className="font-semibold">{item.label}</h3>
                 <p className="mt-2 text-xs text-slate-500">Referência da instituição: {item.workspace_id}</p>
                 <p className="mt-1 text-xs text-slate-500">Observado em {new Date(item.observed_at).toLocaleDateString("pt-BR")}</p>
               </div>
