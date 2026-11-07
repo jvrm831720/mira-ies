@@ -7,12 +7,14 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import text
+from sqlalchemy import select, text, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.universal_search import parse_providers, search_universal
 from app.models.auth import User
 from app.models.object_view import ObjectView
+from app.models.organization import ModuleEntitlement
+from app.models.tenant import Tenant
 from app.models.retention_campaign import RetentionCampaignProposal
 from app.models.student import Student, UploadBatch
 from app.models.work_activity import WorkActivity
@@ -35,6 +37,19 @@ async def prepare_trigrams(db):
 
 
 async def seed(db, tenant_id: str, tag: str, *, sensitive=False):
+    # Match the server-authoritative GET /org/me profile/module contract.
+    tenant = await db.get(Tenant, tenant_id)
+    tenant.segment = "institution"
+    existing_modules = set((await db.execute(select(ModuleEntitlement.module_key).where(
+        ModuleEntitlement.tenant_id == tenant_id,
+    ))).scalars().all())
+    for module in ("workspace", "permanence", "billing"):
+        if module not in existing_modules:
+            db.add(ModuleEntitlement(
+                tenant_id=tenant_id, module_key=module,
+                status="enabled", source="test",
+            ))
+    await db.flush()
     user = User(
         tenant_id=tenant_id, email=f"search-{tag}-{uuid4()}@example.test",
         display_name="Operador " + tag, password_hash="test", role="coordinator",
@@ -205,6 +220,29 @@ async def test_approximate_typo_and_limits(db_session, tenant_factory):
         with pytest.raises(HTTPException) as invalid:
             parse_providers(raw)
         assert invalid.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_disabled_billing_module_never_returns_financial_projections(db_session, tenant_factory):
+    await prepare_trigrams(db_session)
+    tenant, _ = await tenant_factory(slug="search6-module-denied")
+    tenant_id = tenant.id
+    owner = await seed(db_session, tenant_id, "ENTITLEMENT")
+    await db_session.execute(update(ModuleEntitlement).where(
+        ModuleEntitlement.tenant_id == tenant_id,
+        ModuleEntitlement.module_key == "billing",
+    ).values(status="disabled"))
+    await db_session.commit()
+    await bind_tenant(db_session, tenant_id)
+    response = await search_universal(
+        q="Aline", limit=5, providers=None,
+        auth=human(tenant_id, owner["user"]), db=db_session,
+    )
+    assert "collections" not in {row["category"] for row in response["results"]}
+    assert response["providers"]["collections"]["returned"] == 0
+    assert owner["case"] not in {row["id"] for row in response["results"]}
+    assert "students" in {row["category"] for row in response["results"]}
+
 
 
 @pytest.mark.asyncio
