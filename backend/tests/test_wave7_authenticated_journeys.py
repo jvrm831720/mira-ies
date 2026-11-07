@@ -39,6 +39,7 @@ async def _seed_tenant(db, tenant, label: str):
         email=f"wave7-{label}-{uuid4()}@example.test",
         password_hash="not-a-real-password", role="coordinator",
         is_active=True, mfa_enabled_at=datetime.now(timezone.utc),
+        onboarding_completed_at=datetime.now(timezone.utc),
     )
     viewer = User(
         tenant_id=tenant.id, display_name="Leitor " + label,
