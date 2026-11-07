@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { hasNavigationPermission } from "@/components/layout/navigation";
 import { ArrowRight, Check, Info, Plus, RefreshCw, Search, X } from "@/components/ui/icons";
-import { filterAppsCatalog, unifyAppsCatalog, type AppsCategory, type CatalogApp } from "./apps-catalog-model";
+import { filterAppsCatalog, normalizeAppKey, unifyAppsCatalog, type AppsCategory, type CatalogApp } from "./apps-catalog-model";
 
 type Tab = "Mais usados" | "Conectados" | "Descobrir";
 const categories: Array<"Todos" | AppsCategory> = ["Todos", "Comunicação", "CRM e relacionamento", "Documentos e arquivos", "Dados e análise", "Atendimento e suporte", "Agenda e agendamento", "Marketing institucional", "Acadêmico", "Financeiro", "Produtividade", "IA", "Outros"];
@@ -43,6 +43,7 @@ export function AppsCatalogExperience() {
  const [limit,setLimit]=useState(32);
  const [selected,setSelected]=useState<CatalogApp|null>(null);
  const [requestOpen,setRequestOpen]=useState(false);
+ const [connecting,setConnecting]=useState(false);
  const [requestName,setRequestName]=useState("");
  const [requestGoal,setRequestGoal]=useState("");
 
@@ -65,6 +66,10 @@ export function AppsCatalogExperience() {
  const accounts=useQuery({
   queryKey:["apps-catalog",tenant,"accounts"],
   queryFn:api.composioConnections,enabled:canRead&&canManage,staleTime:60_000,retry:false,
+ });
+ const authOptions=useQuery({
+  queryKey:["apps-catalog",tenant,"auth-options"],
+  queryFn:api.composioOnboardingAuthOptions,enabled:canRead&&canManage,retry:false,
  });
  const jacad=useQuery({
   queryKey:["apps-catalog",tenant,"jacad"],
@@ -91,10 +96,27 @@ export function AppsCatalogExperience() {
  const partial=canManage && externalCatalog.isError;
  const loading=(nativeCatalog.isLoading && !nativeCatalog.data) || (curatedCatalog.isLoading && !curatedCatalog.data);
 
+ async function connectApp(item: CatalogApp) {
+  if(connecting) return;
+  const option=authOptions.data?.items.find(row=>normalizeAppKey(row.toolkit_slug)===normalizeAppKey(item.slug));
+  if(!option){toast.error("Conexão indisponível: autenticação não configurada.");return;}
+  setConnecting(true);
+  try{
+   const response=await api.startComposioOnboardingConnection({toolkit_slug:option.toolkit_slug,auth_config_id:option.auth_config_id});
+   const target=new URL(response.redirect_url);
+   if(target.protocol!=="https:" && !(process.env.NODE_ENV==="development" && target.hostname==="localhost" && target.protocol==="http:")){
+    throw new Error("Endereço de autorização inválido.");
+   }
+   window.location.assign(target.toString());
+  }catch(error){
+   toast.error(error instanceof Error?error.message:"Não foi possível iniciar a conexão.");
+   setConnecting(false);
+  }
+ }
  function refresh(){
   void nativeCatalog.refetch();void curatedCatalog.refetch();
   if(canManage){
-   void externalCatalog.refetch();void accounts.refetch();void jacad.refetch();void sponte.refetch();
+   void authOptions.refetch();void externalCatalog.refetch();void accounts.refetch();void jacad.refetch();void sponte.refetch();
   }
  }
  async function copyRequest(){
@@ -190,10 +212,19 @@ export function AppsCatalogExperience() {
       {selected.status==="available" && <p className="mt-4 text-xs leading-5 text-[var(--mira-apps-muted)]">Esta ferramenta consta do catálogo, mas nenhuma conexão ativa foi confirmada para este workspace.</p>}
      </div>
      <div className="mt-auto border-t border-[var(--mira-apps-border)] pt-5">
-      {canManage ? <Link href={selected.route} onClick={()=>setSelected(null)}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--mira-apps-blue)] px-4 py-3 text-sm font-semibold text-[var(--mira-apps-white)] hover:brightness-110">
-        Gerenciar no Data Hub <ArrowRight size={15} aria-hidden="true"/>
-      </Link> : <p className="text-sm text-[var(--mira-apps-muted)]">Solicite permissão de administração para configurar esta integração.</p>}
+      {canManage ? <div className="flex flex-col gap-2">
+        {selected.external && authOptions.data?.items.some(row=>normalizeAppKey(row.toolkit_slug)===normalizeAppKey(selected.slug)) ?
+         <button type="button" disabled={connecting} onClick={()=>void connectApp(selected)}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--mira-apps-blue)] px-4 py-3 text-sm font-semibold text-[var(--mira-apps-white)] disabled:opacity-50">
+          {connecting?"Abrindo autorização…":"Conectar conta"} <ArrowRight size={15} aria-hidden="true"/>
+         </button> : null}
+        <Link href={selected.route} onClick={()=>setSelected(null)}
+         className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--mira-apps-border)] px-4 py-3 text-sm font-semibold text-[var(--mira-apps-white)] hover:brightness-110">
+         Gerenciar no Data Hub <ArrowRight size={15} aria-hidden="true"/>
+        </Link>
+        {selected.external && !authOptions.data?.items.some(row=>normalizeAppKey(row.toolkit_slug)===normalizeAppKey(selected.slug)) ?
+         <p className="text-xs text-[var(--mira-apps-muted)]">Conexão direta indisponível até configurar a autenticação deste aplicativo.</p> : null}
+       </div> : <p className="text-sm text-[var(--mira-apps-muted)]">Solicite permissão de administração para configurar esta integração.</p>}
      </div>
     </section>
   </div>}
