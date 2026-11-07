@@ -49,6 +49,15 @@ async def _seed_tenant(db, tenant, label: str):
     )
     db.add_all([batch, user, viewer])
     await db.flush()
+    # Other tests may install FORCE RLS policies on the shared disposable
+    # database. Unlike a real request, this fixture bypasses the auth dependency,
+    # so bind both signed-user claims before inserting view/campaign records.
+    # Keep those policies enabled: the test must work under strict RLS too.
+    await bind_tenant(db, tenant.id)
+    await db.execute(
+        text("SELECT set_config('app.user_id', :uid, true)"),
+        {"uid": user.id},
+    )
     student = Student(
         tenant_id=tenant.id, batch_id=batch.id, matricula="W7-" + label,
         nome="Aline Homologacao " + label,
