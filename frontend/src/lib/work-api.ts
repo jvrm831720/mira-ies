@@ -11,6 +11,12 @@ import type {
   WorkActivitiesResponse,
   WorkActivity,
   WorkActivityEventsResponse,
+  WorkInboxResponse,
+  WorkInboxCounts,
+  WorkPerspective,
+  ClaimWorkBody,
+  ResolveWorkBody,
+  WorkActionResponse,
 } from "@/types/work";
 
 const BASE =
@@ -53,9 +59,14 @@ async function workRequest<T>(path: string, init: RequestInit = {}): Promise<T> 
     let detail: string = `Erro ${res.status}`;
     try {
       const body = await res.json();
-      detail = body.detail || body.message || detail;
-      if (Array.isArray(detail))
-        detail = detail.map((d: { msg?: string }) => d.msg || JSON.stringify(d)).join(", ");
+      const reported: unknown = body.detail || body.message;
+      if (Array.isArray(reported)) {
+        detail = reported.map((item: { msg?: string }) => item.msg || JSON.stringify(item)).join(", ");
+      } else if (reported && typeof reported === "object" && "message" in reported) {
+        detail = String((reported as { message?: unknown }).message || detail);
+      } else if (typeof reported === "string") {
+        detail = reported;
+      }
     } catch {
       /* ignore */
     }
@@ -75,6 +86,15 @@ export type NoContactPriority = {
 };
 
 export const workApi = {
+  inbox: (view: WorkPerspective, offset = 0, limit = 25): Promise<WorkInboxResponse> =>
+    workRequest<WorkInboxResponse>(`/api/v1/work/inbox?view=${encodeURIComponent(view)}&offset=${offset}&limit=${limit}`),
+  inboxCounts: (): Promise<WorkInboxCounts> => workRequest("/api/v1/work/inbox/counts"),
+  claim: (id: string, body: ClaimWorkBody): Promise<WorkActionResponse> =>
+    workRequest(`/api/v1/work/activities/${encodeURIComponent(id)}/claim`,
+      { method: "POST", body: JSON.stringify(body) }),
+  resolve: (id: string, body: ResolveWorkBody): Promise<WorkActionResponse> =>
+    workRequest(`/api/v1/work/activities/${encodeURIComponent(id)}/resolve`,
+      { method: "POST", body: JSON.stringify(body) }),
   list: (params?: {
     status?: string;
     assignee?: string;

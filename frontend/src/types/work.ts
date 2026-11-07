@@ -21,6 +21,9 @@ export type WorkActivity = {
   activity_type: WorkActivityType | string;
   status: WorkActivityStatus | string;
   priority: WorkPriority | string;
+  revision?: number;
+  priority_reasons?: Array<{ code: string; label: string }>;
+  result_semantics?: "human_work_only";
   origin_type: WorkOrigin | string;
   campaign_id?: string | null;
   assignee_user_id?: string | null;
@@ -161,4 +164,24 @@ export type WorkActivitySummary = {
   campaign_pending: number;
   urgent_pending: number;
   as_of: string;
+};
+
+/** Wave 5: one server-authoritative view over existing WorkActivity records. */
+export type WorkPerspective = "mine" | "team" | "unassigned" | "history";
+export type WorkInboxResponse = {
+  view: WorkPerspective; as_of: string; total: number; limit: number; offset: number;
+  has_more: boolean; next_offset: number | null; total_scope: "filtered_workspace_perspective";
+  items: WorkActivity[];
+};
+export type WorkInboxCounts = {
+  counts: Record<WorkPerspective, number>;
+  scope: "full_tenant_with_user_perspective"; as_of: string;
+};
+export type ClaimWorkBody = { expected_revision: number; operation_key: string };
+export type ResolveWorkBody = {
+  expected_revision: number; operation_key: string;
+  kind: WorkResultKind; note: string; next_due_at?: string | null;
+};
+export type WorkActionResponse = {
+  activity: WorkActivity; event_id: string; idempotent_replay: boolean;
 };

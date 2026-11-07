@@ -70,6 +70,7 @@ def _serialize(activity: WorkActivity, assignee: Optional[User] = None) -> dict:
         "activity_type": activity.activity_type,
         "status": activity.status,
         "priority": activity.priority,
+        "revision": activity.revision,
         "origin_type": activity.origin_type,
         "campaign_id": activity.campaign_id,
         "assignee_user_id": activity.assignee_user_id,
@@ -748,8 +749,10 @@ async def patch_activity(
     db: AsyncSession = Depends(get_db),
 ):
     activity_id = _parse_uuid_param(activity_id, "activity_id")
-    activity = await db.get(WorkActivity, activity_id)
-    if not activity or activity.tenant_id != auth.tenant_id:
+    activity = (await db.execute(select(WorkActivity).where(
+        WorkActivity.id == activity_id, WorkActivity.tenant_id == auth.tenant_id
+    ).with_for_update())).scalar_one_or_none()
+    if activity is None:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
 
     relation_touch = (
@@ -931,6 +934,7 @@ async def patch_activity(
             payload={"from": prev, "to": body.status},
         )
 
+    activity.revision += 1
     activity.updated_at = _now()
     await db.commit()
     await db.refresh(activity)
@@ -951,7 +955,9 @@ async def record_activity_result(
 ):
     """Registra resultado operacional via WorkActivityEvent (não altera status nem InterventionLog.outcome)."""
     activity_id = _parse_uuid_param(activity_id, "activity_id")
-    activity = await db.get(WorkActivity, activity_id)
+    activity = (await db.execute(select(WorkActivity).where(
+        WorkActivity.id == activity_id, WorkActivity.tenant_id == auth.tenant_id
+    ).with_for_update())).scalar_one_or_none()
     if not activity or activity.tenant_id != auth.tenant_id:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
 
@@ -973,6 +979,7 @@ async def record_activity_result(
         event_type="result_recorded",
         payload=payload,
     )
+    activity.revision += 1
     activity.updated_at = _now()
     await db.commit()
 
