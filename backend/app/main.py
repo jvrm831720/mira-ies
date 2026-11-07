@@ -11,7 +11,7 @@ from app.api import (
     upload, health, scoring, connectors, jacad, sponte, sophia, sophia_sync,
     outcomes, academic_outcomes, outcome_analytics, agents, auth, mfa, delivery_webhooks, org, billing,
     retention_campaigns, retention_campaign_execution, retention_campaign_intelligence, retention_campaign_proposal_workflow, retention_campaign_scheduling, control_center_auth,
-    control_center_admin, mira_admin, work_activities, student_work_timeline, composio,
+    control_center_admin, mira_admin, work_activities, work_inbox, student_work_timeline, composio,
     signals, student_groups, totvs_rm_operations, connector_destinations, tenant_rbac, omie, onboarding,
     smart_import, custom_fields, object_index, object_views, native_academic, academic_catalog, academic_portal, academic_operations, student_services, student_service_operations, student_finance_composio, student_document_attestation, finance_reconciliation, student_payments, asaas_official, dispatch, dispatch_integrations, dispatch_interventions, dispatch_providers, dispatch_native_webhooks, dispatch_source_keys, dispatch_composio, collections,
 )
@@ -211,6 +211,7 @@ app.include_router(org.router, prefix="/api/v1")
 app.include_router(tenant_rbac.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
 app.include_router(work_activities.router, prefix="/api/v1")
+app.include_router(work_inbox.router, prefix="/api/v1")
 app.include_router(student_work_timeline.router, prefix="/api/v1")
 app.include_router(signals.router, prefix="/api/v1")
 app.include_router(student_groups.router, prefix="/api/v1")
