@@ -47,6 +47,7 @@ from app.models.composio_approval import TenantComposioToolApproval
 from app.models.omie_connection import TenantOmieConnection
 
 __all__ = [
+    "GlobalStudentAccount", "GlobalStudentChallenge", "GlobalStudentSession", "GlobalStudentAttestation",
     "UploadBatch", "Student", "CustomFieldDefinition", "Tenant", "TrainingEvent", "ModelArtifact", "AcademicOutcome",
     "AuthChallenge", "MfaLoginChallenge", "MfaRecoveryCode", "MfaAuditEvent",
     "MfaTenantPolicy", "UserSession", "OrganizationInvite", "User", "TenantRole", "TenantRoleAudit",
