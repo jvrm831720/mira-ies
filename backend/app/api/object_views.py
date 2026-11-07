@@ -15,7 +15,7 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthContext, get_current_tenant
+from app.core.auth import AuthContext, get_current_tenant, has_effective_permission
 from app.db.session import get_db
 from app.models.object_view import ObjectView, ObjectViewFavorite, ObjectViewRevision
 from app.models.custom_field import CustomFieldDefinition
@@ -147,17 +147,8 @@ class RestoreView(BaseModel):
 
 
 def has_permission(auth: AuthContext, permission: str) -> bool:
-    if auth.permissions is not None:
-        return permission in auth.permissions
-    if auth.custom_role_id is not None:
-        return False
-    if auth.role == "admin":
-        return True
-    if auth.role == "coordinator":
-        return True
-    if auth.role == "operator":
-        return permission in {"students.view", "campaigns.view"}
-    return auth.role == "viewer" and permission == "students.view"
+    """Compatibility delegate: same RBAC grants as all other protected APIs."""
+    return has_effective_permission(auth, permission)
 
 
 def can_sensitive(auth: AuthContext) -> bool:
@@ -165,8 +156,13 @@ def can_sensitive(auth: AuthContext) -> bool:
 
 
 def can_share(auth: AuthContext) -> bool:
-    # Explicit custom-role entitlement; built-in coordinators/admins only.
-    return has_permission(auth, "permissions.manage")
+    # Preserve Wave 3 sharing rules: built-in coordinators/admins and only
+    # explicitly granted custom roles. This is not general permissions.manage.
+    if not auth.user_id or not auth.session_id:
+        return False
+    if auth.permissions is not None:
+        return "permissions.manage" in auth.permissions
+    return auth.role in ("coordinator", "admin")
 
 
 def require_view_access(auth: AuthContext, object_key: ObjectKey):
