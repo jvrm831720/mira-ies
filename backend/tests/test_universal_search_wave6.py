@@ -222,6 +222,7 @@ async def test_approximate_typo_and_limits(db_session, tenant_factory):
     )
     db_session.add(student)
     await db_session.commit()
+    await bind_tenant(db_session, tenant_id)
     typo = await search_universal(
         q="Marina", limit=2, providers="students",
         auth=human(tenant_id, ids["user"]), db=db_session,
