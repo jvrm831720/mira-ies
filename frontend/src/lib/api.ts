@@ -684,6 +684,12 @@ export const api = {
 
   // Composio discovery is restricted to settings.manage on the backend.
   // Listing does not authenticate, approve, connect or execute remote tools.
+  composioCuratedCategories: () =>
+    request<{ total: number; items: Array<{
+      slug: string; name: string;
+      composio_toolkits: Array<{ slug: string; name: string; kind: string }>;
+    }> }>("/api/v1/integrations/composio/catalog/categories"),
+
   composioCatalog: () =>
     request<{ source: string; total: number; items: Array<{
       slug: string; name: string; description?: string | null;
